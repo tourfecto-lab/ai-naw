@@ -28,6 +28,7 @@
 |---|---|---|
 | تسجيل الدخول بـ Apple | `appleCallback` موجودة فقط في `app/AuthController.php` القديم ولا مسار يستدعيها | إكماله أو حذفه نهائيًا |
 | `Mailer` لا يصنّف نتيجة الفشل | أي فشل (حتى «SMTP غير مُعدّ») يُسجَّل `uncertain` ويحتاج مراجعة يدوية | تصنيف الفشل المؤكد (قبل `DATA`) كـ `definitive_failure` |
+| `HomeController` | `app/Config/project_classmap.php` (المرجع وقت التشغيل على السيرفر) يربط `HomeController` بالملف **`HomeController (1).php`** (اسم ناتج عن تنزيل مكرّر في ويندوز)، بينما `HomeController.php` الأقدم غير مستخدم. حذفته بالخطأ ثم **استعدته** وأضفت اختبارًا يحرس أهداف الـ classmap | بعد التأكد على السيرفر: أعد تسمية ملف (1) إلى `HomeController.php` وحدّث الـ classmap (`php tools/build_project_classmap.php`) |
 | `AdsController` (Meta Ads) | يستدعي `App\Core\Database` (كلاس غير موجود) في فرع واحد | يُصلح بعد رد مراجعة Meta |
 | `WhatsAppCloudAPI` مكرر | نسختان (`Services/Chat` الأحدث، `Services/WhatsApp` الأقدم) | حذف الأقدم بعد رد مراجعة Meta |
 | `ReviewAutoReplyRunner::sendReply` | يقرأ `$validator` قبل تعريفه (شيفرة ميتة، لا أثر) | تنظيفه عند ملامسة الفوترة |
