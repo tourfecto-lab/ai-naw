@@ -22,17 +22,19 @@ done
 chunks+=("$(ls app/Services/*.php | tr '\n' ' ')")
 # 3) Controllers على دفعات من $CHUNK ملف
 mapfile -t ctl < <(ls app/Controllers/*.php)
-for ((i=0; i<${#ctl[@]}; i+=CHUNK)); do chunks+=("${ctl[*]:i:CHUNK}"); done
+for ((i=0; i<${#ctl[@]}; i+=CHUNK)); do chunks+=("$(printf '%s
+' "${ctl[@]:i:CHUNK}")"); done
 
 fail=0; n=0
 for c in "${chunks[@]}"; do
   n=$((n+1))
+  mapfile -t files <<<"$c"   # مسارات بسطر لكل واحد: الأسماء ممكن يكون فيها مسافات
   if [ $GEN -eq 1 ]; then
     "$PHP" vendor/bin/phpstan analyse -c phpstan-wide.neon --no-progress --memory-limit="$MEM" \
-      --generate-baseline="$TMP/b$n.neon" --allow-empty-baseline $c >"$TMP/o$n.txt" 2>&1 || true
-    if grep -qi "memory limit" "$TMP/o$n.txt"; then echo "CHUNK $n ran out of memory: $c"; fail=1; fi
+      --generate-baseline="$TMP/b$n.neon" --allow-empty-baseline "${files[@]}" >"$TMP/o$n.txt" 2>&1 || true
+    if grep -qi "memory limit" "$TMP/o$n.txt"; then echo "CHUNK $n ran out of memory: ${files[*]}"; fail=1; fi
   else
-    "$PHP" vendor/bin/phpstan analyse -c phpstan-wide.neon --no-progress --memory-limit="$MEM" $LEVEL_ARG $c || fail=1
+    "$PHP" vendor/bin/phpstan analyse -c phpstan-wide.neon --no-progress --memory-limit="$MEM" $LEVEL_ARG "${files[@]}" || fail=1
   fi
 done
 if [ $GEN -eq 1 ]; then
