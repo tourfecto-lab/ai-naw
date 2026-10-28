@@ -386,6 +386,37 @@ function applyTestMigrations(): void
         }
     }
 
+    // باقي ملفات الهجرات (اللي مش في القائمة اليدوية فوق) بالترتيب، كل جملة بـ try/catch
+    // مستقلة: جملة فاشلة (عمود موجود/جدول مش موجود لسه) ما توقفش باقي الملف.
+    // حارس: ما بنشغّلش ده غير على قاعدة الاختبار نفسها.
+    $currentDb = (string) ($db->query('SELECT DATABASE() AS d')[0]['d'] ?? '');
+    if ($currentDb === TOURFECTO_TEST_DB) {
+        $done = array_flip($migrations);
+        $all = glob($migrationsDir . '/20*.sql') ?: [];
+        natsort($all);
+        $extraFiles = 0;
+        $extraFailed = 0;
+        foreach ($all as $path) {
+            if (isset($done[basename($path)])) {
+                continue;
+            }
+            $extraFiles++;
+            $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents($path));
+            foreach (explode(';', $sql) as $query) {
+                $query = trim($query);
+                if ($query === '') {
+                    continue;
+                }
+                try {
+                    $db->query($query);
+                } catch (Exception $e) {
+                    $extraFailed++;
+                }
+            }
+        }
+        echo "ℹ️ Extra migrations applied: {$extraFiles} files ({$extraFailed} statements skipped)\n";
+    }
+
     // الهجرة 2026_07_14_000007b بتعمل MODIFY لعمود users.role وبتشيل القيمة 'user'
     // (رغم إن تعليقها بيقول إنها غير مدمّرة)، وده بيخلّي تحميل الـ fixtures يفشل
     // بـ "Data truncated for column 'role'". بنرجّع القيمة هنا في قاعدة الاختبار بس.

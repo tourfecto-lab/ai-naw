@@ -138,6 +138,16 @@ final class WebsiteBookingIntegrationTest extends TestCase
                     VALUES (999003, 'website-booking@tourfecto.test', 'x', 'Test', NOW())
                     ON DUPLICATE KEY UPDATE email = email");
 
+        // اشتراك الموقع مفعّل افتراضيًا (SiteSubscriptionService::DEFAULTS)، فموقع الاختبار من غير
+        // اشتراك كان بيتعرض كصفحة «متوقف» وبيعمل exit ويقتل عملية PHPUnit كلها. نقفله لهذا الاختبار.
+        try {
+            $pdo->exec("INSERT INTO system_settings (setting_key, setting_value, is_secret, category)
+                        VALUES ('site_plan_config', '{\"enabled\":false}', 0, 'billing')
+                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        } catch (\Throwable $e) {
+            // الجدول مش موجود: SiteSubscriptionService بيرجع للافتراضي وهنكمل
+        }
+
         $content = $this->tourContent();
         $pdo->exec("INSERT INTO generated_websites
                         (id, user_id, slug, status, content_json, created_at)
