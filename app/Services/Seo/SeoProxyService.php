@@ -450,11 +450,13 @@ class SeoProxyService
                 require_once $ssrfFile;
             }
         }
-        if (class_exists('SsrfGuard', false)) {
-            $check = SsrfGuard::validateUrl($url);
-            if (!$check['safe']) {
-                return ['body' => null, 'code' => 0, 'error' => 'SSRF blocked: ' . ($check['reason'] ?? 'unsafe')];
-            }
+        // لو الحارس مش متاح نفشل (fail-closed) بدل ما نكمل الجلب من غير فحص.
+        if (!class_exists('SsrfGuard', false)) {
+            return ['body' => null, 'code' => 0, 'error' => 'SSRF guard unavailable'];
+        }
+        $check = SsrfGuard::validateUrl($url);
+        if (!$check['safe']) {
+            return ['body' => null, 'code' => 0, 'error' => 'SSRF blocked: ' . ($check['reason'] ?? 'unsafe')];
         }
 
         // كاش origin: نتجنب إعادة جلب نفس الصفحة من الأصل في كل طلب (نفس
