@@ -44,7 +44,7 @@ class CurrencyService
 
     /**
      * أسعار الصرف (عدد وحدات العملة مقابل 1 دولار) بعد الهامش.
-     * @return array<string, array{rate:float, base:float, margin:float, source:string, updated_at:string, locked:bool}>
+     * @return array<string, array{rate:float, base:float, margin:float, source:string, updated_at:string, locked:bool, enabled:bool}>
      */
     public static function rates(): array
     {

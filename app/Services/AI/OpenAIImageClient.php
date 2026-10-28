@@ -64,7 +64,7 @@ class OpenAIImageClient
         return $this->model;
     }
 
-    /** @return array{size:string, payload_extra:array} */
+    /** @return array{size:string, extra:array} */
     private function shape(string $aspect, ?string $quality = null): array
     {
         $isDalle = stripos($this->model, 'dall-e') === 0;
