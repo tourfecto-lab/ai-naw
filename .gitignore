@@ -137,3 +137,8 @@ seed_ai_chat.php
 .htaccess.save
 public/.htaccess.bak
 public/.htaccess.save
+# جلسات PHP وبيانات وقت التشغيل داخل public_html (لا تُرفع أبدًا)
+public_html/storage/sessions/*
+!public_html/storage/sessions/.gitkeep
+public_html/storage/logs/*.log
+public_html/storage/cache/*

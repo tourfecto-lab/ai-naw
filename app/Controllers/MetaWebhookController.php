@@ -15,7 +15,14 @@ class MetaWebhookController extends Controller
 {
     public static function verifyToken(): string
     {
-        $key = (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? (string) ENCRYPTION_KEY : (defined('SALT') ? (string) SALT : 'tourfecto');
+        if (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) {
+            $key = (string) ENCRYPTION_KEY;
+        } elseif (defined('SALT') && SALT) {
+            $key = (string) SALT;
+        } else {
+            // مفيش مفتاح = توكن التحقق كان هيتشتق من نص ثابت ومعروف؛ نفشل بدل ما نشتقه.
+            throw new RuntimeException('ENCRYPTION_KEY is not configured');
+        }
         return 'tfm_' . substr(hash_hmac('sha256', 'meta-pages-verify', $key), 0, 24);
     }
 

@@ -19,7 +19,14 @@ class WhatsAppCloudController extends Controller
 
     private static function key(): string
     {
-        return (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) ? (string) ENCRYPTION_KEY : (defined('SALT') ? (string) SALT : 'tourfecto');
+        if (defined('ENCRYPTION_KEY') && ENCRYPTION_KEY) {
+            return (string) ENCRYPTION_KEY;
+        }
+        if (defined('SALT') && SALT) {
+            return (string) SALT;
+        }
+        // مفيش مفتاح = أسرار الويب-هوك كانت هتتشتق من نص ثابت ومعروف؛ نفشل بدل ما نشتقها.
+        throw new RuntimeException('ENCRYPTION_KEY is not configured');
     }
 
     public static function webhookSecret(int $websiteId): string

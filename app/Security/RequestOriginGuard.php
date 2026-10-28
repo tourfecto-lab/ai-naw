@@ -25,7 +25,13 @@ class RequestOriginGuard
 {
     /** مسارات بتتنادى من برّه الموقع بطبيعتها (Webhooks / Widgets / OAuth callbacks) */
     private const EXEMPT = [
-        '#/webhooks?(/|$)#i',
+        // مثبّتة من البداية: النمط القديم '#/webhooks?(/|$)#i' كان بيطابق أي مسار فيه
+        // /webhook/ (زي /api/site-connect/{id}/webhook وإعدادات SMTP بتاعة المستخدم)
+        // فكانت طلبات المستخدم المسجّل دي بتعدّي من غير فحص المصدر.
+        '#^/webhooks?(/|$)#i',
+        '#^/api/webhooks?(/|$)#i',
+        '#^/api/(meta|reputation|whatsapp-cloud|whatsapp-qr|chat)/webhook(/|$)#i',
+        '#^/api/revenue-intelligence/stripe/webhook/#i',
         '#^/auth/[a-z]+/callback$#',
         '#^/api/public/#',
         '#^/api/crm/public/#',

@@ -175,6 +175,14 @@ class ChatController extends Controller
      */
     public function webhook(array $params = []): array
     {
+        // مسار قديم: بيثق في user_id/api_key الجايين في الـ payload، وحمايته توكن مشترك واحد
+        // للمنصة كلها (من غير توقيع). مقفول افتراضيًا؛ استخدم /api/whatsapp-cloud/webhook
+        // و/api/meta/webhook (موقّعين بـ App Secret). للتفعيل المؤقت: LEGACY_CHAT_WEBHOOK_ENABLED=1
+        if (!filter_var(env('LEGACY_CHAT_WEBHOOK_ENABLED') ?: '', FILTER_VALIDATE_BOOLEAN)) {
+            Logger::warning('Legacy /api/chat/webhook blocked', ['ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
+            return $this->error('Gone: use the signed WhatsApp Cloud webhook', 410);
+        }
+
         try {
             // التحقق من صحة الـ Webhook
             $verifyToken = $this->get('verify_token');
