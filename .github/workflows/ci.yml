@@ -19,6 +19,8 @@ jobs:
           coverage: none
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Dependency vulnerabilities (composer audit)
+        run: composer audit --no-interaction
       - name: PHP syntax check (all tracked PHP files)
         run: |
           errors=$(git ls-files '*.php' | grep -v '^vendor/' | xargs -P4 -n40 php -l 2>&1 | grep -v '^No syntax errors' || true)
