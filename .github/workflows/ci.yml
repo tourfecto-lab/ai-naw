@@ -65,7 +65,7 @@ jobs:
           DB_USER: root
           DB_PASS: ''
         run: |
-          php tools/migration_report.php | head -1
+          php tools/migration_report.php | head -220
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) AS tables_built FROM information_schema.tables WHERE table_schema='tourfecto_test'"
           mysql -h 127.0.0.1 -uroot -e "DROP DATABASE tourfecto_test; CREATE DATABASE tourfecto_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
       - name: PHPUnit
