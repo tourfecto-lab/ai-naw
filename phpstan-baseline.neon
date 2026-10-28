@@ -19,12 +19,6 @@ parameters:
 			path: app/Jobs/PublishScheduledArticleJob.php
 
 		-
-			message: '#^Constant ROOT_PATH not found\.$#'
-			identifier: constant.notFound
-			count: 2
-			path: app/Jobs/PublishSocialPostJob.php
-
-		-
 			message: '#^Variable \$platform on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.variable
 			count: 1
