@@ -430,6 +430,57 @@ function applyTestMigrations(): void
 }
 
 // ============================================
+// 13.5 سلسلة الهجرات الكاملة (الوضع الافتراضي)
+// المستودع فيه سلسلة كاملة تبدأ من 2026_01_01_000000_base_schema.sql، فبنطبّقها كلها
+// بالترتيب على قاعدة فاضية (بدل schema.sql القديمة + قائمة يدوية). كل جملة بـ try/catch
+// مستقلة لأن في هجرات مش idempotent (عمود موجود مسبقًا...). للرجوع للوضع القديم:
+// TOURFECTO_TEST_MIGRATION_MODE=legacy
+// ============================================
+function applyMigrationChain(): void
+{
+    require_once TOURFECTO_ROOT . '/tools/migration_report.php';
+
+    $db = Database::getInstance();
+    $pdo = $db->getConnection();
+    $current = (string) ($db->query('SELECT DATABASE() AS d')[0]['d'] ?? '');
+    if ($current !== TOURFECTO_TEST_DB) {
+        echo "❌ Refusing to apply migrations: connected to '{$current}', not " . TOURFECTO_TEST_DB . "
+";
+        return;
+    }
+    $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
+
+    $files = glob(TOURFECTO_ROOT . '/database/migrations/20*.sql') ?: [];
+    natsort($files);
+    $failed = 0;
+    foreach ($files as $path) {
+        foreach (SqlStatementSplitter::split((string) file_get_contents($path)) as $stmt) {
+            try {
+                $st = $pdo->query($stmt);
+                if ($st !== false) {
+                    if ($st->columnCount() > 0) {
+                        $st->fetchAll();
+                    }
+                    $st->closeCursor();
+                }
+            } catch (Throwable $e) {
+                $failed++;
+            }
+        }
+    }
+
+    // الهجرة 2026_07_14_000007b بتشيل 'user' من enum users.role (انظر التعليق في applyTestMigrations)
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN role ENUM('super_admin','admin','manager','agent','user','agency_owner','client') NOT NULL DEFAULT 'user'");
+    } catch (Throwable $e) {
+        echo "⚠️ users.role enum restore skipped: " . $e->getMessage() . "
+";
+    }
+    echo "ℹ️ Migration chain applied: " . count($files) . " files ({$failed} statements skipped)
+";
+}
+
+// ============================================
 // 14. تحميل بيانات الاختبار الافتراضية
 // ============================================
 function loadTestFixtures(): void
@@ -661,8 +712,12 @@ echo "============================\n\n";
 
 // إعداد قاعدة البيانات
 setupTestDatabase();
-loadDatabaseSchema();
-applyTestMigrations();
+if ((getenv('TOURFECTO_TEST_MIGRATION_MODE') ?: 'chain') === 'legacy') {
+    loadDatabaseSchema();
+    applyTestMigrations();
+} else {
+    applyMigrationChain();
+}
 loadTestFixtures();
 
 echo "\n✅ Bootstrap completed successfully!\n";

@@ -56,6 +56,18 @@ jobs:
           tools: composer:v2
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Migration chain report (informational)
+        continue-on-error: true
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_NAME: tourfecto_test
+          DB_USER: root
+          DB_PASS: ''
+        run: |
+          php tools/migration_report.php | head -1
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) AS tables_built FROM information_schema.tables WHERE table_schema='tourfecto_test'"
+          mysql -h 127.0.0.1 -uroot -e "DROP DATABASE tourfecto_test; CREATE DATABASE tourfecto_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
       - name: PHPUnit
         env:
           DB_HOST: 127.0.0.1
