@@ -77,7 +77,7 @@ final class AiVisibilityController extends Controller
     public function llms(array $params=[]): array
     {
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);
-        try{$site=(new SeoMarketService($this->db))->owned((int)$this->get('website_id'),(int)$this->user['id']);$ctx=(new SeoExpertPageContext())->fresh($site['main_url']);if(empty($ctx['ok']))throw new RuntimeException('page_unavailable');return $this->success(['draft'=>(new GeoLlmsBuilder())->build($site['main_url']),'status'=>'draft_requires_review','note'=>'راجع البيانات؛ النشر من خلال دورة الموصل الحالية مع موافقة وتحقق وإمكانية رجوع. مفيش ضمان ترتيب.']);}catch(Throwable $e){return $this->error('تعذر قراءة الصفحات العامة',422);}
+        try{$site=(new SeoMarketService($this->db))->site((int)$this->get('website_id'),(int)$this->user['id']);$ctx=(new SeoExpertPageContext())->fresh($site['main_url']);if(empty($ctx['ok']))throw new RuntimeException('page_unavailable');return $this->success(['draft'=>(new GeoLlmsBuilder())->build($site['main_url']),'status'=>'draft_requires_review','note'=>'راجع البيانات؛ النشر من خلال دورة الموصل الحالية مع موافقة وتحقق وإمكانية رجوع. مفيش ضمان ترتيب.']);}catch(Throwable $e){return $this->error('تعذر قراءة الصفحات العامة',422);}
     }
     /** Compatibility with deployed web routes that still dispatch to index. */
     public function index(array $params=[]): array {return $this->page($params);}
