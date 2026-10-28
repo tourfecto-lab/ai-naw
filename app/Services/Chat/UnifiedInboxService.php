@@ -294,6 +294,10 @@ class UnifiedInboxService
         $where = ['website_id = ?'];
         $params = [$websiteId];
 
+        if (($filters['assigned_agent_id'] ?? null) === 'none') {
+            $where[] = 'assigned_agent_id IS NULL';
+            unset($filters['assigned_agent_id']);
+        }
         foreach (['status', 'ai_status', 'lead_status', 'channel', 'priority', 'assigned_agent_id'] as $key) {
             if (!empty($filters[$key])) {
                 $where[] = "{$key} = ?";

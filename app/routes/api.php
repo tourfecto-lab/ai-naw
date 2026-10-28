@@ -1588,6 +1588,8 @@ $router->put('/api/ai-chat/websites/{id}/followup-settings', 'AiFollowupSettings
 $router->get('/api/ai-chat/websites/{id}/analytics', 'AiAnalyticsController', 'index', ['AuthMiddleware']);
 // سطح صحة/حالة إضافي (بند 8): معدل الحل + جودة استدعاء الـAI
 $router->get('/api/ai-chat/websites/{id}/resolution-rate', 'AiResolutionRateController', 'index', ['AuthMiddleware']);
+$router->get('/api/ai-chat/inbox-websites', 'ChatInboxController', 'inboxWebsites', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/agents', 'ChatInboxController', 'agents', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations', 'ChatInboxController', 'index', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/pulse', 'ChatInboxController', 'pulse', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'show', ['AuthMiddleware']);

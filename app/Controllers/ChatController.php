@@ -721,7 +721,13 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
         </style>
 
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
+            <select id="ucSite" class="p-select" style="display:none;" title="Website"></select>
             <input type="text" id="ucSearch" class="form-control" placeholder="Search by name, phone or email..." style="max-width:230px;flex:1;min-width:170px;">
+            <select id="ucAssigned" class="p-select" onchange="ucApplyFilters()">
+                <option value="">All conversations</option>
+                <option value="me">Assigned to me</option>
+                <option value="none">Unassigned</option>
+            </select>
             <select id="ucStatus" class="p-select">
                 <option value="">All statuses</option>
                 <option value="open">Open</option>
@@ -798,7 +804,10 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                     <div class="p-card" id="convHeader" style="margin-bottom:14px;"></div>
                     <div class="p-card" id="leadPanel" style="margin-bottom:14px;"></div>
                     <div class="p-card" id="convThread" style="max-height:calc(100vh - 420px);min-height:260px;overflow-y:auto;"></div>
-                    <div class="p-card" style="margin-top:14px;">
+                    <div class="p-card" id="ucReadOnly" style="margin-top:14px;display:none;">
+                        <div class="p-cell-muted">👁 Your team role can view conversations but not reply. Ask the account owner to change your role to Member to reply.</div>
+                    </div>
+                    <div class="p-card" id="ucReplyCard" style="margin-top:14px;">
                         <div class="p-card-head" style="display:flex;align-items:center;justify-content:space-between;">
                             <h3>{IC_SEND} Reply</h3>
                             <button class="p-btn outline xs" onclick="quoteToggleComposer()">{IC_WALLET}Price quote</button>
@@ -906,6 +915,8 @@ HTML;
         if (leadStatus) qs.set('lead_status', leadStatus);
         if (channel) qs.set('channel', channel);
         if (tag) qs.set('tag', tag);
+        const assigned = document.getElementById('ucAssigned').value;
+        if (assigned) qs.set('assigned_agent_id', assigned);
 
         const listEl = document.getElementById('ucList');
         const keepScroll = listEl.scrollTop;
@@ -944,6 +955,7 @@ HTML;
                     </div>
                     <div class="r1" style="margin-top:6px;">
                         <small class="tm" style="flex:1;">${timeAgo(c.last_message_at)}</small>
+                        ${c.assigned_agent_name ? '<span class="pill gray" style="font-size:10px;" title="Assigned to">👤 ' + esc(c.assigned_agent_id == currentUserId ? 'You' : c.assigned_agent_name) + '</span>' : ''}
                     </div>
                 </div>`;
         }).join('');
@@ -977,6 +989,7 @@ HTML;
         if (String(id) !== String(activeConvId)) return; // the user opened another conversation meanwhile
 
         currentConversation = res.data.conversation;
+        await loadAgents();
         renderHeader(currentConversation);
         renderComposer(currentConversation);
         const prevScroll = threadEl.scrollTop;
@@ -1109,6 +1122,32 @@ HTML;
             </div>`).join('');
     };
 
+    let agentsCache = {}, myRole = 'owner';
+    async function loadAgents() {
+        if (!websiteId || agentsCache[websiteId]) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/agents');
+        agentsCache[websiteId] = res.success ? (res.data.agents || []) : [];
+    }
+    function agentSelect(c) {
+        const agents = agentsCache[websiteId] || [];
+        const readOnly = c.my_role === 'viewer';
+        if (agents.length <= 1) {
+            return readOnly ? '' : '<button class="p-btn outline xs" onclick="assignToggle()">' + (c.assigned_agent_id == currentUserId ? ic('x') + 'Unassign me' : ic('user-plus') + 'Assign to me') + '</button>';
+        }
+        return '<select class="p-select" title="Assigned to" onchange="assignTo(this.value)"' + (readOnly ? ' disabled' : '') + '>'
+            + '<option value="">👤 Unassigned</option>'
+            + agents.map(a => '<option value="' + a.id + '"' + (String(c.assigned_agent_id) === String(a.id) ? ' selected' : '') + '>👤 ' + esc(a.id == currentUserId ? 'Me (' + a.name + ')' : a.name) + '</option>').join('')
+            + '</select>';
+    }
+    window.assignTo = async function (agentId) {
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assigned_agent_id: agentId ? Number(agentId) : null }),
+        });
+        if (res.success) { toast(agentId ? 'Conversation assigned' : 'Unassigned', 'success'); loadList(true); selectConversation(currentConversation.id, true); }
+        else toast(res.error || 'Operation failed', 'error');
+    };
+
     function renderHeader(c) {
         const customer = customerLabel(c);
         const isAi = c.ai_status === 'ai';
@@ -1140,7 +1179,7 @@ HTML;
             <div class="ai-conv-head">
                 ${isAi ? '<span class="pill green">' + ic('sparkles', 'ic-sm') + ' Replying now: AI</span>' : '<span class="pill">' + ic('user', 'ic-sm') + ' Replying now: agent</span>'}
                 <button class="p-btn ${isAi ? 'outline' : 'primary'} xs" onclick="toggleHandoff()">${ic('handoff')}${isAi ? 'Hand off to agent' : 'Restore the auto reply'}</button>
-                <button class="p-btn outline xs" onclick="assignToggle()">${isMine ? ic('x') + 'Unassign me' : ic('user-plus') + 'Assign to me'}</button>
+                ${agentSelect(c)}
                 ${c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud ? '<button class="p-btn outline xs" onclick="blockToggle()">' + ((c.tags || []).includes('BLOCKED') ? '✅ Unblock' : '🚫 Block') + '</button>' : ''}
                 ${(c.tags || []).includes('BLOCKED') ? '<span class="pill red">🚫 Blocked</span>' : ''}
                 ${statusSelect}
@@ -1220,7 +1259,7 @@ HTML;
                 const text = bodyText(m, m.message_text || '');
                 const failed = m.bot_status === 'failed';
                 const status = failed ? 'failed' : (isWa ? (m.delivery || 'accepted') : 'sent');
-                const who = m.template ? '📋 Template' : m.catalog ? '🛍 Catalog' : (m.by_me ? 'You' : 'Team');
+                const who = m.template ? '📋 Template' : m.catalog ? '🛍 Catalog' : (m.by_me ? 'You' : (m.sender_name || 'Team'));
                 let extra = ticks(status, m.delivery_error);
                 if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">Retry</button>' + extra;
                 out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : ''));
@@ -1260,6 +1299,9 @@ HTML;
     // ===== WhatsApp 24-hour window, files and templates =====
     let windowDeadline = null;
     function renderComposer(c) {
+        const readOnly = c.my_role === 'viewer';
+        document.getElementById('ucReplyCard').style.display = readOnly ? 'none' : '';
+        document.getElementById('ucReadOnly').style.display = readOnly ? '' : 'none';
         const wa = c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud;
         document.getElementById('attachBtn').style.display = wa ? '' : 'none';
         document.getElementById('templateBtn').style.display = wa ? '' : 'none';
@@ -1722,7 +1764,33 @@ HTML;
         loadList();
     });
 
-    loadList();
+    // ===== Websites this user can open: own + team =====
+    async function initSites() {
+        const res = await fetchJSON('/api/ai-chat/inbox-websites');
+        const sites = res.success ? (res.data.websites || []) : [];
+        const sel = document.getElementById('ucSite');
+        if (!sites.length) return;
+        let current = String(P.getCurrentWebsiteId() || '');
+        if (!sites.some(w => String(w.id) === current)) {
+            current = String(sites[0].id);
+            // Set quietly: loadList below picks it up.
+            try { localStorage.setItem('tourfecto_current_website_id', current); } catch (e) {}
+        }
+        const team = sites.some(w => w.role !== 'owner');
+        if (sites.length > 1 || team) {
+            sel.innerHTML = sites.map(w => '<option value="' + w.id + '">' + esc(w.name || ('#' + w.id)) + (w.role !== 'owner' ? ' · team' : '') + '</option>').join('');
+            sel.value = current;
+            sel.style.display = '';
+            sel.addEventListener('change', function () { P.setCurrentWebsiteId(sel.value); });
+        }
+    }
+    window.addEventListener('tourfecto:website-changed', function (e) {
+        const sel = document.getElementById('ucSite');
+        if (sel && e.detail && e.detail.websiteId) sel.value = String(e.detail.websiteId);
+        websiteId = P.getCurrentWebsiteId();
+    });
+
+    initSites().then(function () { websiteId = P.getCurrentWebsiteId(); loadList(); });
 
     // ===== تحديث لحظي خفيف =====
     // بنسأل السيرفر "in New?" كل 4 ثواني (والصفحة ظاهرة بس)، وبنحدّث القائمة/المحادثة
@@ -2302,7 +2370,7 @@ JS;
             </div>
         </div>
         <div id="waCloudCard" class="p-card" style="display:none;margin-top:14px;"></div>
-        <script src="/assets/js/wa-cloud.js?v=9" defer></script>
+        <script src="/assets/js/wa-cloud.js?v=10" defer></script>
         <div id="waQrCard" class="p-card" style="display:none;margin-top:14px;"></div>
         <div id="metaChatCard" class="p-card" style="display:none;margin-top:14px;"></div>
         <script src="/assets/js/chat-connect.js?v=1" defer></script>

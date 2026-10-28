@@ -98,11 +98,21 @@ class ChatInboxController extends Controller
         $limit = 30;
         $offset = ($page - 1) * $limit;
 
+        if (($filters['assigned_agent_id'] ?? '') === 'me') {
+            $filters['assigned_agent_id'] = (int) $this->user['id'];
+        }
         $conversations = $this->inbox->search((int) $website->getAttribute('id'), $filters, $limit, $offset);
+        $list = array_map([$this, 'serializeConversation'], $conversations);
+        $names = self::userNames(array_column($list, 'assigned_agent_id'));
+        foreach ($list as &$c) {
+            $c['assigned_agent_name'] = $c['assigned_agent_id'] ? ($names[(int) $c['assigned_agent_id']] ?? null) : null;
+        }
+        unset($c);
 
         return $this->success([
-            'conversations' => array_map([$this, 'serializeConversation'], $conversations),
+            'conversations' => $list,
             'page' => $page,
+            'my_role' => $this->inboxRole,
         ]);
     }
 
@@ -132,7 +142,7 @@ class ChatInboxController extends Controller
         $websiteId = (int) $website->getAttribute('id');
         // Newest 200 messages, shown oldest-first (ASC + LIMIT used to hide new messages in long conversations).
         $rows = $db->query(
-            "SELECT id, user_id, message_direction, message_text, ai_reply_generated, ai_confidence_score,
+            "SELECT id, user_id, session_id, message_direction, message_text, ai_reply_generated, ai_confidence_score,
                     bot_status, is_auto_pilot, sent_at, created_at, platform_message_id, webhook_raw_data
              FROM chat_messages WHERE conversation_id = ? AND website_id = ? ORDER BY id DESC LIMIT 200",
             [$conversation->getAttribute('id'), $websiteId]
@@ -172,13 +182,15 @@ class ChatInboxController extends Controller
                 // Delivery table may be missing on older installs; the inbox still works without ticks.
             }
         }
+        $senderNames = self::userNames(array_column(array_filter($rows, fn($r) => $r['message_direction'] === 'outgoing'), 'user_id'));
         foreach ($rows as &$m) {
             $own = $m['message_direction'] === 'outgoing' ? (string) ($m['platform_message_id'] ?? '') : '';
             $m['delivery'] = $own !== '' ? ($statuses[$own]['status'] ?? 'accepted') : null;
             $m['delivery_error'] = $own !== '' ? ($statuses[$own]['error'] ?? null) : null;
             $m['reply_delivery'] = $m['reply_wamid'] !== null ? ($statuses[$m['reply_wamid']]['status'] ?? 'accepted') : null;
             $m['by_me'] = $m['message_direction'] === 'outgoing' && (int) $m['user_id'] === (int) $this->user['id'];
-            unset($m['reply_wamid'], $m['platform_message_id'], $m['user_id']);
+            $m['sender_name'] = $m['message_direction'] === 'outgoing' && str_starts_with((string) ($m['session_id'] ?? ''), 'agent_') ? ($senderNames[(int) $m['user_id']] ?? null) : null;
+            unset($m['reply_wamid'], $m['platform_message_id'], $m['user_id'], $m['session_id']);
         }
         unset($m);
 
@@ -186,6 +198,9 @@ class ChatInboxController extends Controller
         $this->inbox->updateConversation((int) $conversation->getAttribute('id'), ['unread_count' => 0]);
 
         $data = $this->serializeConversation($conversation, true);
+        $data['my_role'] = $this->inboxRole;
+        $aid = (int) $conversation->getAttribute('assigned_agent_id');
+        $data['assigned_agent_name'] = $aid ? (self::userNames([$aid])[$aid] ?? null) : null;
         if ($conversation->getAttribute('channel') === 'whatsapp') {
             $data['whatsapp'] = [
                 'window_seconds_left' => $this->windowSecondsLeft((int) $conversation->getAttribute('id'), $websiteId),
@@ -214,6 +229,9 @@ class ChatInboxController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
         }
 
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
@@ -262,6 +280,9 @@ class ChatInboxController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
         }
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
         if (!$conversation) {
@@ -377,6 +398,9 @@ class ChatInboxController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
         }
         $websiteId = (int) $website->getAttribute('id');
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
@@ -566,6 +590,9 @@ class ChatInboxController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
         $websiteId = (int) $website->getAttribute('id');
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
         if (!$conversation || $conversation->getAttribute('channel') !== 'whatsapp') {
@@ -678,6 +705,9 @@ class ChatInboxController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
         $websiteId = (int) $website->getAttribute('id');
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
         if (!$conversation || $conversation->getAttribute('channel') !== 'whatsapp') {
@@ -733,6 +763,9 @@ class ChatInboxController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
         }
         $websiteId = (int) $website->getAttribute('id');
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
@@ -906,6 +939,9 @@ class ChatInboxController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
 
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
         if (!$conversation) {
@@ -931,6 +967,9 @@ class ChatInboxController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
         }
 
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
@@ -958,6 +997,9 @@ class ChatInboxController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
 
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
         if (!$conversation) {
@@ -966,6 +1008,16 @@ class ChatInboxController extends Controller
 
         $updatable = ['status', 'priority', 'assigned_agent_id', 'do_not_contact'];
         $fields = array_intersect_key($this->all(), array_flip($updatable));
+        // Conversations can only be assigned to the website owner or an active team member.
+        if (array_key_exists('assigned_agent_id', $fields) && $fields['assigned_agent_id'] !== null && $fields['assigned_agent_id'] !== '') {
+            $agentIds = array_column($this->teamAgents($website), 'id');
+            if (!in_array((int) $fields['assigned_agent_id'], $agentIds, true)) {
+                return $this->error('This person is not on the team', 422);
+            }
+            $fields['assigned_agent_id'] = (int) $fields['assigned_agent_id'];
+        } elseif (array_key_exists('assigned_agent_id', $fields)) {
+            $fields['assigned_agent_id'] = null;
+        }
 
         if (($tags = $this->get('tags')) !== null && is_array($tags)) {
             $fields['tags'] = json_encode(array_values(array_unique($tags)));
@@ -1010,9 +1062,13 @@ class ChatInboxController extends Controller
             return $this->error('Conversation not found', 404);
         }
 
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
+        // Usage is billed to the business account (website owner), also when a team member asks.
         $result = $this->replySuggestions->suggestFor(
             (int) $website->getAttribute('id'),
-            (int) $this->user['id'],
+            (int) $website->getAttribute('user_id'),
             (int) $conversation->getAttribute('id')
         );
 
@@ -1027,16 +1083,147 @@ class ChatInboxController extends Controller
      * @param int $websiteId
      * @return Website|null
      */
+    /** Role of the current user on the website being handled: owner, admin, member or viewer. */
+    private ?string $inboxRole = null;
+
+    /**
+     * The website owner, or an active member of a business the owner runs (team inbox).
+     * admin/member can reply; viewer can only read.
+     */
     private function authorizedWebsite(int $websiteId): ?Website
     {
+        $this->inboxRole = null;
         if ($websiteId <= 0) {
             return null;
         }
         $website = (new Website())->find($websiteId);
-        if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
+        if (!$website) {
             return null;
         }
+        $ownerId = (int) $website->getAttribute('user_id');
+        if ($ownerId === (int) $this->user['id']) {
+            $this->inboxRole = 'owner';
+            return $website;
+        }
+        $role = self::teamRole($ownerId, (int) $this->user['id']);
+        if ($role === null) {
+            return null;
+        }
+        $this->inboxRole = $role;
         return $website;
+    }
+
+    /** Highest active team role a user has in businesses owned by $ownerId, or null. */
+    private static function teamRole(int $ownerId, int $userId): ?string
+    {
+        try {
+            $r = Database::getInstance()->query(
+                "SELECT m.role FROM business_members m JOIN businesses b ON b.id = m.business_id
+                 WHERE b.owner_user_id = ? AND m.user_id = ? AND m.status = 'active' AND m.role IN ('admin','member','viewer')
+                 ORDER BY FIELD(m.role, 'admin', 'member', 'viewer') LIMIT 1",
+                [$ownerId, $userId]
+            );
+        } catch (Throwable $e) {
+            return null; // team tables not installed
+        }
+        return $r ? (string) $r[0]['role'] : null;
+    }
+
+    /** Viewers can read the inbox but not send or change anything. */
+    private function denyReadOnly(): ?array
+    {
+        return $this->inboxRole === 'viewer' ? $this->error('Your team role can view conversations but not reply or change them', 403) : null;
+    }
+
+    /** Display name for users: first + last name, else company name, else email. */
+    private static function userNames(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (!$ids) return [];
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $db = Database::getInstance();
+        try {
+            $rows = $db->query("SELECT id, TRIM(CONCAT_WS(' ', first_name, last_name)) AS n, company_name, email FROM users WHERE id IN ($in)", $ids);
+        } catch (Throwable $e) {
+            $rows = $db->query("SELECT id, '' AS n, company_name, email FROM users WHERE id IN ($in)", $ids);
+        }
+        $out = [];
+        foreach ($rows ?: [] as $r) {
+            $out[(int) $r['id']] = (string) ($r['n'] !== null && $r['n'] !== '' ? $r['n'] : ($r['email'] ?: $r['company_name']));
+        }
+        return $out;
+    }
+
+    /** People who can handle this website's conversations: the owner and active admin/member team members. */
+    private function teamAgents(Website $website): array
+    {
+        $ownerId = (int) $website->getAttribute('user_id');
+        $ids = [$ownerId];
+        try {
+            foreach (Database::getInstance()->query(
+                "SELECT DISTINCT m.user_id FROM business_members m JOIN businesses b ON b.id = m.business_id
+                 WHERE b.owner_user_id = ? AND m.status = 'active' AND m.user_id IS NOT NULL AND m.role IN ('admin','member')",
+                [$ownerId]
+            ) ?: [] as $r) {
+                $ids[] = (int) $r['user_id'];
+            }
+        } catch (Throwable $e) {
+        }
+        $names = self::userNames($ids);
+        $out = [];
+        foreach (array_values(array_unique($ids)) as $id) {
+            $out[] = ['id' => $id, 'name' => $names[$id] ?? ('#' . $id), 'owner' => $id === $ownerId];
+        }
+        return $out;
+    }
+
+    /**
+     * المواقع اللي المستخدم يقدر يفتح واردها: مواقعه + مواقع الشركات اللي هو عضو في فريقها.
+     * GET /api/ai-chat/inbox-websites
+     */
+    public function inboxWebsites(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        $uid = (int) $this->user['id'];
+        $db = Database::getInstance();
+        $sites = [];
+        foreach ($db->query('SELECT id, company_name, main_url FROM websites WHERE user_id = ? ORDER BY id', [$uid]) ?: [] as $w) {
+            $sites[(int) $w['id']] = ['id' => (int) $w['id'], 'name' => (string) ($w['company_name'] ?: $w['main_url']), 'url' => (string) $w['main_url'], 'role' => 'owner'];
+        }
+        try {
+            $rows = $db->query(
+                "SELECT w.id, w.company_name, w.main_url, m.role FROM business_members m
+                 JOIN businesses b ON b.id = m.business_id JOIN websites w ON w.user_id = b.owner_user_id
+                 WHERE m.user_id = ? AND m.status = 'active' AND m.role IN ('admin','member','viewer') ORDER BY w.id",
+                [$uid]
+            ) ?: [];
+        } catch (Throwable $e) {
+            $rows = [];
+        }
+        foreach ($rows as $w) {
+            if (!isset($sites[(int) $w['id']])) {
+                $sites[(int) $w['id']] = ['id' => (int) $w['id'], 'name' => (string) ($w['company_name'] ?: $w['main_url']), 'url' => (string) $w['main_url'], 'role' => (string) $w['role']];
+            }
+        }
+        return $this->success(['websites' => array_values($sites)]);
+    }
+
+    /**
+     * فريق المحادثات للموقع (للتعيين).
+     * GET /api/ai-chat/websites/{id}/agents
+     */
+    public function agents(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        return $this->success(['agents' => $this->teamAgents($website), 'my_role' => $this->inboxRole, 'me' => (int) $this->user['id']]);
     }
 
     /**
