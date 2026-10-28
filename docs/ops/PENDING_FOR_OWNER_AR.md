@@ -31,7 +31,6 @@
 | `AdsController` (Meta Ads) | يستدعي `App\Core\Database` (كلاس غير موجود) في فرع واحد | يُصلح بعد رد مراجعة Meta |
 | `WhatsAppCloudAPI` مكرر | نسختان (`Services/Chat` الأحدث، `Services/WhatsApp` الأقدم) | حذف الأقدم بعد رد مراجعة Meta |
 | `ReviewAutoReplyRunner::sendReply` | يقرأ `$validator` قبل تعريفه (شيفرة ميتة، لا أثر) | تنظيفه عند ملامسة الفوترة |
-| `TrialPlanService::adminProgress()` | `TrialFollowUpService` (قائمة تجارب العملاء للأدمن) تناديها داخل `try/catch(Throwable)` والدالة **غير موجودة**، فحقل `progress` لا يظهر للأدمن أبدًا ولا يُبلَّغ بأي خطأ | تحديد ما المطلوب عرضه ثم تنفيذها |
 | 14 ملف اختبار قديم بمشغّل خاص | لا ترث `TestCase` وعند تشغيلها فعليًا **تفشل كلها** (الكود تغيّر منذ كُتبت). السليمان (`SsrfGuardTest` و`CiPermissionsTest`) يعملان الآن عبر `tests/Integration/LegacyScriptSuiteTest.php` | إعادة كتابة الـ14 (حوالي 6000 سطر) أو حذفها (تبقى 32 تحذيرًا من PHPUnit حتى ذلك) |
 
 ## 5) مؤجّل عمدًا حتى تنتهي مراجعتا Meta وGoogle
@@ -42,3 +41,4 @@
 ## 6) أعطال وُجدت وأُصلحت (للعلم، تحتاج نشرًا ليعمل الإصلاح)
 - `AdminEmailReputationController::input()` غير معرّفة، فمسارات الأدمن الخمسة (إيقاف/استئناف الحساب، الحدود، مراجعة الاعتماد، إيقاف الحملة) كانت تنهار.
 - `POST /api/ai-visibility/llms` (مسودة `llms.txt`) كان يستدعي `SeoMarketService::owned()` غير الموجودة فيرد 422 دائمًا؛ صار يستدعي `site()`.
+- `TrialPlanService::adminProgress()` كانت ناقصة (استثناؤها يُبلع)، فعمود «التقدّم» في قائمة تجارب الأدمن كان فارغًا دائمًا؛ نُفّذت بنفس شكل البيانات الذي تتوقعه `admin-insights.js`.

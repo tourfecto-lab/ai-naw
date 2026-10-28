@@ -86,6 +86,28 @@ class TrialPlanService
 
     // ------------------------------------------------------------------ البناء
 
+    /**
+     * ملخص تقدّم التجربة لقائمة الأدمن (TrialFollowUpService → admin-insights.js: done/total/next/value).
+     * كانت TrialFollowUpService بتناديها جوه try/catch(Throwable) من غير ما تكون معرّفة، فحقل progress
+     * ما كانش بيظهر للأدمن وماحدش بيتنبّه.
+     *
+     * @return array{done:int,total:int,next:string,value:array,day:int,days:int}
+     */
+    public function adminProgress(int $userId, string $trialEndsAt): array
+    {
+        $b = $this->build($userId, ['user_id' => $userId, 'trial_ends_at' => $trialEndsAt], 'ar');
+        $next = '';
+        foreach ($b['plan'] as $day) {
+            foreach ($day['tasks'] as $task) {
+                if (!$task['done']) {
+                    $next = (string) $task['label'];
+                    break 2;
+                }
+            }
+        }
+        return ['done' => $b['done'], 'total' => $b['total'], 'next' => $next, 'value' => $b['value'], 'day' => $b['day'], 'days' => $b['days']];
+    }
+
     private function trialFor(int $userId): ?array
     {
         try {
