@@ -1,0 +1,1337 @@
+{
+  "version": "complete-development-plus-billing-fix-16",
+  "date": "2026-10-11",
+  "base_archive": "tourfecto.pro (9).zip",
+  "database_changes": true,
+  "service_pages_additional_sql": false,
+  "migration": "database/migrations/2026_10_10_000003_operations_upgrade.sql",
+  "files": [
+    {
+      "path": ".env.example",
+      "status": "modified",
+      "sha256": "f09c8022d783083366fe888204f5e17e23ee27b016b5426ec3fc9eec6176f35d",
+      "original_sha256": "1eade5e209f97a64e03a1a47ddc443e201ff47c88bd15ff95a3fbb150c05c59e"
+    },
+    {
+      "path": "app/Controllers/AIController.php",
+      "status": "modified",
+      "sha256": "c5bf27c36227bee784c37c66b61541380840b715fb843fdb709e546c950daa3f",
+      "original_sha256": "50e0ee6a5918e5be5ca8fb65538b224e2b04690f0652cd3ae9a43e5c3e84d93e"
+    },
+    {
+      "path": "app/Controllers/AdAbTestController.php",
+      "status": "modified",
+      "sha256": "442eb584ca65424e8b95fe79895c53d340061c6204dc22b104cb5fb180fe2be1",
+      "original_sha256": "844a87bb8d1ba0eb7ae2fe764ba5611b093a82e14cd779ee80de3b2f47ac1420"
+    },
+    {
+      "path": "app/Controllers/AdCreativeController.php",
+      "status": "modified",
+      "sha256": "e102fbd888dacfa8529a9bf8b6810c1802825bfcbe5da8d6961fa5151b5b06ad",
+      "original_sha256": "3c51dff869e5fad42775e7596493149c8d9b9969fd6fdc31d76a3aa57489bb82"
+    },
+    {
+      "path": "app/Controllers/AdminController.php",
+      "status": "modified",
+      "sha256": "2860bf6f31036cb7f759ade7b6ef399af3a2fe043310e02de1c95626053a6f49",
+      "original_sha256": "fefb0833d1619cdc6fb337556d6dbeea981d172291a1566a1a012df88bbfb164"
+    },
+    {
+      "path": "app/Controllers/AdminInsightsController.php",
+      "status": "modified",
+      "sha256": "97e37fe648af2782b3793235717ea00a32986a4227bb007df58b5869cb96af3a",
+      "original_sha256": "2afd286d88d78a7ae7e0652ffc70e9a9905f8820bc742fe9906ceebc1ef4bf0d"
+    },
+    {
+      "path": "app/Controllers/AdsController.php",
+      "status": "modified",
+      "sha256": "a51f06e82af85e1082197c9164f9a473cc158bd24b1f05b595fb476c6cae0990",
+      "original_sha256": "f0ba7f8e77f67e56c5a69bc32e5a235d1d37c0dac483755b16cbf42fbf0d0f84"
+    },
+    {
+      "path": "app/Controllers/AgencyController.php",
+      "status": "modified",
+      "sha256": "f97ae60d1265a0994faef0ec9d3f99cee494d20bba3c36a9eac3b68e92cd84e4",
+      "original_sha256": "ac7803bc2faeb9d46d6a77ec4323c59b56827c5b95e54332ce823cf4e59f8fbe"
+    },
+    {
+      "path": "app/Controllers/AiKnowledgeBaseController.php",
+      "status": "modified",
+      "sha256": "afc742acc1b315351865f66de1530d2fe0201160cf6bbdcbd50a9857a869215d",
+      "original_sha256": "94002a0d733b7b6e4966b3d5e5d6142a1a07a333052635e9d05b9eb3d2b3995e"
+    },
+    {
+      "path": "app/Controllers/AiRoutingAdminController.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "92303b0a5ec0450b29a5830156e36380b7f118bceb2477b197e7a8b2bbdb78a1"
+    },
+    {
+      "path": "app/Controllers/AuthController.php",
+      "status": "modified",
+      "sha256": "2fef8a84423c61b0436431a80945ba62f875feea1789fabe84430e7d4c880926",
+      "original_sha256": "49da1e69e5e163d3d1f903d67e818299e46b6ccdd5b0f8db113a3688cf063dd8"
+    },
+    {
+      "path": "app/Controllers/AutoSeoController.php",
+      "status": "modified",
+      "sha256": "0a28cf06b182de297ec48022eb99b22c34f7b2fd3e9e885820fcab8ffb4e77c8",
+      "original_sha256": "fb1a34b5263122825d9be4f85c0c3fb51b735c43205d7059cd0278f551957be7"
+    },
+    {
+      "path": "app/Controllers/AutomationController.php",
+      "status": "modified",
+      "sha256": "26b660bd4a137724854fdf82858af31408e34c2d12251958b690a2f8e15be5da",
+      "original_sha256": "baf4797f73b865d7ea648f1ae7560f85f20db833765a45ae9d00f5e5ca6b2bf2"
+    },
+    {
+      "path": "app/Controllers/BookingController.php",
+      "status": "modified",
+      "sha256": "04577cc3a86a711a399c09193a3e99e2606f852de0c7402452fb7aaeb596cb6c",
+      "original_sha256": "e5df81ca135a8e462cf5f8cfa8660a1b03db27a7f2fe6601d72289aa6edcf691"
+    },
+    {
+      "path": "app/Controllers/BusinessCenterController.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "7e1d7138d8036578a5ac2ff7c428977a76402dd6cd27674481201acb76e1888e"
+    },
+    {
+      "path": "app/Controllers/ChatController.php",
+      "status": "modified",
+      "original_sha256": "d3b97e7f55eacb2c3e9c3eb0b88609f9a620ec2cd35a832fde5820278d504aac",
+      "sha256": "4d1fb3a67e11d6f024939945684b8d4d71daadc63cb0e4ac7b75bf2da99efb29"
+    },
+    {
+      "path": "app/Controllers/ChatInboxController.php",
+      "status": "modified",
+      "sha256": "55dce6799785d2b0d40c39e9c6b12e907ae9927b352f0a58fa7bd0ca8bcc65ed",
+      "original_sha256": "ecffb4731c1344a84f9efd08d4fb61fbaa7b87836330bac542c480153881f795"
+    },
+    {
+      "path": "app/Controllers/CompetitorIntelligenceController.php",
+      "status": "modified",
+      "sha256": "1de22198311a2b4569e108bba6f519cc88782a25f9398ca5415d5391bcff6ede",
+      "original_sha256": "a5c8c88aeb9883affa41fb8cd5fe83e478806b632f6dd1b3c68d12b39024ed93"
+    },
+    {
+      "path": "app/Controllers/CreativeAdminController.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "53cec12712187ff7f5860f84c650f3a5b7f5d4c3c1b095b6ba85d03ee1d82378"
+    },
+    {
+      "path": "app/Controllers/CreativeStudioController.php",
+      "status": "modified",
+      "sha256": "1d03028ee2a95773d8838e71a180bb6cd46dd23aefd99f239a0655fb39303ac0",
+      "original_sha256": "b4c7fbab2466c1a15382bcc011cf355ed3dd77dfce14f8e02097d216c6111b48"
+    },
+    {
+      "path": "app/Controllers/CrmApiController.php",
+      "status": "modified",
+      "sha256": "bf533acae3b3cd7da15a88e7184e72c8f4e27b33134cb85103996dc8c431cec6",
+      "original_sha256": "0d9d448356b7da87ca708cbf36d136d0b473b4327c07ad3ef42c3a728bdc9fb7"
+    },
+    {
+      "path": "app/Controllers/CrmController.php",
+      "status": "modified",
+      "sha256": "be8bae2c4eb22b7f485f3deef1cbbae9d098e63631e1842415d7478a32cff70b",
+      "original_sha256": "758f922a198156317b3e2ef1b03afcaea6bb44d8c5c738f9c90a82aeb5234621"
+    },
+    {
+      "path": "app/Controllers/CrmLeadScoringStatController.php",
+      "status": "modified",
+      "sha256": "76e5ccd65960b07a8be09b4b09daf472d1063639d40397067e2061ad082bb194",
+      "original_sha256": "c5ca8de2143e238e5e0185759e1b4a656ef502ecfdda828af5b64ffaf3f712db"
+    },
+    {
+      "path": "app/Controllers/DashboardController.php",
+      "status": "modified",
+      "original_sha256": "9ebd65a855257fe95622bff4767f13598a90555bb9ac3e1647c62d2935827f4d",
+      "sha256": "4d5ef590e57c21539b43d66845a2cbbb20278606765be3fca3d7b12211e30800"
+    },
+    {
+      "path": "app/Controllers/DocumentationController.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "44863cf516d1480796211b2abbe4ec8e897b3d83beafcc975dac3ca87b968316"
+    },
+    {
+      "path": "app/Controllers/EmailMarketingController.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "92c02a9855aa152559e365c99ebdd171cb58a6b086729e0e0a60c1ee904ac010"
+    },
+    {
+      "path": "app/Controllers/GoogleAnalyticsController.php",
+      "status": "modified",
+      "sha256": "0389a6a3d4163994ada192d9ccab02b7fa2e8423c31d5161361fa32df1e3ba08",
+      "original_sha256": "330513052afb0c708cb2e9126867a648666162d8da2779e2fe3a075110ed6451"
+    },
+    {
+      "path": "app/Controllers/GoogleBusinessContentController.php",
+      "status": "modified",
+      "sha256": "086b2353f152597513fe7199745317bb9ef6ba05a1f7e0c416fd7dbaafb9e842",
+      "original_sha256": "ce5a842c3c4fa67b96e5faf95840171667168eb83cb1af13f8fb4bca504bef62"
+    },
+    {
+      "path": "app/Controllers/HealthController.php",
+      "status": "modified",
+      "sha256": "9b70b8c590ccafb1bb2d5d90707a920cac1f5d387e65e817c1a9f748c3098049",
+      "original_sha256": "c61b04548bad0534cd9079e6ad24473797e7c68d35ed7c9666166ab16e403a67"
+    },
+    {
+      "path": "app/Controllers/MarketingAssistantController.php",
+      "status": "modified",
+      "sha256": "1210800d1b524c6adb4062310cc4ba601b24e8535ba4826a23c31f02669c8668",
+      "original_sha256": "d8cfa2a1d7c9fab04391434dd7330b35fb8f1a1aadd0abee5e95de8b418330de"
+    },
+    {
+      "path": "app/Controllers/MarketingController.php",
+      "status": "modified",
+      "sha256": "f39ec4a780f861820ddc43cdedf8c0dcafc27cc94b0c166398e646fdea432453",
+      "original_sha256": "cf0c599d84af5ce45d6f377fb8d4d9c3ed6900fd06cb0bb881304494c9b80cb2"
+    },
+    {
+      "path": "app/Controllers/OTAController.php",
+      "status": "modified",
+      "original_sha256": "486e78190ca519ad8c725b813ceb1a25e78f47e8f440077622bf1164b5fc7410",
+      "sha256": "12d9edeafca17c0ed55102ca1b84e2f4690f5728988e089cffb5b36d65e88fa8"
+    },
+    {
+      "path": "app/Controllers/OnboardingController.php",
+      "status": "modified",
+      "sha256": "b94665ce8e30401ec4fa740962c541a00b348ec7cf26907ab8c797458265b765",
+      "original_sha256": "c69efe2f19f8cca16045bffde884b7e0392dbea0a1f1099f34f5dfec3bec5090"
+    },
+    {
+      "path": "app/Controllers/OperationsController.php",
+      "status": "new",
+      "sha256": "0c7a45678204fd8d69616ee95f2b13055c09e13c0b688e6e86c8c8af3add7f7e",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Controllers/OutreachController.php",
+      "status": "modified",
+      "sha256": "aa593161a8d345388eff7529408808ad2811c84dfa357fa1f486ca11ba0e9b05",
+      "original_sha256": "52a85017f4d1731e6454813396da2de71aced414a40fc2203d590d3cbc39be5e"
+    },
+    {
+      "path": "app/Controllers/PaymentLinkController.php",
+      "status": "modified",
+      "sha256": "5b131db25d239e78182b5154883400142a617b61da7c80a0042c99c4f656cda9",
+      "original_sha256": "8839096bcf2e37b2480dbc8cc4adcf04269e2cac6210ba67f6ea42c9796e1dae"
+    },
+    {
+      "path": "app/Controllers/ReputationController.php",
+      "status": "modified",
+      "sha256": "c7ae5161823ca8db55d6a9a3364cf598b0542aa376ad73e47f41bfd194fd0079",
+      "original_sha256": "e66e6f26f610bbc425abc829253e506f16cfc0921ae9dc0867071ee80a1d2eb5"
+    },
+    {
+      "path": "app/Controllers/ReviewRequestController.php",
+      "status": "modified",
+      "sha256": "607279d7f35989c69959ad282d2c894df5b7a6592edcd3a027cfec389c50a544",
+      "original_sha256": "930a69b8329c005d3dfa291564fb479fad01ee5ecbe7496787cb35ac32ad7f04"
+    },
+    {
+      "path": "app/Controllers/SearchConsoleController.php",
+      "status": "modified",
+      "sha256": "9bddbfb8911c3391638bf82afea1327263a66ba1731feb96781e4629ccc7a5c8",
+      "original_sha256": "efbdb351eb93c4b4391f43f6476878783f22c9cd7b64f81c2043c6f7df513c20"
+    },
+    {
+      "path": "app/Controllers/SeoStrategyController.php",
+      "status": "modified",
+      "original_sha256": "4792774bea1cfb69946cbee8226449f8eb3387c784781ebbb0a69dfdb34ad053",
+      "sha256": "fee7c90e2b44c2f6bcc54a5a78394676b2702fdc31cf5cff05030d844778e169"
+    },
+    {
+      "path": "app/Controllers/ServicesController.php",
+      "status": "modified",
+      "sha256": "5f69485f8c7a662aec8e0bccdc66638b16795eb02982bb4f3a4555aa7b6564d6",
+      "original_sha256": "855292c099cf86537e4a39970130f4124b591c1d9a80f4610a10469d08611355"
+    },
+    {
+      "path": "app/Controllers/SocialMediaController.php",
+      "status": "modified",
+      "sha256": "001d2b41df26cfd01ba0166c7bc39200a659619c142482bec7ba7a3d222ed0d5",
+      "original_sha256": "720c2d751bd3e1c34d50fc0cd489adcf33b10ed40583571193eb941a123cfed8"
+    },
+    {
+      "path": "app/Controllers/SubscriptionController.php",
+      "status": "modified",
+      "sha256": "0c9ef47a0bef64fb591595a2f174aaf30776cf61382ead96e2cdbe246c95f171",
+      "original_sha256": "aa21b8fb50dbf4de975ffba412e845d2fa6fb1bb1f00d7582ce1c77d5cf16fbe"
+    },
+    {
+      "path": "app/Controllers/UserController.php",
+      "status": "modified",
+      "original_sha256": "794ebcbfb1335fa94289426f9e693c6999b48f67da9284d5596f47d2eb2e3110",
+      "sha256": "f5e8a7ea3e243d6a6a8d6cd8e9cf44f66cbde3b51a6e85b353b5735976d5ea44"
+    },
+    {
+      "path": "app/Controllers/WalletController.php",
+      "status": "modified",
+      "sha256": "af60e0309513ba6bf4c91d55147f3e5071b90bffb78641dac43e864d976df09c",
+      "original_sha256": "0e43ca3f2ab2d9821777193205a40944577aefd8a8fe97364bc4aebc0f7bfea3"
+    },
+    {
+      "path": "app/Controllers/WebhookController.php",
+      "status": "modified",
+      "sha256": "3cdfb2e76412db47f46215e6a04a821f430a992137104ebef1a278c3aee12075",
+      "original_sha256": "9eabd15e88dc7b3d859823191ca70b95cc80ba9f6f141eb2f5ce40595b34929a"
+    },
+    {
+      "path": "app/Controllers/WebsiteBuilderController.php",
+      "status": "modified",
+      "sha256": "38f9a6612db97c4e6eabc2d578543bb37bcf3596658f96ea82f4655f1c92b054",
+      "original_sha256": "a5dbdf4b3c3aee809c416ab4c81040e273c6274bc2d1ad015d09c63a989b248d"
+    },
+    {
+      "path": "app/Controllers/WebsiteController.php",
+      "status": "modified",
+      "sha256": "f8974c71e7f52fac7bfa854a5753e8dcd72f41704e1b8be11c547e85bc46ab65",
+      "original_sha256": "ba63cf9087b50a76cc80cdf4784f2a1dc951789ff24f2e45cb7ce969cf622d21"
+    },
+    {
+      "path": "app/Controllers/WebsiteOptimizerController.php",
+      "status": "modified",
+      "sha256": "d7508821f07d81c4159a9d1104dec4cfda741eb48108ce0a45a8cab31509a33e",
+      "original_sha256": "f6938fb55f8db32aa2287aca696e233537e30444914bbba7c3a70a83e0b1f7e3"
+    },
+    {
+      "path": "app/Core/Cache.php",
+      "status": "modified",
+      "sha256": "3d9fbacb6e60693becd43ebfbdc6b20442802773b18d69df9f2ffd9175d37627",
+      "original_sha256": "82b08f87432ab62be4d5a656e59db4161922406feb93d22051e9d1b440059428"
+    },
+    {
+      "path": "app/Core/Controller.php",
+      "status": "modified",
+      "sha256": "8f0c5a5eb956970c83533d5c44df66446a54d20f6f3e33a347cdc81ebc651299",
+      "original_sha256": "8c51efa0f1066516c18368df5b64264e7f229f9cfb1c432af3346b4230b6c0d7"
+    },
+    {
+      "path": "app/Core/Database.php",
+      "status": "modified",
+      "sha256": "2d75a1096fb39d3fb53818c4f771471a66e2b2339234d108a6f4f20617a70979",
+      "original_sha256": "2ec71fc68e44245f516a254190aa6eaf14234f76de9f64517a80c028d2b5b612"
+    },
+    {
+      "path": "app/Core/LogRedactor.php",
+      "status": "modified",
+      "sha256": "921b775dfb83bb66328895c9c10861ae16a4194b21868e6125ed6179dcc162d2",
+      "original_sha256": "448f4b6fcbfa68ae1fedb341de031d76c8d90d1388364a71c4d171e234ad81b0"
+    },
+    {
+      "path": "app/Core/Queue/QueueManager.php",
+      "status": "modified",
+      "sha256": "1a51f80bed2958056a09076e7aa0c36b1b421985c890f148a1affaffaf87346d",
+      "original_sha256": "459ce114415fe6fb71ed8143ec35d6ceadf34f336a36cc1c79fefb69b509c8a4"
+    },
+    {
+      "path": "app/Jobs/ExportUserDataJob.php",
+      "status": "modified",
+      "sha256": "814ccca642eb1d7ec610de0792206c5966a43d31d13c77ee6552a098b48b3f4b",
+      "original_sha256": "5ef3d482246f0a402b951b860200f7df8253f070794d591df457558c8068f988"
+    },
+    {
+      "path": "app/Jobs/GenerateMediaJob.php",
+      "status": "modified",
+      "original_sha256": "f9f4cc8d0c35cc59f11e674efc55944ebd6e9c6cceddacdf4888f95cb4461dd3",
+      "sha256": "447a67e3fbe6f7ef32774d855cf8c74bc922dadf95502f40e02ccdda1273edcc"
+    },
+    {
+      "path": "app/Jobs/GenerateVideoJob.php",
+      "status": "modified",
+      "original_sha256": "3c901373e97e26d11104d2ec330f5d9d1d7fdc44bd84c7e079e72d172ca5bea9",
+      "sha256": "323c46c43283a527ce7773e88afa13f2f9f6e35bd8c61de6f7f2e1386e36461e"
+    },
+    {
+      "path": "app/Jobs/PublishGbpPostJob.php",
+      "status": "modified",
+      "sha256": "426a1323145e308fb850d044eb7518ab36d7e91f9aeb52000de962d76f1811fd",
+      "original_sha256": "c17835121a54e86169c60343bac0d32b6e4a5f843f177d64c75bec2fce9e74c7"
+    },
+    {
+      "path": "app/Jobs/PublishSocialPostJob.php",
+      "status": "modified",
+      "original_sha256": "3f73f02b1c2d945cbccdcade7b9a4af8dcafbd6b220553d204896794d0e69523",
+      "sha256": "cd63938f957f47026c65718f1a484695c5b4b851dcc15a823b92d8facc602743"
+    },
+    {
+      "path": "app/Jobs/RenderCreativeVideoJob.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "ec69dc2905ae17cb8934aa455fbbe6f024036f21301ec0e401f77a6b510ac8f7"
+    },
+    {
+      "path": "app/Models/Booking.php",
+      "status": "modified",
+      "sha256": "c9368d1a1b3ba826d9cfa8f1a82ae872b8a36b741ee5fb1b0488e3b8d3dab617",
+      "original_sha256": "aa035f1e83071a193e24b45d48dec868350dddd3fd304e1c50805c042599ae41"
+    },
+    {
+      "path": "app/Models/MediaItem.php",
+      "status": "modified",
+      "original_sha256": "397a6584e46613228d5e7801377e5d4f79cce2f6d6f03d37cef704a496cffa76",
+      "sha256": "056a7fedd97dd6822563fffa96f0c0ff06c8f96e7a8885dcf5576d9113d8787b"
+    },
+    {
+      "path": "app/Models/Subscription.php",
+      "status": "modified",
+      "sha256": "42cc4ad6b6d1de809ce558fd45a897fe363543e8460856e05c338815a249b7ae",
+      "original_sha256": "41fc64728da2d9fcf89830c0a3e33afa10ba2791eb6ebaaf21e93738e0dd9bc8"
+    },
+    {
+      "path": "app/Models/SubscriptionPlan.php",
+      "status": "modified",
+      "original_sha256": "07fd9235ee18f2983b5cbfe388c013dfe44d6161eda63c7a2ca224e2dd092443",
+      "sha256": "ac7eb3bd396fcec1415ab81b675203f9d20f0d294a401d168073d0c981bd01c1"
+    },
+    {
+      "path": "app/Models/WalletTransaction.php",
+      "status": "modified",
+      "original_sha256": "5910adc7bc0f99cce4af0b5385211ea536b4d4ac15b531504d2758edf4f9d04e",
+      "sha256": "7b6e5bb0c7fe6d3deb9b5564c7ca05e7ed87872c79814316dfe6be6c0de2d57e"
+    },
+    {
+      "path": "app/Services/AI/AIOrchestrator.php",
+      "status": "modified",
+      "original_sha256": "7c268330b2fa816ef1e9b6a2b165a97f5d8cf1fffc96f6c72afa287a309025d0",
+      "sha256": "2049ffc816bb2dd7a8b92154199c71cbb1d33b9a20062e9dced8f33f322718cc"
+    },
+    {
+      "path": "app/Services/AI/AiServiceRouting.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "7969b5a7bec5afc2f49914a866bdbe7a0761253e7877312eda099b22e0dcb665"
+    },
+    {
+      "path": "app/Services/AI/AiText.php",
+      "status": "modified",
+      "original_sha256": "bb92f0d0bff18891e8ece4120f19efd8537d144bf6e460220ef65e2396c241a0",
+      "sha256": "1bc83a303276c6e0b66273ef2a5085b14ea3cb1f87fb157b80e435b4aa9753d6"
+    },
+    {
+      "path": "app/Services/AI/ArticleImageService.php",
+      "status": "modified",
+      "original_sha256": "cf77e196c77f2c6a00de6bb8ed1d5f076fe22af0f7b257ce0fd5601cb8987008",
+      "sha256": "5f34e734c699a8d52bb0641065b862240b6ac2b95ba09ba5f93e64276e529e4d"
+    },
+    {
+      "path": "app/Services/AI/GeminiClient.php",
+      "status": "modified",
+      "original_sha256": "77a220f274904c595ef23b0439989b11a4e84f2e2f7f3077d215da451387caba",
+      "sha256": "a2b9f324fb69f5c1e899ee31a37cc0fb35ae1fcebebb9467121a0178fb39b678"
+    },
+    {
+      "path": "app/Services/AI/OpenAIImageClient.php",
+      "status": "modified",
+      "original_sha256": "7eca2a409a4b275422be139fb16c99e63798d6aa3751c9d9565fc81962ac4d8e",
+      "sha256": "b7e76aa17f79def9782bcf4702091c6505057538cd2580fcefbbf1f720e7ae2f"
+    },
+    {
+      "path": "app/Services/AI/Providers/AIProviderManager.php",
+      "status": "modified",
+      "original_sha256": "347814446e73aca20ef5cfc0b72a513dd4aaea7fb1fc7eab24fc0ce9cec661cf",
+      "sha256": "00e433ddb40e0f355e7ff518275139ac54540cac57dd733fae11bb5b997a820f"
+    },
+    {
+      "path": "app/Services/AI/Providers/AnthropicProvider.php",
+      "status": "modified",
+      "original_sha256": "e14031990d2a5111d3d610855a166b8aea308557e83a27193acc5dd300f36955",
+      "sha256": "322d32bd90207e56440377a83185b40bebd2b18ffe04b188cbd45fdd7d463743"
+    },
+    {
+      "path": "app/Services/AI/Providers/DeepSeekProvider.php",
+      "status": "modified",
+      "original_sha256": "407806ece725749dc2854ece6e529078dcf0bdd71ebda4940e3e290c5686aeaa",
+      "sha256": "3b80945243be98501046ad46321dc1a2ca41c7724c3ff3c304830e809d73cbfe"
+    },
+    {
+      "path": "app/Services/AI/Providers/GeminiProvider.php",
+      "status": "modified",
+      "original_sha256": "7dfcc4bc7ad317f2cca50de9bac641d94e2b6b752b4b3ef454690fc20260a3c9",
+      "sha256": "27561590312fa0461d087bcf5d9acfcfcc6bbe49c8d9481becf1d059f6200fea"
+    },
+    {
+      "path": "app/Services/AI/Providers/KimiProvider.php",
+      "status": "modified",
+      "original_sha256": "024aa04c115821703a4a1713f840bfe839646edcae7ffbe05ef6b7821ca5ed92",
+      "sha256": "efb07f51bcdc0712890eea3b37eaf8a23da9e2181561ad087d155c8f97a1f81c"
+    },
+    {
+      "path": "app/Services/AI/Providers/OpenAIProvider.php",
+      "status": "modified",
+      "original_sha256": "f31b976098121dd67203732e4e1b2461551e30646bfb048aef727b50e232c26f",
+      "sha256": "69669d586e32577c0d2bf37078400c348b1eb802f6d47b7ccf59ea2ed1a5a4b3"
+    },
+    {
+      "path": "app/Services/AI/TourfectoAIEngine.php",
+      "status": "modified",
+      "original_sha256": "24aa768b1e38d515932cbd4c48b8677fc4cb36f9503873d4af3faab236320cf3",
+      "sha256": "28b93e00892f1bb0ab1911f4598039da06bfe6db99cabb26ece661dafa3b83f2"
+    },
+    {
+      "path": "app/Services/AI/VeoClient.php",
+      "status": "modified",
+      "original_sha256": "fd71eb5a2e2781a9d713c73d31f2f21fa6a8b1d510b5d4f39e559eb726964f80",
+      "sha256": "f10aeec5e880def3cf9b2b9d1ddffa419f33b27ec90739435c9d27268191e4b2"
+    },
+    {
+      "path": "app/Services/Admin/AdminAlertService.php",
+      "status": "modified",
+      "original_sha256": "be8f2d3353b855c630468efc6a6d6a9d91e1a7f75ebb3acd40476b16f561734a",
+      "sha256": "7d4dc5f4f8b6fe2420a7dfd4fd61b0f1117368805f2ac29cb87c40a985ca4302"
+    },
+    {
+      "path": "app/Services/Admin/CouponService.php",
+      "status": "modified",
+      "original_sha256": "89c8df677197618cca3342fffb2249d67a40d646fb7ea264ef06a520d02229b5",
+      "sha256": "db847229c23a42e698b20b562328fb541ae1e408a5706637a74d7774b1ad9b23"
+    },
+    {
+      "path": "app/Services/Admin/PlatformHealthService.php",
+      "status": "modified",
+      "original_sha256": "643cac43348eb20a6d1e3c1fef5ee82e126ad0ba4012b7747121389c15b011ea",
+      "sha256": "56a84080ed085481621f6e9b491f852b4aab77872dbf29d13465fb15e3ede84d"
+    },
+    {
+      "path": "app/Services/Ads/AdCopyGenerationService.php",
+      "status": "modified",
+      "original_sha256": "050403e79509fc5a52ffdd44de0fd66fb699ef95554f3c43f136b26ce158089e",
+      "sha256": "4f0dd19437d0bb2696499acd4bfcb4f19f24b2d669f60df48cb5d47d5c81ff04"
+    },
+    {
+      "path": "app/Services/Ads/AdKeywordStrategistService.php",
+      "status": "modified",
+      "original_sha256": "fe9a9f47543d72852d34b3acc3a7e31da010add5a763c81e80f5ef7a80634224",
+      "sha256": "7284771ec241b702deb6426a85df0f5851edb45b08df29f8a3196b8507d05407"
+    },
+    {
+      "path": "app/Services/Ads/AdMarketResearchService.php",
+      "status": "modified",
+      "original_sha256": "d27b6d2fa253842ab2681bb8fffdd45fb509ec8b63cb270ba34a056d3e5e7cf4",
+      "sha256": "d5a7a16aa24d314a247785008ae2125f9e9c6246c87db204aad69aa160008e11"
+    },
+    {
+      "path": "app/Services/Ads/AdsCompetitorInsightsService.php",
+      "status": "modified",
+      "original_sha256": "943668c5f3a6b61eeafd4b041693303a0961f32bfd42f39a0480a419c0a286d1",
+      "sha256": "d4436394f2f0b2f3687d05cd15831ac4410168c8f5c4d7f7c92d36d9c1830ded"
+    },
+    {
+      "path": "app/Services/Ads/AdsCopilotService.php",
+      "status": "modified",
+      "original_sha256": "e062ca43c8e05eaeaba124c2095f2d2e1ddda8f5898a19733709ae7228ee8240",
+      "sha256": "ceea039001bba261a31457bee06930dfd57d95deac6aba60c5a0d8dc5e4d7287"
+    },
+    {
+      "path": "app/Services/Ads/LandingPageAnalysisService.php",
+      "status": "modified",
+      "original_sha256": "b87d714da4d564e72a513bb1fc5523f2c88dc132a1e589ea451cca4408f78b53",
+      "sha256": "35ba28021a9673f7d14388db7286545c291eba05711af65376bcf9afb7d25eae"
+    },
+    {
+      "path": "app/Services/AiAssistantService.php",
+      "status": "modified",
+      "original_sha256": "f834d7273d382200316bb8b7f7be5cf0a88ea21143057e3692c7d9ef03db1689",
+      "sha256": "6c418291243cf4fb4ebe99e8f9e2bc1e15461b3bc865760000160a48792dfc5b"
+    },
+    {
+      "path": "app/Services/Automation/ReviewAutoReplyRunner.php",
+      "status": "modified",
+      "original_sha256": "d138e018122e7aca9c9d540136bf2cf1a4871d5653258b768bdd2ffa01dfd5e0",
+      "sha256": "9f9bc7bbde80e4655a9dcbd00ea3b62a2ff7f66314fab717099d499e3d2955a7"
+    },
+    {
+      "path": "app/Services/BookingEngine.php",
+      "status": "modified",
+      "sha256": "b5d5da825243ebff590803a9972184ecb2aef7c01b70c592979296ca391b13c9",
+      "original_sha256": "18c5d29c9c13be98657e26b77221ffc6a8db12e8ebd1b15f1e84ae8da283a273"
+    },
+    {
+      "path": "app/Services/CompetitorIntelligence/AICompetitiveAnalyst.php",
+      "status": "modified",
+      "original_sha256": "cdaeaaac0bcbd7c9edc2412351fe7d1b93d242ff4d7023275f1ada2d66182900",
+      "sha256": "df821b662851f6cc3fd36f202156a7d1993283150f1785517a203903f12f64ad"
+    },
+    {
+      "path": "app/Services/CreativeStudio/BrandPromptBuilder.php",
+      "status": "modified",
+      "original_sha256": "6136d2e375c902da75fc94024c68dc14016fef6c0eb7fe012f574b5ece69cada",
+      "sha256": "9a7814b1b9bc16f2b1db4f906365160778c92bcc684f6d76e45bea44f4c03b90"
+    },
+    {
+      "path": "app/Services/CreativeStudio/CreativeLibrary.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "0a1a339cbd7e381ac715d58c5c0ceab2e27802a9d57d9520a685ea8bc8b11197"
+    },
+    {
+      "path": "app/Services/CreativeStudio/CreativePricing.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "72834c7f14eed74d4297bf109f167983763634d4060d9a3b894a8304064abbc5"
+    },
+    {
+      "path": "app/Services/CreativeStudio/CreativeReservations.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "a313932d135606ef99d35acfd32394207c2d2af91c88921b23b791d5814bc71e"
+    },
+    {
+      "path": "app/Services/CreativeStudio/GeneratedMediaFiles.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "eeee7a856860374a2dae653bfc1bc56a34c49ccf90a8b85491bb5c84eb837bc2"
+    },
+    {
+      "path": "app/Services/CreativeStudio/GenerationLifecycle.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "7dc0a6d1b74214f2c5a374d4fb4b46ebe28425ef055bc0b64be06d126a7988af"
+    },
+    {
+      "path": "app/Services/CreativeStudio/GenerationOptions.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "691e9f3266497a812303c25aab611c9fe189c221e995f2460512b8fa1981063b"
+    },
+    {
+      "path": "app/Services/CreativeStudio/MediaGenerationService.php",
+      "status": "modified",
+      "original_sha256": "6e02e2e2f77ed3b870099e70cd81066a4508e9797dcf522f32207984ecb73b09",
+      "sha256": "47ee6f622cea70f485c80e7308ac32484603bb7e175a0df5e30fd853db1cb828"
+    },
+    {
+      "path": "app/Services/CreativeStudio/PrivateMedia.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "49ef062c0eb56929d219dfb3d0a074a0bb0d686c066dd623507b768fbeac5408"
+    },
+    {
+      "path": "app/Services/CreativeStudio/ReferenceMedia.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "aa0459bde37f5b6a0cce088c7a6fd84480bc6a47f214b85d663e65d19c2ca2bc"
+    },
+    {
+      "path": "app/Services/CreativeStudio/VideoEditing.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "de7e92cfbe16ff07c2ee906e8e808c4d33aeb7e8219039f0e6e8b72634041399"
+    },
+    {
+      "path": "app/Services/CreativeStudio/VideoScriptService.php",
+      "status": "modified",
+      "original_sha256": "f7082289b2f0c21ba26bd97f2e3d3b70c15c309df4f213e9a8a8fe8ce60ea939",
+      "sha256": "49d74eb8ee07cbf3066379ec276ab2448b81e3c288e2b188fb49bafe2c26df8d"
+    },
+    {
+      "path": "app/Services/Crm/CrmAiAssistantService.php",
+      "status": "modified",
+      "original_sha256": "bf5c4eba345383de69662dcf79118e1d6dc372afa91cd2ecd9ea694123b22597",
+      "sha256": "6a7469c431ae3a47fb666dedfb85d8adf11c3601c08122c10d9970447b25e519"
+    },
+    {
+      "path": "app/Services/Crm/CrmAiSummaryService.php",
+      "status": "modified",
+      "original_sha256": "9e23fb626f07b78ea4e32392a501bd7e89a5e8a40ec727c8809892d8bbfe84e1",
+      "sha256": "ab085b18fb0991c1ddfaf939d4fb8af69ca035a5f7ea6b172bdacfb4abaf76c8"
+    },
+    {
+      "path": "app/Services/EmailMarketing/EmailRenderer.php",
+      "status": "modified",
+      "sha256": "f45f66d177a03c58275f2a982c8a8e797849b5ddcea3a6b102fc345fc0aefbba",
+      "original_sha256": "4f52b8c88bf107c860d4c4c339281adf07db4c764bcdf849c98fdcc3d92ee811"
+    },
+    {
+      "path": "app/Services/FeatureResolver.php",
+      "status": "modified",
+      "sha256": "98662feb25a63827cbe34ac90cdddeeacf424d9bc4862d166521c02b91e3176d",
+      "original_sha256": "d0f8f2b063331b934c0558ccbac924c8aabd5aed8154768aa6d5d9102f620f89"
+    },
+    {
+      "path": "app/Services/GoogleBusiness/GbpAIInsightsService.php",
+      "status": "modified",
+      "original_sha256": "6fb6e5d82dc013e15188d3c3de5dd418df6a86b26e411165d9c4392fc08c2b7d",
+      "sha256": "67b3f156cea9844acb64a140159ac0c3996601d8c77d0f02f8113fc0b89e41b3"
+    },
+    {
+      "path": "app/Services/GoogleBusiness/GbpContentService.php",
+      "status": "modified",
+      "original_sha256": "51e70d32cafc2ac794a136b52d1d650a132c2e4e0dc493a4231b43c3c9f9ccaa",
+      "sha256": "b7ae7e79276351fd81439b211ce64540fbcd7d4066303e036a2e6af9d1c37c53"
+    },
+    {
+      "path": "app/Services/InventoryService.php",
+      "status": "modified",
+      "sha256": "b1aed8415024d46c2a22f2ffb488b0de23779b89cb404cb343e866253fe4089f",
+      "original_sha256": "5a76357e893de86efc04dfc0280e5f1baa2c40cac350e8463fbcaa4b414b9071"
+    },
+    {
+      "path": "app/Services/Marketing/MarketingContent.php",
+      "status": "modified",
+      "sha256": "6e43489dd2900162a903b9fdda3413dbe1c15afb92a7cf247de9d3f37a6e93be",
+      "original_sha256": "b623f84f04ac41b655d0abbcbff74f472b4f457fb7767a9f1b37e77480139e46"
+    },
+    {
+      "path": "app/Services/Marketing/PublicLayout.php",
+      "status": "modified",
+      "sha256": "b8aee5ad7783367e2cd8c69656a36e66463d824d852c757491b322f71f4a5e6d",
+      "original_sha256": "0e695fa0a85a80684ca59f11153e2ae5edc7ac66f1ed36050396a7bfc1a19538"
+    },
+    {
+      "path": "app/Services/Marketing/ServicePageDetails.php",
+      "status": "new",
+      "sha256": "cfe953f1a1bca22c7af3d5474453182ea7a1830c0066339f73873ac7ff6e411c",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/MarketingAssistant/MarketingAssistantService.php",
+      "status": "modified",
+      "original_sha256": "7bf8b00393e7849703ad8046c44ca0b192b386585c79267fe5a317ad170bd94f",
+      "sha256": "56775a65693be9747fa584a7b0560f9a76fade7a38849a53d10490a46059f2ea"
+    },
+    {
+      "path": "app/Services/OTA/GetYourGuideAPI.php",
+      "status": "modified",
+      "original_sha256": "6b1bb4a52e372f0990b254efd0ac4d62cc4836a8d12fd4abaf87326f9c639c04",
+      "sha256": "b9eaa8149246c0b203b6036fa03ccdc3eda71785803cfa73bf586752ba365d57"
+    },
+    {
+      "path": "app/Services/OTA/ViatorAPI.php",
+      "status": "modified",
+      "original_sha256": "4e9d692b678b2ae0ff54780f570cab70451a50bfd0c4484a98b426e20230cf49",
+      "sha256": "a7bddbca6046fa062242c6e0df3b55734d8c8128bd7366d7c1967040dcc84997"
+    },
+    {
+      "path": "app/Services/Operations/BackupService.php",
+      "status": "new",
+      "sha256": "06765b362d29bea7b6be0a28cbea65dad1fd064f9849c6312c7cafce05ec56ff",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/Operations/BookingOperationsService.php",
+      "status": "new",
+      "sha256": "f8bfab19223ea9998636c3285e557e76b171f57071a04ba58306100c6aee227d",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/Operations/QrCodeService.php",
+      "status": "new",
+      "sha256": "c7dd1efcba5fb397b771b3503a9a43f3cd278b9a36b6cedc37c250fa96cb1c95",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/Operations/TicketService.php",
+      "status": "new",
+      "sha256": "8de8c8b12121c06cf531c6e5909da02648e845c7c960d747ffe869bb332ed30d",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/Payment/OperatorPayments.php",
+      "status": "modified",
+      "sha256": "91c1b518e98163da998ef8170e543b8af1aafc5ddf6dec19d7b531df45c86bd4",
+      "original_sha256": "2dcc7d1c983c77ad3bc03296a97c50b594f1bfc5855bd4f193e7ec1ec7093e84"
+    },
+    {
+      "path": "app/Services/Payment/PaymentLinkService.php",
+      "status": "modified",
+      "sha256": "4af1eb082e6b16b9064b1119563e157baa8e59f847ab6c6be148959ec5b350bc",
+      "original_sha256": "9f6d5909951838b7abd629f0f00bc9a43608da3c516831135aea37c4f8be13ff"
+    },
+    {
+      "path": "app/Services/Payment/PaymobGateway.php",
+      "status": "modified",
+      "sha256": "9f0a3f555ad3aa88720c9b6122f455ff942e5820ff1668dcf99551fbafa7173b",
+      "original_sha256": "29eb8b08a660e0bcdaa9f84c25a76b2839bcbe1f6da228c169e90eef54340eff"
+    },
+    {
+      "path": "app/Services/Payment/RefundService.php",
+      "status": "modified",
+      "sha256": "35c0e9830b36deae78ad4181528581be3a41743dc49ae7e2b25a566738aefd63",
+      "original_sha256": "5e82e9baf7fc84f3cacdfe9a59d2e96ebb3f9a47c26842be448faa214f5ec647"
+    },
+    {
+      "path": "app/Services/Payment/StripeCheckoutService.php",
+      "status": "modified",
+      "sha256": "b60e65a22c4e0aa5eaee1d658edafb3c28513a39e6e2e11e97e3edf34d486051",
+      "original_sha256": "4e02fbaa36a82bc8bdcbea73c4712ec7d86104130e302f3d8ecd26f478356c58"
+    },
+    {
+      "path": "app/Services/PlanFeature.php",
+      "status": "modified",
+      "original_sha256": "267142dcef3842e07a0e1e5da1e4b6ebad79f8d81f3faf216b4a30cc6e566500",
+      "sha256": "c13b814757d66f5b862042d530e62ce1e0a2a8eb93697577c7aa78b0fe8164ce"
+    },
+    {
+      "path": "app/Services/Reputation/ReviewRequestService.php",
+      "status": "modified",
+      "original_sha256": "a871a1696dbba927e3b098c7a336fd3401c80cb6606e406747dbb046b55157f1",
+      "sha256": "6a88aa1b8213c88db8a632eaef93a059ddcd8bdd3730ad7192146a51105e132e"
+    },
+    {
+      "path": "app/Services/RevenueIntelligence/RevenueCopilotService.php",
+      "status": "modified",
+      "original_sha256": "e6a9897835464580f9bb1cba2a8646e73152216d85ce1d2cac474320ad5b49db",
+      "sha256": "1794a896c6563a1da20822338039e7d671047aab503c643208a7c97db707178d"
+    },
+    {
+      "path": "app/Services/ReviewAutoReplyRunner.php",
+      "status": "modified",
+      "original_sha256": "d61c0c32b8524dad2c1c0d7f2bf21fa30ad5820f12dfe3fd61761393f7dc7962",
+      "sha256": "9cf8dc19ed6f861f629b6986465b22cda0caf7ff99a4bb824df2a04cc3adaa74"
+    },
+    {
+      "path": "app/Services/ReviewRequestService.php",
+      "status": "modified",
+      "original_sha256": "805a8da9a57220758a67c6a2da77a30e8a138fbb869d8bd88f462a2e21cbaf06",
+      "sha256": "c787a950fe6fef069e0293f9af027679cc8a1f5cae4989d81d6e0d9b2625953f"
+    },
+    {
+      "path": "app/Services/RuntimeHealthService.php",
+      "status": "new",
+      "sha256": "9af5eccb938fb816b1254719395569b1f49deeef7e575469cf2ec15d5c8b36df",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/Security/OAuthState.php",
+      "status": "modified",
+      "sha256": "edd08bf79122d062915eba11aa1584fc759c2953c155da4e49b083dea0784c30",
+      "original_sha256": "14b5f62d947e7578cbcf8d6a767f79a153b50cc4f48975e392a91c48f0e6558c"
+    },
+    {
+      "path": "app/Services/Seo/ImageOptimizationService.php",
+      "status": "modified",
+      "sha256": "c949b4250f6b69d21c586de0726db0214ee514c26fca5dcbd44ad22d0305c2c6",
+      "original_sha256": "374be77b71e2797e9e09c4a07a7522c0a458732e38e1382889ca34cb1c0c464e"
+    },
+    {
+      "path": "app/Services/SocialMedia/SocialPostService.php",
+      "status": "modified",
+      "original_sha256": "2c656f568cf659cf92fdc4f5ad8292854e85be3ae29798d343aee80e6904e04a",
+      "sha256": "424c0a2486ff22469f989f52909537a32adff88ddcfee751b304722329303e39"
+    },
+    {
+      "path": "app/Services/Subscription/BillingManager.php",
+      "status": "modified",
+      "original_sha256": "711b4ebe69c99477ad44d007dad8dea248dd522414735cc17ba94a12b8756352",
+      "sha256": "e70e4289cb7235b6f2096724a7fdfccdd070f89e7d9daf58ff07b20a054e657c"
+    },
+    {
+      "path": "app/Services/Subscription/BillingPlanCatalog.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "e42bf87a9814959ada9ffab00d090d9ddf688d99887e609a24085d6e36580f59"
+    },
+    {
+      "path": "app/Services/Subscription/BillingUsageReservation.php",
+      "status": "modified",
+      "original_sha256": "9bb9589bd1c2dd83efbc9811abb7cd804976f2bfe8fa9bc431202b60e91beac2",
+      "sha256": "d5d6d8348831858a553e7c18bd95c594e4c7a441ce4a34a3fcd50d9220207e4a"
+    },
+    {
+      "path": "app/Services/Subscription/PlanUsage.php",
+      "status": "modified",
+      "original_sha256": "2599c802c7fc470021ed37cbd5c282bfbaf78d4f4da7495f9dda5fff46858d99",
+      "sha256": "f5fde9a2a6f48076a53c709b05c2e56998bcc2a5245df7345bf57edcdb2e3bc1"
+    },
+    {
+      "path": "app/Services/Subscription/SubscriptionLifecycleService.php",
+      "status": "modified",
+      "original_sha256": "76055cda030ec5c6279fac89e6529051187aad7bfc4a4fe3612e9fb55fe26c29",
+      "sha256": "3bc62e4b306aaf6f73e38f905535e0c144467c3edf1571bb0b787aa1f5a99bc0"
+    },
+    {
+      "path": "app/Services/Subscription/SubscriptionPeriod.php",
+      "status": "modified",
+      "original_sha256": "92e1028bb2eb6ddfebbf4697806c842feeead152fda0f6e3bf1badf3c7a0ca9c",
+      "sha256": "6e3b5edd052a347eb7f8bee0b775d194ecb65b329e3ad9e96be667b2cbae9940"
+    },
+    {
+      "path": "app/Services/Subscription/SubscriptionValidator.php",
+      "status": "modified",
+      "original_sha256": "45fb2441cd5df1e0945566085363718b3b727b4cd0cfbc2dc868b1a954f51f6e",
+      "sha256": "3301c00c0cceae0be6b68810663d7fd193172a6b5a5b7247cd4e725e03dea024"
+    },
+    {
+      "path": "app/Services/Subscription/WalletService.php",
+      "status": "modified",
+      "original_sha256": "7d17dd2854a27ccc132605da4e9615d7e067dc55f133d9108cfc990ef9203a33",
+      "sha256": "5ff941f2f5d430f519ce45acd0e20e6253d7eb7cf20be8df763f51713284b905"
+    },
+    {
+      "path": "app/Services/Support/CustomerError.php",
+      "status": "new",
+      "sha256": "a34e1ad1553dc150f90644c8a3aa8298a2187a69f95a3a01136bdfb2451acbcb",
+      "original_sha256": null
+    },
+    {
+      "path": "app/Services/Support/ExportRetentionService.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "f591f26e861c634ccdd832844e1d2a063a84f5dd8547e715d17034025c209097"
+    },
+    {
+      "path": "app/Services/TourfectoAIEngine.php",
+      "status": "modified",
+      "original_sha256": "00e8e1181d7fd09f5477014fc6eefb2b71f15f276d76b71ce611a76fc931e53c",
+      "sha256": "c1a9503f931faae3da3f14d208ff6058362a9fb7d9c3773786f5b66f756bbe82"
+    },
+    {
+      "path": "app/Services/TripReminderService.php",
+      "status": "modified",
+      "sha256": "313c0ccc4397a7f0cb1befbf127cc30a1c1e76780c81b2e7680de2927ac6c33c",
+      "original_sha256": "fd5eccce0d4ae8c2228a87a36c02883ce1ecddb16b884b3a011c686bf1284425"
+    },
+    {
+      "path": "app/Services/UploadManager.php",
+      "status": "modified",
+      "sha256": "5a8690191e0092a3199eb77968d169eeb493b9ca6dce69daab31fb529f1e0208",
+      "original_sha256": "a70b4925cb2421c93d6761fd93497da7795a3923810e01a9aa9c9e382041b95f"
+    },
+    {
+      "path": "app/Services/WebsiteBuilderService.php",
+      "status": "modified",
+      "original_sha256": "e12dd3f90751b5b0a0d93283ef7f43b5f6325cd78904788f0d7cb9b586710a4e",
+      "sha256": "b76547ad73e351373787ae2ee4a9f5d073932bf9128d51955443c0039819a5b8"
+    },
+    {
+      "path": "app/routes/api.php",
+      "status": "modified",
+      "sha256": "3748a325636c0da062d721bf71526ec49d16b51cb8a382ccaafd08a03e85d577",
+      "original_sha256": "f423fa904e3ca15b9ce647f9a620dd8d4d78103f9362de516e953c0a9141df34"
+    },
+    {
+      "path": "app/routes/web.php",
+      "status": "modified",
+      "sha256": "0e402675c0e8b557b198dc23aa2a5e96fc31c3d7c9b790b4db68626a8347e9eb",
+      "original_sha256": "31b9a21ecbfa633a0a6870b41909ac4bce0c4adfadc690f38b063ea0a4301f25"
+    },
+    {
+      "path": "cron/cleanup_data_exports.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "e077d54df1d63e21b3d27636719c2086bcccba3d1c6474b8803a8bc36c1f3ea8"
+    },
+    {
+      "path": "cron/process_queue.php",
+      "status": "modified",
+      "sha256": "5e62d0d2fe733f337405df8cbd133bc755445b621f83195c06d6034d3e2691e9",
+      "original_sha256": "4aba4b06f9e58c16d8b9239fa4018f068f9084d18e7217820702cfd06adc5166"
+    },
+    {
+      "path": "cron/schedule.php",
+      "status": "modified",
+      "original_sha256": "87d6b83f29be8f124eba0b7ebcae20ee77c4a3f1d9a1a7a917e9511ac4313517",
+      "sha256": "391342780be54e3dda88cb41db92976fdff237160b3f8230afe48f16b0bc6612"
+    },
+    {
+      "path": "database/migrations/2026_10_10_000003_operations_upgrade.sql",
+      "status": "new",
+      "sha256": "c168abf116a0f2c7e1a9dc614383d7a7b8097a1fbf05d0d60cd9c235a17d59ed",
+      "original_sha256": null
+    },
+    {
+      "path": "database/migrations/2026_10_10_000004_creative_studio_pro.sql",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "c39c5f570848c65c87e76c9b7954cc013e92c981e3dacb33d27ee4d7ff7e72aa"
+    },
+    {
+      "path": "database/migrations/2026_10_10_000005_creative_studio_phase2.sql",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "6314f8241fed6167219e82821ce33a1b416ec441b51e38702304d40100d5a56c"
+    },
+    {
+      "path": "database/migrations/2026_10_10_000006_creative_studio_phase3.sql",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "3bb6548dfdcc41b92dd02d761e0cc5eb098e1364ff6146e4ba0414ed677ca765"
+    },
+    {
+      "path": "database/migrations/2026_10_10_000007_ai_service_routing.sql",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "e297043774a2d227d6b20b04aa5d83e8219e4f3f738b8120c33e3ace9d75d4c1"
+    },
+    {
+      "path": "database/migrations/2026_10_11_000008_billing_usage_reservations.sql",
+      "status": "added",
+      "original_sha256": null,
+      "sha256": "4327b1c67121d464aec3c3c5c033eed5d2062f28e3e78d6ac43a1a398b018b22"
+    },
+    {
+      "path": "docs/OPERATIONS_UPGRADE_AR.md",
+      "status": "new",
+      "sha256": "1b02459c823b5d747622e7c541cabf437c8306f4703d8e822e287c954d246aa1",
+      "original_sha256": null
+    },
+    {
+      "path": "docs/SERVICE_PAGES_UPGRADE_AR.md",
+      "status": "new",
+      "sha256": "385dd37bbab9a78c95c88f43c36791edaba5562fd832b639a6a143903bfd2c66",
+      "original_sha256": null
+    },
+    {
+      "path": "phpunit.xml",
+      "status": "modified",
+      "sha256": "2d886c734a08a359f13d753c268f5e0e1eb2d2f0ee0cc986648b4431c7710ea8",
+      "original_sha256": "905bc8d8156190698e7cf0d5726dfa1d812e4b6aa523fe2796c663a8a03822f3"
+    },
+    {
+      "path": "public_html/assets/css/admin-ai-routing.css",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "250dbd770607167069f5295136427caa865ac85232db90f5dfa0f618aecb9a12"
+    },
+    {
+      "path": "public_html/assets/css/creative-studio-pro.css",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "7fe1f0951ce773ff44f878234d7161140339439352852d6e35e3a639c888a065"
+    },
+    {
+      "path": "public_html/assets/css/service-details.css",
+      "status": "new",
+      "sha256": "9d0f23df7e915bac6548ce5b25621bd5198264b4069717cd0d2f34fccacf020f",
+      "original_sha256": null
+    },
+    {
+      "path": "public_html/assets/fonts/DejaVuSans-Bold.ttf",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
+    },
+    {
+      "path": "public_html/assets/fonts/DejaVuSans-LICENSE.txt",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9"
+    },
+    {
+      "path": "public_html/assets/js/admin-ai-routing.js",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "70584482f2c9895dc978b4b7df42876dfa2cedef0ae88583f1853eae35280a0a"
+    },
+    {
+      "path": "public_html/assets/js/creative-admin.js",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "e96b1b41533c461d3f51b90a26a0c7ee41b9ae818dc95a75fe1d40ab2cfc0a73"
+    },
+    {
+      "path": "public_html/assets/js/creative-brand-editor.js",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "4c9535a54696ad8ea35679e59d4da3de92ee95687cf2a060fe1db00469f659f8"
+    },
+    {
+      "path": "public_html/assets/js/creative-studio-pro.js",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "f6b0c59a4066f8b3489a755817ecf32b5430d56f412a877225b85e028ba7b0f4"
+    },
+    {
+      "path": "public_html/assets/js/creative-video-editor.js",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "01934537cba4758077326428533a26bffb396ac82f1e381fdc3fba3132f0b89f"
+    },
+    {
+      "path": "public_html/assets/js/panel.js",
+      "status": "modified",
+      "sha256": "a71ee981fe2a36ac2bc11f640447c6eadc37afb3b516f7f2b311f9d58f7ace5b",
+      "original_sha256": "99d4c0888fe8361eca6401e1baf84bad819b7efe01fd881303facccd72083231"
+    },
+    {
+      "path": "public_html/assets/js/service-details.js",
+      "status": "new",
+      "sha256": "a8f494e65c8d3ce4389564611de9ada9deefea5970b8c60280dceb8766e4a329",
+      "original_sha256": null
+    },
+    {
+      "path": "public_html/panel.js",
+      "status": "modified",
+      "sha256": "11a3b43a9b63bd89668faed0540e95481cef3fea4c20b42a72b13313e3f7f5f1",
+      "original_sha256": "99d4c0888fe8361eca6401e1baf84bad819b7efe01fd881303facccd72083231"
+    },
+    {
+      "path": "public_html/uploads/media/.htaccess",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "abbd6853f1f1622cf6ba4e266a02f21027744603c17accc6be98acaa55f6f468"
+    },
+    {
+      "path": "tests/Regression/AiRoutingClientTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "5c432b9753a4ff2df5ed392ea3a03e54310be4e5d644584a9d892935c2ecfb36"
+    },
+    {
+      "path": "tests/Regression/AiServiceRoutingTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "2e4897577d0f29b33327bc593229af3dcc44fee14581d5206d1c6ef772f09755"
+    },
+    {
+      "path": "tests/Regression/BillingCheckoutFixTest.cjs",
+      "status": "added",
+      "original_sha256": null,
+      "sha256": "468b362bad58da13847404dd5e9cf5358e5a16f9975e556e23a7733b6c7e7920"
+    },
+    {
+      "path": "tests/Regression/BillingRetentionDeltaTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "8d907b660babc8cf8d551f473bef9ebc0e1472d83c6f64670fba9442ab2bc72f"
+    },
+    {
+      "path": "tests/Regression/BillingSubscriptionFixTest.php",
+      "status": "added",
+      "original_sha256": null,
+      "sha256": "557df7f07de5c2e0e201a93cfef5ebe7a7717bff24fb4c5dda847412e5b9cc57"
+    },
+    {
+      "path": "tests/Regression/CreativeArtDirectionTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "2d6610c6777f7abd364f4d3c3ed00eb84a79a2405db4659c041be22995be0de9"
+    },
+    {
+      "path": "tests/Regression/CreativeCampaignDesignerTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "9e27249de254ec0aa4949aa80f754392a885ca53c9d6f3b6a3dea1e670803cd9"
+    },
+    {
+      "path": "tests/Regression/CreativeCampaignUiTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "0ac9bea33f5a478ef7a1d43c3f392402f9188d1d9546c4f4da84c23c371d6270"
+    },
+    {
+      "path": "tests/Regression/CreativePlanSettlementTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "010b276f889807e4c0b5419cef22082f7aad6069196734badb9a1e5b08c9ec97"
+    },
+    {
+      "path": "tests/Regression/CreativePrivateMediaHttpTest.py",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "34d7772fb34b18f968118657573111b8af5627307f896c89eb1384cbc3b6f08f"
+    },
+    {
+      "path": "tests/Regression/CreativePrivateMigrationTest.py",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "cc68216fad68971b1f5b7033cfe72d8659d89e72dbaa926c32149d960cd42882"
+    },
+    {
+      "path": "tests/Regression/CreativeStudioClientTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "601f091c6f684fffd14fe369782773097cb20f0724efe61cfbe24adb8cb55dcd"
+    },
+    {
+      "path": "tests/Regression/CreativeStudioProTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "6c5bb306c6a3e33bbca4b52a451e3ecfeb2004395fc465624502376fe7331e3c"
+    },
+    {
+      "path": "tests/Regression/CustomerExperienceTest.php",
+      "status": "new",
+      "sha256": "aa26a5929e08d03854b56000844c487fde1425137a57b3b536d42551a49a78e4",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/DocumentationHtmlFixTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "bae5cede76e58cdfcb2d267edc1c5d9bc2325b9df8e1c7bcf5ea147ae9cba5c0"
+    },
+    {
+      "path": "tests/Regression/OctoberGbpQueueTest.php",
+      "status": "new",
+      "sha256": "415344d8906f6e8d341319cfa340efa8d785c0110cc9ccff980bd90ed95b470f",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/OctoberPaymentSecurityTest.php",
+      "status": "new",
+      "sha256": "cbdea1a01734eb31ababaeb9103fe0e37d07824553ad69c5243ea15cf39067de",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/OctoberRepairTest.php",
+      "status": "new",
+      "sha256": "334044267e8ae469f0b3c2e39fc09cca2918df569d7d882a69270c6c80677374",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/OperationsUpgradeTest.php",
+      "status": "new",
+      "sha256": "d7a55dce29cc6038231183cb48cf1603956a7084eab990b14140089bfc3fb3db",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/OtaVerificationFixTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "10e8113cb1163c7769ff41d7f40407e2fe45be63c9ca219bf523904365bdb1da"
+    },
+    {
+      "path": "tests/Regression/PagesButtonsFixTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "b4424abd6ee60e12a96358882f3938a497d7658967af3ff22996b3f17ee2379e"
+    },
+    {
+      "path": "tests/Regression/PagesOpenApiFixTest.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "b6a5e6fd4ed3132e585e68fb7c14341ea40be1a8ebba2d3f29a802e5530f3287"
+    },
+    {
+      "path": "tests/Regression/RemainingPagesFixTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "316d33f740b1bd308d6452e3191ed696455a20869056ea8fc3fddc2a03971001"
+    },
+    {
+      "path": "tests/Regression/ServiceUiUpgradeTest.cjs",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "76688ff18ffe4477a9fc91942fe48d8f7f23c60e36b1edce69a67898bea8ebec"
+    },
+    {
+      "path": "tests/Regression/customer_fetch_test.js",
+      "status": "new",
+      "sha256": "30288c9c3cac116f70712a1ab9cbda2569189e6c873328c37437d26275e59d74",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/operations_ui_test.js",
+      "status": "new",
+      "sha256": "bf2d560fb85a4c5846dfedb8acf166e2782f8301b5d160b20f4d534cb0be9ead",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/public_booking_ui_test.js",
+      "status": "new",
+      "sha256": "5fb8232225c188487c658a42606e15cd03b7eadd37b22e79eb16965ff62a6173",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/service_details_ui_test.js",
+      "status": "new",
+      "sha256": "3554e11bb5ea7b25e55e76cbe43469290cabe5c4e6ce508a46b396aea8e5a3a3",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Regression/service_pages_test.py",
+      "status": "new",
+      "sha256": "0f41014524d02b706e26d0243b9967c02fee6d5422ef46c935a0f5bfcfbd9ed4",
+      "original_sha256": null
+    },
+    {
+      "path": "tests/Unit/offline_bootstrap.php",
+      "status": "modified",
+      "sha256": "cd736c960a5df9365481ca8c2eb74d986e7835ec7c2fce41105236e2420cd12c",
+      "original_sha256": "d9bc72c1a0c23f57df8424537351aa5255bbaeb0a49d05c291ee4e01204ac7a2"
+    },
+    {
+      "path": "tools/backup.php",
+      "status": "new",
+      "sha256": "77f28c9bbfee026639e7b578b3bb8dac213978e517e21f7b5221e30c20ee5146",
+      "original_sha256": null
+    },
+    {
+      "path": "tools/billing_delta_preflight.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "5d462924e5ba6e5baf845be49bf5fee025e5528e05092deb2b5402213eaab3ea"
+    },
+    {
+      "path": "tools/billing_usage_reconcile.php",
+      "status": "added",
+      "original_sha256": null,
+      "sha256": "33c768f5e6651e4ac6c04137a3e4c9d9187a462c93cbe31241e641beb623e4fc"
+    },
+    {
+      "path": "tools/creative_studio_phase2_preflight.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "b17dee817b4ccd760d64de8197453b5d9a139db3c3af8ae743f51df6bcb8a4a6"
+    },
+    {
+      "path": "tools/creative_studio_phase3_preflight.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "e8c21ebfb1f86b3da6702681b0343dfb03d70f2e6bb7df2da2f415e1207b455b"
+    },
+    {
+      "path": "tools/creative_studio_preflight.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "8808cb688e7cc5d9baab02d199a7e516cd902b0b40a2efbcaed50b973a72583f"
+    },
+    {
+      "path": "tools/lint.php",
+      "status": "modified",
+      "sha256": "ddf777f6f376fc96db3063b011be5a23360c1227f271328dedc551a750347be9",
+      "original_sha256": "0f97636aa23697294a57bedc83290e9b9feea3b0a813c4476198a3132e6478be"
+    },
+    {
+      "path": "tools/migrate_creative_media_private.php",
+      "status": "new",
+      "original_sha256": null,
+      "sha256": "9dfe5a3335003cbc309f4ab22371cf9c2d04d1d8c631a59c355317fb2ac01bb2"
+    },
+    {
+      "path": "tools/operations_preflight.php",
+      "status": "new",
+      "sha256": "ff2f12be887ca28f81b0ba9bfd76669b77f70cdad7cda87a3fd6727a0eef232f",
+      "original_sha256": null
+    },
+    {
+      "path": "tools/restore_backup.php",
+      "status": "new",
+      "sha256": "324ccb26975aa82d0a7e1f1036eded1bcd50e38a7e5fd0259bc30444bbe6d32f",
+      "original_sha256": null
+    },
+    {
+      "path": "tools/service_audit.php",
+      "status": "new",
+      "sha256": "a1ea4d8c7c6782fab926f3f3afdd49b83e5f2111a30b0d86c15b86714428d284",
+      "original_sha256": null
+    },
+    {
+      "path": "tools/verify_october_repair.php",
+      "status": "new",
+      "sha256": "77055003c4a4653d3bf24ed03b99d95cceecded6720b1c5df47ec919bfe40af1",
+      "original_sha256": null
+    }
+  ],
+  "incremental_patch_new_sql_required": false,
+  "creative_studio_migration": "database/migrations/2026_10_10_000004_creative_studio_pro.sql",
+  "creative_studio_new_sql_required": true,
+  "creative_studio_phase2_migration": "database/migrations/2026_10_10_000005_creative_studio_phase2.sql",
+  "creative_studio_phase3_migration": "database/migrations/2026_10_10_000006_creative_studio_phase3.sql",
+  "ai_service_routing_migration": "database/migrations/2026_10_10_000007_ai_service_routing.sql",
+  "creative_art_direction_new_sql_required": false,
+  "campaign_designer_new_sql_required": false,
+  "pages_buttons_new_sql_required": false,
+  "remaining_pages_new_sql_required": false,
+  "service_audit_fix_new_sql_required": false,
+  "billing_additional_sql": true,
+  "billing_migration": "database/migrations/2026_10_11_000008_billing_usage_reservations.sql"
+}

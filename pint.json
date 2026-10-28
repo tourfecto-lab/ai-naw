@@ -1,0 +1,16 @@
+{
+    "preset": "psr12",
+    "exclude": [
+        "app/Chat",
+        "app/Reputation",
+        "app/Subscription",
+        "app/Security",
+        "app/app",
+        "app/routes/Models",
+        "app/database",
+        "vendor",
+        "public_html/_internal_error_dashboard_9f21x.php",
+        "public_html/show_columns.php",
+        "public_html/system_check.php"
+    ]
+}

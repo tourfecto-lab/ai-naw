@@ -1,0 +1,7 @@
+PASS Coupon edit clears applied code and stale price
+PASS Pending validation locks confirm and repeated apply
+PASS Edited code ignores in-flight validation response
+PASS Network validation failure unlocks and reports retry
+PASS Only one checkout can be open and quote uses actual payable price
+PASS Quote failure never creates checkout or debit
+RESULT: 6 passed, 0 failed

@@ -1,0 +1,817 @@
+/**
+ * Tourfecto - AI Chat Platform Frontend
+ * طبقة مكوّنات احترافية لوحدة الشات فوق نظام Compass Design System
+ * (نفس لوحة الألوان/الخطوط، بارتفاع الحوكمة البصرية لمنتج SaaS متكامل)
+ * @version 1.0.0
+ */
+
+/* ============================================================
+   1. Page Toolbar (شريط أعلى الصفحة)
+   ============================================================ */
+.ch-toolbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+.ch-toolbar .ch-search {
+    position: relative;
+    flex: 1 1 220px;
+    min-width: 180px;
+    max-width: 320px;
+}
+.ch-toolbar .ch-search svg {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: 12px;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--panel-text-muted);
+    pointer-events: none;
+}
+.ch-toolbar .ch-search input {
+    width: 100%;
+    padding-inline-start: 36px;
+}
+.ch-toolbar .ch-toolbar-spacer { flex: 1 1 0; min-width: 8px; }
+
+/* ============================================================
+   2. Segmented Filters (فلترة سريعة)
+   ============================================================ */
+.ch-filterbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.ch-filterbar .ch-filter-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--panel-text-muted);
+    margin-inline-end: 2px;
+    text-transform: uppercase;
+}
+.ch-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    background: var(--panel-card-bg-2);
+    color: var(--panel-text-muted);
+    border: 1px solid var(--panel-border);
+    transition: all .18s ease;
+    white-space: nowrap;
+}
+.ch-chip svg { width: 13px; height: 13px; }
+.ch-chip:hover {
+    color: var(--panel-text);
+    border-color: rgba(255,255,255,.18);
+    transform: translateY(-1px);
+}
+.ch-chip.active {
+    background: var(--panel-accent-light);
+    border-color: rgba(239,176,94,.45);
+    color: var(--panel-accent);
+    box-shadow: 0 0 0 1px rgba(239,176,94,.15), 0 4px 14px -6px var(--panel-gold-glow);
+}
+.ch-chip.active.teal { background: var(--panel-success-light); border-color: rgba(78,205,196,.45); color: var(--panel-teal); box-shadow: 0 0 0 1px rgba(78,205,196,.15); }
+.ch-chip.active.red { background: var(--panel-danger-light); border-color: rgba(255,107,91,.45); color: var(--panel-danger); box-shadow: 0 0 0 1px rgba(255,107,91,.15); }
+.ch-chip.active.purple { background: var(--panel-info-light); border-color: rgba(139,124,246,.45); color: var(--panel-info); box-shadow: 0 0 0 1px rgba(139,124,246,.15); }
+.ch-chip .ch-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ============================================================
+   3. KPI Stat Tiles (بطاقات الإحصائيات)
+   ============================================================ */
+.ch-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+.ch-stat {
+    position: relative;
+    background: linear-gradient(160deg, var(--panel-card-bg) 0%, var(--panel-card-bg-2) 100%);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    padding: 16px 16px 14px;
+    overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.ch-stat:hover { transform: translateY(-2px); box-shadow: var(--panel-shadow-hover); }
+.ch-stat::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--panel-accent), transparent 60%);
+    opacity: .8;
+}
+.ch-stat.teal::before { background: linear-gradient(90deg, var(--panel-teal), transparent 60%); }
+.ch-stat.red::before { background: linear-gradient(90deg, var(--panel-danger), transparent 60%); }
+.ch-stat.purple::before { background: linear-gradient(90deg, var(--panel-info), transparent 60%); }
+.ch-stat .ch-stat-icon {
+    display: inline-flex;
+    width: 30px;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: var(--panel-accent-light);
+    color: var(--panel-accent);
+    margin-bottom: 10px;
+}
+.ch-stat.teal .ch-stat-icon { background: var(--panel-success-light); color: var(--panel-teal); }
+.ch-stat.red .ch-stat-icon { background: var(--panel-danger-light); color: var(--panel-danger); }
+.ch-stat.purple .ch-stat-icon { background: var(--panel-info-light); color: var(--panel-info); }
+.ch-stat-icon svg { width: 16px; height: 16px; }
+.ch-stat .ch-stat-value {
+    font-family: var(--font-mono-num);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--panel-text);
+    letter-spacing: -.02em;
+}
+.ch-stat .ch-stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--panel-text-muted);
+    margin-top: 4px;
+}
+
+/* ============================================================
+   4. Avatar System (أفاتار العميل/القناة)
+   ============================================================ */
+.ch-avatar {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: #0B1220;
+    background: linear-gradient(135deg, #4ECDC4, #3AA8A0);
+    box-shadow: 0 4px 12px -4px rgba(78,205,196,.4);
+    user-select: none;
+}
+.ch-avatar.gold { background: linear-gradient(135deg, #EFB05E, #D98E36); box-shadow: 0 4px 12px -4px rgba(239,176,94,.4); }
+.ch-avatar.purple { background: linear-gradient(135deg, #8B7CF6, #6A5AE0); box-shadow: 0 4px 12px -4px rgba(139,124,246,.4); }
+.ch-avatar.red { background: linear-gradient(135deg, #FF6B5B, #E04E3E); box-shadow: 0 4px 12px -4px rgba(255,107,91,.4); }
+.ch-avatar.sm { width: 32px; height: 32px; border-radius: 9px; font-size: 13px; }
+.ch-avatar.lg { width: 56px; height: 56px; border-radius: 15px; font-size: 22px; }
+.ch-avatar .ch-chan-badge {
+    position: absolute;
+    bottom: -4px;
+    inset-inline-end: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel-card-bg-2);
+    border: 2px solid var(--panel-card-bg);
+    color: var(--panel-accent);
+}
+.ch-avatar .ch-chan-badge svg { width: 10px; height: 10px; }
+.ch-avatar-stack { display: flex; }
+.ch-avatar-stack .ch-avatar { margin-inline-end: -10px; border: 2px solid var(--panel-card-bg); }
+.ch-avatar-stack .ch-avatar:last-child { margin-inline-end: 0; }
+
+/* ============================================================
+   5. Conversation List (قائمة المحادثات - Inbox)
+   ============================================================ */
+.ch-inbox {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ch-conv {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 16px;
+    background: var(--panel-card-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    cursor: pointer;
+    transition: all .18s ease;
+    position: relative;
+    overflow: hidden;
+}
+.ch-conv:hover {
+    border-color: rgba(255,255,255,.16);
+    background: linear-gradient(160deg, var(--panel-card-bg-2), var(--panel-card-bg));
+    transform: translateY(-1px);
+    box-shadow: var(--panel-shadow-hover);
+}
+.ch-conv.unread {
+    background: linear-gradient(160deg, rgba(239,176,94,.06), var(--panel-card-bg));
+    border-color: rgba(239,176,94,.28);
+}
+.ch-conv.unread::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--panel-accent);
+}
+.ch-conv .ch-conv-body { flex: 1; min-width: 0; }
+.ch-conv .ch-conv-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+.ch-conv .ch-conv-name {
+    font-weight: 700;
+    font-size: 14.5px;
+    color: var(--panel-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ch-conv.unread .ch-conv-name { color: #fff; }
+.ch-conv .ch-conv-time {
+    margin-inline-start: auto;
+    font-size: 11.5px;
+    font-family: var(--font-mono-num);
+    color: var(--panel-text-muted);
+    white-space: nowrap;
+}
+.ch-conv .ch-conv-preview {
+    font-size: 13px;
+    color: var(--panel-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 480px;
+}
+.ch-conv .ch-conv-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.ch-conv .ch-unread-badge {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--panel-accent);
+    color: #0B1220;
+    font-size: 11.5px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono-num);
+}
+.ch-conv .ch-priority-bar {
+    width: 34px;
+    height: 4px;
+    border-radius: 4px;
+    background: rgba(255,255,255,.08);
+    overflow: hidden;
+}
+.ch-conv .ch-priority-bar i { display: block; height: 100%; border-radius: 4px; }
+.ch-conv .ch-priority-bar.high i { background: var(--panel-warning); width: 70%; }
+.ch-conv .ch-priority-bar.urgent i { background: var(--panel-danger); width: 100%; }
+
+/* Channel pill with icon */
+.ch-channel {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.05);
+    color: var(--panel-text-muted);
+    white-space: nowrap;
+}
+.ch-channel svg { width: 12px; height: 12px; }
+.ch-channel.whatsapp { background: rgba(37,211,102,.13); color: #25D366; }
+.ch-channel.website_chat { background: var(--panel-success-light); color: var(--panel-teal); }
+.ch-channel.webchat { background: var(--panel-success-light); color: var(--panel-teal); }
+.ch-channel.messenger { background: rgba(0,132,255,.15); color: #4E9BFF; }
+.ch-channel.instagram { background: rgba(225,48,108,.15); color: #E1306C; }
+.ch-channel.email { background: rgba(139,124,246,.15); color: var(--panel-info); }
+
+/* Score progress bar */
+.ch-scorebar {
+    width: 100%;
+    height: 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,.08);
+    overflow: hidden;
+}
+.ch-scorebar i {
+    display: block;
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--panel-teal), var(--panel-accent));
+    transition: width .5s ease;
+}
+.ch-scorebar.gold i { background: linear-gradient(90deg, var(--panel-accent), #D98E36); }
+.ch-scorebar.red i { background: linear-gradient(90deg, var(--panel-teal), var(--panel-danger)); }
+.ch-scorebar + .ch-score-label { margin-top: 6px; font-size: 11.5px; color: var(--panel-text-muted); }
+
+/* ============================================================
+   6. Chat Thread (المحادثة)
+   ============================================================ */
+.ch-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px 16px;
+    background: radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,.25) 100%, transparent),
+        radial-gradient(1px 1px at 85% 75%, rgba(255,255,255,.2) 100%, transparent),
+        var(--panel-card-bg);
+    background-size: 220px 220px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    max-height: 480px;
+    overflow-y: auto;
+}
+.ch-thread::-webkit-scrollbar { width: 8px; }
+.ch-thread::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 8px; }
+.ch-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    max-width: 78%;
+}
+.ch-msg.in { align-self: flex-start; }
+.ch-msg.out { align-self: flex-end; flex-direction: row-reverse; }
+.ch-msg .ch-msg-avatar { margin-bottom: 14px; }
+.ch-msg .ch-msg-bubble {
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.55;
+    position: relative;
+    box-shadow: 0 2px 8px -2px rgba(0,0,0,.35);
+}
+.ch-msg.in .ch-msg-bubble {
+    background: var(--panel-card-bg-2);
+    border: 1px solid var(--panel-border);
+    border-bottom-start-radius: 4px;
+    color: var(--panel-text);
+}
+.ch-msg.out .ch-msg-bubble {
+    background: linear-gradient(150deg, #F2B35E, #D98E36);
+    border-bottom-end-radius: 4px;
+    color: #0B1220;
+    font-weight: 500;
+}
+.ch-msg.ai .ch-msg-bubble {
+    background: linear-gradient(150deg, rgba(78,205,196,.16), rgba(78,205,196,.08));
+    border: 1px solid rgba(78,205,196,.35);
+    color: var(--panel-text);
+    border-bottom-start-radius: 4px;
+}
+.ch-msg .ch-msg-time {
+    font-size: 10.5px;
+    font-family: var(--font-mono-num);
+    color: var(--panel-text-muted);
+    margin-top: 4px;
+    opacity: .8;
+}
+.ch-msg .ch-msg-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 4px;
+    letter-spacing: .03em;
+}
+.ch-msg.in .ch-msg-tag { background: var(--panel-info-light); color: var(--panel-info); }
+.ch-msg.ai .ch-msg-tag { background: var(--panel-success-light); color: var(--panel-teal); }
+.ch-msg.out .ch-msg-tag { background: rgba(11,18,32,.18); color: #0B1220; }
+.ch-msg .ch-msg-tag svg { width: 11px; height: 11px; }
+
+/* AI suggestions */
+.ch-suggest {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ch-suggest-card {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(150deg, rgba(139,124,246,.1), var(--panel-card-bg-2));
+    border: 1px solid rgba(139,124,246,.25);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all .18s ease;
+    align-items: flex-start;
+}
+.ch-suggest-card:hover { border-color: rgba(139,124,246,.5); transform: translateY(-1px); box-shadow: 0 8px 18px -10px rgba(139,124,246,.4); }
+.ch-suggest-card .ch-suggest-icon {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--panel-info-light);
+    color: var(--panel-info);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+.ch-suggest-card .ch-suggest-icon svg { width: 14px; height: 14px; }
+.ch-suggest-card .ch-suggest-text { font-size: 13.5px; color: var(--panel-text); line-height: 1.5; }
+.ch-suggest-card .ch-suggest-use { font-size: 11px; color: var(--panel-info); font-weight: 700; margin-top: 4px; }
+
+/* Composer (مربع كتابة الرد) */
+.ch-composer textarea {
+    min-height: 72px;
+    resize: vertical;
+    background: var(--panel-card-bg-2);
+    border-color: var(--panel-border);
+    color: var(--panel-text);
+}
+.ch-composer textarea:focus { border-color: rgba(239,176,94,.5); box-shadow: 0 0 0 3px rgba(239,176,94,.12); }
+
+/* ============================================================
+   7. Lead Panel (لوحة معلومات الـ Lead)
+   ============================================================ */
+.ch-lead-hero {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--panel-border);
+}
+.ch-lead-hero .ch-lead-score {
+    flex: 1;
+    text-align: center;
+    font-family: var(--font-mono-num);
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--panel-accent);
+    line-height: 1;
+}
+.ch-lead-hero .ch-lead-score small { display: block; font-size: 11px; color: var(--panel-text-muted); font-family: var(--font-family); margin-top: 4px; font-weight: 600; }
+.ch-kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+.ch-kv-grid .p-kv { display: block; border-bottom: 1px dashed var(--panel-border); padding: 8px 0; }
+.ch-kv-grid .p-kv .k { display: block; font-size: 11px; margin-bottom: 2px; }
+.ch-kv-grid .p-kv .v { font-size: 13.5px; }
+.ch-hint {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--panel-accent-light);
+    border: 1px solid rgba(239,176,94,.22);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--panel-text);
+}
+.ch-hint .ch-hint-title { display: block; font-weight: 700; color: var(--panel-accent); margin-bottom: 3px; font-size: 12px; }
+
+/* ============================================================
+   8. Cards & Sections (بطاقات عامة محسّنة)
+   ============================================================ */
+.ch-card {
+    background: var(--panel-card-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    box-shadow: var(--panel-shadow);
+    margin-bottom: 14px;
+}
+.ch-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--panel-border);
+}
+.ch-card-head .ch-card-title { font-size: 15px; font-weight: 800; color: var(--panel-text); margin: 0; }
+.ch-card-head .ch-card-title svg { width: 16px; height: 16px; color: var(--panel-accent); vertical-align: -3px; margin-inline-end: 6px; }
+.ch-card-head .ch-card-sub { font-size: 12px; color: var(--panel-text-muted); }
+.ch-card-head .ch-card-spacer { flex: 1; }
+.ch-card-body { padding: 16px 18px; }
+.ch-card-body.no-pad { padding: 0; }
+
+/* Empty state */
+.ch-empty {
+    text-align: center;
+    padding: 52px 24px;
+    color: var(--panel-text-muted);
+}
+.ch-empty .ch-empty-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 14px;
+    border-radius: 20px;
+    background: var(--panel-card-bg-2);
+    border: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--panel-accent);
+}
+.ch-empty .ch-empty-icon svg { width: 30px; height: 30px; }
+.ch-empty .ch-empty-title { font-size: 15px; font-weight: 700; color: var(--panel-text); margin-bottom: 4px; }
+.ch-empty .ch-empty-sub { font-size: 13px; }
+
+/* ============================================================
+   9. Pending Approvals (الرسائل المعلّقة)
+   ============================================================ */
+.ch-pending {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.ch-pending-card {
+    background: var(--panel-card-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    padding: 16px 18px;
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+.ch-pending-card:hover { border-color: rgba(255,255,255,.16); box-shadow: var(--panel-shadow-hover); }
+.ch-pending-card .ch-pending-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.ch-pending-card .ch-pending-head .ch-pending-name { font-weight: 700; font-size: 14.5px; }
+.ch-pending-card .ch-pending-quote {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.ch-pending-card .ch-quote-box {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--panel-card-bg-2);
+    border: 1px solid var(--panel-border);
+    font-size: 13.5px;
+    line-height: 1.55;
+    min-height: 70px;
+    color: var(--panel-text);
+}
+.ch-pending-card .ch-quote-box .ch-quote-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--panel-text-muted);
+    margin-bottom: 6px;
+    letter-spacing: .03em;
+}
+.ch-pending-card .ch-quote-box .ch-quote-label svg { width: 12px; height: 12px; }
+.ch-pending-card .ch-quote-box.in { border-color: rgba(139,124,246,.3); }
+.ch-pending-card .ch-quote-box.in .ch-quote-label { color: var(--panel-info); }
+.ch-pending-card .ch-quote-box.out { border-color: rgba(78,205,196,.3); }
+.ch-pending-card .ch-quote-box.out .ch-quote-label { color: var(--panel-teal); }
+.ch-pending-card textarea { min-height: 84px; width: 100%; }
+
+/* ============================================================
+   10. Follow-up Steps (خطوات المتابعة)
+   ============================================================ */
+.ch-steps { display: flex; flex-direction: column; gap: 10px; }
+.ch-step {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    background: var(--panel-card-bg-2);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+}
+.ch-step::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 24px;
+    top: 52px;
+    bottom: -26px;
+    width: 2px;
+    background: rgba(239,176,94,.25);
+}
+.ch-step:last-child::before { display: none; }
+.ch-step .ch-step-num {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--panel-accent-light);
+    border: 1px solid rgba(239,176,94,.4);
+    color: var(--panel-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    font-family: var(--font-mono-num);
+}
+.ch-step .ch-step-body { flex: 1; min-width: 0; }
+.ch-step .ch-step-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ============================================================
+   11. Provider / Tables
+   ============================================================ */
+.ch-provider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--panel-border);
+}
+.ch-provider-row:last-child { border-bottom: none; }
+.ch-provider-row .ch-provider-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    background: var(--panel-info-light);
+    color: var(--panel-info);
+}
+.ch-provider-row .ch-provider-name { font-weight: 600; flex: 1; }
+.ch-provider-row .ch-provider-count { font-family: var(--font-mono-num); font-size: 13.5px; color: var(--panel-text-muted); }
+
+/* Rank bars for analytics */
+.ch-rank { display: flex; flex-direction: column; gap: 10px; }
+.ch-rank-item .ch-rank-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+.ch-rank-item .ch-rank-label span:first-child { color: var(--panel-text); font-weight: 600; }
+.ch-rank-item .ch-rank-label span:last-child { font-family: var(--font-mono-num); color: var(--panel-text-muted); font-size: 12.5px; }
+.ch-rank-item .ch-rank-bar { height: 8px; border-radius: 8px; background: rgba(255,255,255,.07); overflow: hidden; }
+.ch-rank-item .ch-rank-bar i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--panel-teal), var(--panel-accent)); }
+
+/* ============================================================
+   12. Status pills (تحسينات على .pill اللي جوه panel.css)
+   ============================================================ */
+.ch-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    background: rgba(255,255,255,.06);
+    color: var(--panel-text-muted);
+}
+.ch-pill svg { width: 11px; height: 11px; }
+.ch-pill.green { background: var(--panel-success-light); color: var(--panel-success); }
+.ch-pill.red { background: var(--panel-danger-light); color: var(--panel-danger); }
+.ch-pill.orange { background: var(--panel-warning-light); color: var(--panel-warning); }
+.ch-pill.blue { background: var(--panel-accent-light); color: var(--panel-accent); }
+.ch-pill.purple { background: var(--panel-info-light); color: var(--panel-info); }
+.ch-pill .ch-pulse { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: chPulse 1.6s ease infinite; }
+@keyframes chPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* ============================================================
+   13. Skeleton loaders
+   ============================================================ */
+.ch-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--panel-card-bg-2);
+    border-radius: 10px;
+}
+.ch-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
+    animation: chShimmer 1.4s infinite;
+}
+@keyframes chShimmer { 100% { transform: translateX(100%); } }
+.ch-skeleton-row { display: flex; gap: 12px; padding: 12px 16px; align-items: center; }
+.ch-skeleton-row .ch-skeleton.avatar { width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0; }
+.ch-skeleton-row .ch-skeleton.line { height: 12px; flex: 1; }
+.ch-skeleton-row .ch-skeleton.line.short { max-width: 120px; }
+
+/* ============================================================
+   14. Inline Forms (حقول أفضل للوضع الليلي)
+   ============================================================ */
+.ch-form .form-control, .ch-form select.form-control, .ch-form input.form-control, .ch-form textarea.form-control {
+    background: var(--panel-card-bg-2);
+    border-color: var(--panel-border);
+    color: var(--panel-text);
+}
+.ch-form .form-control:focus {
+    border-color: rgba(239,176,94,.5);
+    box-shadow: 0 0 0 3px rgba(239,176,94,.12);
+}
+.ch-form .form-label { font-weight: 600; }
+
+/* Toggle switch (نفس لغة البوصلة) */
+.ch-toggle { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.ch-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ch-toggle .ch-toggle-track {
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.12);
+    transition: background .2s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+.ch-toggle .ch-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    inset-inline-start: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform .2s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,.3);
+}
+.ch-toggle input:checked + .ch-toggle-track { background: var(--panel-accent); }
+.ch-toggle input:checked + .ch-toggle-track::after { transform: translateX(20px); }
+
+/* ============================================================
+   15. Connection / Settings cards
+   ============================================================ */
+.ch-conn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 18px;
+    background: var(--panel-card-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    margin-bottom: 12px;
+    transition: border-color .18s ease, transform .18s ease;
+}
+.ch-conn:hover { border-color: rgba(255,255,255,.16); transform: translateY(-1px); }
+.ch-conn .ch-conn-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    background: var(--panel-card-bg-2);
+    border: 1px solid var(--panel-border);
+}
+.ch-conn.whatsapp .ch-conn-icon { color: #25D366; background: rgba(37,211,102,.12); border-color: rgba(37,211,102,.3); }
+.ch-conn.website_chat .ch-conn-icon, .ch-conn.webchat .ch-conn-icon { color: var(--panel-teal); background: var(--panel-success-light); border-color: rgba(78,205,196,.3); }
+.ch-conn.connected .ch-conn-icon { box-shadow: 0 0 0 3px rgba(78,205,196,.18); }
+.ch-conn .ch-conn-body { flex: 1; min-width: 0; }
+.ch-conn .ch-conn-title { font-weight: 700; font-size: 14.5px; margin-bottom: 2px; }
+.ch-conn .ch-conn-desc { font-size: 12.5px; color: var(--panel-text-muted); }
+
+/* ============================================================
+   16. Tabs (تبويبات متوافقة مع Compass)
+   ============================================================ */
+/* tabs موحّدة: ch-tab بتستخدم نظام التابات الموحد في panel.css
+   (.p-tabs/.p-tab) - نفس الشكل والـ variants */
+
+/* ============================================================
+   17. Split layout for conversation
+   ============================================================ */
+.ch-split { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+.ch-split .ch-split-main { flex: 2 1 420px; min-width: 280px; }
+.ch-split .ch-split-side { flex: 1 1 260px; min-width: 240px; }
+
+/* ============================================================
+   18. Responsive fixes
+   ============================================================ */
+@media (max-width: 640px) {
+    .ch-msg { max-width: 92%; }
+    .ch-pending-card .ch-pending-quote { grid-template-columns: 1fr; }
+    .ch-stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+    .ch-kv-grid { grid-template-columns: 1fr; }
+    .ch-toolbar .ch-search { max-width: 100%; }
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Tourfecto">
+  <defs>
+    <linearGradient id="tfBg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="64" y2="64"><stop offset="0" stop-color="#14365A"/><stop offset="1" stop-color="#0A1A2E"/></linearGradient>
+    <linearGradient id="tfGold" gradientUnits="userSpaceOnUse" x1="12" y1="14" x2="50" y2="52"><stop offset="0" stop-color="#F7E2A1"/><stop offset=".5" stop-color="#DDB255"/><stop offset="1" stop-color="#B98A30"/></linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#tfBg)"/>
+  <path d="M14.5 24.5 C23 18.5 41 18.5 49.5 24.5" fill="none" stroke="url(#tfGold)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M32 21 V49.5" fill="none" stroke="url(#tfGold)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M50.5 8.5 l1.5 3.8 3.8 1.5 -3.8 1.5 -1.5 3.8 -1.5 -3.8 -3.8 -1.5 3.8 -1.5 z" fill="#F7E2A1"/>
+</svg>

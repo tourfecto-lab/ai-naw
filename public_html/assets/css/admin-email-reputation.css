@@ -1,0 +1,27 @@
+/* Tourfecto - لوحة سمعة البريد (يعتمد على متغيرات الثيم لو موجودة) */
+.er{--er-fg:var(--text,#1c2430);--er-bg:var(--card,#fff);--er-line:var(--border,#dfe4ea);--er-ok:#15803d;--er-warn:#b45309;--er-bad:#b91c1c;--er-acc:var(--primary,#2563eb);
+    color:var(--er-fg);font:14px/1.6 system-ui,"Segoe UI",Tahoma,sans-serif;max-width:1000px;margin:0 auto;padding:16px}
+@media (prefers-color-scheme:dark){.er{--er-fg:#e6e9ee;--er-bg:#161b22;--er-line:#2d3541;--er-ok:#4ade80;--er-warn:#fbbf24;--er-bad:#f87171;--er-acc:#60a5fa}}
+.er-tabs{display:flex;gap:6px;border-bottom:1px solid var(--er-line);margin-bottom:14px;flex-wrap:wrap}
+.er-tab{background:none;border:0;padding:8px 14px;cursor:pointer;color:inherit;border-bottom:2px solid transparent;font:inherit}
+.er-tab.on{border-color:var(--er-acc);font-weight:600}
+.er-table{width:100%;border-collapse:collapse;background:var(--er-bg)}
+.er-table th,.er-table td{padding:9px 10px;border-bottom:1px solid var(--er-line);text-align:start}
+.er-row{cursor:pointer}.er-row:hover{background:color-mix(in srgb,var(--er-acc) 8%,transparent)}
+.er-empty{text-align:center;opacity:.6;padding:18px}
+.er-badge{padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid currentColor}
+.er-badge.er-active{color:var(--er-ok)}.er-badge.er-paused{color:var(--er-warn)}.er-badge.er-suspended{color:var(--er-bad)}
+.er-rate.er-ok{color:var(--er-ok)}.er-rate.er-warn{color:var(--er-warn);font-weight:600}.er-rate.er-bad{color:var(--er-bad);font-weight:700}
+.er-msg{padding:8px 12px;border-radius:8px;margin-bottom:10px;border:1px solid currentColor}
+.er-msg.er-ok{color:var(--er-ok)}.er-msg.er-bad{color:var(--er-bad)}
+.er-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:12px 0}
+.er-card{border:1px solid var(--er-line);border-radius:10px;padding:10px;background:var(--er-bg)}
+.er-meter{height:6px;background:var(--er-line);border-radius:9px;margin:6px 0;overflow:hidden}.er-meter i{display:block;height:100%;background:var(--er-acc)}
+.er-actions,.er-form,.er-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.er input,.er select{padding:6px 9px;border:1px solid var(--er-line);border-radius:7px;background:var(--er-bg);color:inherit;font:inherit}
+.er button{padding:6px 14px;border-radius:7px;border:1px solid var(--er-line);background:var(--er-bg);color:inherit;cursor:pointer;font:inherit}
+.er button.er-primary{background:var(--er-acc);border-color:var(--er-acc);color:#fff}
+.er button.er-danger{background:var(--er-bad);border-color:var(--er-bad);color:#fff}
+.er-back{margin-bottom:8px}.er-reason{color:var(--er-warn)}
+.er-events{padding-inline-start:18px}.er-events time{opacity:.6;font-size:12px;margin-inline-start:8px}
+@media (max-width:640px){.er-table{font-size:12px}.er-table th,.er-table td{padding:6px 4px}}

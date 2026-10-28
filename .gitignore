@@ -1,0 +1,139 @@
+# ============================================
+# Tourfecto - .gitignore
+# تجاهل الملفات والمجلدات من Git
+# @version 1.0.0
+# @author Tourfecto Team
+# @copyright 2026 Tourfecto
+# ============================================
+
+# ============================================
+# Composer
+# ============================================
+/vendor/
+composer.lock
+composer.phar
+
+# ============================================
+# Environment
+# ============================================
+.env
+.env.*
+!.env.example
+.env.testing
+.env.production
+.env.local
+
+# ============================================
+# PHPUnit
+# ============================================
+/phpunit.xml
+.phpunit.result.cache
+coverage/
+tests/coverage/
+*.coverage
+.clover
+tests/junit.xml
+tests/testdox.html
+tests/testdox.txt
+tests/clover.xml
+tests/crap4j.xml
+tests/coverage.php
+tests/coverage.txt
+
+# ============================================
+# IDE
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
+*.cache
+*.tmp
+*.pid
+*.lock
+
+# ============================================
+# Storage
+# ============================================
+/storage/logs/*.log
+/storage/cache/*
+/storage/sessions/*
+/storage/uploads/*
+/storage/backups/*
+/storage/phpstan/
+!/storage/logs/.gitkeep
+!/storage/cache/.gitkeep
+!/storage/sessions/.gitkeep
+!/storage/uploads/.gitkeep
+!/storage/backups/.gitkeep
+
+# ============================================
+# Security
+# ============================================
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.p8
+*.pub
+
+# ============================================
+# OS
+# ============================================
+Thumbs.db
+.DS_Store
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+
+# ============================================
+# Temporary Files
+# ============================================
+*.tmp
+*.temp
+*.cache
+*.log
+*.pid
+*.socket
+*.lock
+*.swp
+
+# ============================================
+# Documentation
+# ============================================
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+
+# ============================================
+# Archives
+# ============================================
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.gz
+*.bz2
+
+# ============================================
+# Local dev-only tools (preview / seeding)
+# ============================================
+local_router.php
+seed_ai_chat.php
+
+# ============================================
+# Project Specific
+# ============================================
+.htaccess.bak
+.htaccess.save
+public/.htaccess.bak
+public/.htaccess.save

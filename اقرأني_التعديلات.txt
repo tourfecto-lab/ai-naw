@@ -1,0 +1,127 @@
+Tourfecto — التعديلات للاستضافة الجديدة (PHP 8.4 + MySQL 9)
+=============================================================
+
+طريقة التركيب
+-------------
+1) فك الملف المضغوط جوه المجلد الرئيسي للموقع على الاستضافة، يعني المجلد
+   اللي فيه app و public_html و vendor، ووافق على استبدال الملفات.
+   الملفات اللي جوه الأرشيف بنفس مساراتها بالظبط.
+
+2) عدّل ملف .env اللي على الاستضافة (مش موجود في الأرشيف عشان ميمسحش مفاتيحك):
+       DB_HOST=localhost
+       DB_NAME=aa
+       DB_USER=اسم مستخدم قاعدة البيانات من لوحة الاستضافة
+       DB_PASS=كلمة سر قاعدة البيانات من لوحة الاستضافة
+   ولو هتفتح الموقع مؤقتًا بالـ IP قبل ما الدومين يتنقل:
+       APP_URL=http://92.113.26.170
+
+3) إعدادات الموقع في aaPanel:
+   - Site directory:    المجلد الرئيسي للمشروع
+   - Running directory: /public_html
+   - URL rewrite: الصق محتوى الملف deploy/nginx-aapanel-rewrite.conf
+     (Nginx مابيقراش .htaccess، ومن غيرها كل الصفحات بتطلع 404)
+
+4) إضافات PHP 8.4 المطلوبة (App Store > PHP 8.4 > Install extensions):
+   pdo_mysql, mbstring, openssl, curl, gd, fileinfo, sodium, intl
+
+5) صلاحيات الكتابة: مجلد storage (وكل اللي جواه) ومجلد public_html/uploads
+   لازم يكونوا قابلين للكتابة لمستخدم السيرفر (www) — صلاحية 755 والمالك www.
+
+6) المهام المجدولة (Cron): لو كانت شغالة على الاستضافة القديمة، ضيفها
+   تاني من Cron في aaPanel بنفس الأوامر، مع تعديل المسار للمسار الجديد.
+
+
+إيه اللي اتصلح
+--------------
+[تسجيل الدخول والموقع كله على PHP 8.4]
+- public_html/index.php: PHP 8.4 بيطلع رسائل Deprecated، ولو display_errors
+  شغال على السيرفر كانت بتتطبع قبل رد JSON بتاع /login، فالفورم يقول
+  "تعذر الاتصال بالخادم" ومحدش يعرف يدخل. دلوقتي مش بتظهر للزائر.
+- app/Config/app.php و app_config.php: شيلنا E_STRICT (اتلغى في PHP 8.4
+  وبيطبع Deprecated في كل صفحة).
+- 7 ملفات فيها باراميترات nullable ضمنية بقت Deprecated في PHP 8.4:
+  Cache, Database, ValidationException, array_helper, GoogleBusinessAPI,
+  CSRFProtection (نسختين)، اتعدلت لـ ?type صريح.
+
+[كلمات السر]
+- app/Helpers/functions.php + app/Models/User.php + Config + DataEncryption:
+  لو PHP على السيرفر الجديد مبني من غير Argon2، كان الموقع كله بيقع
+  (Undefined constant PASSWORD_ARGON2ID) وكلمات السر القديمة مش بتتطابق.
+  دلوقتي فيه بديل تلقائي (bcrypt للجديد + libsodium للتحقق من القديم).
+
+[توافق MySQL بدل MariaDB]
+- ArticleImageService: "ADD COLUMN IF NOT EXISTS" موجودة في MariaDB بس،
+  اتغيرت لإضافة كل عمود ناقص لوحده.
+
+[أخطاء من سجل الأخطاء app.log]
+- UsageTracker: "Duplicate entry ... unique_daily_usage" — تاني استخدام في
+  نفس اليوم كان بيفشل والاستهلاك مايتحسبش. بقى بيزوّد على نفس الصف.
+- SemanticCache: "Field 'user_id' doesn't have a default value" — الكاش الذكي
+  لتحليل المنافسين مكانش بيتحفظ خالص. بقى بيترابط بالتقرير المحفوظ.
+- TourfectoAIEngine: "Incorrect integer value: 'Array' for analysis_score" —
+  لما الـ AI يرجّع الدرجة بشكل مختلف كان التقرير مايتحفظش.
+- GeminiClient: الموديل البديل gemini-2.5-flash-lite اتقفل من Google (404)،
+  اتغير لـ gemini-flash-lite-latest.
+
+[استضافات بتمنع دوال معيّنة]
+- EnvFileManager: putenv ممنوعة في aaPanel، ومناداتها في PHP 8 = Fatal Error.
+- UploadManager: mime_content_type محتاجة fileinfo — لو مش متفعّلة كان رفع
+  أي ملف بيوقع.
+
+[أمان]
+- app/Controllers/WebhookController.php: النسخة اللي كانت شغالة بتقبل أي
+  webhook (Stripe/PayPal/Google/TripAdvisor) من غير تحقق من التوقيع، يعني
+  أي حد يقدر يبعت دفع مزيف. اتبدلت بالنسخة الآمنة اللي كانت موجودة في
+  مجلد CONTRO~1. مسار الدفع الحقيقي (StripeCheckoutService) مش متأثر.
+- app/Config/runtime_requirements.php: الـ autoloader كان ممكن يحمّل نسخ
+  قديمة من مجلدات مكررة بالغلط (CONTRO~1، MIDDLE~1، app/app...) بدل الأصلية.
+
+
+ملفات/مجلدات زيادة يُفضّل تمسحها من الاستضافة (نسخ قديمة أو تجارب)
+--------------------------------------------------------------------
+  app/CONTRO~1/
+  app/MIDDLE~1/
+  app/app/
+  app/routes/Models/
+  app/Core/IntegrationManager.PHP      (الأصلي IntegrationManager.php)
+  app/Controllers/HomeController (1).php
+  public_html/web.php                  (بيطبع كلمة سر تجريبية)
+  public_html/_INTER~1.PHP
+  storage/logs/*.log                   (سجلات الاستضافة القديمة)
+
+
+اتجرّب إزاي
+-----------
+الموقع اتشغّل على PHP 8.4 و MySQL 8 بقاعدة البيانات المصلّحة، عن طريق
+Nginx + PHP-FPM بنفس قواعد الـ rewrite دي، ومع display_errors=On:
+- تسجيل الدخول نجح بحساب super_admin وبحساب عميل عادي.
+- حوالي 570 صفحة و API (GET) اتفتحوا بالحسابين من غير ولا خطأ 500 حقيقي.
+- 480 طلب POST/PUT اتجرّبوا من غير أي Fatal Error.
+- كل مهام الـ cron (27 ملف) اشتغلت من غير أخطاء.
+
+
+=============================================================
+تحديث 2: الصفحات تظهر بالإنجليزي لما اللغة English
+=============================================================
+
+المشكلة: القائمة الجانبية بس كانت بتتغير للإنجليزي، لكن محتوى أغلب الصفحات
+(Auto SEO، Email Marketing، الإعلانات، الشات، CRM، الأدمن...) كان عربي، لأن
+النصوص دي مكتوبة عربي مباشرة جوه الكود (حوالي 8000 سطر في 384 ملف) ومش
+بتعدّي على نظام الترجمة.
+
+الحل:
+- app/Lang/auto_en.php (جديد): قاموس عربي => إنجليزي لحوالي 5,500 نص من
+  نصوص الواجهة ورسائل النجاح والأخطاء.
+- app/Helpers/ui_autotranslate.php (جديد): لما اللغة مش عربي، بيترجم الصفحة
+  (HTML ورسائل JSON) قبل ما توصل للمتصفح.
+  * بيترجم الجمل الكاملة المعروفة بس. محتوى العميل (مقالات، أسماء، بيانات
+    اتولدت بالذكاء الاصطناعي) بيفضل زي ما هو.
+  * مش بيلمس قيم حقول الإدخال (value) ولا محتوى الـ textarea، عشان البيانات
+    متتحفظش بالإنجليزي من غير قصد.
+  * مواقع العملاء (/sites/...)، الويدجت، الويبهوك، التصدير والتحميل بتفضل
+    بلغتها الأصلية.
+- public_html/index.php: تشغيل الترجمة + الحفاظ على نوع الصفحة (HTML).
+- app/Lang/en.php: تصحيح عناوين كانت بتظهر "Security &amp; Tracking".
+
+لو لقيت نص لسه عربي في الواجهة الإنجليزية: ضيفه في آخر app/Lang/auto_en.php
+بنفس الشكل:   'النص العربي بالظبط' => 'English text',

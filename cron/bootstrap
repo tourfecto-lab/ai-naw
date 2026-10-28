@@ -1,0 +1,48 @@
+<?php
+/**
+ * Tourfecto - CLI Bootstrap لسكريبتات الـ Cron
+ * @version 1.0.0
+ *
+ * ده بديل مبسّط لـ public_html/index.php مخصوص للسكريبتات اللي بتتشغل من
+ * سطر الأوامر (عن طريق Cron Job في cPanel)، مش من متصفح. بيحمّل نفس
+ * الإعدادات بالظبط (composer autoload, .env, Config/*) بدون أي حاجة خاصة
+ * بالـ HTTP (session, headers, routing).
+ *
+ * أمان: الملف ده وكل حاجة جوه مجلد cron/ لازم تكون *برة* public_html
+ * عشان محدش يقدر يوصلها من المتصفح مباشرة. تأكد إن الكرون بينده عليها
+ * بالمسار الكامل زي: php /home/USERNAME/domains/YOURSITE/cron/process_queue.php
+ * مش عن طريق رابط.
+ */
+
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    exit('Forbidden: هذا السكريبت لسطر الأوامر فقط (cron)، مش للمتصفح.');
+}
+
+define('ROOT_PATH', dirname(__DIR__));
+define('APP_PATH', ROOT_PATH . '/app');
+define('TOURFECTO_ROOT', ROOT_PATH);
+define('TOURFECTO_STORAGE', ROOT_PATH . '/storage');
+
+require_once ROOT_PATH . '/vendor/autoload.php';
+
+if (file_exists(ROOT_PATH . '/.env')) {
+    try {
+        $dotenv = Dotenv\Dotenv::createImmutable(ROOT_PATH);
+        $dotenv->load();
+    } catch (Throwable $e) {
+        fwrite(STDERR, 'Failed to load .env: ' . $e->getMessage() . PHP_EOL);
+    }
+}
+
+require_once APP_PATH . '/Config/app.php';
+require_once APP_PATH . '/Config/constants.php';
+require_once APP_PATH . '/Config/database.php';
+require_once APP_PATH . '/Config/encryption.php';
+
+if (file_exists(APP_PATH . '/Config/gemini.php')) {
+    require_once APP_PATH . '/Config/gemini.php';
+}
+if (file_exists(APP_PATH . '/Config/whatsapp.php')) {
+    require_once APP_PATH . '/Config/whatsapp.php';
+}

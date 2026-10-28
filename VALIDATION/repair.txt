@@ -1,0 +1,59 @@
+PASS Reject date "2026-02-30"
+PASS Reject date "2026-13-01"
+PASS Reject date "2026-1-01"
+PASS Reject date "tomorrow"
+PASS Reject date "2026-12-01 extra"
+PASS Reject date ""
+PASS Accept valid leap date
+PASS Reject nonleap date
+PASS Reject invalid inventory -1/
+PASS Reject invalid inventory 10/-1
+PASS Reject invalid inventory 10/INF
+PASS Reject invalid inventory 10/NAN
+PASS Inventory update is transactional and locks both rows
+PASS Do not lower capacity below booked count
+PASS Reject cross-tenant inventory updates
+PASS Price uses real occupancy 80/100
+PASS Price uses real occupancy 10/100
+PASS Price uses real occupancy 50/100
+PASS Price uses real occupancy 10/10
+PASS Price uses real occupancy 0/100
+PASS Blocked dates receive no discount
+PASS Reject bad booking start_date
+PASS Reject bad booking adults_count
+PASS Reject bad booking children_count
+PASS Reject bad booking adults_count
+PASS Reject bad booking total_amount
+PASS Reject bad booking total_amount
+PASS Reject bad booking total_amount
+PASS Reject bad booking start_time
+PASS Confirmation is idempotent for confirmed
+PASS Confirmation is idempotent for completed
+PASS Cancelled booking cannot be confirmed
+PASS Confirmation rejects other tenant
+PASS Real SQL nested transaction cannot commit enclosing work
+PASS Redis unavailable falls back to functioning file cache
+PASS Redact numeric and short secrets
+PASS Reject traversal storage paths
+PASS Reject traversal filenames on delete
+PASS Create valid nested report folders
+PASS Avatar URL includes its per-user directory
+PASS Reject active SVG upload
+PASS Reject executable disguised as PNG
+PASS Accept real PNG upload content
+PASS CSV prevents formulas while preserving Arabic
+PASS PDF never masquerades as HTML
+PASS HTML printable export escapes scripts
+PASS Reject invalid JSON export
+PASS Static advertising route precedes parameter route
+PASS Body values take precedence over conflicting query values
+PASS Queue crash retries are bounded
+PASS Billing features and explicit overrides beat static defaults
+PASS Email custom attributes cannot override built-in recipient values
+PASS Email click tracking preserves real query separators
+PASS Marketing email resolves unsubscribe placeholder inside body
+PASS Transactional email tracking stays inside body
+PASS Email tracking base URL is escaped
+PASS Image optimizer rejects loopback without making an HTTP request
+PASS Image optimizer URL respects configured APP_URL
+RESULT: 58 passed, 0 failed

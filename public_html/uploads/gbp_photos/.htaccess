@@ -1,0 +1,43 @@
+# ============================================
+# Tourfecto - GBP Photos Uploads .htaccess
+# حماية وأمان مجلد صور Google Business Profile المرفوعة
+# نفس النمط المستخدم في storage/uploads/.htaccess بالمشروع
+# @version 1.0.0
+# @date 2026-08-14 (GBP Module Upgrade - Round 7: Production Finalization)
+# ============================================
+
+# ============================================
+# 1. حماية الملفات من التنفيذ
+# ============================================
+<FilesMatch "\.(php|php5|php7|phtml|pl|py|jsp|asp|htm|shtml|sh|cgi)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ============================================
+# 2. منع عرض محتويات المجلد
+# ============================================
+Options -Indexes
+
+# ============================================
+# 3. السماح بعرض الصور فقط (النطاق المتوقع للمجلد ده)
+# ============================================
+<FilesMatch "\.(jpg|jpeg|png|webp)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# ============================================
+# 4. إخفاء الملفات المخفية
+# ============================================
+RedirectMatch 404 /\..*$
+
+# ============================================
+# 5. إعدادات التخزين المؤقت للصور
+# ============================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+</IfModule>

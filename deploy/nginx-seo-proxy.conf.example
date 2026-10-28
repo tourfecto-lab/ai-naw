@@ -1,0 +1,53 @@
+# ============================================================
+# Tourfecto - SEO Proxy Edge (Nginx) - مثال للإنتاج
+# ============================================================
+# ده الـ server block اللي بيستقبل الـ CNAME من subdomains العملاء
+# وبيوجّهها لتطبيق Tourfecto. بنستخدم server_name wildcard عشان أي
+# subdomain عميل (www.example.com / seo.example.com ...) يتخدم من نفس
+# الـ block من غير ما نضيف server block لكل عميل.
+#
+# المتطلبات قبل التشغيل:
+# 1) شهادة TLS wildcard (*.seo.tourfecto.pro) من Let's Encrypt أو غيرها.
+# 2) سجل DNS عام من نوع A يشير لـ IP السيرفر، وCNAME عند العميل يشير لنا.
+# 3) السيرفر يسمح بمرور المنفذ 443 (و80 لإعادة التوجيه).
+#
+# الـ health check بتاع الـ Load Balancer بيضرب /seo-proxy/health (بيرجع 200/ok).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name *.seo.tourfecto.pro seo.tourfecto.pro;
+
+    # إعادة توجيه HTTP -> HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name *.seo.tourfecto.pro seo.tourfecto.pro;
+
+    # شهادة wildcard (بدّلها بالمسارات الفعلية عندك)
+    ssl_certificate     /etc/letsencrypt/live/seo.tourfecto.pro/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/seo.tourfecto.pro/privkey.pem;
+
+    # الـ Host header الأصلي مهم جدًا: بيه بنطابق موقع العميل (findByHost)
+    # فماينفعش نمحوّه - نمرره زي ما هو.
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+
+        # الصفحات المحسّنة server-side ممكن تتكاش على الحافة
+        proxy_cache_valid 200 60s;
+    }
+
+    # فحص صحة الـ Load Balancer
+    location = /seo-proxy/health {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+}

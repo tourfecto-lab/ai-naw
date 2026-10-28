@@ -1,0 +1,14 @@
+[
+  {
+    "path": "app/Core/Controller.php",
+    "sha256": "5700e2ae10b654fda3503d61fd0d006eb4ac7e3d01c6c74be6f50c1dae79e525"
+  },
+  {
+    "path": "app/Core/ClientNavigation.php",
+    "sha256": "e2e9a6bbc09a2caaaa279db3bd215a41a9f6ca90670b986b39c3c02aed1290d3"
+  },
+  {
+    "path": "tools/test_client_navigation.php",
+    "sha256": "a1c32bedf693295e58055a713c92a6645f635803ef25b8b71583e4c817aa2a8a"
+  }
+]

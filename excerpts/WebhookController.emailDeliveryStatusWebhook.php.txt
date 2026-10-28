@@ -1,0 +1,126 @@
+    }
+
+    /**
+     * Webhook    ( 1): //   SMTP.
+     * POST /webhooks/email/delivery-status/{user_id}
+     *  Auth    HMAC/  ( verifyDeliverySignature
+     *  ContactManagementService).       user_id
+     *   URL          .
+     *
+     *  :  route   app/routes/api.php (  
+     *  index.php)  app/routes/webhooks.php      
+     * index.php  ( web.php + api.php )  route  .
+     */
+    public function emailDeliveryStatusWebhook(array $params = []): array
+    {
+        $userId = (int) ($params['user_id'] ?? 0);
+        $rawBody = file_get_contents('php://input') ?: '';
+        $payload = json_decode($rawBody, true);
+        if (!is_array($payload)) {
+            $payload = $_POST ?: [];
+        }
+
+        $headers = [
+            'x-twilio-email-event-webhook-signature' => $_SERVER['HTTP_X_TWILIO_EMAIL_EVENT_WEBHOOK_SIGNATURE'] ?? '',
+            'x-twilio-email-event-webhook-timestamp' => $_SERVER['HTTP_X_TWILIO_EMAIL_EVENT_WEBHOOK_TIMESTAMP'] ?? '',
+            'x-postmark-server-token' => $_SERVER['HTTP_X_POSTMARK_SERVER_TOKEN'] ?? '',
+            'x-delivery-webhook-secret' => $_SERVER['HTTP_X_DELIVERY_WEBHOOK_SECRET'] ?? '',
+        ];
+
+        $result = (new ContactManagementService())->handleDeliveryWebhook($userId, $rawBody, $payload, $headers);
+        if (!empty($result['error'])) {
+            return $this->error($result['error'], 401);
+        }
+        return $this->success([
+            'handled' => (bool) ($result['handled'] ?? false),
+            'type' => $result['type'] ?? '',
+            'email' => $result['email'] ?? '',
+        ]);
+    }
+
+    /**
+     * Webhook Stripe   (wallet top-up) +  .
+     *    Stripe Checkout Sessions (   metadata).
+     *  Auth -   HMAC.
+     */
+    public function walletStripeWebhook(array $params = []): array
+    {
+        $payload = file_get_contents('php://input') ?: '';
+        $signature = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+        try {
+            if (!class_exists('StripeCheckoutService')) {
+                return $this->error('   ', 500);
+            }
+            $result = (new StripeCheckoutService())->handleWebhook($payload, $signature);
+            return $this->success(['handled' => $result['handled'] ?? false, 'event' => $result['event'] ?? '']);
+        } catch (Exception $e) {
+            $code = $e->getCode() === 401 ? 401 : 500;
+            http_response_code($code);
+            return $this->error(CustomerError::message($e->getMessage(), 500), $code);
+        }
+    }
+
+    /**
+     *  Webhook  PayPal
+     * @param array $data
+     * @return array
+     */
+    private function handlePayPalWebhook(array $data): array
+    {
+        //    
+        if (!$this->verifyPayPalSignature($data)) {
+            return $this->error('Invalid signature', 401);
+        }
+
+        $eventType = $data['event_type'] ?? '';
+        $resource = $data['resource'] ?? [];
+
+        switch ($eventType) {
+            case 'BILLING.SUBSCRIPTION.ACTIVATED':
+                return $this->handleSubscriptionEvent($resource);
+
+            case 'BILLING.SUBSCRIPTION.CANCELLED':
+                return $this->handleSubscriptionCancelled($resource);
+
+            case 'PAYMENT.SALE.COMPLETED':
+                return $this->handlePaymentSucceeded($resource);
+
+            case 'PAYMENT.SALE.DENIED':
+                return $this->handlePaymentFailed($resource);
+
+            default:
+                return $this->success([], 'Event received but not processed: ' . $eventType);
+        }
+    }
+
+    /**
+     *   
+     * @param array $data
+     * @return array
+     */
+    private function handleSubscriptionEvent(array $data): array
+    {
+        $userId = $this->extractUserIdFromMetadata($data);
+
+        if (!$userId) {
+            return $this->error('User not found', 404);
+        }
+
+        $planName = $this->extractPlanFromSubscription($data);
+
+        if (!$planName) {
+            return $this->error('Plan not found', 404);
+        }
+
+        //    
+        $sql = "SELECT id FROM subscriptions 
+                WHERE user_id = ? 
+                AND status = 'active' 
+                LIMIT 1";
+
+        $result = $this->db->query($sql, [$userId]);
+
+        if (empty($result)) {
+            //   
+            Subscription::createSubscription($userId, $planName);

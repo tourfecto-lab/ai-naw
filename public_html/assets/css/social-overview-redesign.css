@@ -1,0 +1,31 @@
+/* Tourfecto Social Overview — visual-only update, no publish/permission logic changes */
+#spRoot[data-lang] [data-panel="overview"] { --ov-stroke:var(--panel-border,rgba(148,163,184,.17)); --ov-muted:var(--panel-text-muted,#9aa7bf); }
+#spRoot [data-panel="overview"] .sp-bar {padding:12px 14px;border:1px solid var(--ov-stroke);border-radius:15px;background:var(--panel-card,rgba(127,127,127,.035));}
+#spRoot [data-panel="overview"] #spStats {gap:12px;grid-template-columns:repeat(4,minmax(0,1fr));}
+#spRoot [data-panel="overview"] #spStats .stat-tile {min-width:0;min-height:104px;padding:17px;border:1px solid var(--ov-stroke);border-radius:16px;display:flex;align-items:center;gap:14px;transition:border-color .18s,transform .18s;}
+#spRoot [data-panel="overview"] #spStats .stat-tile:hover {border-color:var(--panel-accent,#688cff);transform:translateY(-2px);}
+#spRoot [data-panel="overview"] #spStats .stat-icon {flex:0 0 42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px;}
+#spRoot [data-panel="overview"] #spStats .stat-value {font-size:clamp(22px,2.1vw,32px);font-weight:750;line-height:1.1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;}
+#spRoot [data-panel="overview"] #spStats .stat-label {margin-top:7px;font-size:12px;color:var(--ov-muted);}
+#spRoot [data-panel="overview"] .sh-summary {padding:20px;border:1px solid var(--ov-stroke);border-radius:17px;}
+#spRoot [data-panel="overview"] .sh-summary .p-card-head {margin-bottom:16px;gap:8px;align-items:center;flex-wrap:wrap;}
+#spRoot [data-panel="overview"] .sh-summary h3 {font-size:15px;font-weight:750;}
+#spRoot [data-panel="overview"] .sh-summary .p-card-sub {font-size:11px;}
+#spRoot [data-panel="overview"] .sh-summary .sh-metrics {gap:12px;}
+#spRoot [data-panel="overview"] .sh-summary .sh-metrics > * {border-radius:13px;min-width:0;}
+#spRoot [data-panel="overview"] #spHealth {padding:20px;border:1px solid var(--ov-stroke);border-radius:17px;}
+#spRoot [data-panel="overview"] #spHealth > .sp-pad {padding:0;}
+#spRoot [data-panel="overview"] #spHealth > .sp-pad > b {display:flex;align-items:center;gap:8px;font-size:16px;letter-spacing:-.015em;margin-bottom:16px;}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow {margin:0 0 9px;padding:14px 16px;border:1px solid var(--ov-stroke);border-radius:13px;background:var(--panel-bg,rgba(127,127,127,.035));display:grid;grid-template-columns:minmax(160px,1.2fr) minmax(180px,1.15fr) minmax(160px,1fr);align-items:center;gap:9px 14px;font-size:12px;line-height:1.5;}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow.alert {border-color:rgba(248,113,113,.32);background:rgba(239,68,68,.055);}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow .nm {min-width:0;font-size:13px;font-weight:700;overflow-wrap:anywhere;}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow > .p-cell-muted {font-size:11.5px;}
+#spRoot [data-panel="overview"] #spHealth .sp-hp {padding:4px 9px;font-size:11px;font-weight:700;white-space:normal;}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow > a {width:max-content;font-size:12px;font-weight:650;}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow:not(.alert) .sp-hp.ok {color:#57d79a;}
+#spRoot [data-panel="overview"] #spHealth .sp-hrow.alert .sp-hp.bad {color:#ff9ba0;}
+#spRoot [data-panel="overview"] .sp-bars {height:145px;gap:4px;}
+#spRoot [data-panel="overview"] .sp-bars i {border-radius:5px 5px 0 0;}
+@media(max-width:1000px){#spRoot [data-panel="overview"] #spStats{grid-template-columns:repeat(2,minmax(0,1fr));}#spRoot [data-panel="overview"] #spHealth .sp-hrow{grid-template-columns:minmax(150px,1fr) minmax(150px,1fr);}}
+@media(max-width:600px){#spRoot [data-panel="overview"] #spStats{gap:8px;}#spRoot [data-panel="overview"] #spStats .stat-tile{min-height:88px;padding:12px;gap:9px;}#spRoot [data-panel="overview"] #spStats .stat-icon{flex-basis:34px;height:34px;}#spRoot [data-panel="overview"] #spStats .stat-value{font-size:23px;}#spRoot [data-panel="overview"] #spHealth{padding:14px;}#spRoot [data-panel="overview"] #spHealth .sp-hrow{grid-template-columns:1fr;gap:6px;padding:12px;}#spRoot [data-panel="overview"] .sh-summary{padding:14px;}}
+@media(prefers-reduced-motion:reduce){#spRoot [data-panel="overview"] #spStats .stat-tile{transition:none;}#spRoot [data-panel="overview"] #spStats .stat-tile:hover{transform:none;}}

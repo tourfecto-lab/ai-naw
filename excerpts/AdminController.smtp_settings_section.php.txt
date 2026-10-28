@@ -1,0 +1,66 @@
+                    {$metaSetupBox}
+
+                    <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">    - Microsoft</h4>
+                    <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">Google Facebook      (Google OAuth / Meta) -      Redirect       .</p>
+                    <div class="p-grid cols-2">
+                        <div class="form-group"><label class="form-label">Client ID</label><input type="text" id="ss_oauth_microsoft_client_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Client Secret</label><input type="password" id="ss_oauth_microsoft_client_secret" class="form-control" placeholder="" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Tenant</label><input type="text" id="ss_oauth_microsoft_tenant" class="form-control" dir="ltr" placeholder="common"></div>
+                    </div>
+
+                    <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">    - Apple</h4>
+                    <div class="p-grid cols-2">
+                        <div class="form-group"><label class="form-label">Services ID (client_id)</label><input type="text" id="ss_oauth_apple_client_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Team ID</label><input type="text" id="ss_oauth_apple_team_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Key ID</label><input type="text" id="ss_oauth_apple_key_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Private Key (.p8)</label><textarea id="ss_oauth_apple_private_key" class="form-control" dir="ltr" rows="4" placeholder="-----BEGIN PRIVATE KEY-----"></textarea></div>
+                    </div>
+
+                    <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);"> {$this->tr('admin.sys.cat.whatsapp')}</h4>
+                    <div class="p-grid cols-2">
+                        <div class="form-group"><label class="form-label">{$this->tr('admin.sys.support_number')}</label><input type="text" id="ss_support_whatsapp_number" class="form-control" dir="ltr" placeholder="201xxxxxxxxx"></div>
+                    </div>
+
+                    <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);"> SMTP ({$this->tr('admin.sys.cat.mail')})</h4>
+                    <div class="p-grid cols-2">
+                        <div class="form-group"><label class="form-label">Host</label><input type="text" id="ss_mail_host" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Port</label><input type="text" id="ss_mail_port" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Username</label><input type="text" id="ss_mail_username" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Password</label><input type="password" id="ss_mail_password" class="form-control" placeholder="" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">Encryption</label><input type="text" id="ss_mail_encryption" class="form-control" dir="ltr" placeholder="tls"></div>
+                        <div class="form-group"><label class="form-label">From Address</label><input type="email" id="ss_mail_from_address" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label class="form-label">From Name</label><input type="text" id="ss_mail_from_name" class="form-control"></div>
+                    </div>
+
+                    <p class="p-cell-muted" style="font-size:11.5px;margin-top:14px;">{$this->tr('admin.sys.secret_hint')}</p>
+                    <div id="sysSettingsAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
+                    <div id="systemProviderSettings"></div><p class="p-cell-muted">   .      OAuth   .        .</p><button class="p-btn primary" style="margin-top:10px;" onclick="saveSystemSettings()">{$this->tr('common.save')}</button>
+                </div>
+
+                <div class="p-toolbar">
+                    <button class="p-btn" onclick="openEditFaq(null)">+ {$this->tr('admin.faq.new')}</button>
+                </div>
+                <p class="p-cell-muted" style="margin-bottom:14px;">{$this->tr('admin.faq.hint')}</p>
+                <div id="faqList"><div class="p-empty">{$this->tr('common.loading')}</div></div>
+
+                <div class="p-modal-overlay" id="editFaqModal">
+                    <div class="p-modal">
+                        <div class="p-modal-head"><h3 id="faqModalTitle">{$this->tr('admin.faq.new')}</h3><button class="p-modal-close" onclick="P.closeModal('editFaqModal')"></button></div>
+                        <div class="p-modal-body">
+                            <input type="hidden" id="faqId">
+                            <label class="form-label">{$this->tr('admin.faq.question')}</label>
+                            <input type="text" id="faqQuestion" class="form-control" style="margin-bottom:10px;">
+                            <label class="form-label">{$this->tr('admin.faq.answer')}</label>
+                            <textarea id="faqAnswer" class="form-control" rows="4" style="margin-bottom:10px;"></textarea>
+                            <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="faqIsActive" checked> {$this->tr('admin.plans.is_active')}</label>
+                            <div id="faqAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
+                        </div>
+                        <div class="p-modal-foot"><button class="p-btn primary" onclick="saveFaq()">{$this->tr('common.save')}</button></div>
+                    </div>
+                </div>
+HTML;
+
+            case 'platform':
+                return <<<'HTML'
+                <div class="p-grid cols-4" id="platKpis1">
+                    <div class="p-card stat-tile"><div class="stat-icon green"></div><div class="stat-info"><div class="stat-value" id="platRevenue">$0</div><div class="stat-label">{$this->tr('admin.total_revenue')}</div></div></div>

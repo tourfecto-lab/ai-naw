@@ -1,0 +1,6 @@
+# Tourfecto - uploads: no script execution
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|phar|pl|py|cgi|sh)$">
+    Require all denied
+</FilesMatch>
+RemoveHandler .php .phtml

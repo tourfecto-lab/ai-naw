@@ -1,0 +1,16 @@
+منظّم الكرونات - سطر Cron واحد بدل 24
+=======================================
+1) ارفع الملفين دول جوه فولدر cron في /www/wwwroot/tourfecto.pro/cron/
+     cron/scheduler.php
+     cron/schedule.php
+2) امسح أي Cron قديم كنت ضفته لسكربت من Tourfecto لوحده.
+3) aaPanel ← Cron ← Add Task:
+     Type: Shell Script | Period: N Minutes = 1
+     Script:
+     sudo -u www /www/server/php/83/bin/php /www/wwwroot/tourfecto.pro/cron/scheduler.php >/dev/null 2>&1
+   (غيّر 83 لرقم نسخة PHP عندك - افتح /www/server/php/ وشوف اسم الفولدر)
+4) بعد دقيقتين من Terminal:
+     cd /www/wwwroot/tourfecto.pro
+     sudo -u www /www/server/php/83/bin/php cron/scheduler.php --list
+
+الشرح الكامل لكل كرون في الدليل (Doc) اللي معاك.

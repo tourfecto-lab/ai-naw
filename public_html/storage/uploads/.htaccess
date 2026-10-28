@@ -1,0 +1,51 @@
+# ============================================
+# Tourfecto - Uploads .htaccess
+# حماية وأمان مجلد الملفات المرفوعة
+# @version 1.0.0
+# ============================================
+
+# ============================================
+# 1. حماية الملفات من التنفيذ
+# ============================================
+<FilesMatch "\.(php|php5|php7|phtml|pl|py|jsp|asp|htm|shtml|sh|cgi)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ============================================
+# 2. منع عرض محتويات المجلد
+# ============================================
+Options -Indexes
+
+# ============================================
+# 3. السماح بعرض الصور والمستندات
+# ============================================
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|pdf|doc|docx|xls|xlsx|csv|json|txt)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# ============================================
+# 4. إخفاء الملفات المخفية
+# ============================================
+RedirectMatch 404 /\..*$
+
+# ============================================
+# 5. إعدادات التخزين المؤقت للصور
+# ============================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType application/pdf "access plus 1 month"
+</IfModule>
+
+# ============================================
+# 6. منع الوصول إلى المجلدات الداخلية
+# ============================================
+RewriteEngine On
+RewriteRule ^avatars/user_[0-9]+/ - [F,L]
+RewriteRule ^temp/ - [F,L]

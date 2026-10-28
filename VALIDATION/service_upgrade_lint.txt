@@ -1,0 +1,8 @@
+No syntax errors detected in project/app/Controllers/AdsController.php
+No syntax errors detected in project/app/Controllers/ChatController.php
+No syntax errors detected in project/app/Controllers/DashboardController.php
+No syntax errors detected in project/app/Controllers/AdminController.php
+No syntax errors detected in project/app/Controllers/OTAController.php
+No syntax errors detected in project/app/Services/OTA/GetYourGuideAPI.php
+No syntax errors detected in project/app/Services/OTA/ViatorAPI.php
+No syntax errors detected in project/tests/Regression/OtaVerificationFixTest.php

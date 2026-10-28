@@ -1,0 +1,32 @@
+PASS Month end clamp
+PASS Leap year annual clamp
+PASS Invalid calendar date rejected
+PASS Quota remains anchored to original day after short month
+PASS Monthly subscription and invoice
+PASS Same plan preserves row and counters and paid end
+PASS Upgrade keeps period and counters and event quotas
+PASS Downgrade does not reset counters or extend period
+PASS Coupon label and exact paid invoice total
+PASS Invoice failure rolls back debit, coupon and activation
+PASS Concurrent balance change does not consume coupon
+PASS Expired locked coupon rejected
+PASS Invalid coupon dates rejected before write
+PASS PAYG does not use first subscription coupon eligibility
+PASS 100 percent paid invoice blocks another first-subscription coupon
+PASS Annual monthly quota refresh resets all four counters only once
+PASS Trial reservation is counted and completion is idempotent
+PASS Last quota cannot be reserved twice; excess uses wallet
+PASS Unknown outcome held until operator resolves
+PASS Past due can renew and competitor quota resets
+PASS Free subscription can renew with exact zero invoice
+PASS Production AI caller reserves before provider and finalizes exact once
+PASS Production AI definitive failure releases held quota
+PASS Production AI exception retains uncertain reservation
+PASS Production AI cannot call provider without quota or funds
+PASS Nested reservation scopes do not release outer request
+PASS Upgrade charges only unused fraction
+PASS Billing cycle change applies paid remaining value to new period
+PASS Changing plan blocked while quota is held
+PASS Renewal invoice failure rolls back period and wallet
+PASS Stale confirmed charge never debits
+RESULT: 31 passed, 0 failed

@@ -1,0 +1,21 @@
+50:$router->get('/verify-email', 'AuthController', 'verifyNotice');
+58:$router->get('/verify-email/{token}', 'AuthController', 'verifyEmail');
+132:// Email Marketing ( Brevo) -   
+133:$router->get('/email-marketing', 'EmailMarketingController', 'index', ['AuthMiddleware']);
+134:$router->get('/email-marketing/lists', 'EmailMarketingController', 'showListsPage', ['AuthMiddleware']);
+135:$router->get('/email-marketing/contacts', 'EmailMarketingController', 'showContactsPage', ['AuthMiddleware']);
+136:$router->get('/email-marketing/contacts/{id}', 'EmailMarketingController', 'showSubscriberDetailPage', ['AuthMiddleware']);
+137:$router->get('/email-marketing/templates', 'EmailMarketingController', 'showTemplatesPage', ['AuthMiddleware']);
+138:$router->get('/email-marketing/templates/builder', 'EmailMarketingController', 'showTemplateBuilderPage', ['AuthMiddleware']);
+139:$router->get('/email-marketing/templates/shared/{token}', 'EmailMarketingController', 'showSharedTemplatePage', []);
+140:$router->get('/email-marketing/campaigns', 'EmailMarketingController', 'showCampaignsPage', ['AuthMiddleware']);
+141:$router->get('/email-marketing/campaigns/{id}', 'EmailMarketingController', 'showCampaignDetailsPage', ['AuthMiddleware']);
+142:$router->get('/email-marketing/reports', 'EmailMarketingController', 'showReportsPage', ['AuthMiddleware']);
+143:$router->get('/email-marketing/automations', 'EmailMarketingController', 'showAutomationsPage', ['AuthMiddleware']);
+144:$router->get('/email-marketing/settings', 'EmailMarketingController', 'showEmailSettingsPage', ['AuthMiddleware']);
+145:$router->get('/email-marketing/transactional', 'EmailMarketingController', 'showTransactionalPage', ['AuthMiddleware']);
+146:$router->get('/email-marketing/ab-tests', 'EmailMarketingController', 'showAbTestsPage', ['AuthMiddleware']);
+147:$router->get('/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'showAbTestDetailsPage', ['AuthMiddleware']);
+340:    $router->get('/emails', 'AdminController', 'emailsPage', ['AuthMiddleware', 'AdminMiddleware']);
+386:$router->get('/admin/growth', 'PlatformOutreachController', 'index', ['AuthMiddleware','AdminMiddleware']);
+406:$router->get('/outreach','OutreachController','index',['AuthMiddleware']);

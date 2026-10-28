@@ -1,0 +1,51 @@
+{
+    "name": "tourfecto/platform",
+    "description": "Tourfecto - AI-powered SaaS platform for tourism and local businesses",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.0",
+        "ext-pdo": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
+        "ext-curl": "*",
+        "ext-gd": "*",
+        "vlucas/phpdotenv": "^5.6",
+        "ext-pdo_mysql": "*"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.30",
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^9.6 || ^10.5"
+    },
+    "scripts": {
+        "lint": "php tools/lint.php",
+        "analyze": "phpstan analyse",
+        "format": "pint",
+        "format:test": "pint --test",
+        "test": "phpunit --configuration tests/phpunit.xml"
+    },
+    "autoload": {
+        "files": [
+            "app/Helpers/functions.php",
+            "app/Helpers/validation.php",
+            "app/Helpers/formatting.php",
+            "app/Helpers/array_helper.php",
+            "app/Helpers/i18n.php",
+            "app/Helpers/enterprise_helpers.php",
+            "app/Security/Csrf.php"
+        ],
+        "classmap": [
+            "app/",
+            "cron/"
+        ],
+        "exclude-from-classmap": [
+            "app/Security/",
+            "app/database/"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

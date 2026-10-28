@@ -1,0 +1,43 @@
+No syntax errors detected in project/app/Controllers/AIController.php
+
+No syntax errors detected in project/app/Controllers/ChatController.php
+
+No syntax errors detected in project/app/Controllers/OutreachController.php
+
+No syntax errors detected in project/app/Controllers/ReputationController.php
+
+No syntax errors detected in project/app/Controllers/SeoStrategyController.php
+
+No syntax errors detected in project/app/Controllers/SubscriptionController.php
+
+No syntax errors detected in project/app/Controllers/WalletController.php
+
+No syntax errors detected in project/app/Models/Subscription.php
+
+No syntax errors detected in project/app/Services/AI/TourfectoAIEngine.php
+
+No syntax errors detected in project/app/Services/Admin/CouponService.php
+
+No syntax errors detected in project/app/Services/Automation/ReviewAutoReplyRunner.php
+
+No syntax errors detected in project/app/Services/ReviewAutoReplyRunner.php
+
+No syntax errors detected in project/app/Services/Subscription/BillingManager.php
+
+No syntax errors detected in project/app/Services/Subscription/BillingUsageReservation.php
+
+No syntax errors detected in project/app/Services/Subscription/PlanUsage.php
+
+No syntax errors detected in project/app/Services/Subscription/SubscriptionLifecycleService.php
+
+No syntax errors detected in project/app/Services/Subscription/SubscriptionPeriod.php
+
+No syntax errors detected in project/app/Services/Subscription/SubscriptionValidator.php
+
+No syntax errors detected in project/app/Services/Subscription/WalletService.php
+
+No syntax errors detected in project/app/Services/TourfectoAIEngine.php
+
+No syntax errors detected in project/tests/Regression/BillingSubscriptionFixTest.php
+
+No syntax errors detected in project/tools/billing_usage_reconcile.php

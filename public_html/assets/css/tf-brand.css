@@ -1,0 +1,41 @@
+/* Tourfecto brand: اللوجو المتحرك (تحميل، توليد، وبين الصفحات) */
+.tf-mark{display:inline-block;width:1em;height:1em;vertical-align:-.15em;flex:0 0 auto}
+.tf-mark .tf-arc,.tf-mark .tf-stem{fill:none;stroke:#DDB255;stroke-width:7;stroke-linecap:round}
+.tf-mark .tf-star{fill:#F7E2A1;transform-box:fill-box;transform-origin:center}
+.tf-mark.is-anim .tf-arc{stroke-dasharray:44;stroke-dashoffset:44;animation:tfArc 1.6s cubic-bezier(.65,0,.35,1) infinite}
+.tf-mark.is-anim .tf-stem{stroke-dasharray:30;stroke-dashoffset:30;animation:tfStem 1.6s cubic-bezier(.65,0,.35,1) infinite}
+.tf-mark.is-anim .tf-star{animation:tfStar 1.6s ease-in-out infinite}
+@keyframes tfArc{0%{stroke-dashoffset:44}35%,75%{stroke-dashoffset:0}100%{stroke-dashoffset:-44}}
+@keyframes tfStem{0%,15%{stroke-dashoffset:30}50%,80%{stroke-dashoffset:0}100%{stroke-dashoffset:-30}}
+@keyframes tfStar{0%,30%{transform:scale(0) rotate(0);opacity:0}45%{transform:scale(1.25) rotate(45deg);opacity:1}60%,80%{transform:scale(1) rotate(90deg);opacity:1}100%{transform:scale(0) rotate(180deg);opacity:0}}
+
+/* بين الصفحات: طبقة خفيفة في النص */
+#tfPageLoader{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(6,10,19,.35);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .2s}
+#tfPageLoader.on{opacity:1;pointer-events:auto}
+#tfPageLoader .tf-pl-card{width:92px;height:92px;border-radius:24px;background:linear-gradient(135deg,#14365A,#0A1A2E);box-shadow:0 18px 50px rgba(0,0,0,.35),0 0 0 1px rgba(221,178,85,.25);display:flex;align-items:center;justify-content:center;font-size:58px}
+
+/* أي طلب بياخد وقت: لوجو صغير متحرك في الركن */
+#tfBusy{position:fixed;bottom:18px;inset-inline-start:18px;z-index:2147482000;display:flex;align-items:center;gap:8px;padding:7px 12px 7px 8px;border-radius:999px;background:#0B1F33;color:#F7E2A1;font:600 12.5px/1 system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25);transform:translateY(12px);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#tfBusy.on{opacity:1;transform:none}
+#tfBusy .tf-mark{font-size:22px;background:#14365A;border-radius:7px}
+
+/* نصوص "جارِ التحميل" وزراير "جاري التوليد" */
+.tf-loading-inline{display:inline-flex;align-items:center;gap:.5em}
+.tf-loading-inline>.tf-mark{font-size:1.35em}
+.tf-loading-block{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px 8px;text-align:center}
+.tf-loading-block>.tf-mark{font-size:44px}
+
+@media (prefers-reduced-motion:reduce){
+  .tf-mark.is-anim .tf-arc,.tf-mark.is-anim .tf-stem{animation:none;stroke-dashoffset:0}
+  .tf-mark.is-anim .tf-star{animation:tfPulse 1.6s ease-in-out infinite}
+  @keyframes tfPulse{50%{opacity:.35}}
+}
+
+/* قوائم الاختيار (select): قايمة الاختيارات اللي بتفتح بتاخد ألوان الثيم.
+   كانت بتطلع بيضا وكلامها رمادي فاتح في الوضع الداكن (صفحة التسجيل وغيرها). */
+select option, select optgroup { background-color: #FFFFFF; color: #0F1B2D; }
+html[data-theme="dark"] select option, html[data-theme="dark"] select optgroup { background-color: #131C31; color: #E8ECF5; }
+html[data-theme="dark"] select option:disabled { color: #6B7686; }
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) select option, html:not([data-theme="light"]) select optgroup { background-color: #131C31; color: #E8ECF5; }
+}

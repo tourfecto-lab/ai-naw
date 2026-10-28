@@ -1,0 +1,65 @@
+# .htaccess صحيح للمجلد العام (public_html)
+RewriteEngine On
+RewriteBase /
+
+# منع عرض محتويات المجلدات
+Options -Indexes
+
+# توجيه جميع الطلبات إلى index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# حماية الملفات الحساسة
+<FilesMatch "\.(env|log|ini|sql|sh|bak)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# السماح بالوصول فقط من خلال PHP
+<FilesMatch "\.(php|php5|php7|phtml)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# ============================================
+# تخزين مؤقت للأصول الثابتة (Browser Caching)
+# كان غير موجود تمامًا - كل زيارة (حتى المتكررة لنفس الزائر) كانت بتعيد
+# تحميل CSS/JS/الصور من الصفر بدل ما المتصفح يستخدم نسخة محفوظة عنده.
+# مدة طويلة (30 يوم) آمنة هنا لأن كل رابط CSS/JS في الموقع بقى معاه
+# ?v=رقم-تعديل-الملف تلقائيًا - أي تعديل مستقبلي في الملف بيغيّر الرقم
+# ده فورًا، فالمتصفح بيعرف يجيب النسخة الجديدة رغم التخزين الطويل.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType text/javascript "access plus 30 days"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/manifest+json "access plus 1 day"
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|png|jpe?g|webp|svg|ico|woff2?)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
+# ضغط الملفات النصية قبل الإرسال - بيقلل حجم النقل بشكل كبير
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Production hardening: diagnostics/admin helper scripts must never be web-accessible.
+<FilesMatch "^(?:_internal_error_dashboard_9f21x|deep_debug|diagnose_onboarding|show_columns|system_check)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Never serve environment/config/backup artifacts even if they are accidentally copied here.
+<FilesMatch "^(?:\.env|\.env\..*|.*\.(?:log|ini|sql|bak|old|orig|swp))$">
+    Require all denied
+</FilesMatch>

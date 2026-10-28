@@ -1,0 +1,1795 @@
+Native booking readiness compatibility fix. Base4496d40. Nine offline mock-Database assertions cover uppercase/lowercase metadata, aliases, exact missing columns and owner guards; reproduced uppercase-label regression before patch. Explicit SQL aliases and case-normalized keys, no schema/financial writes. Full required suites rerun. Native platform booking measurement. Explicit owned-product/site mapping independent of Builder ids. Actual payment/refund ledgers, booking-created UTC cohorts, successful/pending refunds distinguished, currencies separate, no inferred SEO/landing attribution. New actual-service SQL23 assertions and actual Panel browser13 assertions. All new fixtures offline; no production, provider, SMTP or money-moving calls. Required phases1–6,connector,plans_studio,xpay,plan_gate,fx_bank included. Known unrelated billing baseline failures plans_studio40/47 and plan_gate19/24. Guarded disposable MariaDB databases; PHP8.4.26.
+
+$ php tests/Automation/seo_platform_bookings_readiness_test.php
+PASS lowercase database metadata remains compatible
+PASS uppercase MySQL information_schema result keys do not falsely disable installed measurement
+PASS explicit metadata aliases also work with uppercase PDO keys
+PASS a complete installed schema reaches product selection without inventing sales
+PASS a genuinely missing payment column still prevents unsupported queries
+PASS owner-scoped unavailable response identifies the exact missing requirement without financial data
+PASS an empty schema reports every required column without creating tables
+PASS ownership is checked before exposing installation diagnostics
+PASS readiness cannot mutate schema or financial records
+9 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_platform_bookings_database_test.php
+PASS additive mapping schema and native ledger prerequisites are detected
+PASS a numeric Builder website id never silently assigns a product to an SEO website
+PASS product-to-site assignment requires explicit factual review
+PASS another account cannot configure this site
+PASS a forged foreign product cannot be assigned
+PASS repeating a reviewed selection creates no duplicate assignments
+PASS one product cannot double-count revenue across two sites
+PASS a failed selection preserves the previous reviewed mapping atomically
+PASS product choices expose only owned records and restore the saved selection
+PASS the other site sees that the product already has a measurement assignment
+PASS booking cohorts use equal complete UTC windows and exclude today
+PASS multiple captured payments count one booking and manually confirmed unpaid bookings count none
+PASS multiple refunds are aggregated per payment without multiplying captured amounts
+PASS processing refunds are visible but are not treated as money already returned
+PASS a genuine full refund yields measured zero and cancelled bookings remain visible
+PASS refunded status without matching refund evidence is excluded and flagged rather than inventing a refund amount
+PASS the previous cohort uses its own real captured payments
+PASS product sales are never mislabeled as organic landing-page attribution or payment-date cash flow
+PASS read-only reload cannot duplicate receipts or change totals
+PASS a newly succeeded refund changes the current net value without any new payment event
+PASS cancellation alone never pretends that captured money has been refunded
+PASS unassigning measurement preserves every booking and financial record
+PASS measurement reads and selection changes trigger no payment, queue, email or billing activity
+23 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_platform_bookings_browser_test.cjs
+PASS an unmapped site is explicitly unconfigured and loading never enables a financial source
+PASS other-site assignments are locked and product names render as escaped text
+PASS selection cannot be saved without the explicit site-fact confirmation
+PASS pagination retains an unsaved selection
+PASS changing products clears the prior factual confirmation
+PASS search never resets the customer’s unsaved selected product
+PASS reviewed save sends only selected owned product ids with the real Panel CSRF/JSON transport
+PASS captured amounts, confirmed/pending refunds and actual zero remain visible by currency
+PASS measurement scope is explicit without converting product sales into SEO revenue or assumed refunds
+PASS successful native setup clears consent and does not enable unrelated WooCommerce receipts
+PASS a site change clears prior money, product selection and consent and rejects late product responses
+PASS native booking guidance fits a mobile viewport
+PASS customer mapping creates no payment, booking, provider request or page error
+13 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_outcome_readiness_database_test.php
+PASS an empty service has no invented measurement or collection date
+PASS missing source connections remain explicit
+PASS existing latest-twenty detail limit is explicit while summary covers the full account-site history
+PASS superseded and foreign-site records are excluded from current measurement totals
+PASS collected, pending and unavailable comparisons are counted separately
+PASS the earliest scheduled collection is found even when its monitor falls outside the displayed twenty
+PASS source readiness stays scoped to this customer and website
+PASS a WordPress connection to a different host cannot enable paid-order setup
+PASS readiness exposes no credentials or provider property identities
+PASS a foreign owner cannot read outcome counts or connection readiness
+PASS unsupported booking setup performs no source or tracking-start write
+PASS a failed WordPress preflight preserves an existing receipt source and its tracking history
+PASS unsafe or ambiguous WordPress targets fail preflight before receipt configuration
+PASS unsafe or ambiguous WordPress targets fail preflight before receipt configuration
+PASS unsafe or ambiguous WordPress targets fail preflight before receipt configuration
+PASS a saved matching WordPress target permits an explicit configuration attempt without claiming plugin verification
+PASS readiness and rejected setup create no jobs or billing activity
+17 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_outcome_readiness_browser_test.cjs
+PASS fixture reproduces a website selected after the impact module initializes
+PASS direct Results navigation automatically loads exactly one overview after asynchronous setup
+PASS summary uses full-server counts rather than treating the displayed monitor list as all measurements
+PASS the next collection date is explicit and machine-readable before metrics exist
+PASS zero collected comparisons are a waiting state, not a fabricated zero business result
+PASS technical comparison and manual AI forms are retained behind optional settings
+PASS custom sites are not asked to activate a WooCommerce-only connection
+PASS opening readiness creates no comparisons, booking sources, paid analyses or approvals
+PASS read-only reload preserves manual input and keeps unsupported booking setup disabled
+PASS late responses and manual dates from the previous site cannot appear for the new customer site
+PASS a matching saved WordPress target enables only its explicit action and missing Analytics remains visible
+PASS outcome summary and existing controls fit a mobile viewport
+PASS outcome readiness and asynchronous loading have no JavaScript errors
+13 assertions passed
+Exit status: 0
+
+$ node --check public_html/assets/js/seo-impact.js
+Exit status: 0
+
+$ php tests/Automation/nap_address_evidence_test.php
+PASS a country alone does not establish a conflicting full business address
+PASS an incomplete official address cannot establish an address match or mismatch
+PASS two country-only addresses do not establish a business location match
+PASS blank structured fields do not turn country metadata into a location
+PASS an agreeing partial address remains incomplete rather than becoming a mismatch
+PASS identical complete observed address fields match
+PASS explicit conflicting postal codes retain mismatch evidence
+PASS explicit conflicting streets retain mismatch evidence
+PASS an unstructured partial footer is not asserted to contradict structured fields
+PASS two literal observed addresses retain real differences
+PASS the actual Organization parser preserves insufficient country-only evidence as unknown
+PASS a country-only schema does not hide an explicit footer address
+PASS insufficient address evidence does not suppress another observed field conflict
+13 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_guided_customer_journey_browser_test.cjs
+PASS customer has four explicit steps without losing existing tools
+PASS background processing asks the customer to follow the existing cycle: The platform is processing your existing cycle. Open it for automatic status updates; no new cycle or open browser is required.
+PASS missing optional WordPress login is not presented as a failed PHP setup
+PASS optional WordPress permissions remain accessible on request
+PASS cycle progress updates automatically without another customer click
+PASS automatic polling pauses for unsaved customer input even after focus leaves the field
+PASS guided progress never approves changes or consumes a new cycle automatically
+PASS the customer sees what requires their review and what the platform does
+PASS switching sites clears the prior plan and its required actions
+PASS guided SEO overview fits a mobile viewport
+PASS SEO guidance and progress have no JavaScript errors
+PASS Arabic step instructions render correctly as UTF-8
+PASS actual connected facts are previewed and previous directory profiles are restored
+PASS Google facts render as escaped text
+PASS loading guidance never confirms facts or authorizes paid work
+PASS an unchecked factual review cannot save or start comparison
+PASS one reviewed confirmation saves facts and automatically compares them exactly once
+PASS comparison explains real mismatches and unknown values rather than showing a false all-clear
+PASS NAP succeeds independently and the paid Maps prerequisite stays visible
+PASS a successful free comparison does not trigger paid grids or backlink research
+PASS partial failure preserves saved facts and gives a customer action without server jargon
+PASS retrying the comparison does not replay profile saving
+PASS late responses from a previous site cannot populate the new site
+PASS site changes clear prior facts approval, paid consent and comparison results
+PASS local customer steps fit a mobile viewport
+PASS guided local comparison has no JavaScript errors
+26 assertions passed
+Exit status: 0
+
+$ node --check public_html/assets/js/seo-workspace.js
+Exit status: 0
+
+$ php tests/Automation/local_nap_without_coordinates_test.php
+PASS a connected business can confirm its real NAP profile without coordinates
+PASS the same confirmation explicitly reports Maps measurement unavailable
+PASS saved NAP facts come unchanged from the Google profile
+PASS missing coordinates remain null rather than becoming a fabricated point
+PASS directory profiles and stable Maps identity survive confirmation
+PASS profile persistence keeps both customer and website ownership
+PASS grid rejects missing or invalid profile coordinates #0
+PASS grid rejects missing or invalid profile coordinates #1
+PASS grid rejects missing or invalid profile coordinates #2
+PASS grid rejects missing or invalid profile coordinates #3
+PASS grid rejects missing or invalid profile coordinates #4
+PASS grid rejects missing or invalid profile coordinates #5
+PASS grid rejects missing or invalid profile coordinates #6
+PASS grid rejects missing or invalid profile coordinates #7
+PASS explicitly provided zero coordinates remain valid and distinct from missing values
+PASS confirmed real numeric coordinates enable grid eligibility
+PASS customer confirmation remains required before storing facts
+PASS foreign website IDs cannot save the profile
+PASS an explicitly disconnected GBP account cannot confirm its profile
+PASS a saved sync error does not block confirmation when Google returns the actual profile
+PASS a failed live Google read cannot save or confirm a historical error profile
+PASS invalid OAuth credentials still prevent profile confirmation
+PASS reopening the page restores the customer-approved directory profiles
+PASS read-only guidance exposes only the required business facts
+PASS saved NAP facts do not imply map coordinates are available
+PASS saved guidance reads remain scoped by website and customer
+PASS citation comparison retries a sync-error account and uses a fresh successful Google profile
+PASS comparison uses the live official facts rather than claiming a stale profile is verified
+PASS unavailable website and directory sources stay unknown and create no mismatch tasks
+PASS inactive or absent connection cannot trigger Google reads or NAP confirmation: disconnected
+PASS inactive or absent connection cannot trigger Google reads or NAP confirmation: pending
+PASS inactive or absent connection cannot trigger Google reads or NAP confirmation: absent
+PASS comparison fails closed when the live profile cannot be verified
+PASS comparison fails closed when token validation fails
+PASS retrying a sync error cannot silently switch the confirmed business branch
+35 assertions passed
+Exit status: 0
+
+$ php tests/Automation/gbp_connection_selection_database_test.php
+PASS a stale failed connection cannot hide a newer connected GBP record
+PASS the newest connected GBP record is selected deterministically
+PASS a newer unsuccessful reconnect does not replace the working connection
+PASS selection excludes another user, another site and another platform
+PASS no foreign website connection is returned to a different owner
+PASS when no connection is active the newest saved state remains available for reconnect guidance
+PASS a site without GBP records returns null
+PASS selection retains every historical connection record
+8 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_customer_json_transport_browser_test.cjs
+PASS NAP comparison sends the chosen website in a body PHP can parse
+PASS GBP confirmation works through the real Panel.fetchJSON helper
+PASS NAP confirmation explains missing Maps coordinates without starting a grid
+PASS GBP identity confirmation and directory URLs survive JSON transport
+PASS unconfirmed Maps request reaches the payment guard, not a missing-website error
+PASS Maps paid consent remains explicitly false until checked
+PASS confirmed fake grid enqueues once and clears paid consent
+PASS link-gap action retains website scope through JSON transport
+PASS one confirmation saves once and starts one comparison without replaying writes
+PASS local writes retain JSON type and CSRF header
+PASS local writes keep the production API route bridge
+PASS local customer workflow has no JavaScript errors
+PASS translation generation still requires source confirmation
+PASS translation generation sends the selected builder in parseable JSON
+PASS transport fix does not bypass human review before publishing
+PASS reviewed translation preserves its exact source fingerprint and edited fields
+PASS saving an unreviewed draft remains distinct from publishing
+PASS sitemap submission preserves the chosen owned website and URL
+PASS automatic sitemap submission can be disabled for the selected website
+PASS validation failures do not issue writes or replay generation
+PASS international writes retain JSON type and CSRF header
+PASS international writes keep the production API route bridge
+PASS international customer workflow has no JavaScript errors
+23 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_follow_up_resolution_database_test.php
+PASS keeping existing metadata closes review without claiming an executed improvement
+PASS review preserves status, verification date and unapplied proposal
+PASS review reason is additive and original verification evidence survives
+PASS review increments plan version for concurrent approval protection
+PASS generic completion cannot erase a keep-current review decision
+PASS monthly next-plan excludes a reviewed keep-current proposal and retains its reason
+PASS actual report query includes this-month review decisions and pending tasks alongside previous-month metrics
+PASS current report retains the factual reason for keeping existing metadata
+PASS stale review version is rejected
+PASS another tenant cannot change a review decision
+PASS a forged approval cannot apply a proposal retained by review
+PASS reopen restores review and retains dated decision history
+PASS operational-page decision excludes the indexing suggestion without claiming Google indexed it
+PASS review starts no publishing, automation, jobs or billed cycle
+PASS same-page same-day changes share three real 7/14/28-day comparisons
+PASS foreign tenant cannot repair or create comparison mappings
+PASS review decision cannot hide applied or verified content
+PASS backfill detects a changed publication URL even when all three mappings already exist
+PASS all windows measure the exact live connector article URL
+PASS repair preserves the original application date instead of moving it to the latest verification
+PASS query articles cannot be mixed with homepage measurements
+PASS change event follows the corrected publication URL
+PASS shared old comparisons remain active while another task still uses them
+PASS a second article receives independent exact-query windows
+PASS unreferenced old comparisons are retained with original results and marked superseded
+PASS backfill and verification repeats create no duplicate windows or queued jobs
+PASS a queued job for a superseded URL is a no-op and preserves evidence
+PASS historic superseded comparison cannot be manually refreshed
+PASS queued comparisons expose actual windows and due date before metrics exist
+PASS before/after exclude the original change day
+PASS received booking landing identity retains the article query rather than the homepage
+PASS all original task rows survive review and monitoring repairs
+32 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_impact_query_route_test.php
+PASS valid connector article route retains exact query identity
+PASS homepage and different articles have distinct monitor identities
+PASS reject unsupported or ambiguous route ?utm_source=test
+PASS reject unsupported or ambiguous route ?tf_article=one&preview=1
+PASS reject unsupported or ambiguous route ?tf_article=one&tf_article=two
+PASS reject unsupported or ambiguous route ?tf_article=../secret
+PASS reject unsupported or ambiguous route ?tf_article=%2Fsecret
+PASS reject unsupported or ambiguous route ?tf_article[]=one
+PASS reject unsupported or ambiguous route ?tf_article=
+PASS reject unsupported or ambiguous route ?tf_article=one#fragment
+PASS query route does not bypass website ownership validation
+PASS GA4 compares the exact article landing route rather than all homepage sessions
+PASS existing clean-page GA4 filter remains compatible
+PASS GSC exact-page comparison retains the full article URL
+PASS window 7 waits for a full period plus three days of provider latency
+PASS window 14 waits for a full period plus three days of provider latency
+PASS window 28 waits for a full period plus three days of provider latency
+17 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_follow_up_resolution_browser_test.cjs
+PASS only unapplied proposals offer a keep-current decision
+PASS existing applied metadata keeps its rollback control
+PASS review cannot be submitted without a clear reason
+PASS review submits current plan version, CSRF and reason to existing protected endpoint
+PASS kept proposal loses completion action and retains its underlying status
+PASS review remains reversible
+PASS kept proposal is removed from required customer work
+PASS excluded history remains accessible
+PASS reopening uses updated plan version
+PASS queued monitor shows window, before/after dates and due date before results exist
+PASS current query article and retained superseded URL have distinct labels
+PASS superseded historical monitor has no refresh control
+PASS queued comparison does not invent before/after metric values
+PASS review triggers no generation, publication or monitor-create request
+PASS review controls remain available on mobile
+PASS review and impact interfaces have no JavaScript errors
+16 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_report_language_test.php
+PASS monthly report is excluded from account UI translation
+PASS neighboring UI and API paths retain existing translation
+PASS report retains HTML Content-Type under buffered dispatch
+PASS report bytes, Arabic labels and RTL survive en UI via direct route
+PASS report retains HTML Content-Type under buffered dispatch
+PASS report bytes, Arabic labels and RTL survive en UI via bridge
+PASS report retains HTML Content-Type under buffered dispatch
+PASS report bytes, Arabic labels and RTL survive ar UI via direct route
+PASS report retains HTML Content-Type under buffered dispatch
+PASS report bytes, Arabic labels and RTL survive ar UI via bridge
+PASS failed report retains its HTTP error status
+PASS unauthenticated report cannot fall through into HTTP 200
+PASS normal English account UI still translates its document attributes
+PASS normal Arabic account UI remains RTL
+PASS exception is exact, not an entire report prefix
+15 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_content_journey_database_test.php
+PASS tenant 1 research persists actual parser output through fake provider
+PASS tenant 1 research cache prevents duplicate provider use
+PASS tenant 2 research persists actual parser output through fake provider
+PASS tenant 2 research cache prevents duplicate provider use
+PASS foreign site research rejected
+PASS foreign market research rejected
+PASS foreign customer brief rejected before research/fetch
+PASS foreign market brief rejected before research/fetch
+PASS tenant 1 real planning completes with injected transport
+PASS tenant 1 target follows its service and market despite unrelated higher volume
+PASS tenant 1 brief contains five fetched competitor outlines and own market/PAA
+PASS tenant 1 brief cannot borrow another customer facts
+PASS competitor prices are not customer facts
+PASS tenant 1 has one human-review draft
+PASS tenant 1 draft cannot be edited by other owner
+PASS tenant 1 unconfirmed competitor price rejected during review
+PASS tenant 1 invented internal link rejected during review
+PASS tenant 1 reviewed draft uses real approval path
+PASS tenant 1 article publishes only to its connector domain
+PASS tenant 1 real rendered connector article passes content verification
+PASS tenant 1 canonical, FAQs, links, theme and sitemap audit complete
+PASS tenant 1 reviewed metadata survives publication
+PASS tenant 1 FAQ JSON-LD is in connector page rules
+PASS tenant 1 approved article body contains no schema script
+PASS tenant 1 pillar links back to its own article
+PASS tenant 2 real planning completes with injected transport
+PASS tenant 2 target follows its service and market despite unrelated higher volume
+PASS tenant 2 brief contains five fetched competitor outlines and own market/PAA
+PASS tenant 2 brief cannot borrow another customer facts
+PASS competitor prices are not customer facts
+PASS tenant 2 has one human-review draft
+PASS tenant 2 draft cannot be edited by other owner
+PASS tenant 2 unconfirmed competitor price rejected during review
+PASS tenant 2 invented internal link rejected during review
+PASS tenant 2 reviewed draft uses real approval path
+PASS tenant 2 article publishes only to its connector domain
+PASS tenant 2 real rendered connector article passes content verification
+PASS tenant 2 canonical, FAQs, links, theme and sitemap audit complete
+PASS tenant 2 reviewed metadata survives publication
+PASS tenant 2 FAQ JSON-LD is in connector page rules
+PASS tenant 2 approved article body contains no schema script
+PASS tenant 2 pillar links back to its own article
+PASS changed tenant-one profile blocks its stale draft without blocking tenant two
+PASS real monthly report query assigns each tenant its Google follow-up
+PASS monthly report separates customer domains
+PASS foreign monthly report rejected before assembly
+PASS current-month Google follow-up is included when reporting the previous calendar month
+PASS current follow-up keeps customer ownership boundaries
+PASS current follow-up does not move this-month verified tasks into last-month historical results
+PASS detail derives Google category without changing durable task status
+PASS exactly one fake generation per tenant
+PASS tenant 1 planning prompt retains its language and no foreign domain/identity
+PASS tenant 2 planning prompt retains its language and no foreign domain/identity
+PASS all research/brief calls have bounded quota units and fake transports
+PASS offline journey consumes no live generation allowance
+PASS offline journey creates no wallet debit
+56 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_task_follow_up_test.php
+PASS recent discovered/not crawled observation is Google follow-up
+PASS derived follow-up does not mutate stored task
+PASS real review remains customer work: unknown_to_google
+PASS real review remains customer work: crawled_not_indexed
+PASS real review remains customer work: robots_blocked
+PASS real review remains customer work: noindex
+PASS real review remains customer work: fetch_server_error
+PASS real review remains customer work: google_chose_other_canonical
+PASS stale Google observation requires refresh
+PASS invalid observation date cannot imply waiting
+PASS future observation cannot imply waiting
+PASS latest unavailable attempt cannot reuse old certainty
+PASS other-system proof cannot imply indexing wait
+PASS contradictory fetch failure is not waiting
+PASS robots block is not waiting
+PASS already crawled contradiction is not waiting
+PASS failed verdict is not waiting
+PASS inconsistent indexed response is not waiting
+PASS old task without measured Google proof requires refresh
+PASS stored JSON evidence supports legacy task detail
+PASS verified task remains a dated verification
+PASS excluded task cannot become pending Google work
+PASS approved site changes remain in progress
+PASS operational indexing intent remains a customer decision
+PASS monthly report separates Google follow-up, customer action and excluded history
+PASS report projection does not expose raw connection evidence or page snapshot
+PASS report labels follow-up as current, separate from historical monthly metrics
+PASS waiting task is not duplicated into customer work
+28 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_task_follow_up_browser_test.cjs
+PASS all applied, excluded, pending and Google tasks remain visible
+PASS discovered URL has its own Google badge
+PASS waiting task does not ask customer to claim a site fix
+PASS waiting task retains read-only Google refresh
+PASS waiting label does not promise indexing
+PASS stale observation asks for a fresh check
+PASS waiting, customer work and excluded history have distinct counts
+PASS Google filter isolates waiting pages
+PASS unknown/stale pages remain review work, not waiting
+PASS refresh uses existing versioned connected endpoint
+PASS fresh Google observation moves the page into follow-up
+PASS follow-up transition removes only the waiting page from customer input
+PASS excluded proposal inspection is preserved
+PASS waiting is never counted as completed or verified
+PASS Google filter accessible on mobile
+PASS classification triggers no generation, approval or publication
+PASS follow-up UI has no JavaScript errors
+17 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_recommendation_review_test.php
+PASS legacy collection trip schema visibly excluded
+PASS legacy related-trip overlay excluded on collection
+PASS quiz marketing proposal excluded without fetching
+PASS safe collection breadcrumb feature retained
+PASS genuine single-trip schema remains reviewable
+PASS missing page context cannot falsely establish collection or approve
+PASS existing execution history retained: is_active
+PASS existing execution history retained: status
+PASS existing execution history retained: status
+PASS existing execution history retained: published_url
+PASS existing execution history retained: external_post_id
+PASS existing execution history retained: previous_task_id
+PASS Google indexing task remains separate from marketing eligibility
+PASS operational indexing is an intent decision, not a fabricated fetch error
+PASS good metadata warns reviewer to preserve factual detail without banning human edits
+PASS noindex intent requires review before marketing
+PASS generic schema instruction unsupported by existing schema is excluded
+PASS specific missing schema type may still be reviewed
+PASS already present named schema is not recommended again
+PASS explicit schema repair remains supported
+PASS new manual tasks filtered against actual page scope
+PASS public worker cannot replace connected proof: manual
+PASS public worker cannot replace connected proof: connection
+PASS metadata continues to reverify
+PASS active publication recovery continues to reverify
+PASS unapplied proposal is not treated as an applied rule
+26 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_recommendation_review_database_test.php
+PASS completed legacy task is labelled using full stored page context
+PASS safe collection breadcrumb remains available
+PASS detail assessment changes no task rows or customer evidence
+PASS review does not expose another customer plan
+PASS forged approval selection cannot queue a collection trip schema
+PASS rejected approval cannot activate automation or queue execution
+PASS legitimate breadcrumb can still be approved normally
+PASS safe approved task uses existing execution queue
+PASS public verification preserves manual/connection Google status, timestamps and customer proof byte for byte
+PASS public worker fetches only an applied metadata page
+PASS normal applied metadata still receives fresh public verification
+PASS excluded and completed tasks are retained, never deleted
+PASS review and verification do not consume generation allowance
+13 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_recommendation_review_browser_test.cjs
+PASS all historical tasks remain visible in the plan
+PASS exclusion explains both reason and evidence age
+PASS excluded trip schema cannot be selected for approval
+PASS excluded quiz has no completion or editor action
+PASS safe collection breadcrumb retains approval checkbox
+PASS Google indexing action remains available
+PASS applied metadata retains rollback feature
+PASS connected verification label names Google rather than public page
+PASS missing page evidence blocks browser approval
+PASS excluded proposals are not counted as customer work or completed successes
+PASS needs-input filter excludes unsuitable historical proposals
+PASS excluded filter retains proposals and reasons for inspection
+PASS verified filter retains actual verified results only
+PASS all-task view restores the complete history
+PASS review filters remain accessible on mobile
+PASS viewing assessment starts no generation or publication request
+PASS recommendation review UI has no JavaScript errors
+17 assertions passed
+Exit status: 0
+
+$ vendor/bin/phpunit --no-configuration tests/Unit/SeoPlanQualityGateTest.php
+PHPUnit 10.5.66 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.26
+
+....                                                                4 / 4 (100%)
+
+Time: 00:00.007, Memory: 8.00 MB
+
+OK (4 tests, 7 assertions)
+Exit status: 0
+
+$ php tests/Automation/seo_connected_task_test.php
+PASS unspecified fetch preserves discovered, not crawled meaning
+PASS unspecified fetch preserves unknown URL meaning
+PASS actual fetch errors remain errors
+PASS robots block keeps precedence
+PASS noindex keeps precedence
+PASS pending sitemap confirms submission only and exposes warnings
+PASS a different listed sitemap cannot verify this task
+PASS reported sitemap errors remain unresolved
+PASS API failure is not a negative Google observation
+PASS exceptions do not expose credentials
+PASS wrong property rejected before API call
+PASS customer tasks cannot check foreign domains
+PASS query article URLs can be inspected without inventing indexing
+PASS positive current Google inspection verifies indexing
+PASS empty successful API response cannot unverify a task
+PASS operational pages require a separate indexing intent decision
+PASS metadata tasks cannot use connected manual verification
+PASS URL prefix property has path boundary
+PASS credential URL rejected
+PASS foreign port rejected
+PASS fragment URL rejected
+PASS inspection uses only read-only inspection requests
+22 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_connected_task_database_test.php
+PASS customer cannot inspect another customer task
+PASS stale version rejected before provider
+PASS only recognized manual tasks allowed
+PASS fresh exact sitemap observation verifies existing task and increments version
+PASS customer evidence retained with Google pending status
+PASS detail exposes read-only check action
+PASS read check creates no publication jobs or generation/wallet usage
+PASS automation stays draft and existing cycle stays completed
+PASS unavailable connection preserves dated previous proof
+PASS prior connected observation retained
+PASS fresh negative observation reopens task
+PASS unindexed live page remains unresolved with correct Google reason
+PASS concurrent plan edit cannot be overwritten after network read
+PASS concurrent evidence is preserved even without a version change
+PASS website identity rechecked after provider read
+PASS quiz indexing intent cannot be automatically closed
+16 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_connected_task_browser_test.cjs
+PASS only recognized manual Google tasks offer connected check
+PASS legacy unspecified fetch title no longer shown as a failure
+PASS unsaved edits block connected check
+PASS browser requests versioned Google observation, not customer assertion
+PASS sitemap submission does not claim page indexing
+PASS pending sitemap state visible with customer label
+PASS subsequent check uses latest plan version
+PASS unindexed task remains open with current coverage
+PASS unrelated draft remains unchanged
+PASS no cycle, submission, approval or publication triggered
+PASS connected Google task UI has no JavaScript errors
+11 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_breadcrumb_refresh_database_test.php
+PASS another customer cannot refresh the task
+PASS stale versions fail before any public fetch
+PASS active rules cannot be rewritten through refresh
+PASS previously verified tasks cannot be refreshed
+PASS business schema mixed with breadcrumbs is not eligible
+PASS nested business schema is also protected
+PASS a task on another website is rejected before fetching
+PASS changed confirmed business facts require review
+PASS unavailable page leaves the proposal unchanged
+PASS maintenance page leaves the proposal unchanged
+PASS redirected page leaves the proposal unchanged
+PASS changed public schema leaves the proposal unchanged
+PASS a concurrent plan edit cannot be overwritten after the fetch
+PASS refresh removes the now-404 parent from the actual saved proposal
+PASS refreshed proposal still requires approval before publication
+PASS refresh advances the version without restarting the cycle
+PASS prior review evidence and old proposal remain available
+PASS submitted schema data cannot replace server-generated breadcrumbs
+PASS detail exposes the dedicated review action
+PASS refresh neither queues publishing nor starts another run
+PASS refresh consumes no generation allowance and preserves draft automation
+PASS replaying the old request cannot silently refresh twice
+22 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_breadcrumb_refresh_browser_test.cjs
+PASS only eligible unpublished breadcrumb tasks expose refresh
+PASS unsaved draft edits block refresh before any request
+PASS refresh sends the dedicated action and current plan version
+PASS browser never supplies replacement business schema
+PASS corrected proposal is visible for review
+PASS unrelated article fields remain intact
+PASS refresh explains that publication still requires approval
+PASS next request uses the updated plan version
+PASS failed refresh leaves the old proposal visible
+PASS review never starts a cycle or publishes changes
+PASS breadcrumb review has no browser JavaScript errors
+11 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_breadcrumb_evidence_test.php
+PASS unknown directory is omitted instead of inventing /page/
+PASS home and policy labels remain intact
+PASS 404 parent excluded for privacy
+PASS 404 parent excluded for cookies
+PASS 404 parent excluded for terms
+PASS 404 parent excluded for cancellation
+PASS verified parent keeps the exact live URL without adding a slash
+PASS parent label comes from its inspected heading
+PASS a verified trailing slash is preserved
+PASS unverified cannot supply a breadcrumb parent
+PASS missing status cannot supply a breadcrumb parent
+PASS redirect response cannot supply a breadcrumb parent
+PASS maintenance cannot supply a breadcrumb parent
+PASS external redirect cannot supply a breadcrumb parent
+PASS redirect to homepage cannot supply a breadcrumb parent
+PASS different scheme cannot supply a breadcrumb parent
+PASS different port cannot supply a breadcrumb parent
+PASS query URL cannot supply a breadcrumb parent
+PASS fragment URL cannot supply a breadcrumb parent
+PASS credentials cannot supply a breadcrumb parent
+PASS positions remain consecutive when an intermediate parent is missing
+PASS bounded breadcrumbs always retain the current page
+PASS existing customer breadcrumbs are not replaced or duplicated
+PASS single-trip structured data remains available
+PASS successful page reads supply usable parent evidence
+PASS failed page reads cannot authorize a parent
+26 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_guide_links_test.php
+PASS safe URL and bold label render as a real anchor
+PASS Markdown link syntax is removed from visible copy
+PASS approved source and rendered HTML have the same visible-text comparison
+PASS old literal Markdown output is distinguishable
+PASS unsafe target remains inert: javascript
+PASS unsafe target remains inert: data
+PASS unsafe target remains inert: file
+PASS unsafe target remains inert: https
+PASS link label markup stays escaped
+PASS fragments remain supported
+PASS publication audit accepts visible copy with the expected clickable URL
+PASS a matching label without its link cannot pass link quality
+PASS publication reader takes article anchors, not header navigation
+PASS publication verifies adjacent headings, paragraphs and list items without HTML whitespace
+PASS block boundaries separate text while inline formatting preserves words
+PASS ordinary planning text retains its existing extraction
+PASS a genuinely omitted paragraph still fails publication verification
+PASS links from the previous page do not leak into a later verification
+18 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_draft_review_database_test.php
+PASS owned draft exposes stored FAQ answers for human review
+PASS foreign customer cannot edit draft quality
+PASS combined edit advances plan version once
+PASS reviewed article body persists
+PASS title and description update atomically
+PASS new visible FAQs replace stale unconfirmed answers
+PASS stale FAQ not returned after editing
+PASS stale plan version cannot overwrite newer review
+PASS invisible FAQ schema cannot be saved
+PASS unconfirmed duration blocks edited copy before saving
+PASS failed review rolls back both article and schema evidence
+PASS failed review does not advance version
+PASS description must be plain text
+PASS HTML in FAQ input rejected
+PASS explicit empty list removes all obsolete FAQs
+PASS older title/body clients preserve optional review fields
+PASS changed confirmed profile requires a new content review
+PASS already published task cannot be silently rewritten
+18 assertions passed
+Exit status: 0
+
+$ node tests/Automation/seo_draft_review_browser_test.cjs
+PASS eight plain question/answer rows are available
+PASS stored FAQ is exposed in the real draft editor
+PASS description-only unsaved edit blocks approval
+PASS save sends reviewed FAQ values
+PASS save sends body and SEO description together
+PASS save includes current optimistic plan version
+PASS saving one task preserves another task FAQ edits
+PASS saving one task preserves another description edit
+PASS clearing question and answer sends an explicit empty FAQ list
+PASS real draft editor has no JavaScript errors
+PASS review never starts a cycle or publishes an article
+11 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_customer_quality_test.php
+PASS not a single trip: /quiz
+PASS not a single trip: /tours
+PASS not a single trip: /tours/marsa-alam
+PASS not a single trip: /tours/shore-excursions
+PASS quiz cannot receive marketing edits
+PASS singular trip route retained
+PASS plural route can still carry actual single tour
+PASS existing collection schema prevents trip classification
+PASS collection retains safe breadcrumb feature
+PASS historical trip proposal blocked on current collection
+PASS historical related-trip proposal blocked on current collection
+PASS historical safe breadcrumb proposal retained
+PASS unsupported numerical duration rejected
+PASS audience does not prove family suitability
+PASS unsupported family statement rejected
+PASS unsupported Arabic family statement rejected
+PASS requesting confirmation remains valid
+PASS question alone is not an affirmative claim
+PASS literal confirmed duration statement accepted
+PASS literal confirmed family statement accepted
+PASS hyphenated title duration also needs evidence
+PASS FAQ answers cannot bypass duration guard
+PASS known internal target accepted
+PASS fragment on known internal target accepted
+PASS unknown internal article link requires review
+PASS external citations remain separate from internal-link evidence
+PASS single-trip itinerary ItemList is not a collection page
+27 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_content_target_test.php
+PASS relevance and measured difficulty beat unrelated volume
+PASS competitor brand rejected
+PASS audience country does not authorize destination
+PASS reject invalid market_id
+PASS reject invalid source
+PASS reject invalid fetched_at
+PASS reject invalid volume
+PASS missing measurement date rejected
+PASS future measurement rejected
+PASS measured zero retained
+PASS unknown difficulty not invented
+PASS stale profile rejected
+PASS unconfirmed profile rejected
+PASS no suitable pillar means no article target
+PASS external pillar rejected
+PASS noindex pillar rejected
+PASS transfer pillar excluded for sightseeing
+PASS input order independent
+PASS navigational intent excluded
+PASS Arabic confirmed destination supported
+20 assertions passed
+Exit status: 0
+
+$ php tests/Automation/seo_planning_failure_database_test.php
+PASS one fake provider call
+PASS invalid generated plan fails closed
+PASS validation failure has a precise safe stage code
+PASS public failure has run reference
+PASS raw provider payload never enters diagnostics
+PASS definite failure releases reservation
+PASS definite failure returns cycle allowance
+PASS invalid plan creates no tasks
+PASS failed cycle cannot silently regenerate
+PASS replay cannot release allowance twice
+PASS interrupted provider outcome held for review
+PASS unknown outcome distinguished from invalid response
+PASS unknown provider outcome never retried
+PASS zero unsigned cycle allowance cannot underflow on definite failure
+PASS valid plan persists tasks using the captured site context
+PASS successful plan settles once as completed
+PASS deterministic review tasks survive valid planning
+PASS unconfirmed article does not block the safe remainder of the plan
+PASS unsupported duration never becomes a publishable content task
+PASS rejected draft becomes an explicit client confirmation task
+PASS breadcrumb evidence survives normal plan persistence
+PASS saved policy proposal excludes nonexistent /page/: /page/privacy
+PASS saved policy proposal excludes nonexistent /page/: /page/cookies
+PASS saved policy proposal excludes nonexistent /page/: /page/terms
+PASS saved policy proposal excludes nonexistent /page/: /page/cancellation
+PASS saved destination proposal retains the verified exact parent URL
+PASS normal persistence drops unsupported generic schema task
+PASS normal persistence retains targeted site task
+28 assertions passed
+Exit status: 0
+
+$ php tests/Automation/content_publication_polish_test.php
+  ok  Markdown headings have semantic h2/h3 levels without a duplicate h1
+  ok  lists remain structured
+  ok  bold-only headings render as headings
+  ok  article markup cannot execute scripts
+  ok  old standalone section line is recognized without changing approved wording
+  ok  ordinary sentences do not become headings
+  ok  automatic theme retains the site header/footer
+  ok  theme keeps site assets and script bytes
+  ok  only homepage main content is replaced
+  ok  home-only FAQ schema is removed while organization identity is retained
+  ok  ambiguous themes decline replacement for safe standalone fallback
+  ok  missing main declines replacement
+  ok  general Egypt guide chooses tour packages over a transfer page listing many cities
+  ok  explicit airport transfer content still links to the relevant transport service
+  ok  no suitable sightseeing pillar means no forced transport link
+  ok  exact fallback article has an isolated rules key
+  ok  unsafe/ambiguous query cannot create article rules
+  ok  unsafe/ambiguous query cannot create article rules
+  ok  unsafe/ambiguous query cannot create article rules
+  ok  unsafe/ambiguous query cannot create article rules
+  ok  unsafe/ambiguous query cannot create article rules
+  ok  unsafe/ambiguous query cannot create article rules
+  ok  query FAQ rules never target the homepage
+  ok  pillar links back to the actual accessible query publication
+  ok  query schema and reciprocal links are repeatable
+  ok  all observed quality requirements produce complete quality status
+  ok  public meta description matches reviewed description
+  ok  an unreviewed body excerpt cannot pass the SEO description check
+  ok  homepage canonical cannot pass the publication checklist
+  ok  FAQ JSON-LD without visibly matching answers fails
+  ok  missing expected pillar link fails
+  ok  visible link to a missing page cannot pass link target checks
+  ok  noindex is surfaced for review without removing site policy
+  ok  failed sitemap access never becomes a successful check
+  ok  real XML parser finds exact query URL in connector sitemap
+  ok  unrouted /guides entry cannot prove the fallback URL is listed
+  ok  DTD/entity XML is rejected without resolution
+  ok  WordPress sitemap index child is inspected with fake transport
+  ok  sitemap traversal stays same-site within request budget
+  ok  sentence punctuation does not alter a confirmed price
+  ok  related target HTTP check measures only the customer origin
+  ok  cross-origin link is not fetched
+  ok  title prices are checked with body prices
+  ok  SEO description prices are checked too
+
+44/44 passed
+Exit status: 0
+
+$ php tests/Automation/content_publication_polish_database_test.php
+  ok  fallback URL and visibly matching FAQ persist in the real schema
+  ok  persisted fallback schema is isolated from homepage
+  ok  persisted pillar links to actual fallback publication
+  ok  foreign owner cannot update publication evidence
+  ok  arbitrary query parameters cannot expand rule matching
+  ok  approved edited title synchronizes Article schema evidence before publishing
+  ok  unconfirmed edited price is rejected before either publication path
+  ok  unconfirmed title price is rejected before publishing
+  ok  changed confirmed profile blocks stale draft publication
+  ok  FAQ removed from visible article is not retained as invisible schema
+  ok  real edge compiler repairs historical quality URL to currently published fallback URL
+  ok  article payload carries actual canonical route for guide index/sitemap
+  ok  PHP article payload publishes the owned reviewed description instead of a Markdown body excerpt
+
+13/13 passed
+Exit status: 0
+
+$ php tests/Automation/php_connector_test.php
+  ok  generated connector is valid PHP
+  ok  connector marker present
+  ok  homepage title replaced
+  ok  description replaced and escaped
+  ok  script containing </head> untouched
+  ok  html lang applied
+  ok  JSON-LD cannot close the script tag
+  ok  page rule applied on its path
+  ok  homepage values not applied to other pages
+  ok  generated PHP connector turns reviewed Markdown links into escaped anchors
+  ok  article served on /guides/{slug}
+  ok  bold and list formatting
+  ok  article text is escaped
+  ok  article canonical
+  ok  Article schema and connector marker
+  ok  featured image with escaped alt
+  ok  og:image and schema image
+  ok  fallback ?tf_article= works
+  ok  fallback article canonical uses its accessible URL
+  ok  guides index lists the article
+  ok  unknown article is explicit, never a soft homepage success
+  ok  unknown article returns an actual HTTP 404
+  ok  query article reuses normal site header/footer without configured PHP includes
+  ok  themed article has structured sections and its own title
+  ok  query article receives its contextual pillar link
+  ok  query article has one FAQ schema graph and no inherited homepage FAQ
+  ok  themed article uses the actual query canonical
+  ok  chunked site output is assembled once before article theme replacement
+  ok  connector sitemap lists the stored working fallback URL
+  ok  sitemap fallback works through root PHP without server rewrite rules
+  ok  guide index fallback lists working article links without rewrite rules
+  ok  customer sitemap includes the working query article and preserves existing URLs
+  ok  article links and body never leak into homepage
+  ok  guide uses configured site header/footer and keeps article body
+  ok  themed guide retains its own SEO title
+  ok  published guides appear in the connector sitemap
+  ok  existing sitemap index retains entries and adds guide sitemap
+  ok  flat site sitemap retains existing pages and adds published guides
+  ok  no rules: page unchanged
+  ok  missing article rules return 503 instead of the homepage
+
+40/40 passed
+Exit status: 0
+
+$ node tests/Automation/content_publication_polish_browser_test.cjs
+  ok  real connector output retains customer theme in browser
+  ok  one article title with semantic section heading
+  ok  contextual trip link is clickable
+  ok  query canonical survives browser parsing
+  ok  one article/FAQ graph rendered
+  ok  article fits mobile viewport
+  ok  real SEO UI distinguishes passed and unavailable evidence
+  ok  real SEO UI explains missing links and optional FAQ separately
+  ok  UI distinguishes sitemap discovery from Google indexing
+  ok  viewing quality checks only probes connections; no publication or paid cycle request
+  ok  no browser JavaScript errors
+
+11/11 passed
+Exit status: 0
+
+$ php tests/Automation/customer_audit_fix_test.php
+  ok  bridge normalizes /api/local-seo/sites without changing method
+  ok  bridge normalizes /api/international-seo/publish without changing method
+  ok  bridge normalizes /api/seo/data/markets without changing method
+  ok  bridge normalizes /api/plans/overview without changing method
+  ok  bridge normalizes /api/xpay/status without changing method
+  ok  bridge normalizes /api/currency without changing method
+  ok  bridge normalizes /api/website-optimizer/edge/php-connector without changing method
+  ok  bridge normalizes /api/edge/rules without changing method
+  ok  rejects non-canonical route /login
+  ok  rejects non-canonical route https://attacker.example/api/plans/overview
+  ok  rejects non-canonical route /api/../login
+  ok  rejects non-canonical route /api/plans?x=1
+  ok  rejects non-canonical route /api/plans#bad
+  ok  rejects non-canonical route /api/plans%2Foverview
+  ok  rejects non-canonical route //api/plans
+  ok  rejects non-canonical route /api/plans.php
+  ok  bridge is available only through the front controller
+  ok  array route parameter is rejected
+  ok  normalized API still rejects missing authentication
+  ok  normalized API still rejects missing CSRF
+  ok  authorized normalized request reaches the original action
+  ok  old verification is historical, not a current guarantee
+  ok  recent verification remains a dated observation
+  ok  missing timestamp cannot manufacture a current verification
+  ok  active publication is not counted as verified
+  ok  future timestamp cannot create fresh verification
+  ok  full article comparison accepts rendered headings/lists instead of markdown
+  ok  matching title and first paragraph cannot verify a truncated article
+  ok  homepage response cannot verify an article
+  ok  planning retains its existing bounded text excerpt
+  ok  publication verification can inspect the complete approved article
+  ok  full verification does not enlarge later planning prompts
+
+32/32 passed
+Exit status: 0
+
+$ node tests/Automation/customer_audit_fix_browser_test.cjs
+  ok  real panel fetch bridges /api/local-seo/sites and preserves query
+  ok  real panel fetch bridges /api/international-seo/sites and preserves query
+  ok  real panel fetch bridges /api/seo/data/markets and preserves query
+  ok  real panel fetch bridges /api/plans/overview and preserves query
+  ok  real panel fetch bridges /api/xpay/status and preserves query
+  ok  real panel fetch bridges /api/currency and preserves query
+  ok  real panel fetch bridges /api/website-optimizer/edge/php-connector and preserves query
+  ok  real panel fetch bridges /api/edge/rules and preserves query
+  ok  bridge preserves write body, method and CSRF without retry
+  ok  Request input preserves write body and headers
+  ok  one write produces exactly one transport call
+  ok  external origins are never rewritten
+  ok  non-API assets are untouched
+  ok  older dynamic keyword link resolves to the registered route
+  ok  older dynamic competitor link resolves to the registered route
+  ok  subscription failure creates a useful error state before initial render
+  ok  subscription load failure does not throw a null innerHTML error
+
+17/17 passed
+Exit status: 0
+
+$ php tests/Automation/customer_audit_fix_database_test.php
+  ok  foreign owner cannot request verification
+  ok  missing worker cannot create a misleading verification job
+  ok  active cycle cannot be replayed by verification button
+  ok  recheck queues observation without creating or applying a new plan
+  ok  queued operation verifies once without applying or publishing
+  ok  repeated recheck does not create duplicate pending jobs
+  ok  verification request consumes no generation allowance
+  ok  public title plus partial content does not verify the complete article
+  ok  failed verification preserves the approved active article and its body
+  ok  restored complete article can be reverified after a needs-client observation
+  ok  complete verification worker also consumes no generation allowance
+
+11/11 passed
+Exit status: 0
+
+$ php tests/Automation/dataforseo_research_test.php
+  ok  items helper safely defaults missing response/task/result to empty
+  ok  items helper reads the call response envelope
+  ok  ranked keyword parsing retains demand, position and URL
+  ok  intent and measured zero CPC survive parsing
+  ok  missing demand is unknown rather than fabricated zero
+  ok  db-first constructor accepts injected configured client
+  ok  cache miss performs real parsing through fake transport
+  ok  bulk difficulty enriches results without dropping measured zero volume
+  ok  research records are saved with website and market
+  ok  cache stores the parsed result JSON using the actual schema
+  ok  discovery bills one call, difficulty bills actual keyword count rather than user ID
+  ok  quota request uses the website and bounded dollar ceiling
+  ok  fresh cache hit returns identical data with no paid provider calls
+  ok  fresh cache hit does not rewrite research records
+  ok  research releases advisory lock on cache hit
+  ok  same keyword in another market gets an independent cache and measurement
+  ok  expired cache is a miss and gets refreshed
+  ok  foreign owner cannot read cached data or spend quota
+  ok  foreign market is rejected before provider requests
+  ok  exact lookup charges number of distinct requested terms
+  ok  site discovery charges one unit
+  ok  site target uses existing normalizeHost helper
+  ok  measured empty result is cached and does not trigger bulk request
+  ok  missing items are rejected without persisting fabricated data
+  ok  research releases advisory lock after invalid response
+  ok  busy research lock prevents billing
+  ok  oversized provider results cannot create a bulk request above 100 units
+  ok  disabled configuration returns explicit unavailable contracts without transport
+  ok  competitor success always includes nullable reason and recorded count
+  ok  competitor keyword insert preserves ownership, market, demand and ranking provenance
+  ok  competitor discovery is one quota unit, not owner ID or requested result limit
+  ok  fresh competitor keywords skip additional paid calls
+  ok  stale competitor measurements are replaced instead of duplicated
+  ok  no active competitors returns valid empty success without billing
+  ok  competitor transport failure exposes a reason and does not replace old measurements
+  ok  gap refresh completes competitor research and customer SERP measurement
+  ok  gap is reported only after measured customer absence, never an untracked assumption
+  ok  gap refresh inserts candidates and records market-scoped ranking history
+  ok  repeat gap refresh reuses fresh competitor and customer measurements
+  ok  failed competitor refresh never invents customer candidates or gaps
+  ok  empty gap refresh preserves the available/reason contract
+  ok  customer already ranking in top 20 is measured and excluded from gaps
+  ok  failed customer rank measurement cannot be labeled verified absence
+  ok  failed difficulty request does not cache incomplete successful research
+
+44/44 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase1_test.php
+tourism schema
+  ok  trip page gets TouristTrip + Breadcrumb
+  ok  price taken exactly as written on the page ($65)
+  ok  company and image filled from real page data
+  ok  no price on page: no price invented
+  ok  many different prices (other trips listed): price skipped
+  ok  adult/child prices become a price range
+  ok  Egyptian pound price recognised
+  ok  page already has Product + Breadcrumb (Yoast/theme): nothing duplicated
+  ok  about, listing and blog pages are not treated as trips
+  ok  home page left to the business (Organization) schema
+connector accepts only safe schema
+  ok  tourism @graph accepted by the connector
+  ok  unrelated schema types rejected
+  ok  old single Organization schema still accepted
+  ok  related links only to the same site
+builder sites
+  ok  real approved reviews become star rating (3+ reviews)
+  ok  fewer than 3 reviews: no rating
+  ok  itinerary and price from the trip data
+  ok  home: TravelAgency + list of trips
+  ok  schema tag cannot break out of the script
+PageSpeed
+  ok  real Google score + Chrome user data (LCP, INP, CLS)
+  ok  biggest slowdowns ranked; tiny ones ignored
+  ok  clear Arabic task with numbers and the fix
+  ok  Google quota reached: reported, no crash
+indexing (Search Console)
+  ok  indexed vs "crawled - not indexed" detected with the reason
+  ok  no sitemap submitted detected
+related trips + image alt
+  ok  missing alt filled from the file name or page title; existing alt kept
+  ok  related links verified on the live page
+  ok  missing link not reported as done
+traffic drop alert
+  ok  clicks fell 52%: alert with the page that lost most
+  ok  small dip: no alert
+
+30/30 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase2_test.php
+  ok  organic measured position parsed
+  ok  SERP uses explicit country and language
+  ok  top-level cost not double counted with per-task cost
+  ok  provider credentials absent from task data
+  ok  duplicate keywords deduplicated before requests
+  ok  rank batch bounded at twenty distinct keywords
+  ok  advanced search operators rejected
+  ok  www host matches owned domain
+  ok  lookalike host cannot supply customer ranking
+  ok  zero keyword measurements preserved
+  ok  unknown volume is null
+  ok  disabled provider makes no HTTP call
+  ok  transport failure does not leak credentials
+  ok  measured absence stays null rather than fake rank
+  ok  Arabic default market is Egypt
+
+15/15 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase3_test.php
+  ok  Latin diacritics/case and partial company name; first mention order
+  ok  www/bare citation and tracked competitor detected
+  ok  Arabic diacritics ignored
+  ok  Arabic alef and taa marbuta normalized
+  ok  partial names respect word boundaries
+  ok  generic travel words do not count as brand
+  ok  domain mention counts without citation
+  ok  lookalike citation host rejected
+  ok  owned subdomain citation accepted
+  ok  unsafe citation URLs rejected
+  ok  20 realistic editable questions from confirmed facts and recent real keywords
+  ok  brand names and domain never leak into generated questions
+  ok  manual edits containing brand rejected
+  ok  manual Arabic alias leakage rejected
+  ok  URLs cannot bias approved questions
+  ok  duplicate questions rejected
+  ok  stale keyword data cannot generate questions
+  ok  missing research has no AI-guessed fallback
+  ok  unsupported language requires customer-authored questions
+  ok  OpenAI Responses output and URL citations parsed
+  ok  OpenAI reported tokens plus search charge calculated explicitly
+  ok  Responses endpoint requires web search and disables answer storage
+  ok  provider request uses neutral market context without brand or editable label
+  ok  kill switch prevents every HTTP request
+  ok  missing key is not measured
+  ok  ungrounded answer not treated as measured
+  ok  absent usage is unknown cost, never free
+  ok  Gemini only counts sources referenced by grounding supports
+  ok  Gemini reported thinking/output tokens and grounding counted
+  ok  Sonar prefers provider-reported actual cost
+  ok  migrated Sonar calls without reported cost retain unknown cost instead of legacy rates
+  ok  retrieved Sonar sources do not become invented citations
+  ok  transport failure is unavailable with redacted generic reason
+  ok  share of voice uses mentions divided by actual completed questions
+  ok  unresolved citations excluded from citation denominator
+  ok  partial coverage and competitors appearing instead reported
+  ok  8-week chart keeps missing observations null
+  ok  no provider samples is not measured, not zero
+  ok  replayed samples do not double count
+  ok  old samples explicitly marked stale
+  ok  published footer contact and language retained
+  ok  llms draft includes actual trip summary and exact published price text
+  ok  llms does not include off-site or invented trip data
+  ok  factual draft passes existing connector sanitation
+  ok  existing live llms verification compares exact published body
+  ok  grounding redirect safely resolved before domain detection
+  ok  unresolved grounding redirect retained as a source with unknown citation evidence
+  ok  competitor cited page fetched and compared with customer page
+  ok  cited third-party competitor source creates presence review task
+  ok  only customer-entered public profiles used for NAP comparison
+  ok  tasks carry concrete fetched page evidence and limitations
+  ok  IPv6 loopback citation rejected
+  ok  all new production classes registered in release classmap
+
+53/53 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase3_database_test.php
+  ok  GEO runtime refuses DDL in an active transaction
+  ok  additive uploaded migration installs six GEO tables and repeats
+  ok  repeated migration preserves admin wallet price
+  ok  runtime fallback installs same schema safely
+  ok  GEO first unit consumes plan allowance
+  ok  GEO second unit consumes plan allowance
+  ok  GEO overage consumes wallet
+  ok  GEO blocks after both plan and wallet are exhausted
+  ok  wallet never goes negative
+  ok  zero-priced overage cannot enable unlimited paid API use
+  ok  cross-tenant website access denied
+  ok  foreign market cannot be used to run paid checks
+  ok  local generation creates an unapproved factual list without provider calls
+  ok  question generation incurs no paid model calls
+  ok  unapproved questions cannot run
+  ok  customer approval stores profile/version provenance
+  ok  optimistic approval version prevents stale overwrite
+  ok  no configured provider means no paid calls
+  ok  empty configuration returns setup steps and null metrics
+  ok  zero budget stops before transport and quota
+  ok  request ceiling must fit monthly budget before any call
+  ok  budget notification sent once per month
+  ok  bounded run queues continuation after two paid checks
+  ok  resuming batches completes the approved list exactly once
+  ok  weekly rerun makes no duplicate paid requests
+  ok  every request uses selected market without brand context
+  ok  actual sample saves mention order, citation, model and known cost
+  ok  billing recorded once for each attempted question/provider
+  ok  SEO Expert receives measured rates with dated source evidence
+  ok  competitor citation creates persisted improvement task
+  ok  same question in another market is a separate localized check
+  ok  cross-market aggregation does not collapse identical question hashes
+  ok  changed confirmed business profile needs fresh approval
+  ok  new identity aliases revoke previous question approvals
+  ok  Organization sameAs uses owner-confirmed profile URLs only
+  ok  private profile URLs rejected
+  ok  uncertain failed request not retried or charged twice
+  ok  unknown provider cost keeps conservative budget reservation
+  ok  spent and outstanding reservations both count toward cap
+  ok  budget-blocked request deducts no quota
+  ok  no quota and empty wallet prevents durable call claim
+  ok  approved measurement is enqueued in actual DB-backed queue
+  ok  stale weekly job exits without calling a provider
+  ok  real admin save accepts all eight GEO settings
+  ok  encrypted secret roundtrip and disabled provider persist
+  ok  all three provider keys encrypted at rest
+  ok  admin readback never exposes API keys
+  ok  invalid budget rejected before settings mutation
+  ok  customer cannot enable or disable paid providers
+  ok  production factory with empty provider settings makes zero API calls
+  ok  real customer API returns scoped unmeasured state and configured wallet price
+  ok  customer API DTO contains no provider keys
+  ok  real customer endpoint rejects another tenant website
+  ok  anonymous customer endpoint is blocked
+  ok  real enqueue API adds no job without configured providers
+  ok  integration produced no hidden SQL or application errors
+
+56/56 passed
+Exit status: 0
+
+$ node tests/Automation/seo_phase3_browser_test.cjs
+  ok  no provider shows setup steps
+  ok  unmeasured is not a fabricated zero
+  ok  unconfigured page cannot enqueue paid calls
+  ok  new questions require explicit approval
+  ok  question approval sends selected market and version
+  ok  actual measured rates including true zero displayed
+  ok  answer table distinguishes mentions and unresolved citation
+  ok  sources only allow HTTP or HTTPS links
+  ok  8-week charts show points only for measured weeks
+  ok  answers, competitors and tasks are escaped
+  ok  task review is explicit scoped action
+  ok  paid check enqueues for chosen market
+  ok  market selection loads scoped measurements
+  ok  factual llms draft renders as plain text
+  ok  three provider keys use masked admin inputs
+  ok  admin persists all eight fields including disabled providers
+  ok  keys submitted once and cleared after save
+  ok  no browser JavaScript errors:
+
+18/18 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase4_test.php
+  ok  only top five organic pages fetched in rank order
+  ok  measured zero volume stays zero, never invented demand
+  ok  competitor headings preserve text and level
+  ok  DOM word counts exclude script and site chrome
+  ok  PAA deduplicated and confirmed customer facts preserved separately
+  ok  unconfirmed facts stop writing
+  ok  missing volume cannot be guessed
+  ok  stale research rejected before generation
+  ok  inaccessible competitors recorded as unavailable without guessed headings
+  ok  non-web URLs and embedded credentials rejected
+  ok  confirmed literal price accepted
+  ok  unconfirmed generated price rejected
+  ok  price prefix cannot match a different confirmed amount
+  ok  unconfirmed title prices rejected too
+  ok  JSON-LD forbidden inside generated body
+  ok  generator receives dated brief and authoritative confirmed facts before writing
+  ok  FAQ answers saved and visible in article
+  ok  edited-away FAQs cannot become hidden schema
+  ok  page rule merges Article and FAQPage with existing schema
+  ok  cluster adds article-to-pillar and pillar-to-article links
+  ok  schema passes the real connector allowlist
+  ok  repeated connector compilation does not duplicate schema or links
+  ok  off-site publication cannot inject connector rules
+  ok  query URL cannot leak rules to another page
+  ok  keyword clusters use a relevant known same-site trip pillar
+  ok  unrelated keyword has no fabricated pillar
+  ok  exactly 25 percent clicks and 3 positions do not cross strict thresholds
+  ok  click loss greater than 25 percent becomes refresh
+  ok  position loss greater than 3 becomes refresh
+  ok  zero baseline and missing positions stay unknown
+  ok  improved clicks and rank do not trigger refresh
+  ok  GSC windows contain consecutive non-overlapping 28-day ranges
+  ok  refresh brief lists new questions and literal years/prices needing confirmation
+  ok  overtaking requires a crossing in both measured snapshots
+  ok  no baseline means no invented overtaking assertion
+  ok  endpoint refuses a post not created by platform account
+  ok  signed endpoint token binds exact post and fields
+  ok  tampered signature rejected
+  ok  cross-site signature rejected
+  ok  cross-account signature rejected
+  ok  expired signature rejected
+  ok  native adapter stores SEO title, description and focus keyword
+  ok  same signed update is idempotent
+  ok  concurrent human SEO edit prevents stale overwrite
+  ok  Yoast and RankMath share the existing adapter keys
+  ok  publisher performs signed preview then apply through authenticated REST
+  ok  apply sends only the exact plugin-issued signature
+  ok  download bundle includes the signed endpoint and updated plugin version
+
+48/48 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase4_database_test.php
+  ok  additive migration installs content state and repeats
+  ok  brief storage is repeatable per site and source
+  ok  FAQs and measured keyword cluster persist
+  ok  foreign owner cannot save site content evidence
+  ok  stored publication compiles exact page schema and reciprocal links
+  ok  publication sync applies signed SEO fields and saves success
+  ok  old plugin stores visible actionable SEO status without republishing the post
+  ok  real GSC response parser creates a weekly decay review task
+  ok  decay evidence preserves exact clicks/rank math and pending review state
+  ok  persisted refresh brief contains new questions, measured overtaking and literal price confirmation
+  ok  weekly rerun creates no duplicate refresh task
+  ok  GSC outage is unavailable rather than fake traffic decline
+
+12/12 passed
+Exit status: 0
+
+$ php tests/Automation/plans_studio_test.php
+currency
+  ok  EGP rate = base 50 + 2% margin
+  ok  $39 = 1,990 EGP (rounded to 5)
+  ok  formatted in Arabic and English
+  ok  EGP payment converts back to USD
+  ok  market refresh skips the locked EGP rate
+  ok  viewer currency from cookie
+  ok  default is USD for everyone (foreign customers)
+  ok  country currency only when the admin enables it
+  ok  EGP shown next to USD for the payment bank
+plans
+  ok  recommended plans applied
+  ok  catalog shows the new prices and allowances
+trial
+  ok  new account can start a trial
+  ok  trial is 3 days by default (old 14-day setting ignored)
+  ok  no card yet: trial does not start
+  ok  trial needs the first month ($149) paid by card
+  ok  card linked through XPay (first month paid)
+  ok  trial ends after 3 days
+  ok  trial is active on Growth, free
+  ok  trial only once
+  FAIL small trial allowance per service (2 articles, 1 video, 20 AI tools)
+  ok  trial allowance used up: stops
+  FAIL trial chatbot replies capped at 100
+add-ons
+  ok  no balance: clear shortfall
+  ok  pack charged from wallet
+  ok  same request not charged twice
+  FAIL pack adds on top of the trial cap
+  FAIL chatbot replies grow by the pack (x)
+build your plan
+  ok  quote: $149 + 10 articles ($12) + 1000 replies ($8) = $169
+  ok  yearly extras = 10 months
+  ok  quantities follow the step
+  ok  custom plan active at $169
+  ok  charged $169 (trial converted at full price)
+  FAIL paid: trial cap gone; plan 20 + custom 10 + earlier pack 10 kept
+  FAIL chatbot replies: plan + custom + pack
+renewal
+  ok  renews at the custom price $169 ({"success":true,"subscription_id":599,"charged":169,"new_period_end":"2026-11-18 19:42:39","balance":240})
+  ok  custom extras granted again for the new period (+10) and pack still on (+10)
+after the trial: automatic charge
+  ok  customer can cancel renewal during the trial
+  ok  trial ended: $149 charged automatically, plan active
+  ok  cancelled before the end: no charge, $149 stays in the wallet
+  ok  no balance: past due (services stop after grace)
+new prices applied automatically
+  ok  old $49/$99/$299 prices replaced by $59/$149/$349 once
+  ok  only once (admin edits are kept afterwards)
+admin grant without card
+  ok  new customer without card needs the card step
+  ok  admin started the trial without a card
+  ok  admin cannot stack a second trial
+  FAIL admin can change a trial allowance
+  ok  admin can change trial days
+
+40/47 passed
+Exit status: 1
+
+$ php tests/Automation/xpay_test.php
+admin settings
+  ok  not connected by default
+  ok  rejected: {"secret_key":"pk_test_abc"} (ده مش المفتاح السري. المفتاح السري بيبدأ بـ sk_test_ أو sk_live_)
+  ok  rejected: {"secret_key":"rk_test_abc"} (ده مش المفتاح السري. المفتاح السري بيبدأ بـ sk_test_ أو sk_live_)
+  ok  rejected: {"public_key":"sk_test_abc"} (المفتاح العام لازم يبدأ بـ pk_test_ أو pk_live_)
+  ok  rejected: {"enabled":true} (حط المفتاح السري الأول قبل التفعيل)
+  ok  connected in test mode
+  ok  secret key stored encrypted
+  ok  secret key never returned to the admin screen
+  ok  test + live keys mixed: rejected
+  ok  connection test passes with the right key
+  ok  wrong key: clear message
+payment
+  ok  below minimum amount: refused
+  ok  $50 charged as 2,500.00 EGP (250000 piasters)
+  ok  XPay checkout window with return link
+  ok  customer gets the XPay payment link
+  ok  not paid yet: no balance
+  ok  fake "paid" webhook ignored (we ask XPay ourselves)
+  ok  paid less than asked: held for review, nothing credited
+  ok  paid: wallet +$50 (fees on the customer not counted)
+  ok  return page after webhook: not credited twice
+  ok  even if our record is reset, wallet guard blocks a double credit
+  ok  wallet entry tagged xpay
+  ok  expired session marked cancelled
+  ok  unknown / malformed session ids ignored
+  ok  admin can switch to charging in USD
+diagnostics
+  ok  embedded refused: falls back to the XPay page (hosted)
+  ok  XPay error saved for the admin (no key inside): embedded → 401 (type: authentication_error · message: Invalid API key)
+  ok  new key clears the old error
+  ok  webhook signature (standard format) verified
+  ok  webhook signature (t=,v1= format) verified
+  ok  wrong signature detected
+  ok  last webhook shown to the admin
+account in EGP only
+  ok  XPay says the account is EGP: $10 resent as 500.00 EGP automatically
+  ok  setting switched to EGP and the old error cleared
+  ok  paid in EGP: wallet +$10
+trial card step
+  ok  first month ($149) sent to XPay in EGP
+  ok  no trial before payment
+  ok  card paid: trial started automatically and the first month is in the wallet
+  ok  admin can switch to a small $1 card check instead
+  ok  API address outside xpay.app refused (secret key never sent elsewhere)
+  ok  admin can set a different XPay API address
+
+41/41 passed
+Exit status: 0
+
+$ php tests/Automation/plan_gate_test.php
+  ok  starter subscribed: $59 taken from wallet
+deduction: plan first, then wallet, then blocked
+  ok  starter has 200 AI tool uses
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/tests/Automation/plan_gate_test.php on line 31
+  ok  one use deducted from the plan (199 left), wallet untouched
+  ok  wallet unchanged while plan has quota
+  ok  plan quota finished
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/app/Middleware/PlanGateMiddleware.php on line 84
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/tests/Automation/plan_gate_test.php on line 31
+  FAIL after the plan: charged $0.02 from wallet
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/app/Middleware/PlanGateMiddleware.php on line 84
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/tests/Automation/plan_gate_test.php on line 31
+  ok  no plan quota + no balance: blocked (402) with upgrade link (balance 0)
+  ok  starter: 6 articles
+  ok  article #7 not taken from plan
+  ok  growth 20 / leader 60 articles
+  ok  videos: 1 / 4
+  ok  starter images 30, marketing 40
+chatbot replies
+  FAIL starter: 1000 chatbot replies
+  FAIL one reply deducted (999)
+  FAIL replies finished: chatbot stops (or uses wallet if funded)
+  FAIL leader: 10000 replies
+services only in their plan
+  ok  auto pilot: off in Starter, on in Growth
+  ok  advanced analytics (CEO advisor): Leader only
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/app/Middleware/PlanGateMiddleware.php on line 84
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/tests/Automation/plan_gate_test.php on line 31
+  ok  Growth opening the CEO advisor: 403 "not in your plan"
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/tests/Automation/plan_gate_test.php on line 31
+  ok  Leader opens it
+  ok  WhatsApp bot in all plans
+  ok  team members 2 / 5 / 15
+  ok  websites 1 / 8
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/app/Middleware/PlanGateMiddleware.php on line 84
+
+Warning: http_response_code(): Cannot set response code - headers already sent (output started at /workspace/ai-tour/tests/Automation/plan_gate_test.php:10) in /workspace/ai-tour/tests/Automation/plan_gate_test.php on line 31
+  ok  not logged in: refused
+
+19/24 passed
+Exit status: 1
+
+$ php tests/Automation/fx_bank_test.php
+  ok  reads the CBE table (ignores scripts)
+  ok  EGP = sell rate; other currencies derived from the EGP rates
+  ok  mid rate option
+  ok  unknown page: nothing read
+  ok  auto link off: does nothing
+  ok  turning on the bank link unlocks the manual EGP rate
+  ok  EGP updated from the Central Bank (48.75)
+  ok  not due yet (every 15 min): skipped
+  ok  after 15 min: follows the bank (48.90)
+  ok  bank site down: market rate used and the admin is told
+  ok  sudden 90% jump ignored (bad reading)
+  ok  admin margin applies on top of the bank rate
+  ok  $59 shows as 2,945 EGP
+  ok  both sources down: clear error, old rate kept (49.878)
+
+14/14 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase5_test.php
+  ok  5x5 grid has 25 points centered exactly on the business
+  ok  grid row/column ordering matches north-west to south-east heatmap
+  ok  grid coordinates are unique
+  ok  unsupported coordinates rejected
+  ok  grid spacing bounded before paid calls
+  ok  zero latitude/longitude are valid coordinates
+  ok  plan controls keyword and monthly grid counts
+  ok  Maps rank matches stable place identity
+  ok  same name at another branch is not customer rank
+  ok  measured absence is null, not a fabricated zero rank
+  ok  Maps CID identity supported
+  ok  NAP normalizes diacritics, local phone prefix and www/trailing slash
+  ok  real name and phone differences create mismatch evidence
+  ok  unobserved address/website remain unknown
+  ok  different website paths are not treated as equal
+  ok  directory schema selects the customer organization, never the directory brand
+  ok  website footer supplies literal phone/address evidence
+  ok  plain text mention and scripts are not backlinks
+  ok  actual owned anchor records text and rel attributes
+  ok  lookalike target is rejected
+  ok  owned subdomain and protocol-relative backlink accepted
+  ok  source-relative link does not become a customer backlink
+  ok  URL credentials cannot disguise backlink host
+  ok  link gap requires two distinct competitors and excludes customer referring domains
+  ok  duplicate links from one competitor do not invent a multi-competitor gap
+  ok  outreach prospects retain real provider provenance without invented contact details
+  ok  Maps admin switch stops before billing/transport
+  ok  Backlinks admin switch stops before billing/transport
+  ok  report uses the previous complete calendar month
+  ok  monthly period handles leap years
+  ok  report preserves measured zero vs unknown source
+  ok  monthly Arabic HTML supports print/PDF layout
+  ok  report escapes task/source text
+  ok  waiting impact is not fabricated measurement or causal proof
+  ok  report assembly includes all requested metric and planning sections
+  ok  automatic monitoring creates all three observation windows
+  ok  automatic monitoring respects complete-window and GSC lag dates
+  ok  new services registered for hosting without composer rebuild
+  ok  independent paid-provider admin switches have real inputs
+  ok  GBP scheduling and monitor backfill registered centrally
+
+40/40 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase5_database_test.php
+  ok  Phase 5 migration installs repeatably without replacing existing schemas
+  ok  six-hour GBP scheduling claim is idempotent even after a job completes
+  ok  next six-hour interval can enqueue again
+  ok  GBP enqueue rejects foreign-owned site
+  ok  pending/processing GBP job prevents overlap across scheduling intervals
+  ok  a confirmed NAP profile without coordinates cannot start a Maps grid
+  ok  missing coordinates create no paid provider calls, grid run or queued worker
+  ok  grid preflight returns request count and current plan limit
+  ok  identical monthly request reuses existing run
+  ok  foreign owner cannot start paid measurement
+  ok  grid worker processes bounded paid requests
+  ok  real Maps request carries geographic coordinates and zoom
+  ok  continuation skips already claimed points
+  ok  complete 2-keyword grid makes exactly fifty requests
+  ok  completed grid does not replay paid calls
+  ok  monthly history retains every keyword/point observation
+  ok  account monthly grid allowance enforced
+  ok  NAP mismatches persist one task per source/evidence without duplicate tasks
+  ok  citation tasks are tenant-scoped
+  ok  changed citation evidence leaves exactly one pending task per source
+  ok  previous evidence is retained as superseded rather than falsely resolved or deleted
+  ok  active citation tasks display unknown for insufficient country-only addresses
+  ok  evidence refresh never supersedes another customer record at the same source URL
+  ok  fresh observed sources with no remaining confirmed conflict do not keep obsolete mismatch alerts
+  ok  incomplete replacement evidence is not reported as a verified resolution
+  ok  a temporary source fetch failure preserves the last observed mismatch tasks
+  ok  an unavailable source never overwrites recorded observation evidence
+  ok  fully observed matching fields resolve the current actionable issues
+  ok  HTTP 200 plus real anchor marks the backlink live
+  ok  backlink rel and anchor are durably recorded
+  ok  HTTP 200 without anchor correctly becomes lost
+  ok  disappearance alert sent once per live-to-lost transition
+  ok  temporary fetch failure does not fabricate lost backlink
+  ok  applied task automatically creates actual 7/14/28-day monitors
+  ok  repeated verification does not duplicate automatic monitor mappings
+  ok  foreign ownership cannot create task monitors
+  ok  unapplied task cannot create evidence monitors
+  ok  stored WordPress editor change also creates exactly three automatic monitors
+  ok  monthly report assembles real GSC parser totals and top queries
+  ok  missing monthly samples stay unknown/empty rather than fabricated measurements
+  ok  monthly rankings carry actual market and dated rank evidence
+  ok  monthly AI share uses actual measured answer denominator
+  ok  monthly CWV evidence and verified task assembly query their real source tables
+  ok  real referring-domain responses become an outreach gap from two competitors
+  ok  monthly backlink snapshots prevent repeat provider calls
+  ok  truncated customer coverage cannot produce a fake link-gap absence
+  ok  monthly report schedule verifies website ownership
+  ok  monthly scheduler assembles Arabic report and passes it to injected mailer
+  ok  durable monthly delivery claim prevents duplicate send after uncertain timestamp persistence
+
+49/49 passed
+Exit status: 0
+
+$ node tests/Automation/seo_phase5_browser_test.cjs
+  ok  actual customer JS renders two 5x5 keyword heatmaps
+  ok  measured absence stays explicit, never rank zero
+  ok  keyword and directory evidence cannot inject markup
+  ok  monthly run history is selectable
+  ok  paid confirmation reaches server as explicit false until checked
+  ok  paid grid action is scoped to chosen website and keywords
+  ok  paid confirmation resets after enqueue
+  ok  real link-gap results show measured competitor count
+
+8/8 passed
+Exit status: 0
+
+$ vendor/bin/phpunit --no-configuration --bootstrap /workspace/.tourfecto-runtime/backlink-test-bootstrap.php tests/Integration/OutreachBacklinkMonitoringIntegrationTest.php
+PHPUnit 10.5.66 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.26
+
+.........                                                           9 / 9 (100%)
+
+Time: 00:00.381, Memory: 18.00 MB
+
+OK (9 tests, 57 assertions)
+Exit status: 0
+
+$ php tests/Legacy/GbpLocalSeoAuditTest.php
+
+⭐ GBP Local SEO Audit Tests
+=================================
+    ✅ Identical website strings match
+    ✅ Case and trailing slash are ignored
+    ✅ www prefix is ignored
+    ✅ Scheme, www and trailing slash are ignored in full URLs
+    ✅ Different websites do not match
+    ✅ Empty string never matches
+    ✅ Identical Arabic names match
+    ✅ Different Arabic names do not match
+    ✅ digits() strips non-numeric characters
+    ✅ digits() handles empty string
+    ✅ digits() handles dashes
+    ✅ addressToString() joins address lines and locality
+    ✅ addressToString() returns empty for empty input
+    ✅ Perfect response metrics score 100
+    ✅ Low response metrics score between 0 and 100
+    ✅ Reputation section weight is 25
+    ✅ Business not found on Places scores 0
+    ✅ Strong Places presence scores 100
+    ✅ Visibility section weight is 20
+
+==================================================
+⭐ GBP Local SEO Audit Test Summary
+==================================================
+  ✅ Passed: 19
+  ❌ Failed: 0
+  📝 Total: 19
+  📈 Success Rate: 100%
+==================================================
+
+Exit status: 0
+
+$ node --check public_html/assets/js/local-seo.js
+Exit status: 0
+
+$ php tests/Automation/seo_phase6_test.php
+  ok  explicit approved alternates include the known default landing page
+  ok  one language does not invent translation alternates
+  ok  unsafe alternate URL rejected
+  ok  invalid language code rejected
+  ok  credentials and preview query URLs excluded
+  ok  language variants accepted with x-default reserved
+  ok  translation payload excludes prices, contact details and identifiers
+  ok  confirmed itinerary and supporting text are translatable
+  ok  fixed navigation and form labels participate in reviewed translation
+  ok  translation overlays reviewed text
+  ok  prices, contact data and operational facts stay unchanged
+  ok  changed year rejected before human publication
+  ok  new numeric price claim rejected
+  ok  HTML injection in translation rejected
+  ok  protected keys cannot be introduced
+  ok  incomplete translation rejected
+  ok  source fingerprint invalidates old human approval
+  ok  per-page language map preserves confirmed product slugs
+  ok  reciprocal map includes source language and default
+  ok  root key response exactly equals configured key
+  ok  key response refuses guessed and non-root locations
+  ok  invalid key is never served
+  ok  IndexNow submits only publicly live indexable pages
+  ok  IndexNow carries verified customer-domain key location and actual live URLs
+  ok  key is fetched before URL verification and external submission
+  ok  offsite URLs never reach IndexNow
+  ok  HTTP URLs rejected
+  ok  platform-host key file cannot verify customer domain
+  ok  wrong customer key blocks transport
+  ok  all-engines API cannot bypass key validation
+  ok  IndexNow excludes 404 pages
+  ok  IndexNow excludes redirect pages
+  ok  IndexNow excludes canonical pages
+  ok  IndexNow excludes header-noindex pages
+  ok  full exact scope required, readonly substring insufficient
+  ok  domain property permits owned subdomain
+  ok  lookalike domain property rejected
+  ok  URL-prefix property respects path boundary
+  ok  fake GSC submission preserves actual errors, warnings and pending state
+  ok  real GSC client URL-encodes sitemap path, then lists results
+  ok  readonly token never attempts sitemap write
+  ok  full scope without customer opt-in never writes
+  ok  wrong selected property blocks submit
+  ok  DTD and entity XML is refused before submission
+  ok  fake GSC permission error remains visible
+  ok  updated customer plugin contains multilingual and key routes
+  ok  write opt-in travels inside signed OAuth state
+
+47/47 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase6_connector_test.php
+  ok  actual PHP customer-domain root key route returns plain key only
+  ok  PHP HEAD serves no key body
+  ok  PHP unknown key path preserves existing site
+  ok  actual WordPress customer-domain root key route returns plain key only
+  ok  WordPress HEAD serves no key body
+  ok  WordPress unknown key path preserves existing site
+  ok  wpml reads actual translation IDs and permalinks
+  ok  wpml excludes draft translation and uses known default language
+  ok  wpml replaces duplicate alternates and preserves other head features
+  ok  polylang reads actual translation IDs and permalinks
+  ok  polylang excludes draft translation and uses known default language
+  ok  polylang replaces duplicate alternates and preserves other head features
+
+12/12 passed
+Exit status: 0
+
+$ php tests/Automation/seo_phase6_database_test.php
+  ok  no translation becomes public before explicit review
+  ok  saved draft persists but is excluded from public languages
+  ok  service denies publishing a foreign-owned builder site
+  ok  stale source hash cannot publish
+  ok  human source confirmation and review attribution persist
+  ok  repeat review updates one language version idempotently
+  ok  actual navigation and booking labels use the reviewed language rather than the English fallback
+  ok  production builder overlays only reviewed translation and keeps price
+  ok  production public head contains reciprocal language and x-default map
+  ok  translated navigation preserves existing booking action
+  ok  builder HTML language preserves reviewed BCP47 script code
+  ok  translated route retains theme and supplies correct canonical
+  ok  reviewed interface quotes are escaped separately for HTML and inline JavaScript
+  ok  source edit invalidates old public translation
+  ok  old original snapshot cannot be used to approve after edit
+  ok  editing published language back to draft clears approval
+  ok  production sitemap handler returns valid XML
+  ok  production sitemap includes original and reviewed language URLs for all product pages
+  ok  sitemap never guesses an unreviewed language
+  ok  granted connection automatically submits verified default sitemap
+  ok  submission errors and exact customer sitemap persist for UI
+  ok  automatic repeat refresh lists errors without resubmitting same accepted sitemap
+  ok  same-day scheduled sync is idempotent
+  ok  foreign user cannot use another customer sitemap grant
+  ok  custom sitemap must remain on exact customer domain
+  ok  disabling submission blocks all provider calls
+  ok  grant does not transfer to a replacement connection
+  ok  disconnected GSC never submits
+
+28/28 passed
+Exit status: 0
+
+$ node tests/Automation/seo_phase6_browser_test.cjs
+  ok  confirmed source and translation evidence render as text without injection
+  ok  optional write reconnect is a separate customer-scoped CSRF form
+  ok  paid generation is blocked until the displayed source is confirmed
+  ok  generation sends exact confirmed source fingerprint and owned builder ID
+  ok  generated translation remains an unreviewed draft
+  ok  publication requires a separate explicit human review
+  ok  human approval publishes the actual edited translation
+  ok  source and review confirmations reset after save
+  ok  customer sees measured Search Console sitemap errors
+  ok  customer can disable automatic sitemap submission
+
+10/10 passed
+Exit status: 0
+
+$ node --check public_html/assets/js/international-seo.js
+Exit status: 0
+
+$ php tools/lint.php
+OK: 1289 PHP files checked, no syntax errors.
+Exit status: 0
+
+$ node --check public_html/assets/js/seo-expert.js
+Exit status: 0
+
+$ git diff --check
+Exit status: 0

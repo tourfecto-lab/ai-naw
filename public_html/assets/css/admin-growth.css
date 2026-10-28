@@ -1,0 +1,29 @@
+.gr{display:flex;flex-direction:column;gap:16px;padding-bottom:40px}
+.gr-hero{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;padding:22px;border:1px solid var(--panel-border);border-radius:16px;background:linear-gradient(135deg,rgba(14,77,100,.35),rgba(242,177,52,.08))}
+.gr-hero h1{margin:4px 0 6px;font-size:22px}.gr-hero p{margin:0;max-width:640px;line-height:1.7;color:var(--panel-text-muted)}
+.gr-eye{font-size:11px;letter-spacing:.12em;color:#f2b134}
+.gr-switch{display:flex;flex-direction:column;gap:6px;min-width:240px;padding:14px;border-radius:12px;border:1px solid var(--panel-border);background:var(--panel-card-bg)}
+.gr-switch.on{border-color:#2f9e6a}.gr-switch span{font-size:13px;color:var(--panel-text-muted)}
+.gr-msg{padding:12px 14px;border-radius:10px;border:1px solid #2f9e6a;background:rgba(47,158,106,.1);font-size:14px;line-height:1.7}.gr-msg.bad{border-color:#c0504d;background:rgba(192,80,77,.1)}
+.gr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.gr-card{padding:14px;border:1px solid var(--panel-border);border-radius:12px;background:var(--panel-card-bg)}.gr-card span{font-size:12px;color:var(--panel-text-muted)}.gr-card b{display:block;font-size:22px;margin-top:4px}.gr-card small{font-size:12px;color:#2f9e6a}
+.gr-today{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;padding:14px;border:1px solid var(--panel-border);border-radius:12px;font-size:14px}
+.gr-box{padding:18px;border:1px solid var(--panel-border);border-radius:14px;background:var(--panel-card-bg)}.gr-box h2{font-size:17px;margin:0 0 12px}
+.gr-muted{color:var(--panel-text-muted);font-size:12px;line-height:1.7}
+.gr-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}.gr-row>input,.gr-row>select{flex:1;min-width:180px}
+.gr-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.gr-checks{list-style:none;padding:0;margin:0 0 8px;display:grid;gap:6px;font-size:14px}.gr-checks li{color:var(--panel-text-muted)}.gr-checks li.ok{color:#2f9e6a}
+.gr-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}.gr-sep{width:12px}
+.gr-split{display:grid;grid-template-columns:1fr 1fr;gap:16px}.gr-f{display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:10px}.gr-f textarea{min-height:300px;line-height:1.7;font-family:inherit}
+.gr-preview{width:100%;height:440px;border:1px solid var(--panel-border);border-radius:10px;background:#fff}.gr-preview-head{font-size:14px;margin-bottom:8px}
+.gr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:4px 14px;margin-bottom:12px}.gr-chk{flex-direction:row;align-items:center;grid-column:1/-1}
+.gr-days{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}.gr-days label{display:flex;gap:3px;align-items:center}
+.gr-leads{overflow-x:auto}.gr-table{width:100%;border-collapse:collapse;font-size:13px}.gr-table th,.gr-table td{padding:9px 8px;border-bottom:1px solid var(--panel-border);text-align:start;vertical-align:top}.gr-table a{font-size:12px;display:inline-block}
+.gr-badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;background:var(--panel-card-bg-2)}.gr-badge.green{background:rgba(47,158,106,.2)}.gr-badge.blue{background:rgba(59,130,246,.18)}.gr-badge.orange{background:rgba(242,177,52,.2)}.gr-badge.red{background:rgba(192,80,77,.22)}
+.gr-act{min-width:130px}
+@media(max-width:800px){.gr-split{grid-template-columns:1fr}.gr-preview{height:360px}}
+.gr-card-btn{cursor:pointer;border:1px solid var(--panel-border);font:inherit;color:inherit;text-align:start}.gr-card-btn:hover{border-color:var(--panel-accent,#3b82f6)}
+.gr-box h3{font-size:15px;margin:16px 0 4px}
+.gr-dlg{width:min(760px,94vw);max-height:90vh;border:1px solid var(--panel-border);border-radius:14px;padding:16px;background:var(--panel-card-bg,#fff);color:inherit}.gr-dlg::backdrop{background:rgba(0,0,0,.5)}
+.gr-dlg-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}.gr-dlg .gr-preview{width:100%;height:55vh;margin-top:10px}
+.gr-scroll{overflow-x:auto}.gr-countries td{white-space:normal}.gr-countries tr.gr-sel td{background:rgba(212,165,55,.12)}.gr-nowrap{white-space:nowrap}

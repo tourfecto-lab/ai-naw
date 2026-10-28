@@ -1,0 +1,50 @@
+PASS Currency conversion USD
+PASS Currency conversion JPY
+PASS Currency conversion ISK
+PASS Currency conversion UGX
+PASS Currency conversion DJF
+PASS Currency conversion PYG
+PASS Currency conversion VUV
+PASS Currency conversion XPF
+PASS Reject fractional JPY
+PASS Reject fractional ISK
+PASS Reject fractional UGX
+PASS Reject fractional MGA
+PASS Reject invalid amount NAN
+PASS Reject invalid amount INF
+PASS Reject invalid amount -1
+PASS Reject invalid amount 0.001
+PASS Paid exact match
+PASS Reject session {"payment_status":"unpaid"}
+PASS Reject session {"payment_status":"no_payment_required"}
+PASS Reject session {"amount_total":9999}
+PASS Reject session {"amount_total":10001}
+PASS Reject session {"currency":"eur"}
+PASS Reject session {"amount_total":"10000"}
+PASS Reject incomplete session
+PASS Wrong provider rejected
+PASS Wrong user rejected
+PASS Tampered state rejected
+PASS Valid state consumed
+PASS Replay rejected
+PASS Unsigned legacy rejected
+PASS Independent challenges
+PASS Missing role fails closed
+PASS Workspace role viewer
+PASS Workspace role sales
+PASS Workspace role support
+PASS Workspace role manager
+PASS Workspace role admin
+PASS Workspace role unexpected
+PASS DB outage fails closed
+PASS Reservation visible before provider and prevents concurrent overrefund
+PASS Remaining balance enforced
+PASS Pending refund not marked succeeded
+PASS Provider reconciliation completes pending refund
+PASS Ambiguous error retains reservation
+PASS Reconcile reuses persisted refund id
+PASS Duplicate reconciliation creates no new provider call
+PASS Payment recording repeat is idempotent
+PASS Failed booking update rolls back payment marker
+PASS Heartbeat atomic data
+RESULT: 49 passed, 0 failed

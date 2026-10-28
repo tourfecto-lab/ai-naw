@@ -1,0 +1,32 @@
+# أضف هذه الأسطر إلى routes/api.php (بجوار مسارات /api/email-marketing/* ومسارات الأدمن).
+# الأدمن: داخل مجموعة /api/admin (نفس نمط 'insights/...' مع AuthMiddleware + AdminMiddleware).
+# ملاحظة: لو AdminAccess::requiredFor بيحتاج صلاحية لكل مسار، أضف المسارات دي لصلاحية "email" / "growth".
+
+// ---------------- العميل ----------------
+$router->get('/api/email-marketing/domain-check', 'EmailMarketingController', 'domainCheck', ['AuthMiddleware']);
+$router->get('/api/email-marketing/compliance', 'EmailMarketingController', 'complianceStatus', ['AuthMiddleware']);
+$router->get('/api/email-marketing/contacts/subscribers/{id}/consent', 'EmailMarketingController', 'subscriberConsent', ['AuthMiddleware']);
+$router->get('/api/email-marketing/contacts/subscribers/{id}/export-data', 'EmailMarketingController', 'exportSubscriberData', ['AuthMiddleware']);
+$router->delete('/api/email-marketing/contacts/subscribers/{id}/erase', 'EmailMarketingController', 'eraseSubscriber', ['AuthMiddleware']);
+$router->get('/api/email-marketing/quota', 'EmailMarketingController', 'quota', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/pause', 'EmailMarketingController', 'pauseCampaign', ['AuthMiddleware']);
+$router->post('/api/email-marketing/campaigns/{id}/resume', 'EmailMarketingController', 'resumeCampaign', ['AuthMiddleware']);
+
+// ---------------- الأدمن (المسارات النسبية داخل مجموعة /api/admin) ----------------
+$router->get('/email-reputation/overview', 'AdminEmailReputationController', 'overview', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/email-reputation/events', 'AdminEmailReputationController', 'events', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/email-reputation/accounts/{id}', 'AdminEmailReputationController', 'account', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/accounts/{id}/pause', 'AdminEmailReputationController', 'pauseAccount', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/accounts/{id}/resume', 'AdminEmailReputationController', 'resumeAccount', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/accounts/{id}/limits', 'AdminEmailReputationController', 'setLimits', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/accounts/{id}/approve-review', 'AdminEmailReputationController', 'approveReview', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/campaigns/{id}/pause', 'AdminEmailReputationController', 'pauseCampaign', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/campaigns/{id}/resume', 'AdminEmailReputationController', 'resumeCampaign', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/email-reputation/global-suppressions', 'AdminEmailReputationController', 'globalSuppressions', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/email-reputation/global-suppressions', 'AdminEmailReputationController', 'addGlobalSuppression', ['AuthMiddleware', 'AdminMiddleware']);
+$router->delete('/email-reputation/global-suppressions/{id}', 'AdminEmailReputationController', 'removeGlobalSuppression', ['AuthMiddleware', 'AdminMiddleware']);
+
+// ---------------- التقارير + A/B (المرحلة 3) ----------------
+$router->get('/api/email-marketing/campaigns/{id}/insights', 'EmailMarketingController', 'campaignInsights', ['AuthMiddleware']);
+$router->get('/api/email-marketing/campaigns/{id}/export.csv', 'EmailMarketingController', 'exportCampaignCsv', ['AuthMiddleware']);
+$router->get('/api/email-marketing/reports/compare', 'EmailMarketingController', 'compareReports', ['AuthMiddleware']);

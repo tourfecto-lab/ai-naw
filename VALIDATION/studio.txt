@@ -1,0 +1,12 @@
+PASS Successful consumption records exactly one durable plan event
+PASS Failed event insertion returns false and does not invent quota consumption
+PASS Successful retry uses the remaining quota exactly once
+PASS Exhausted quota cannot record a third plan event
+PASS Missing locked subscription does not return a false successful consumption
+PASS First shared subscription hold reduces spendable quota
+PASS Second account reservation protects the last shared plan unit
+PASS Capturing one hold consumes its unit while retaining the other reservation
+PASS Settlement rollback restores the held reservation and event count
+PASS Releasing a pending hold restores the remaining shared quota
+PASS A renewed subscription period cannot silently consume a previous held quota
+RESULT: 11 passed, 0 failed

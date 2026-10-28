@@ -1,0 +1,9 @@
+PASS Ad filters call the global handler and submit current selections
+PASS Ad failure shows retry rather than old results
+PASS Older ad response cannot overwrite a newer filter result
+PASS Quote discount/currency events update real totals
+PASS Integration search filters cached rows through the actual global handler
+PASS Growth selector loads both APIs for the selected site
+PASS Growth failures show retry and hide stale score cards
+PASS Growth stale responses cannot replace another site
+RESULT: 8 passed, 0 failed

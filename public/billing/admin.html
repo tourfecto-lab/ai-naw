@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة الفوترة · Tourfecto</title>
+  <meta name="description" content="إدارة الفوترة والاشتراكات للمشرف">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/billing.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo" id="brandLogo"></div>
+        <div>
+          <div class="brand-name">Tourfecto</div>
+          <div class="brand-tag">لوحة الفوترة</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav" aria-label="التنقل الرئيسي">
+        <div class="nav-label">الإدارة</div>
+        <button class="nav-item active" data-view="dashboard">
+          <span data-icon="dashboard"></span>نظرة عامة
+        </button>
+        <button class="nav-item" data-view="deposits">
+          <span data-icon="wallet"></span>إيداعات قيد الانتظار
+          <span class="badge" id="pendingBadge" hidden>0</span>
+        </button>
+        <button class="nav-item" data-view="subscriptions">
+          <span data-icon="users"></span>الاشتراكات
+        </button>
+        <button class="nav-item" data-view="cards">
+          <span data-icon="card"></span>بطاقات الشحن
+        </button>
+        <div class="nav-label">الإعدادات</div>
+        <button class="nav-item" data-view="settings">
+          <span data-icon="settings"></span>إعدادات الفوترة
+        </button>
+        <button class="nav-item" data-view="pricing">
+          <span data-icon="tag"></span>تسعير الاستخدام
+        </button>
+      </nav>
+      <div class="sidebar-footer">Tourfecto Admin · Billing</div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة">
+          <span data-icon="menu"></span>
+        </button>
+        <div class="topbar-title" id="pageTitle">نظرة عامة</div>
+        <div class="topbar-spacer"></div>
+        <span class="pill green" id="mockBadge" hidden>وضع المعاينة</span>
+        <button class="icon-btn" id="refreshBtn" aria-label="تحديث البيانات" title="تحديث">
+          <span data-icon="refresh"></span>
+        </button>
+      </header>
+
+      <div class="content">
+        <!-- ===== Dashboard ===== -->
+        <section id="view-dashboard" class="view">
+          <div class="section-head">
+            <div>
+              <h2>مؤشرات الفوترة</h2>
+              <p>ملخص الأداء المالي للمنصة</p>
+            </div>
+            <div class="chip-row" id="trendRange">
+              <button class="chip" data-days="7">7 أيام</button>
+              <button class="chip active" data-days="30">30 يوم</button>
+              <button class="chip" data-days="90">90 يوم</button>
+            </div>
+          </div>
+          <div class="grid grid-4" id="kpiGrid"></div>
+          <div class="grid grid-2 mt-5">
+            <div class="card chart-card" id="mrrCard">
+              <div class="card-title">اتجاه الإيراد الشهري المتكرر (MRR)</div>
+              <div class="card-sub">متوسط الإيراد الشهري المتكرر عبر الوقت</div>
+              <div id="mrrChart" style="min-height:220px"></div>
+            </div>
+            <div class="card chart-card" id="usageCard">
+              <div class="card-title">إيراد الاستخدام حسب الميزة</div>
+              <div class="card-sub" id="usageCardSub">الشهر الحالي</div>
+              <div class="grid" style="grid-template-columns:minmax(180px,1.1fr) minmax(200px,1fr);gap:20px;align-items:center">
+                <div id="usageDonut"></div>
+                <div id="usageLegend"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Deposits ===== -->
+        <section id="view-deposits" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>إيداعات قيد الانتظار</h2>
+              <p>مراجعة طلبات الشحن قبل اعتمادها</p>
+            </div>
+          </div>
+          <div id="depositsBody"></div>
+        </section>
+
+        <!-- ===== Subscriptions ===== -->
+        <section id="view-subscriptions" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>الاشتراكات</h2>
+              <p>جميع اشتراكات العملاء وحالاتها</p>
+            </div>
+          </div>
+          <div class="card mb-4">
+            <div class="input-wrap" style="max-width:360px">
+              <input type="text" id="subSearch" placeholder="ابحث بالبريد أو الشركة..." style="padding-inline-start:40px">
+              <span style="position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);display:grid;place-items:center" id="searchIcon"></span>
+            </div>
+          </div>
+          <div id="subscriptionsBody"></div>
+        </section>
+
+        <!-- ===== Cards ===== -->
+        <section id="view-cards" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>بطاقات الشحن</h2>
+              <p>توليد بطاقات وإدارة أرصدتها</p>
+            </div>
+            <button class="btn btn-accent" id="genCardsBtn">+ توليد بطاقات</button>
+          </div>
+          <div id="cardsBody"></div>
+        </section>
+
+        <!-- ===== Settings ===== -->
+        <section id="view-settings" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>إعدادات الفوترة</h2>
+              <p>تكوين سياسات المحفظة والاشتراكات</p>
+            </div>
+          </div>
+          <div id="settingsBody"></div>
+        </section>
+
+        <!-- ===== Pricing ===== -->
+        <section id="view-pricing" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>تسعير الاستخدام</h2>
+              <p>تسعير استهلاك الميزات بعد تجاوز الحد المدرج</p>
+            </div>
+          </div>
+          <div id="pricingBody"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/mock-data.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/admin.js"></script>
+</body>
+</html>

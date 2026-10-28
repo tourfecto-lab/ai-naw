@@ -1,0 +1,50 @@
+/* استوديو التصميم (site-design-studio.js) */
+.sds{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px;align-items:start}
+.sds-controls{display:grid;gap:14px}
+.sds-controls .p-card{margin:0}
+.sds h4{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:6px}
+.sds-sub{margin:-4px 0 12px;font-size:12.5px;color:var(--panel-text-muted,#5D687C);line-height:1.7}
+.sds-count{font-weight:400;color:var(--panel-text-muted,#5D687C);font-size:12px}
+.sds-styles{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.sds-style{display:grid;gap:4px;text-align:start;padding:8px;border:2px solid var(--panel-border,#e3e6ec);border-radius:14px;background:var(--panel-card-bg,#fff);color:inherit;cursor:pointer;font:inherit}
+.sds-style.on{border-color:var(--sds-acc,#1F4FFF);box-shadow:0 0 0 3px color-mix(in srgb,var(--sds-acc,#1F4FFF) 18%,transparent)}
+.sds-style b{font-size:13px}
+.sds-style small{font-size:11px;color:var(--panel-text-muted,#5D687C);line-height:1.5}
+.sds-swatch{position:relative;display:grid;place-items:center;height:62px;border-radius:10px;font-size:26px;border:1px solid rgba(0,0,0,.06);overflow:hidden}
+.sds-swatch i{position:absolute;inset:auto 10px 8px;height:4px;border-radius:3px}
+.sds-colors{display:flex;flex-wrap:wrap;gap:10px}
+.sds-color{width:38px;height:38px;border-radius:50%;border:3px solid var(--panel-card-bg,#fff);box-shadow:0 0 0 1px var(--panel-border,#e3e6ec);cursor:pointer}
+.sds-color.on{box-shadow:0 0 0 3px var(--panel-text,#0F1B2D)}
+.sds-img{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px dashed var(--panel-border,#e3e6ec)}
+.sds-img:first-of-type{border-top:0}
+.sds-img-b{display:grid;gap:3px;flex:1}
+.sds-img-b small{font-size:12px;color:var(--panel-text-muted,#5D687C)}
+.sds-row{display:flex;gap:6px;margin-top:4px}
+.sds-up{cursor:pointer}
+.sds-thumb{width:96px;height:64px;flex:none;border-radius:10px;overflow:hidden;background:var(--panel-soft,#f3f5f9);display:grid;place-items:center;font-size:22px}
+.sds-thumb.logo{width:64px;background:repeating-conic-gradient(#e9ecf2 0% 25%,#fff 0% 50%) 50%/12px 12px}
+.sds-thumb img{width:100%;height:100%;object-fit:cover}
+.sds-thumb.logo img{object-fit:contain}
+.sds-tours{display:grid;gap:10px}
+.sds-tour{display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;font-size:13.5px}
+.sds-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.sds-g{position:relative;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:var(--panel-soft,#f3f5f9)}
+.sds-g img{width:100%;height:100%;object-fit:cover}
+.sds-g button{position:absolute;top:4px;inset-inline-end:4px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;cursor:pointer}
+.sds-g.add{display:grid;place-items:center;align-content:center;gap:2px;border:2px dashed var(--panel-border,#d8dce4);cursor:pointer;color:var(--panel-text-muted,#5D687C)}
+.sds-g.add span{font-size:24px;line-height:1}
+.sds-g.add small{font-size:11px}
+.sds-preview{position:sticky;top:76px}
+.sds-bar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sds-bar b{flex:1;font-size:14px}
+.sds-dev{display:flex;border:1px solid var(--panel-border,#e3e6ec);border-radius:10px;overflow:hidden}
+.sds-dev button{border:0;background:transparent;padding:5px 10px;cursor:pointer;font-size:15px}
+.sds-dev button.on{background:var(--panel-soft,#eef1f6)}
+.sds-frame{border:1px solid var(--panel-border,#e3e6ec);border-radius:14px;overflow:hidden;background:#fff;margin:0 auto;transition:width .2s}
+.sds-frame.desktop{width:100%;height:640px}
+.sds-frame.mobile{width:390px;max-width:100%;height:700px}
+.sds-frame iframe{width:100%;height:100%;border:0;display:block}
+.sds-status{min-height:20px;margin-top:8px;font-size:12.5px}
+.sds-status.ok{color:var(--panel-success,#0E9F6E)}
+.sds-status.bad{color:var(--panel-danger,#D92D20)}
+@media (max-width:1100px){.sds{grid-template-columns:1fr}.sds-preview{position:static}.sds-frame.desktop{height:520px}}

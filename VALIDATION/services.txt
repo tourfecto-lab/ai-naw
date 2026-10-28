@@ -1,0 +1,132 @@
+PASS Ten service groups are available
+PASS bookings-payments rendered ar with FAQ requirements examples prices and contextual links
+PASS bookings-payments ar header/footer retain selection
+PASS booking-website rendered ar with FAQ requirements examples prices and contextual links
+PASS booking-website ar header/footer retain selection
+PASS ai-chat rendered ar with FAQ requirements examples prices and contextual links
+PASS ai-chat ar header/footer retain selection
+PASS trip-automation rendered ar with FAQ requirements examples prices and contextual links
+PASS trip-automation ar header/footer retain selection
+PASS reviews-reputation rendered ar with FAQ requirements examples prices and contextual links
+PASS reviews-reputation ar header/footer retain selection
+PASS google-visibility rendered ar with FAQ requirements examples prices and contextual links
+PASS google-visibility ar header/footer retain selection
+PASS content-marketing rendered ar with FAQ requirements examples prices and contextual links
+PASS content-marketing ar header/footer retain selection
+PASS competitors rendered ar with FAQ requirements examples prices and contextual links
+PASS competitors ar header/footer retain selection
+PASS crm-revenue rendered ar with FAQ requirements examples prices and contextual links
+PASS crm-revenue ar header/footer retain selection
+PASS agency-teams rendered ar with FAQ requirements examples prices and contextual links
+PASS agency-teams ar header/footer retain selection
+PASS bookings-payments rendered en with FAQ requirements examples prices and contextual links
+PASS bookings-payments en header/footer retain selection
+PASS booking-website rendered en with FAQ requirements examples prices and contextual links
+PASS booking-website en header/footer retain selection
+PASS ai-chat rendered en with FAQ requirements examples prices and contextual links
+PASS ai-chat en header/footer retain selection
+PASS trip-automation rendered en with FAQ requirements examples prices and contextual links
+PASS trip-automation en header/footer retain selection
+PASS reviews-reputation rendered en with FAQ requirements examples prices and contextual links
+PASS reviews-reputation en header/footer retain selection
+PASS google-visibility rendered en with FAQ requirements examples prices and contextual links
+PASS google-visibility en header/footer retain selection
+PASS content-marketing rendered en with FAQ requirements examples prices and contextual links
+PASS content-marketing en header/footer retain selection
+PASS competitors rendered en with FAQ requirements examples prices and contextual links
+PASS competitors en header/footer retain selection
+PASS crm-revenue rendered en with FAQ requirements examples prices and contextual links
+PASS crm-revenue en header/footer retain selection
+PASS agency-teams rendered en with FAQ requirements examples prices and contextual links
+PASS agency-teams en header/footer retain selection
+PASS Legacy ai-website-builder retains language and service anchor
+PASS Legacy website-optimizer retains language and service anchor
+PASS Legacy whatsapp-chatbot retains language and service anchor
+PASS Legacy ai-assistant retains language and service anchor
+PASS Legacy reputation-management retains language and service anchor
+PASS Legacy review-requests retains language and service anchor
+PASS Legacy ai-seo-analysis retains language and service anchor
+PASS Legacy ai-keywords retains language and service anchor
+PASS Legacy google-business retains language and service anchor
+PASS Legacy ai-articles retains language and service anchor
+PASS Legacy social-media retains language and service anchor
+PASS Legacy creative-studio retains language and service anchor
+PASS Legacy marketing-assistant retains language and service anchor
+PASS Legacy ads-management retains language and service anchor
+PASS Legacy ai-competitors retains language and service anchor
+PASS Legacy competitor-monitoring retains language and service anchor
+PASS Legacy crm retains language and service anchor
+PASS Legacy revenue-intelligence retains language and service anchor
+PASS Legacy agency-white-label retains language and service anchor
+PASS Unknown legacy service does not redirect to generic feature list
+PASS Array language is ignored safely
+PASS Untrusted language cannot enter redirect
+PASS Demo preselects bookings-payments
+PASS Demo preselects booking-website
+PASS Demo preselects ai-chat
+PASS Demo preselects trip-automation
+PASS Demo preselects reviews-reputation
+PASS Demo preselects google-visibility
+PASS Demo preselects content-marketing
+PASS Demo preselects competitors
+PASS Demo preselects crm-revenue
+PASS Demo preselects agency-teams
+PASS Demo rejects untrusted feature selection
+PASS Unknown registration selection uses safe default
+PASS Plan prices and allowances render with escaped administrator text
+PASS Plan lookup failure preserves the page without leaking diagnostics
+PASS Unsafe auth redirect rejected '//evil.test'
+PASS Unsafe auth redirect rejected 'https://evil.test'
+PASS Unsafe auth redirect rejected '/\\evil.test'
+PASS Unsafe auth redirect rejected ['/onboarding']
+PASS Unsafe auth redirect rejected '/login'
+PASS Unsafe auth redirect rejected '/onboarding\nX-Test: injected'
+PASS Auth service context allowlists {'feature': 'crm-revenue'}
+PASS Auth service context allowlists {'redirect': '/onboarding?feature=ai-chat'}
+PASS Auth service context allowlists {'feature': ['ai-chat']}
+PASS Auth service context allowlists {'feature': 'unknown'}
+PASS Auth service context allowlists {'redirect': '//evil.test/onboarding?feature=ai-chat'}
+PASS Registration form renders chosen service bookings-payments ar
+PASS Onboarding carries selected service to its tool bookings-payments ar
+PASS Registration form renders chosen service booking-website ar
+PASS Onboarding carries selected service to its tool booking-website ar
+PASS Registration form renders chosen service ai-chat ar
+PASS Onboarding carries selected service to its tool ai-chat ar
+PASS Registration form renders chosen service trip-automation ar
+PASS Onboarding carries selected service to its tool trip-automation ar
+PASS Registration form renders chosen service reviews-reputation ar
+PASS Onboarding carries selected service to its tool reviews-reputation ar
+PASS Registration form renders chosen service google-visibility ar
+PASS Onboarding carries selected service to its tool google-visibility ar
+PASS Registration form renders chosen service content-marketing ar
+PASS Onboarding carries selected service to its tool content-marketing ar
+PASS Registration form renders chosen service competitors ar
+PASS Onboarding carries selected service to its tool competitors ar
+PASS Registration form renders chosen service crm-revenue ar
+PASS Onboarding carries selected service to its tool crm-revenue ar
+PASS Registration form renders chosen service agency-teams ar
+PASS Onboarding carries selected service to its tool agency-teams ar
+PASS Registration form renders chosen service bookings-payments en
+PASS Onboarding carries selected service to its tool bookings-payments en
+PASS Registration form renders chosen service booking-website en
+PASS Onboarding carries selected service to its tool booking-website en
+PASS Registration form renders chosen service ai-chat en
+PASS Onboarding carries selected service to its tool ai-chat en
+PASS Registration form renders chosen service trip-automation en
+PASS Onboarding carries selected service to its tool trip-automation en
+PASS Registration form renders chosen service reviews-reputation en
+PASS Onboarding carries selected service to its tool reviews-reputation en
+PASS Registration form renders chosen service google-visibility en
+PASS Onboarding carries selected service to its tool google-visibility en
+PASS Registration form renders chosen service content-marketing en
+PASS Onboarding carries selected service to its tool content-marketing en
+PASS Registration form renders chosen service competitors en
+PASS Onboarding carries selected service to its tool competitors en
+PASS Registration form renders chosen service crm-revenue en
+PASS Onboarding carries selected service to its tool crm-revenue en
+PASS Registration form renders chosen service agency-teams en
+PASS Onboarding carries selected service to its tool agency-teams en
+PASS Every service tool links to an existing authenticated route
+PASS Availability description matches pending booking reservation
+PASS Related services use valid meaningful associations
+RESULT: 131 passed, 0 failed

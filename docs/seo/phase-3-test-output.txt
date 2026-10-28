@@ -1,0 +1,241 @@
+Phase 3 verification, 17 October 2026
+PHP 8.4.24, MariaDB 11.8.6, headless Chromium/Playwright
+No authenticated external provider calls.
+
+$ php tests/Automation/seo_phase3_test.php
+  ok  Latin diacritics/case and partial company name; first mention order
+  ok  www/bare citation and tracked competitor detected
+  ok  Arabic diacritics ignored
+  ok  Arabic alef and taa marbuta normalized
+  ok  partial names respect word boundaries
+  ok  generic travel words do not count as brand
+  ok  domain mention counts without citation
+  ok  lookalike citation host rejected
+  ok  owned subdomain citation accepted
+  ok  unsafe citation URLs rejected
+  ok  20 realistic editable questions from confirmed facts and recent real keywords
+  ok  brand names and domain never leak into generated questions
+  ok  manual edits containing brand rejected
+  ok  manual Arabic alias leakage rejected
+  ok  URLs cannot bias approved questions
+  ok  duplicate questions rejected
+  ok  stale keyword data cannot generate questions
+  ok  missing research has no AI-guessed fallback
+  ok  unsupported language requires customer-authored questions
+  ok  OpenAI Responses output and URL citations parsed
+  ok  OpenAI reported tokens plus search charge calculated explicitly
+  ok  Responses endpoint requires web search and disables answer storage
+  ok  provider request uses neutral market context without brand or editable label
+  ok  kill switch prevents every HTTP request
+  ok  missing key is not measured
+  ok  ungrounded answer not treated as measured
+  ok  absent usage is unknown cost, never free
+  ok  Gemini only counts sources referenced by grounding supports
+  ok  Gemini reported thinking/output tokens and grounding counted
+  ok  Sonar prefers provider-reported actual cost
+  ok  migrated Sonar calls without reported cost retain unknown cost instead of legacy rates
+  ok  retrieved Sonar sources do not become invented citations
+  ok  transport failure is unavailable with redacted generic reason
+  ok  share of voice uses mentions divided by actual completed questions
+  ok  unresolved citations excluded from citation denominator
+  ok  partial coverage and competitors appearing instead reported
+  ok  8-week chart keeps missing observations null
+  ok  no provider samples is not measured, not zero
+  ok  replayed samples do not double count
+  ok  old samples explicitly marked stale
+  ok  published footer contact and language retained
+  ok  llms draft includes actual trip summary and exact published price text
+  ok  llms does not include off-site or invented trip data
+  ok  factual draft passes existing connector sanitation
+  ok  existing live llms verification compares exact published body
+  ok  grounding redirect safely resolved before domain detection
+  ok  unresolved grounding redirect retained as a source with unknown citation evidence
+  ok  competitor cited page fetched and compared with customer page
+  ok  cited third-party competitor source creates presence review task
+  ok  only customer-entered public profiles used for NAP comparison
+  ok  tasks carry concrete fetched page evidence and limitations
+  ok  IPv6 loopback citation rejected
+  ok  all new production classes registered in release classmap
+
+53/53 passed
+
+$ TF_GEO_ALLOW_FIXTURES=1 TF_GEO_UI_ARTIFACT=/tmp/geo-ui.html php tests/Automation/seo_phase3_database_test.php
+  ok  GEO runtime refuses DDL in an active transaction
+  ok  additive uploaded migration installs six GEO tables and repeats
+  ok  repeated migration preserves admin wallet price
+  ok  runtime fallback installs same schema safely
+  ok  GEO first unit consumes plan allowance
+  ok  GEO second unit consumes plan allowance
+  ok  GEO overage consumes wallet
+  ok  GEO blocks after both plan and wallet are exhausted
+  ok  wallet never goes negative
+  ok  zero-priced overage cannot enable unlimited paid API use
+  ok  cross-tenant website access denied
+  ok  foreign market cannot be used to run paid checks
+  ok  local generation creates an unapproved factual list without provider calls
+  ok  question generation incurs no paid model calls
+  ok  unapproved questions cannot run
+  ok  customer approval stores profile/version provenance
+  ok  optimistic approval version prevents stale overwrite
+  ok  no configured provider means no paid calls
+  ok  empty configuration returns setup steps and null metrics
+  ok  zero budget stops before transport and quota
+  ok  request ceiling must fit monthly budget before any call
+  ok  budget notification sent once per month
+  ok  bounded run queues continuation after two paid checks
+  ok  resuming batches completes the approved list exactly once
+  ok  weekly rerun makes no duplicate paid requests
+  ok  every request uses selected market without brand context
+  ok  actual sample saves mention order, citation, model and known cost
+  ok  billing recorded once for each attempted question/provider
+  ok  SEO Expert receives measured rates with dated source evidence
+  ok  competitor citation creates persisted improvement task
+  ok  same question in another market is a separate localized check
+  ok  cross-market aggregation does not collapse identical question hashes
+  ok  changed confirmed business profile needs fresh approval
+  ok  new identity aliases revoke previous question approvals
+  ok  Organization sameAs uses owner-confirmed profile URLs only
+  ok  private profile URLs rejected
+  ok  uncertain failed request not retried or charged twice
+  ok  unknown provider cost keeps conservative budget reservation
+  ok  spent and outstanding reservations both count toward cap
+  ok  budget-blocked request deducts no quota
+  ok  no quota and empty wallet prevents durable call claim
+  ok  approved measurement is enqueued in actual DB-backed queue
+  ok  stale weekly job exits without calling a provider
+  ok  real admin save accepts all eight GEO settings
+  ok  encrypted secret roundtrip and disabled provider persist
+  ok  all three provider keys encrypted at rest
+  ok  admin readback never exposes API keys
+  ok  invalid budget rejected before settings mutation
+  ok  customer cannot enable or disable paid providers
+  ok  production factory with empty provider settings makes zero API calls
+  ok  real customer API returns scoped unmeasured state and configured wallet price
+  ok  customer API DTO contains no provider keys
+  ok  real customer endpoint rejects another tenant website
+  ok  anonymous customer endpoint is blocked
+  ok  real enqueue API adds no job without configured providers
+  ok  integration produced no hidden SQL or application errors
+
+56/56 passed
+
+$ PLAYWRIGHT_MODULE_PATH=<installed Playwright> node tests/Automation/seo_phase3_browser_test.cjs
+  ok  no provider shows setup steps
+  ok  unmeasured is not a fabricated zero
+  ok  unconfigured page cannot enqueue paid calls
+  ok  new questions require explicit approval
+  ok  question approval sends selected market and version
+  ok  actual measured rates including true zero displayed
+  ok  answer table distinguishes mentions and unresolved citation
+  ok  sources only allow HTTP or HTTPS links
+  ok  8-week charts show points only for measured weeks
+  ok  answers, competitors and tasks are escaped
+  ok  task review is explicit scoped action
+  ok  paid check enqueues for chosen market
+  ok  market selection loads scoped measurements
+  ok  factual llms draft renders as plain text
+  ok  three provider keys use masked admin inputs
+  ok  admin persists all eight fields including disabled providers
+  ok  keys submitted once and cleared after save
+  ok  no browser JavaScript errors:
+
+18/18 passed
+
+$ php tests/Automation/seo_phase1_test.php
+tourism schema
+  ok  trip page gets TouristTrip + Breadcrumb
+  ok  price taken exactly as written on the page ($65)
+  ok  company and image filled from real page data
+  ok  no price on page: no price invented
+  ok  many different prices (other trips listed): price skipped
+  ok  adult/child prices become a price range
+  ok  Egyptian pound price recognised
+  ok  page already has Product + Breadcrumb (Yoast/theme): nothing duplicated
+  ok  about, listing and blog pages are not treated as trips
+  ok  home page left to the business (Organization) schema
+connector accepts only safe schema
+  ok  tourism @graph accepted by the connector
+  ok  unrelated schema types rejected
+  ok  old single Organization schema still accepted
+  ok  related links only to the same site
+builder sites
+  ok  real approved reviews become star rating (3+ reviews)
+  ok  fewer than 3 reviews: no rating
+  ok  itinerary and price from the trip data
+  ok  home: TravelAgency + list of trips
+  ok  schema tag cannot break out of the script
+PageSpeed
+  ok  real Google score + Chrome user data (LCP, INP, CLS)
+  ok  biggest slowdowns ranked; tiny ones ignored
+  ok  clear Arabic task with numbers and the fix
+  ok  Google quota reached: reported, no crash
+indexing (Search Console)
+  ok  indexed vs "crawled - not indexed" detected with the reason
+  ok  no sitemap submitted detected
+related trips + image alt
+  ok  missing alt filled from the file name or page title; existing alt kept
+  ok  related links verified on the live page
+  ok  missing link not reported as done
+traffic drop alert
+  ok  clicks fell 52%: alert with the page that lost most
+  ok  small dip: no alert
+
+30/30 passed
+
+$ php tests/Automation/php_connector_test.php
+  ok  generated connector is valid PHP
+  ok  connector marker present
+  ok  homepage title replaced
+  ok  description replaced and escaped
+  ok  script containing </head> untouched
+  ok  html lang applied
+  ok  JSON-LD cannot close the script tag
+  ok  page rule applied on its path
+  ok  homepage values not applied to other pages
+  ok  article served on /guides/{slug}
+  ok  bold and list formatting
+  ok  article text is escaped
+  ok  article canonical
+  ok  Article schema and connector marker
+  ok  featured image with escaped alt
+  ok  og:image and schema image
+  ok  fallback ?tf_article= works
+  ok  guides index lists the article
+  ok  unknown article falls through to the site
+  ok  no rules: page unchanged
+
+20/20 passed
+
+$ php -l <each Phase 3 changed/new PHP file>
+No syntax errors detected in app/Config/project_classmap.php
+No syntax errors detected in app/Controllers/AdminController.php
+No syntax errors detected in app/Controllers/AiVisibilityController.php
+No syntax errors detected in app/Core/ClientNavigation.php
+No syntax errors detected in app/Jobs/AiVisibilityCheckJob.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityDetector.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityEvidence.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityLedger.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityMetrics.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityProvider.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityQuestions.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilitySchema.php
+No syntax errors detected in app/Services/AiVisibility/AiVisibilityService.php
+No syntax errors detected in app/Services/AiVisibility/GeminiVisibilityProvider.php
+No syntax errors detected in app/Services/AiVisibility/GeoLlmsBuilder.php
+No syntax errors detected in app/Services/AiVisibility/OpenAiVisibilityProvider.php
+No syntax errors detected in app/Services/AiVisibility/SonarVisibilityProvider.php
+No syntax errors detected in app/Services/AutoFix/FixValueBuilder.php
+No syntax errors detected in app/Services/SeoExpert/SeoExpertService.php
+No syntax errors detected in app/Services/Subscription/BillingPlanCatalog.php
+No syntax errors detected in app/Services/Subscription/PlanUsage.php
+No syntax errors detected in app/Services/System/SystemSettingsService.php
+No syntax errors detected in app/routes/api.php
+No syntax errors detected in app/routes/web.php
+No syntax errors detected in cron/schedule.php
+No syntax errors detected in cron/seo_ai_visibility.php
+No syntax errors detected in tests/Automation/fixtures/geo_database.php
+No syntax errors detected in tests/Automation/seo_phase3_database_test.php
+No syntax errors detected in tests/Automation/seo_phase3_test.php
+
+$ node --check public_html/assets/js/ai-visibility.js
+Exit code: 0 (no output)

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Tourfecto - PHPUnit Distribution Configuration
+    نسخة التوزيع من تكوين PHPUnit (يتم نسخها إلى phpunit.xml)
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
+         bootstrap="bootstrap.php"
+         colors="true"
+         verbose="true"
+         stopOnFailure="false">
+    
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>Unit</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>Integration</directory>
+        </testsuite>
+    </testsuites>
+    
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="true"/>
+        <env name="DB_NAME" value="tourfecto_test"/>
+        <env name="CACHE_ENABLED" value="false"/>
+    </php>
+    
+    <coverage>
+        <include>
+            <directory suffix=".php">../app</directory>
+        </include>
+        <exclude>
+            <directory>../app/Config</directory>
+            <directory>../app/Exceptions</directory>
+            <directory>../app/Helpers</directory>
+        </exclude>
+    </coverage>
+</phpunit>

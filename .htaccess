@@ -1,0 +1,22 @@
+# ============================================================
+# Tourfecto - شبكة أمان لو المجلد الرئيسي للمشروع اتعمل Document Root بالغلط
+#
+# الصح: الدومين يشاور على public_html/ بس (الملف ده مش هيتقري خالص وقتها).
+# لو المشروع كله اترفع جوه المجلد العام للدومين، الملف ده بيقفل الكود
+# والإعدادات وقاعدة البيانات بدل ما تبقى مكشوفة للنت (.env فيه كل المفاتيح).
+# ============================================================
+Options -Indexes
+
+<IfModule mod_alias.c>
+    RedirectMatch 404 ^/(app|database|storage|tests|cron|tools|vendor|deploy|maintenance|scripts|docs|TOURFECTO_DROPIN|previews|\.git|\.github)(/|$)
+</IfModule>
+
+<FilesMatch "(^\.env|^\.git|composer\.(json|lock)|phpunit\.xml(\.dist)?|phpstan\.neon|pint\.json|\.(sql|md|log|neon|sh|bak|txt|json)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

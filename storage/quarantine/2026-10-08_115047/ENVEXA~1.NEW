@@ -1,0 +1,328 @@
+# ادخل إلى المجلد الرئيسي للمشروع على السيرفر
+# ملحوظة: استبدل المسار بالمسار الحقيقي لمشروعك على الاستضافة قبل أي أمر SSH.
+cd /home/USERNAME/domains/YOURDOMAIN.com
+
+# أنشئ ملف .env من هذا القالب ثم املأ القيم الحقيقية
+# تحذير: لا ترفع أبدًا ملف .env الحقيقي إلى Git - القيم الحقيقية تبقى على السيرفر فقط
+cat > .env << 'EOF'
+# ============================================
+# Tourfecto - Environment Configuration
+# @version 1.0.0
+# ============================================
+
+# ============================================
+# Application Settings
+# ============================================
+APP_NAME="Tourfecto"
+# رقمك الشخصي/التجاري على واتساب (بصيغة دولية، بدون + أو مسافات) - يظهر
+# في صفحة الباقات العامة عشان العملاء يتواصلوا معاك للدفع اليدوي
+SUPPORT_WHATSAPP_NUMBER=your-whatsapp-number
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+APP_TIMEZONE=UTC
+APP_LOCALE=ar
+APP_FALLBACK_LOCALE=en
+
+# ============================================
+# SEO Proxy (Server-Side Edge / CNAME)
+# الهوست اللي العميل يشير عليه CNAME من subdomain بتاعه عشان التنفيذ
+# التلقائي يشتغل server-side على دومينه. في الإنتاج بيبقى هوست مخصص بـ
+# wildcard TLS (مثال: edge.tourfecto.com). لو فاضي، بيتم الاعتماد على
+# HTTP_HOST الحالي وقت العرض.
+# ============================================
+SEO_PROXY_HOST=edge.yourdomain.com
+
+# ============================================
+# Database Settings
+# ============================================
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=your-db-name
+DB_USER=your-db-user
+DB_PASS=your-db-password
+DB_CHARSET=utf8mb4
+DB_COLLATION=utf8mb4_unicode_ci
+
+# ============================================
+# Gemini API Settings
+# ============================================
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-flash-latest
+# موديلات بديلة (بالترتيب) لو الأساسي رجّع 503/429 "high demand". افصل بينها بفاصلة.
+GEMINI_FALLBACK_MODELS=gemini-2.5-flash,gemini-2.5-flash-lite
+
+# ============================================
+# Anthropic Claude API Settings
+# ============================================
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+ANTHROPIC_MODEL=claude-sonnet-4-5
+
+# ============================================
+# AI Chat Platform Settings (بند 20، 22)
+# ============================================
+# أولوية مزوّدات الذكاء الاصطناعي في AIConversationEngine (مع Fallback تلقائي)
+AI_PROVIDER_PRIORITY=anthropic,gemini,openai,deepseek,kimi
+# حد أقصى للردود الآلية لكل موقع خلال دقيقة (منع الإغراق/الحلقات اللانهائية)
+AI_CHAT_RATE_LIMIT_MAX=20
+AI_CHAT_RATE_LIMIT_WINDOW_SECONDS=60
+
+# ============================================
+# WhatsApp API Settings
+# ============================================
+WHATSAPP_ENABLED=false
+WHATSAPP_API_TYPE=cloud
+WHATSAPP_PHONE_ID=your-phone-id
+WHATSAPP_ACCESS_TOKEN=your-whatsapp-token
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=your-verify-token
+
+# ============================================
+# UltraMsg API Settings
+# ============================================
+# تصحيح 2026-07-13: UltraMsg بقى multi-tenant - كل عميل بيربط instance_id/
+# api_key بتاعته هو من صفحة /chat/settings في الموقع نفسه (متخزنين مشفّرين
+# في جدول platform_connections)، مش من هنا. المتغيرات دي بقت غير مستخدمة.
+ULTRAMSG_ENABLED=false
+ULTRAMSG_INSTANCE_ID=your-instance-id
+ULTRAMSG_API_KEY=your-ultramsg-key
+
+# ============================================
+# Encryption Settings
+# ============================================
+# مفتاح التشفير - ولّد واحدًا جديدًا لكل بيئة على حدة (لا تعيد استخدام مفتاح الإنتاج في التجارب)
+# للتوليد: php -r "echo 'base64:' . base64_encode(random_bytes(32)) . PHP_EOL;"
+ENCRYPTION_KEY=base64:replace-with-a-generated-32-byte-random-key=
+
+# مفتاح توقيع JWT - لازم يكون مختلف عن ENCRYPTION_KEY فوق (مفتاح توقيع
+# التوكنات ومفتاح تشفير البيانات مايبقوش نفس المفتاح). لو سبتها فاضية،
+# هيتولّد مفتاح مشتق من ENCRYPTION_KEY تلقائيًا كحل مؤقت - الأفضل تحط
+# قيمة عشوائية طويلة مستقلة هنا بأسرع وقت (مثال: openssl rand -hex 32)
+JWT_SECRET=
+JWT_ACCESS_TOKEN_TTL=900
+JWT_REFRESH_TOKEN_TTL=2592000
+ENCRYPTION_CIPHER=AES-256-CBC
+
+# ============================================
+# Cache Settings
+# ============================================
+CACHE_ENABLED=true
+CACHE_DRIVER=file
+CACHE_LIFETIME=3600
+CACHE_PREFIX=tourfecto_
+
+# ============================================
+# Session Settings
+# ============================================
+SESSION_LIFETIME=3600
+SESSION_DRIVER=file
+
+# ============================================
+# Rate Limiting
+# ============================================
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=60
+
+# ============================================
+# GDPR Settings
+# ============================================
+GDPR_ENABLED=true
+GDPR_DATA_RETENTION_DAYS=365
+GDPR_ANONYMIZE_DATA=true
+
+# ============================================
+# Logging Settings
+# ============================================
+LOG_CHANNEL=daily
+LOG_LEVEL=error
+LOG_MAX_FILES=30
+
+# ============================================
+# Mail Settings
+# ============================================
+MAIL_DRIVER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=noreply@tourfecto.com
+MAIL_FROM_NAME=Tourfecto
+
+# ============================================
+# Stripe Payment Settings
+# ============================================
+STRIPE_ENABLED=false
+STRIPE_API_KEY=your-stripe-secret-key
+STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
+
+# ============================================
+# Paymob Payment Settings (Accept integration)
+# ============================================
+PAYMOB_API_KEY=your-paymob-api-key
+PAYMOB_INTEGRATION_ID=your-paymob-integration-id
+PAYMOB_IFRAME_ID=your-paymob-iframe-id
+PAYMOB_HMAC_SECRET=your-paymob-hmac-secret
+
+# ============================================
+# PayPal Payment Settings
+# ============================================
+PAYPAL_ENABLED=false
+PAYPAL_CLIENT_ID=your-paypal-client-id
+PAYPAL_CLIENT_SECRET=your-paypal-client-secret
+PAYPAL_MODE=sandbox
+
+# ============================================
+# TripAdvisor API Settings
+# ============================================
+TRIPADVISOR_API_KEY=your-tripadvisor-api-key
+TRIPADVISOR_API_SECRET=your-tripadvisor-secret
+TRIPADVISOR_WEBHOOK_SECRET=your-tripadvisor-webhook-secret
+
+# ============================================
+# Google Business API Settings (OAuth - كل عميل بيربط حسابه هو)
+# ============================================
+# تصحيح 2026-07-13: اتشالت GOOGLE_ACCESS_TOKEN/GOOGLE_BUSINESS_ACCOUNT_ID/
+# GOOGLE_BUSINESS_LOCATION_ID القديمة - كانت بتفترض حساب Google واحد ثابت
+# للموقع كله، وده غلط لمنتج SaaS. دلوقتي كل عميل بيربط حسابه بنفسه عن
+# طريق OAuth (شوف docs/GOOGLE_BUSINESS_SETUP.md للخطوات كاملة).
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=https://yourdomain.com/reputation/connect/google/callback
+# ربط Google Search Console - نفس GOOGLE_CLIENT_ID/SECRET فوق (نفس مشروع Google Cloud)
+# بس محتاج تفعّل "Google Search Console API" في نفس المشروع، وتضيف الرابط ده
+# كـ Authorized redirect URI في نفس OAuth Client.
+GOOGLE_SEARCH_CONSOLE_REDIRECT_URI=https://yourdomain.com/search-console/callback
+GOOGLE_ANALYTICS_REDIRECT_URI=https://yourdomain.com/google-analytics/callback
+
+# Meta Ads (Facebook Marketing API) - من تطبيق "Business" على developers.facebook.com
+META_APP_ID=your-meta-app-id
+META_APP_SECRET=your-meta-app-secret
+META_OAUTH_REDIRECT_URI=https://yourdomain.com/ads/connect/meta/callback
+META_API_VERSION=v25.0
+
+# ============================================
+# Google Ads API - نفس GOOGLE_CLIENT_ID/SECRET فوق (نفس مشروع Google Cloud)،
+# بس محتاج Redirect URI منفصل ومحتاج "Google Ads API" مفعّلة في المشروع.
+# GOOGLE_ADS_DEVELOPER_TOKEN: من google ads.google.com > Tools > API Center
+# (يحتاج طلب "Basic access" رسمي من Google، بيستغرق مراجعة أيام قليلة).
+# GOOGLE_ADS_LOGIN_CUSTOMER_ID: اختياري - ID حساب Manager (MCC) بتاعك لو
+# عملاؤك هيربطوا حسابات إعلانات تابعة له (اسيبه فاضي لو مفيش MCC).
+# ============================================
+GOOGLE_ADS_DEVELOPER_TOKEN=your-google-ads-developer-token
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=
+GOOGLE_ADS_OAUTH_REDIRECT_URI=https://yourdomain.com/ads/connect/google-ads/callback
+GOOGLE_ADS_API_VERSION=v17
+
+# ============================================
+# Conversions API (CAPI) - تحويلات الحجوزات المرتبطة بإعلانات
+# بيشتغل غير متزامن بعد تأكيد الحجز لو الحجز اتبع من كليك UTM إعلاني.
+# بيانات العميل بتتبعت SHA-256 فقط (AdPiiHasher). القيم دي أسرار -
+# املأها في .env المحلي أو إعدادات النظام، مفيش hardcode في الكود.
+# يمكن إدارتها أيضًا من إعدادات النظام (System Settings) بالمفاتيح:
+#   meta_capi_pixel_id | google_ads_customer_id | google_ads_conversion_action
+# META_CAPI_ACCESS_TOKEN: بديل اختياري للتوكن - لو فاضي بيستخدم access_token
+# بتاع اتصال المنصة المخزّن (المشفّر) تلقائيًا.
+# GOOGLE_ADS_ACCESS_TOKEN: بديل اختياري زي ما فوق للـ Google.
+# GOOGLE_ADS_CONVERSION_ACTION: resource name زي customers/{id}/conversionActions/{id}
+# ============================================
+META_CAPI_PIXEL_ID=your-meta-pixel-id
+META_CAPI_ACCESS_TOKEN=
+GOOGLE_ADS_CUSTOMER_ID=
+GOOGLE_ADS_CONVERSION_ACTION=
+GOOGLE_ADS_ACCESS_TOKEN=
+
+# ============================================
+# Google Analytics
+# ============================================
+GOOGLE_ANALYTICS_ID=UA-XXXXXXXXX-X
+
+# ============================================
+# Google Maps JavaScript API
+# مطلوب لعرض/تحديث موقع النشاط على الخريطة في صفحة "محتوى Google
+# Business Profile" (/gbp-content). فعّل "Maps JavaScript API" و"Places
+# API" و"Geocoding API" على نفس مشروع Google Cloud، وقيّد المفتاح بدومين
+# موقعك من HTTP referrers restrictions.
+# https://console.cloud.google.com/google/maps-apis
+# ============================================
+GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+
+# ============================================
+# Redis Settings (for cache)
+# ============================================
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=null
+REDIS_DATABASE=0
+
+# ============================================
+# Memcached Settings (for cache)
+# ============================================
+MEMCACHED_HOST=localhost
+MEMCACHED_PORT=11211
+
+# ============================================
+# CORS Settings
+# ============================================
+CORS_ALLOWED_ORIGINS=https://app.yourdomain.com,https://www.yourdomain.com
+
+# ============================================
+# Backup Settings
+# ============================================
+DB_BACKUP_ENABLED=true
+DB_BACKUP_PATH=/storage/backups/database
+DB_BACKUP_INTERVAL=86400
+DB_BACKUP_KEEP_DAYS=30
+DB_BACKUP_COMPRESS=true
+
+# ============================================
+# Queue Settings
+# ============================================
+QUEUE_CONNECTION=sync
+
+# ============================================
+# Third-Party Integrations (Search / Analytics / Comms / CRM)
+# ============================================
+
+# Algolia Search (بحث فوري) - من dashboard.algolia.com
+ALGOLIA_ENABLED=false
+ALGOLIA_APP_ID=your-algolia-app-id
+ALGOLIA_SEARCH_API_KEY=your-algolia-search-key
+ALGOLIA_WRITE_API_KEY=your-algolia-write-key
+
+# Hotjar / Contentsquare (تسجيلات جلسات + Heatmaps)
+CONTENTSQUARE_ENABLED=false
+CONTENTSQUARE_TAG_ID=your-contentsquare-tag-id
+
+# Mixpanel (تحليلات الأحداث)
+MIXPANEL_ENABLED=false
+MIXPANEL_TOKEN=your-mixpanel-token
+
+# Slack (إشعارات الفريق)
+SLACK_ENABLED=false
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_DEFAULT_CHANNEL=#general
+
+# Calendly (حجز المواعيد)
+CALENDLY_ENABLED=false
+CALENDLY_API_TOKEN=your-calendly-pat
+
+# Zoom (لقاءات الفيديو - Server-to-Server OAuth)
+ZOOM_ENABLED=false
+ZOOM_ACCOUNT_ID=your-zoom-account-id
+ZOOM_CLIENT_ID=your-zoom-client-id
+ZOOM_CLIENT_SECRET=your-zoom-client-secret
+
+# Zapier (Webhooks)
+ZAPIER_ENABLED=false
+ZAPIER_WEBHOOK_URL=https://hooks.zapier.com/hooks/catch/your-path
+
+# HubSpot (CRM)
+HUBSPOT_ENABLED=false
+HUBSPOT_API_KEY=your-hubspot-api-key
+
+# OneSignal (إشعارات Push)
+ONESIGNAL_ENABLED=false
+ONESIGNAL_APP_ID=your-onesignal-app-id
+ONESIGNAL_REST_API_KEY=your-onesignal-rest-api-key
+EOF

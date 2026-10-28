@@ -1,0 +1,5 @@
+خذ نسخة احتياطية من الملفات الثلاثة، ثم ارفع مجلد app فوق مجلد app الحالي مع الاستبدال.
+لا يوجد SQL مطلوب.
+افتح /integrations بحساب العميل واضغط ربط Google Analytics للموقع المطلوب.
+أضف في Google Cloud رابط الرجوع https://tourfecto.pro/google-analytics/callback وفعل Analytics Data API وAnalytics Admin API.
+لم يتم اختبار OAuth على الاستضافة.

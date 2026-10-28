@@ -1,0 +1,16 @@
+        echo $this->renderAdminPage('health');
+        exit;
+    }
+
+    /** GET /admin/emails */
+    public function emailsPage(array $params = []): array
+    {
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderAdminPage('emails');
+        exit;
+    }
+
+    /** GET /admin/metrics */
+    public function metricsPage(array $params = []): array
+    {
+        header('Content-Type: text/html; charset=utf-8');

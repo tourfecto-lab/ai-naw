@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Tourfecto - PHPUnit Configuration
+    تكوين PHPUnit لاختبارات النظام
+    @version 1.0.0
+    @author Tourfecto Team
+    @copyright 2026 Tourfecto
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd"
+         bootstrap="bootstrap.php"
+         colors="true"
+         stopOnFailure="false"
+         failOnRisky="true"
+         failOnWarning="true"
+         cacheResult="false"
+         executionOrder="random"
+         resolveDependencies="true"
+         processIsolation="false"
+         columns="max">
+
+    <!-- ============================================
+         مجموعات الاختبارات
+         ============================================ -->
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>Unit</directory>
+            <exclude>Unit/Integration</exclude>
+        </testsuite>
+
+        <testsuite name="Integration">
+            <directory>Integration</directory>
+        </testsuite>
+
+        <testsuite name="All">
+            <directory>.</directory>
+            <exclude>Legacy</exclude>
+        </testsuite>
+    </testsuites>
+
+    <!-- ============================================
+         متغيرات البيئة
+         ============================================ -->
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="true"/>
+        <env name="APP_URL" value="http://localhost:8000"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_NAME" value="tourfecto_test"/>
+        <env name="DB_USER" value="tourfecto"/>
+        <env name="DB_PASS" value="tourfecto_pass"/>
+        <env name="DB_CHARSET" value="utf8mb4"/>
+        <env name="DB_COLLATION" value="utf8mb4_unicode_ci"/>
+        <env name="CACHE_DRIVER" value="file"/>
+        <env name="CACHE_ENABLED" value="false"/>
+        <env name="SESSION_DRIVER" value="file"/>
+        <env name="GEMINI_API_KEY" value="test_key"/>
+        <env name="GEMINI_MODEL" value="gemini-1.5-flash"/>
+        <env name="STRIPE_WEBHOOK_SECRET" value="test_webhook_secret"/>
+        <env name="PAYMOB_HMAC_SECRET" value="test_paymob_hmac"/>
+        <env name="ENCRYPTION_KEY" value="base64:qReEaY2ccT0ThiHgShKfM6gZd6JzZJH3upaZshbtGv4="/>
+    </php>
+
+    <!-- ============================================
+         إعدادات السجلات
+         ============================================ -->
+    <logging>
+        <junit outputFile="junit.xml"/>
+        <testdoxHtml outputFile="testdox.html"/>
+        <testdoxText outputFile="testdox.txt"/>
+    </logging>
+</phpunit>

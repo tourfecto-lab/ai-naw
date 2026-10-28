@@ -1,0 +1,49 @@
+PASS getyourguide rejects HTTP 0
+PASS getyourguide rejects HTTP 199
+PASS getyourguide rejects HTTP 204
+PASS getyourguide rejects HTTP 301
+PASS getyourguide rejects HTTP 302
+PASS getyourguide rejects HTTP 400
+PASS getyourguide rejects HTTP 401
+PASS getyourguide rejects HTTP 403
+PASS getyourguide rejects HTTP 404
+PASS getyourguide rejects HTTP 429
+PASS getyourguide rejects HTTP 500
+PASS getyourguide rejects HTTP 503
+PASS getyourguide rejects malformed/logical error b3038f8e5d1e461291cab7eeaf06105d
+PASS getyourguide rejects malformed/logical error 37a6259cc0c1dae299a7866489dff0bd
+PASS getyourguide rejects malformed/logical error 68934a3e9455fa72420237eb05902327
+PASS getyourguide rejects malformed/logical error 20cd815523e5806aec29a57282b0d49f
+PASS getyourguide rejects malformed/logical error fd12274f57445637ba9b4ce55c7ca6ac
+PASS getyourguide rejects malformed/logical error fa10a9917ef0b0c162005cc2483fff37
+PASS getyourguide rejects malformed/logical error 6fb303695286085ce32eecc7152be550
+PASS getyourguide rejects malformed/logical error c0a4229f65148628b26e451304ddac68
+PASS getyourguide accepts valid successful JSON HTTP 200
+PASS getyourguide accepts valid successful JSON HTTP 201
+PASS getyourguide hides internal network errors
+PASS viator rejects HTTP 0
+PASS viator rejects HTTP 199
+PASS viator rejects HTTP 204
+PASS viator rejects HTTP 301
+PASS viator rejects HTTP 302
+PASS viator rejects HTTP 400
+PASS viator rejects HTTP 401
+PASS viator rejects HTTP 403
+PASS viator rejects HTTP 404
+PASS viator rejects HTTP 429
+PASS viator rejects HTTP 500
+PASS viator rejects HTTP 503
+PASS viator rejects malformed/logical error b3038f8e5d1e461291cab7eeaf06105d
+PASS viator rejects malformed/logical error 37a6259cc0c1dae299a7866489dff0bd
+PASS viator rejects malformed/logical error 68934a3e9455fa72420237eb05902327
+PASS viator rejects malformed/logical error 20cd815523e5806aec29a57282b0d49f
+PASS viator rejects malformed/logical error fd12274f57445637ba9b4ce55c7ca6ac
+PASS viator rejects malformed/logical error fa10a9917ef0b0c162005cc2483fff37
+PASS viator rejects malformed/logical error 6fb303695286085ce32eecc7152be550
+PASS viator rejects malformed/logical error c0a4229f65148628b26e451304ddac68
+PASS viator accepts valid successful JSON HTTP 200
+PASS viator accepts valid successful JSON HTTP 201
+PASS viator hides internal network errors
+PASS OTA status denies another user before querying connections
+PASS Saved connection is not presented as live synchronization
+RESULT: 48 passed, 0 failed

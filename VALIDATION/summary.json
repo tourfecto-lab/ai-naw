@@ -1,0 +1,68 @@
+{
+  "total_passed": 423,
+  "checks": [
+    {
+      "check": "billing",
+      "passed": 31,
+      "exit_code": 0
+    },
+    {
+      "check": "checkout",
+      "passed": 6,
+      "exit_code": 0
+    },
+    {
+      "check": "retention",
+      "passed": 38,
+      "exit_code": 0
+    },
+    {
+      "check": "security",
+      "passed": 49,
+      "exit_code": 0
+    },
+    {
+      "check": "repair",
+      "passed": 58,
+      "exit_code": 0
+    },
+    {
+      "check": "pages",
+      "passed": 31,
+      "exit_code": 0
+    },
+    {
+      "check": "ui",
+      "passed": 8,
+      "exit_code": 0
+    },
+    {
+      "check": "studio",
+      "passed": 11,
+      "exit_code": 0
+    },
+    {
+      "check": "fetch",
+      "passed": 12,
+      "exit_code": 0
+    },
+    {
+      "check": "ota",
+      "passed": 48,
+      "exit_code": 0
+    },
+    {
+      "check": "services",
+      "passed": 131,
+      "exit_code": 0
+    },
+    {
+      "check": "routes",
+      "passed": 0,
+      "exit_code": 0
+    }
+  ],
+  "php_linted": 22,
+  "live_database_tested": false,
+  "real_providers_called": false
+}

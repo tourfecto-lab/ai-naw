@@ -1,0 +1,22 @@
+Tourfecto service audit (read-only)
+Routes: 1408; route errors: 0; duplicate registrations: 0
+[STRUCTURE FOUND] Bookings & availability — DB not checked — live test pending
+[STRUCTURE FOUND] Payment links — DB not checked — live test pending
+[STRUCTURE FOUND] Booking website — DB not checked — live test pending
+[STRUCTURE FOUND] AI chat & inbox — DB not checked — live test pending
+[STRUCTURE FOUND] Automation — DB not checked — live test pending
+[STRUCTURE FOUND] Reviews & reputation — DB not checked — live test pending
+[STRUCTURE FOUND] Google Business Profile — DB not checked — live test pending
+[STRUCTURE FOUND] Search Console — DB not checked — live test pending
+[STRUCTURE FOUND] Google Analytics — DB not checked — live test pending
+[STRUCTURE FOUND] Auto SEO & website optimization — DB not checked — live test pending
+[STRUCTURE FOUND] SEO content — DB not checked — live test pending
+[STRUCTURE FOUND] Competitor intelligence — DB not checked — live test pending
+[STRUCTURE FOUND] Social publishing — DB not checked — live test pending
+[STRUCTURE FOUND] Creative Studio — DB not checked — live test pending
+[STRUCTURE FOUND] Advertising — DB not checked — live test pending
+[STRUCTURE FOUND] Email marketing — DB not checked — live test pending
+[STRUCTURE FOUND] CRM — DB not checked — live test pending
+[STRUCTURE FOUND] Revenue intelligence — DB not checked — live test pending
+[STRUCTURE FOUND] Agency & teams — DB not checked — live test pending
+[STRUCTURE FOUND] Subscriptions & entitlements — DB not checked — live test pending

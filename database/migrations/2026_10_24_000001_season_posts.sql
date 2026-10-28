@@ -1,0 +1,28 @@
+-- Tourfecto - ذكاء الإيرادات: رحلات الموسم ← منشورات سوشيال جاهزة للمراجعة. آمن للتشغيل أكتر من مرة، جدول جديد بس.
+CREATE TABLE IF NOT EXISTS `season_post_drafts` (
+    `id` INT(11) NOT NULL AUTO_INCREMENT,
+    `user_id` INT(11) NOT NULL,
+    `batch_key` VARCHAR(40) NOT NULL,
+    `product_id` INT(11) DEFAULT NULL COMMENT 'crm_products.id (الرحلة)',
+    `website_id` INT(11) DEFAULT NULL COMMENT 'generated_websites.id',
+    `trip_slug` VARCHAR(190) DEFAULT NULL,
+    `trip_name` VARCHAR(255) NOT NULL,
+    `trip_url` VARCHAR(1000) DEFAULT NULL,
+    `language` VARCHAR(5) NOT NULL DEFAULT 'ar',
+    `content` TEXT DEFAULT NULL,
+    `hashtags_json` TEXT DEFAULT NULL,
+    `first_comment` VARCHAR(1000) DEFAULT NULL,
+    `media_item_id` INT(11) DEFAULT NULL,
+    `image_source` VARCHAR(20) DEFAULT NULL COMMENT 'site_photo | ai_generated',
+    `image_note` VARCHAR(300) DEFAULT NULL,
+    `vision_json` TEXT DEFAULT NULL COMMENT 'تحليل صورة الموقع (وصف/مكان/جودة)',
+    `demand_json` TEXT DEFAULT NULL COMMENT 'ليه الرحلة دي مطلوبة في الموسم',
+    `status` VARCHAR(16) NOT NULL DEFAULT 'pending' COMMENT 'pending|working|ready|failed|used|dismissed',
+    `error` VARCHAR(300) DEFAULT NULL,
+    `social_post_id` INT(11) DEFAULT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_user` (`user_id`, `created_at`),
+    KEY `idx_batch` (`batch_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

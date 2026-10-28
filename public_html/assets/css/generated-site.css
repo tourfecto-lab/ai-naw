@@ -1,0 +1,149 @@
+:root {
+    --ws-accent: var(--ws-accent);
+    --ws-accent-rgb: 239,176,94;
+    --ws-accent-dark: #0b0f1a;
+}
+
+/* Tourfecto - قالب المواقع السياحية المولّدة تلقائيًا */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+body { font-family: 'IBM Plex Sans Arabic', sans-serif; background: #0b0f1a; color: #eef1f7; line-height: 1.7; }
+
+.ws-nav { background: rgba(11,15,26,.9); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(255,255,255,.08); position: sticky; top: 0; z-index: 10; }
+.ws-nav-inner { max-width: 1100px; margin: 0 auto; padding: 16px 24px; }
+.ws-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ws-logo { font-size: 18px; font-weight: 700; }
+.ws-nav-links { display: flex; align-items: center; gap: 22px; }
+.ws-nav-links a { color: #b7bfd1; text-decoration: none; font-size: 13.5px; font-weight: 500; }
+.ws-nav-links a:hover { color: #eef1f7; }
+.ws-nav-cta { background: var(--ws-accent); color: #0b0f1a !important; padding: 8px 18px; border-radius: 20px; font-weight: 700 !important; }
+
+.ws-hero { text-align: center; padding: 90px 24px 70px; background: radial-gradient(circle at 50% 0%, rgba(var(--ws-accent-rgb),.15), transparent 60%); }
+.ws-hero h1 { font-size: clamp(28px, 5vw, 46px); margin-bottom: 16px; font-weight: 700; }
+.ws-hero p { max-width: 560px; margin: 0 auto 28px; color: #b7bfd1; font-size: 15px; }
+
+.ws-btn { display: inline-block; background: var(--ws-accent); color: #0b0f1a; padding: 13px 30px; border-radius: 30px; text-decoration: none; font-weight: 700; font-size: 14px; }
+.ws-btn:hover { opacity: .9; }
+.ws-btn + .ws-btn, .ws-btn + .ws-btn-outline, .ws-btn-outline + .ws-btn { margin-inline-start: 10px; }
+.ws-btn-outline { background: transparent; color: var(--ws-accent); border: 2px solid var(--ws-accent); }
+
+.ws-section { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+.ws-section h2 { text-align: center; font-size: 26px; margin-bottom: 30px; }
+.ws-section-alt { background: rgba(255,255,255,.02); max-width: 100%; }
+.ws-section-alt > * { max-width: 1100px; margin-inline: auto; }
+.ws-about-text { max-width: 700px; margin: 0 auto; text-align: center; color: #b7bfd1; font-size: 14.5px; }
+
+.ws-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+.ws-card { background: linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.01)); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 26px 20px; text-align: center; }
+.ws-card-icon { font-size: 30px; margin-bottom: 10px; }
+.ws-card h3 { font-size: 15.5px; margin-bottom: 8px; }
+.ws-card p { font-size: 13px; color: #b7bfd1; }
+
+.ws-package { background: linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.01)); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; overflow: hidden; padding: 0; }
+.ws-package-img { height: 170px; background-size: cover; background-position: center; background-color: rgba(255,255,255,.03); }
+.ws-package-img-fallback { display: flex; align-items: center; justify-content: center; font-size: 40px; }
+.ws-package-body { padding: 18px 20px 20px; }
+.ws-package-body h3 { font-size: 16px; margin-bottom: 8px; }
+.ws-package-body p { font-size: 13px; color: #b7bfd1; margin-bottom: 10px; }
+.ws-package-price { font-size: 20px; font-weight: 700; color: var(--ws-accent); }
+.ws-package-duration { font-size: 12px; color: #8892a6; }
+
+.ws-tour-hero-img { max-width: 900px; margin: 0 auto; height: 320px; background-size: cover; background-position: center; border-radius: 20px; }
+
+.ws-trust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.ws-trust-item { text-align: center; }
+.ws-trust-icon { font-size: 30px; margin-bottom: 10px; }
+.ws-trust-item h3 { font-size: 15px; margin-bottom: 6px; }
+.ws-trust-item p { font-size: 12.5px; color: #8892a6; }
+
+.ws-contact { text-align: center; }
+.ws-contact p { font-size: 14px; margin-bottom: 8px; color: #b7bfd1; }
+.ws-contact .ws-btn { margin-top: 16px; }
+
+.ws-footer { text-align: center; padding: 30px 20px; color: #6a7387; font-size: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+
+.ws-package-link { text-decoration: none; color: inherit; display: block; transition: transform .15s; }
+.ws-package-link:hover { transform: translateY(-3px); border-color: rgba(var(--ws-accent-rgb),.4); }
+.ws-view-more { display: inline-block; margin-top: 10px; font-size: 12.5px; color: var(--ws-accent); font-weight: 700; }
+
+.ws-hero-sm { padding: 60px 24px 40px; }
+.ws-tour-meta { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px; }
+.ws-tour-meta > div { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 14px 22px; text-align: center; min-width: 140px; }
+.ws-tour-meta span { display: block; font-size: 11.5px; color: #8892a6; margin-bottom: 4px; }
+.ws-tour-meta strong { font-size: 15px; }
+
+.ws-list { list-style: none; padding: 0; margin: 0 0 30px; }
+.ws-list li { padding: 6px 0; font-size: 13.5px; color: #d6dbe6; }
+
+.ws-itinerary { display: flex; flex-direction: column; gap: 16px; margin-bottom: 30px; }
+.ws-day { display: flex; gap: 16px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 18px 20px; }
+.ws-day-num { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; background: rgba(var(--ws-accent-rgb),.15); color: var(--ws-accent); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.ws-day h4 { font-size: 14.5px; margin-bottom: 6px; }
+.ws-day p { font-size: 13px; color: #b7bfd1; }
+
+.ws-inex-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 40px; }
+.ws-inex-grid h3 { font-size: 15px; margin-bottom: 10px; }
+
+.ws-booking-box { text-align: center; background: linear-gradient(160deg, rgba(var(--ws-accent-rgb),.1), rgba(var(--ws-accent-rgb),.02)); border: 1px solid rgba(var(--ws-accent-rgb),.25); border-radius: 18px; padding: 32px 20px; }
+.ws-booking-box h3 { font-size: 18px; margin-bottom: 8px; }
+.ws-booking-box p { color: #b7bfd1; font-size: 13px; margin-bottom: 18px; }
+.ws-booking-form { max-width: 420px; margin: 0 auto 8px; text-align: start; }
+.ws-bf-label { display: block; font-size: 12.5px; color: #b7bfd1; margin-bottom: 12px; }
+.ws-bf-label .ws-bf-input { display: block; width: 100%; margin-top: 5px; }
+.ws-bf-input { background: rgba(255,255,255,.05); border: 1px solid rgba(var(--ws-accent-rgb),.35); border-radius: 10px; color: #eef1f8; padding: 10px 12px; font-size: 14px; box-sizing: border-box; }
+.ws-bf-input:focus { outline: none; border-color: var(--ws-accent); }
+.ws-booking-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ws-booking-form .ws-btn { border: none; cursor: pointer; margin-top: 4px; }
+.ws-booking-msg { margin-top: 12px; font-size: 13px; min-height: 18px; }
+.ws-booking-msg.ws-ok { color: #4caf82; font-weight: 600; }
+.ws-booking-msg.ws-pending { color: #efb05e; }
+.ws-booking-wa-divider { display: flex; align-items: center; gap: 10px; color: #7a8299; font-size: 12px; margin: 16px 0 14px; }
+.ws-booking-wa-divider::before, .ws-booking-wa-divider::after { content: ""; flex: 1; height: 1px; background: rgba(var(--ws-accent-rgb),.25); }
+.ws-btn-wa { display: block; }
+.ws-booking-confirm { border-radius: 14px; padding: 18px; }
+.ws-booking-confirm strong { font-size: 17px; }
+.ws-booking-confirm p { margin: 8px 0 0; }
+.ws-booking-confirm.ws-ok { background: rgba(76,175,130,.12); border: 1px solid rgba(76,175,130,.4); }
+.ws-booking-confirm.ws-pending { background: rgba(239,176,94,.12); border: 1px solid rgba(239,176,94,.4); }
+.ws-booking-msg.ws-error { color: #e0685c; font-weight: 600; }
+
+/* ===== قسم تقييمات الزوار على الموقع المنشور ===== */
+.ws-reviews { text-align: center; }
+.ws-reviews-summary { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 26px; flex-wrap: wrap; }
+.ws-review-big { font-size: 30px; font-weight: 700; color: var(--ws-accent); }
+.ws-review-count { font-size: 13px; color: #8892a6; }
+.ws-reviews-empty { color: #8892a6; font-size: 13.5px; margin-bottom: 26px; }
+.ws-reviews-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; max-width: 900px; margin: 0 auto 30px; text-align: start; }
+.ws-review-card { background: linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.01)); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 18px 20px; }
+.ws-review-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ws-review-head strong { font-size: 14px; }
+.ws-review-stars { color: var(--ws-accent); letter-spacing: 2px; font-size: 13px; }
+.ws-review-comment { font-size: 13px; color: #c3c9d6; margin-bottom: 8px; }
+.ws-review-date { font-size: 11px; color: #6a7387; }
+.ws-review-form { max-width: 480px; margin: 0 auto; text-align: start; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 24px; }
+.ws-review-form-title { font-size: 16px; margin-bottom: 14px; text-align: center; }
+.ws-review-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ws-review-form .ws-btn { border: none; cursor: pointer; }
+.ws-reviews .ws-booking-msg { text-align: center; }
+
+/* ===== تباينات التصميم (layout_key) - بتختلف حسب القالب المختار ===== */
+.ws-layout-boutique .ws-hero { text-align: start; padding: 90px 24px 70px; background: radial-gradient(ellipse at 15% 0%, rgba(var(--ws-accent-rgb),.18), transparent 55%); }
+.ws-layout-boutique .ws-hero h1 { font-size: clamp(32px, 5.5vw, 52px); max-width: 640px; }
+.ws-layout-boutique .ws-hero p { margin: 0 0 28px; max-width: 500px; }
+.ws-layout-boutique .ws-nav-inner { border-bottom: 1px solid rgba(var(--ws-accent-rgb),.25); padding-bottom: 0; }
+.ws-layout-boutique .ws-package { border-radius: 20px 20px 8px 8px; }
+.ws-layout-luxury .ws-hero h1 { font-family: 'IBM Plex Sans Arabic', serif; font-weight: 600; letter-spacing: .5px; }
+.ws-layout-luxury .ws-hero { background: radial-gradient(circle at 50% 0%, rgba(var(--ws-accent-rgb),.22), transparent 70%), linear-gradient(180deg, rgba(255,255,255,.02), transparent); }
+.ws-layout-luxury .ws-btn { border-radius: 8px; letter-spacing: .3px; }
+.ws-layout-luxury .ws-package-price { font-size: 22px; }
+.ws-layout-luxury .ws-nav-cta { border-radius: 8px; }
+
+@media(max-width: 640px) {
+    .ws-hero { padding: 60px 20px 50px; }
+    .ws-section { padding: 40px 20px; }
+    .ws-inex-grid { grid-template-columns: 1fr; }
+    .ws-trust-grid { grid-template-columns: 1fr; gap: 30px; }
+    .ws-nav-links { gap: 12px; font-size: 12px; }
+    .ws-nav-links a { font-size: 12px; }
+    .ws-review-cols { grid-template-columns: 1fr; }
+}

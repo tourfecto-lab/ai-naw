@@ -1,0 +1,61 @@
+# Tourfecto
+
+> Tourfecto (https://tourfecto.pro) is an AI-powered SaaS platform for tour operators, day-tour and activity companies, travel agencies and hotels. In one place it gives them: replies to Google, TripAdvisor and Booking.com reviews in each traveller's own language, an SEO hub that audits tour pages, a booking website with online payments, 24/7 AI chat on the website and WhatsApp, content and ads marketing, competitor monitoring and a CRM. The platform interface is in Arabic and English and it serves businesses worldwide.
+
+## Company
+
+- Name: Tourfecto
+- Website: https://tourfecto.pro
+- Contact email: info@tourfecto.pro
+- Contact page: https://tourfecto.pro/contact
+- Book a demo: https://tourfecto.pro/demo
+- About: https://tourfecto.pro/about
+- Type: Software as a Service (B2B) for the tourism and travel industry
+- Languages: Arabic, English (customer-facing replies and chat in many more languages)
+- Area served: Worldwide
+
+## Main features
+
+- Reviews and reputation: detects the reviewer's language and drafts a reply in that language (15 languages including English, German, French, Italian, Spanish, Russian and Arabic), addressed by first name and signed by the business team; follows platform rules (for example no links or phone numbers on TripAdvisor); instant alerts with a ready draft for critical negative reviews, which are never auto-published; a reputation diagnosis that scores the business out of 100 and lists what guests praise and complain about (guide, pickup, timing, value, food, safety and more).
+- SEO hub: tour-page audit (title, meta description, price, duration, itinerary, inclusions, images, reviews, TouristTrip/Product schema, hreflang for each language), comparison against up to 3 competitors, keyword research, content gaps, prioritised tasks, WordPress publishing after approval, and results measured with Google Search Console and GA4. Also covers AEO/GEO (visibility in AI assistants) with llms.txt and entity data.
+- Booking website: a multilingual site with a page per tour, live availability and online payments (payment links, deposits, Stripe or manual cash/transfer).
+- AI chat for website and WhatsApp: answers guests 24/7 in their language, knows the business's tours and prices, and can take bookings.
+- Bookings and operations: every booking in one place, reminders before each trip and review requests after it.
+- Content and marketing: articles, social posts, email campaigns, Meta and Google ads.
+- Competitor monitoring: alerts when competitors change prices or offers.
+- CRM and revenue: leads, deals, automatic follow-up and revenue reports.
+- Agencies and teams: multiple companies and sites, team permissions, white label.
+
+## Integrations
+
+Google Business Profile, TripAdvisor, Booking.com, WhatsApp, Facebook, Instagram, WordPress, Google Search Console, Google Analytics 4, Stripe.
+
+## Pricing
+
+Monthly and yearly plans (yearly = 10 months, 2 months free) with a free trial before paying; cancel any time from the subscription page.
+
+- Platform plans: Starter $79/month, Growth $199/month, Leader $449/month.
+- SEO-only plans: SEO Essential $99/month, SEO Growth $249/month, SEO Agency $549/month.
+- Prices can be shown in USD, EUR, GBP, EGP, SAR, AED, KWD and QAR. Current prices and allowances: https://tourfecto.pro/pricing
+- How to pay: there is no card checkout on the website. Customers message Tourfecto on WhatsApp or email info@tourfecto.pro with the plan they want; the team replies with the payment email/account and the exact amount, then activates the plan once payment arrives and sends an invoice.
+
+## FAQ
+
+- Do I need technical skills? No. Everything has clear steps; no developer is needed.
+- Does the AI publish without approval? No. The business chooses which safe actions run automatically; everything else waits for approval. Critical negative reviews are never answered automatically.
+- Is my data secure? Sensitive tokens and connections (Google, WhatsApp, Meta, Stripe) are encrypted and data is not shared with third parties.
+- How do guests pay? By card through a payment link or the booking site, or the business records cash and transfers manually.
+- How do I contact Tourfecto? Email info@tourfecto.pro, use https://tourfecto.pro/contact or book a demo at https://tourfecto.pro/demo.
+
+## Links
+
+- [Home](https://tourfecto.pro/)
+- [Features](https://tourfecto.pro/features)
+- [Pricing](https://tourfecto.pro/pricing)
+- [Start free](https://tourfecto.pro/register)
+- [Log in](https://tourfecto.pro/login)
+- [Help center](https://tourfecto.pro/help)
+- [Documentation](https://tourfecto.pro/docs)
+- [API documentation](https://tourfecto.pro/docs/api)
+- [Privacy policy](https://tourfecto.pro/privacy)
+- [Terms](https://tourfecto.pro/terms)

@@ -1,0 +1,9 @@
+# Creative media must be served through owner authentication or an expiring publish capability.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>
+Options -Indexes

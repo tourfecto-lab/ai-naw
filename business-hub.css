@@ -1,0 +1,5 @@
+#businessHubRoot{color:var(--panel-text,#e9eef9)}.bh-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:16px 0}.bh-card{border:1px solid var(--panel-border,#344158);border-radius:12px;padding:18px;min-width:0}.bh-card h3{color:inherit;margin-top:0}.bh-field{display:block;margin:12px 0}.bh-field textarea,.bh-field input,.bh-field select{width:100%;box-sizing:border-box}.bh-row{padding:12px 0;border-bottom:1px solid var(--panel-border,#344158);overflow-wrap:anywhere}.bh-actions{display:flex;gap:10px;flex-wrap:wrap}.bh-note{padding:14px;border:1px solid var(--panel-border,#344158);border-radius:10px;margin:12px 0;white-space:pre-line;overflow-wrap:anywhere}.bh-full{grid-column:1/-1}.bh-table{width:100%;border-collapse:collapse}.bh-table td,.bh-table th{padding:10px;text-align:start;border-bottom:1px solid var(--panel-border,#344158)}@media(max-width:760px){.bh-grid{grid-template-columns:1fr}.bh-card{padding:14px}}
+
+#businessHubRoot [hidden]{display:none!important}
+#businessHubRoot button:disabled{opacity:.5;cursor:not-allowed}
+#businessHubRoot a[aria-disabled="true"]{opacity:.5;cursor:not-allowed}

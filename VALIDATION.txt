@@ -1,0 +1,6 @@
+PHP 8.3 syntax: PASS
+Public error classification and diagnostic masking: 5 PASS
+Mocked fallback boundaries (403,429,0,503): 4 PASS
+SQL route JSON boolean and provider chain: PASS
+SQL has not been executed against a MySQL server.
+No live deployment or paid generation performed.

@@ -1,0 +1,24 @@
+/* اشتراك الموقع (site-subscription.js) */
+.ss-modal{max-width:500px}
+.ss-name{font-weight:800;font-size:17px;margin-bottom:8px}
+.ss-state{font-size:13px;line-height:1.8;padding:9px 12px;border-radius:10px;background:rgba(127,127,127,.1);margin-bottom:14px}
+.ss-state.ok{background:rgba(34,197,94,.12)}
+.ss-state.warn{background:rgba(245,158,11,.14)}
+.ss-state.bad{background:rgba(239,68,68,.12)}
+.ss-cycle{margin-bottom:12px}
+.ss-save{font-size:11px;font-weight:800;color:#16a34a}
+.ss-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin:4px 0 8px}
+.ss-price b{font-size:34px;line-height:1}
+.ss-price span{opacity:.7}
+.ss-price s{opacity:.55}
+.ss-price em{font-style:normal;font-size:12px;font-weight:700;color:#16a34a;background:rgba(34,197,94,.12);padding:3px 8px;border-radius:999px}
+.ss-hint{font-size:12.5px;margin-bottom:8px;opacity:.85}
+.ss-list{list-style:none;margin:10px 0 16px;padding:0;display:grid;gap:7px;font-size:13.5px}
+.ss-list li.n{opacity:.6}
+.ss-list small{font-size:11px;opacity:.8}
+.ss-actions{display:grid;gap:8px}
+.ss-auto{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:12.5px}
+.ss-pill{display:inline-block;margin-inline-start:4px;font-size:10.5px;padding:1px 7px;border-radius:999px;vertical-align:middle;background:rgba(127,127,127,.15)}
+.ss-pill.green{background:rgba(34,197,94,.15);color:#15803d}
+.ss-pill.orange{background:rgba(245,158,11,.18);color:#b45309}
+.ss-pill.red{background:rgba(239,68,68,.15);color:#b91c1c}

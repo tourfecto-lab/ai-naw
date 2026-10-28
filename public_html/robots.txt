@@ -1,0 +1,73 @@
+# ============================================
+# Tourfecto - robots.txt
+# @version 2.0.0
+#
+# مهم: البوت اللي ليه مجموعة باسمه بيتجاهل مجموعة (*) تماماً،
+# عشان كده قواعد المنع متكررة في كل مجموعة.
+# ============================================
+
+# --------------------------------------------
+# 1. محركات البحث وروبوتات الذكاء الاصطناعي (مسموح لها بالصفحات العامة)
+#    مهم لظهور Tourfecto في إجابات ChatGPT و Claude و Perplexity و Gemini (GEO)
+# --------------------------------------------
+User-agent: *
+User-agent: Googlebot
+User-agent: Bingbot
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot
+User-agent: Applebot-Extended
+Disallow: /app/
+Disallow: /storage/
+Disallow: /vendor/
+Disallow: /database/
+Disallow: /tests/
+Disallow: /logs/
+Disallow: /*.env
+Disallow: /*.log
+Disallow: /*.sql
+Disallow: /*.ini
+Disallow: /*.htaccess
+Disallow: /*.htpasswd
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /profile
+Disallow: /settings
+Disallow: /api/
+Disallow: /index.php?__tf_api=
+
+# Meta fetches user-approved publishing media through a short-lived, signed URL.
+# Keep the rest of /api/ disallowed and never expose private preview endpoints.
+User-agent: facebookexternalhit
+User-agent: Facebot
+User-agent: meta-externalagent
+Allow: /api/creative-studio/publish-media/
+Allow: /uploads/social/
+Disallow: /api/
+
+# --------------------------------------------
+# 2. بوتات أدوات SEO والبوتات الضارة (ممنوعة)
+# --------------------------------------------
+User-agent: MJ12bot
+User-agent: AhrefsBot
+User-agent: SemrushBot
+User-agent: DotBot
+User-agent: YandexBot
+User-agent: Baiduspider
+Disallow: /
+
+# --------------------------------------------
+# 3. خريطة الموقع
+# --------------------------------------------
+Sitemap: https://tourfecto.pro/sitemap.xml

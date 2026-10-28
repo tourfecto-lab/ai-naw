@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الفواتير والاشتراكات · Tourfecto</title>
+  <meta name="description" content="إدارة اشتراكك ومحفظتك وفواتيرك">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/billing.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo" id="brandLogo"></div>
+        <div>
+          <div class="brand-name">Tourfecto</div>
+          <div class="brand-tag">الفواتير والاشتراكات</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav" aria-label="التنقل الرئيسي">
+        <div class="nav-label">حسابي</div>
+        <button class="nav-item active" data-view="overview">
+          <span data-icon="dashboard"></span>نظرة عامة
+        </button>
+        <button class="nav-item" data-view="plans">
+          <span data-icon="plans"></span>الباقات
+        </button>
+        <button class="nav-item" data-view="wallet">
+          <span data-icon="wallet"></span>المحفظة
+        </button>
+        <button class="nav-item" data-view="invoices">
+          <span data-icon="invoice"></span>الفواتير
+        </button>
+        <button class="nav-item" data-view="profile">
+          <span data-icon="profile"></span>بيانات الفوترة
+        </button>
+      </nav>
+      <div class="sidebar-footer" id="sidebarUser"></div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-toggle" id="menuToggle" aria-label="فتح القائمة">
+          <span data-icon="menu"></span>
+        </button>
+        <div class="topbar-title" id="pageTitle">نظرة عامة</div>
+        <div class="topbar-spacer"></div>
+        <span class="pill green" id="mockBadge" hidden>وضع المعاينة</span>
+        <button class="icon-btn" id="refreshBtn" aria-label="تحديث البيانات" title="تحديث">
+          <span data-icon="refresh"></span>
+        </button>
+      </header>
+
+      <div class="content">
+        <!-- ===== Overview ===== -->
+        <section id="view-overview" class="view">
+          <div class="section-head">
+            <div>
+              <h2>لوحة الاشتراك</h2>
+              <p>حالة اشتراكك واستخدامك لهذه الفترة</p>
+            </div>
+          </div>
+          <div id="overviewBody"></div>
+        </section>
+
+        <!-- ===== Plans ===== -->
+        <section id="view-plans" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>الباقات</h2>
+              <p>اختر الباقة المناسبة، الاشتراك يتم فورًا من رصيد المحفظة</p>
+            </div>
+          </div>
+          <div class="flex items-center justify-between wrap" style="margin-bottom:24px">
+            <div class="cycle-toggle" role="group" aria-label="فترة الفوترة">
+              <button data-cycle="monthly" class="active">شهري</button>
+              <button data-cycle="yearly">سنوي <span class="text-green fs-12" style="font-weight:600">وفّر 17%</span></button>
+            </div>
+            <div class="mono" id="planWalletNote"></div>
+          </div>
+          <div class="pricing-grid" id="plansGrid"></div>
+          <div class="card mt-6" id="planCompare" hidden>
+            <div class="card-title">مقارنة سريعة</div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead><tr><th>الميزة</th><th>Starter</th><th>Professional</th><th>Enterprise</th></tr></thead>
+                <tbody id="planCompareBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Wallet ===== -->
+        <section id="view-wallet" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>المحفظة</h2>
+              <p>رصيدك يغطي الاشتراكات ورسوم الاستخدام الإضافي</p>
+            </div>
+          </div>
+          <div id="walletBody"></div>
+        </section>
+
+        <!-- ===== Invoices ===== -->
+        <section id="view-invoices" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>الفواتير</h2>
+              <p>سجل جميع فواتير الاشتراكات ورسوم الاستخدام</p>
+            </div>
+          </div>
+          <div id="invoicesBody"></div>
+        </section>
+
+        <!-- ===== Profile ===== -->
+        <section id="view-profile" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2>بيانات الفوترة</h2>
+              <p>بيانات تُستخدم في إصدار الفواتير وحساب الضرائب</p>
+            </div>
+          </div>
+          <div id="profileBody"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/js/icons.js"></script>
+  <script src="assets/js/mock-data.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/billing.js"></script>
+</body>
+</html>

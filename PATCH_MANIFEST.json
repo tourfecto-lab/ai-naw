@@ -1,0 +1,8 @@
+{
+  "commit": "ee6e917607ea645b46c413f61879f467047a263e",
+  "files": [
+    "app/Views/AiVisibility/index.php"
+  ],
+  "sql_required": false,
+  "scope": "Customer AI visibility frontend"
+}

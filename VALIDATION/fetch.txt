@@ -1,0 +1,13 @@
+PASS GET network failure handled
+PASS POST ambiguity is not retry-safe
+PASS GET invalid JSON
+PASS POST invalid response not retry-safe
+PASS Invalid body null
+PASS Invalid body []
+PASS Invalid body false
+PASS Invalid body "text"
+PASS HTTP failure overrides success
+PASS Expired login message
+PASS Success payload unchanged
+PASS Content-Type and Accept preserved
+RESULT: 12 passed, 0 failed

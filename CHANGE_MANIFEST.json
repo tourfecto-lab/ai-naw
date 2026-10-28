@@ -1,0 +1,108 @@
+{
+  "base_patch": "Tourfecto_Service_Upgrade_Fix.zip",
+  "incremental_only": true,
+  "sql_required": true,
+  "sql": "database/migrations/2026_10_11_000008_billing_usage_reservations.sql",
+  "replacements": [
+    {
+      "path": "app/Controllers/AIController.php",
+      "sha256": "c5bf27c36227bee784c37c66b61541380840b715fb843fdb709e546c950daa3f"
+    },
+    {
+      "path": "app/Controllers/ChatController.php",
+      "sha256": "4d1fb3a67e11d6f024939945684b8d4d71daadc63cb0e4ac7b75bf2da99efb29"
+    },
+    {
+      "path": "app/Controllers/OutreachController.php",
+      "sha256": "aa593161a8d345388eff7529408808ad2811c84dfa357fa1f486ca11ba0e9b05"
+    },
+    {
+      "path": "app/Controllers/ReputationController.php",
+      "sha256": "c7ae5161823ca8db55d6a9a3364cf598b0542aa376ad73e47f41bfd194fd0079"
+    },
+    {
+      "path": "app/Controllers/SeoStrategyController.php",
+      "sha256": "fee7c90e2b44c2f6bcc54a5a78394676b2702fdc31cf5cff05030d844778e169"
+    },
+    {
+      "path": "app/Controllers/SubscriptionController.php",
+      "sha256": "0c9ef47a0bef64fb591595a2f174aaf30776cf61382ead96e2cdbe246c95f171"
+    },
+    {
+      "path": "app/Controllers/WalletController.php",
+      "sha256": "af60e0309513ba6bf4c91d55147f3e5071b90bffb78641dac43e864d976df09c"
+    },
+    {
+      "path": "app/Models/Subscription.php",
+      "sha256": "42cc4ad6b6d1de809ce558fd45a897fe363543e8460856e05c338815a249b7ae"
+    },
+    {
+      "path": "app/Services/AI/TourfectoAIEngine.php",
+      "sha256": "28b93e00892f1bb0ab1911f4598039da06bfe6db99cabb26ece661dafa3b83f2"
+    },
+    {
+      "path": "app/Services/Admin/CouponService.php",
+      "sha256": "db847229c23a42e698b20b562328fb541ae1e408a5706637a74d7774b1ad9b23"
+    },
+    {
+      "path": "app/Services/Automation/ReviewAutoReplyRunner.php",
+      "sha256": "9f9bc7bbde80e4655a9dcbd00ea3b62a2ff7f66314fab717099d499e3d2955a7"
+    },
+    {
+      "path": "app/Services/ReviewAutoReplyRunner.php",
+      "sha256": "9cf8dc19ed6f861f629b6986465b22cda0caf7ff99a4bb824df2a04cc3adaa74"
+    },
+    {
+      "path": "app/Services/Subscription/BillingManager.php",
+      "sha256": "e70e4289cb7235b6f2096724a7fdfccdd070f89e7d9daf58ff07b20a054e657c"
+    },
+    {
+      "path": "app/Services/Subscription/BillingUsageReservation.php",
+      "sha256": "d5d6d8348831858a553e7c18bd95c594e4c7a441ce4a34a3fcd50d9220207e4a"
+    },
+    {
+      "path": "app/Services/Subscription/PlanUsage.php",
+      "sha256": "f5fde9a2a6f48076a53c709b05c2e56998bcc2a5245df7345bf57edcdb2e3bc1"
+    },
+    {
+      "path": "app/Services/Subscription/SubscriptionLifecycleService.php",
+      "sha256": "3bc62e4b306aaf6f73e38f905535e0c144467c3edf1571bb0b787aa1f5a99bc0"
+    },
+    {
+      "path": "app/Services/Subscription/SubscriptionPeriod.php",
+      "sha256": "6e3b5edd052a347eb7f8bee0b775d194ecb65b329e3ad9e96be667b2cbae9940"
+    },
+    {
+      "path": "app/Services/Subscription/SubscriptionValidator.php",
+      "sha256": "3301c00c0cceae0be6b68810663d7fd193172a6b5a5b7247cd4e725e03dea024"
+    },
+    {
+      "path": "app/Services/Subscription/WalletService.php",
+      "sha256": "5ff941f2f5d430f519ce45acd0e20e6253d7eb7cf20be8df763f51713284b905"
+    },
+    {
+      "path": "app/Services/TourfectoAIEngine.php",
+      "sha256": "c1a9503f931faae3da3f14d208ff6058362a9fb7d9c3773786f5b66f756bbe82"
+    },
+    {
+      "path": "database/migrations/2026_10_11_000008_billing_usage_reservations.sql",
+      "sha256": "4327b1c67121d464aec3c3c5c033eed5d2062f28e3e78d6ac43a1a398b018b22"
+    },
+    {
+      "path": "tests/Regression/BillingCheckoutFixTest.cjs",
+      "sha256": "468b362bad58da13847404dd5e9cf5358e5a16f9975e556e23a7733b6c7e7920"
+    },
+    {
+      "path": "tests/Regression/BillingSubscriptionFixTest.php",
+      "sha256": "557df7f07de5c2e0e201a93cfef5ebe7a7717bff24fb4c5dda847412e5b9cc57"
+    },
+    {
+      "path": "tools/billing_usage_reconcile.php",
+      "sha256": "33c768f5e6651e4ac6c04137a3e4c9d9187a462c93cbe31241e641beb623e4fc"
+    },
+    {
+      "path": "tools/october_repair_manifest.json",
+      "sha256": "849276fe95bf94e46bb90d56fa5a3b28f49381069ce131dcd141f962156df4a9"
+    }
+  ]
+}

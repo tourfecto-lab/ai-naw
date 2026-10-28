@@ -1,0 +1,20 @@
+/* نافذة الدفع بالتحويل (manual-pay.js) */
+.mp-modal{max-width:520px}
+.mp-plan{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:12px;background:rgba(201,154,59,.12);border:1px solid rgba(201,154,59,.35);margin-bottom:12px}
+.mp-plan span{opacity:.75;font-size:13px}
+.mp-steps{list-style:none;margin:0 0 12px;padding:0;font-size:12.5px;line-height:1.6;opacity:.9;display:grid;gap:6px}
+.mp-steps li{display:flex;align-items:center;gap:8px}
+.mp-steps b{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#C99A3B;color:#0A1A2E;font-size:11px}
+.mp-tabs{margin-bottom:10px;flex-wrap:wrap}
+.mp-one{font-weight:700;margin-bottom:8px}
+.mp-fields{border:1px solid var(--panel-border,rgba(127,127,127,.25));border-radius:12px;padding:4px 12px}
+.mp-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--panel-border,rgba(127,127,127,.25))}
+.mp-row:last-child{border-bottom:0}
+.mp-row .k{min-width:96px;font-size:12.5px;opacity:.7}
+.mp-row .v{flex:1;font-weight:700;word-break:break-all;unicode-bidi:plaintext}
+.mp-note{margin-top:10px;font-size:12.5px;line-height:1.8;padding:8px 12px;border-radius:10px;background:rgba(59,130,246,.1)}
+.mp-empty{text-align:center;padding:14px 4px;line-height:2}
+.mp-empty .p-btn{margin-top:10px;display:inline-flex}
+.mp-done{text-align:center;padding:16px 4px;line-height:1.9}
+.mp-done-ic{width:52px;height:52px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;background:rgba(34,197,94,.15);color:#16a34a;font-size:26px;font-weight:800}
+.mp-done .p-btn{display:inline-flex;margin-top:8px}

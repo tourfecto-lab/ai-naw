@@ -1,0 +1,6 @@
+.eq{font:14px/1.6 system-ui,"Segoe UI",Tahoma,sans-serif;max-width:420px}
+.eq-row{display:grid;grid-template-columns:80px 1fr auto;gap:8px;align-items:center;margin:6px 0}
+.eq-meter{height:8px;border-radius:9px;background:rgba(127,127,127,.25);overflow:hidden}.eq-meter i{display:block;height:100%;background:#2563eb}
+.eq-meter.eq-warn i{background:#d97706}.eq-meter.eq-bad i{background:#dc2626}
+.eq-banner{padding:8px 12px;border:1px solid #dc2626;color:#dc2626;border-radius:8px;margin-bottom:8px}
+.eq-note{opacity:.75;font-size:13px}

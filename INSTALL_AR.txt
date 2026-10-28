@@ -1,0 +1,11 @@
+Tourfecto Meta Ads — Campaigns server error hotfix
+
+1. Backup app/Controllers/AdsController.php on your hosting.
+2. Extract the ZIP in the PROJECT ROOT (folder containing app/), not inside public_html.
+3. Replace app/Controllers/AdsController.php. No SQL changes are required.
+4. Refresh /ads, clear campaign search/filter, and click Retry.
+
+Fix: prevent optional 30-day activity query from hiding all campaigns if ad_performance_reports is absent or has incompatible columns.
+The 16 ACTIVE count is administrative, not proof of current delivery.
+If server error persists, check PHP error log and send the exact error (without passwords or access tokens).
+Do not change Meta campaign status.

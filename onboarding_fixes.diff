@@ -1,0 +1,73 @@
+--- /home/claude/OnboardingController.orig.php	2026-10-08 07:51:01.522882030 +0300
++++ app/Controllers/OnboardingController.php	2026-10-08 08:14:01.744370395 +0300
+@@ -1323,13 +1323,14 @@
+         row.className = 'ob-competitor-row';
+         row.innerHTML = `<input type="text" class="ob-comp-name" placeholder="\${obL('onboarding.field.competitor_name_ph')}" aria-label="\${obL('onboarding.field.competitor_name_ph')}"><input type="text" class="ob-comp-domain" placeholder="\${obL('onboarding.field.competitor_domain_ph')}" aria-label="\${obL('onboarding.field.competitor_domain_ph')}"><button type="button" class="ob-comp-remove" onclick="obRemoveCompetitor(this)" aria-label="\${obL('onboarding.nav.remove_competitor')}">×</button>`;
+         document.getElementById('obCompetitorRows').appendChild(row);
+-        obRenderCompetitors();
++        document.getElementById('obAddCompetitor').disabled = (rows.length + 1) >= OB_MAX_COMPETITORS;
+     }
+ 
+     function obRemoveCompetitor(btn) {
+         const row = btn.closest('.ob-competitor-row');
+         if (row) row.remove();
+-        obRenderCompetitors();
++        if (!document.querySelector('#obCompetitorRows .ob-competitor-row')) obAddCompetitor();
++        document.getElementById('obAddCompetitor').disabled = document.querySelectorAll('#obCompetitorRows .ob-competitor-row').length >= OB_MAX_COMPETITORS;
+     }
+ 
+     function obRenderCompetitors(prefilled) {
+@@ -1372,15 +1373,7 @@
+     function obChangeLang(sel) {
+         const lang = sel.value;
+         try { localStorage.setItem('tf_lang', lang); } catch (e) {}
+-        try {
+-            fetchJSON('/api/user/profile', {
+-                method: 'PUT',
+-                headers: { 'Content-Type': 'application/json' },
+-                body: JSON.stringify({ language: lang }),
+-            }).then(function () { window.location.reload(); });
+-        } catch (e) {
+-            window.location.reload();
+-        }
++        window.location.href = '/onboarding?lang=' + encodeURIComponent(lang);
+     }
+ 
+     async function obNext() {
+@@ -1590,6 +1583,7 @@
+         const box = document.getElementById('obResultBody');
+         let html = '';
+         let showRetry = false;
++        let score = null;
+ 
+         if (data.timeout) {
+             html += `<div class="ob-result-row"><span class="ob-score-badge muted">—</span><span>\${obL('onboarding.result.running_note')}</span></div>`;
+@@ -1599,7 +1593,7 @@
+             html += `<div class="ob-result-row"><span class="ob-score-badge muted">—</span><span>\${esc(errMsg)}</span></div>`;
+             showRetry = true;
+         } else {
+-            const score = data.audit_score != null ? Math.round(data.audit_score) : (data.audit && data.audit.audit ? Math.round(data.audit.audit.overall_score || 0) : null);
++            score = data.audit_score != null ? Math.round(data.audit_score) : (data.audit && data.audit.audit ? Math.round(data.audit.audit.overall_score || 0) : null);
+             const findingsCount = data.findings_count != null
+                 ? data.findings_count
+                 : ((data.audit && data.audit.findings || []).length);
+@@ -1724,11 +1718,18 @@
+     ['obBusinessName', 'obMainUrl', 'obTargetCountry', 'obTargetCustomers', 'obMainServices'].forEach(function (id) {
+         document.getElementById(id).addEventListener('input', obSaveDraft);
+     });
+-    document.getElementById('obMainUrl').addEventListener('blur', obDetectWebsite);
++    // الكشف بيبدأ بعد ما العميل يبطّل كتابة (مش عند blur): الـ blur بيحصل لحظة الضغط
++    // على "التالي"، والرسالة اللي بتظهر بتزق الزرار لتحت فالضغطة الأولى بتضيع.
++    let obDetectTimer = null;
++    document.getElementById('obMainUrl').addEventListener('input', function () {
++        clearTimeout(obDetectTimer);
++        obDetectTimer = setTimeout(obDetectWebsite, 900);
++    });
+     document.getElementById('obIndustry').addEventListener('change', obSaveDraft);
+     document.getElementById('obCompetitorRows').addEventListener('input', obSaveDraft);
+ 
+     obRestoreDraft();
++    if (!document.querySelector('#obCompetitorRows .ob-competitor-row')) obAddCompetitor();
+     obShowStep(obCurrentStep);
+     </script>
+ </body>

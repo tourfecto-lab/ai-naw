@@ -1,0 +1,1 @@
+Tourfecto WhatsApp manual reply patch. Back up both original files before replacing. No database migration. Provides BSUID recipient path for recent inbound conversation only, and records failed messages as failed rather than sent. Test in staging first. Does not resend existing failed messages.

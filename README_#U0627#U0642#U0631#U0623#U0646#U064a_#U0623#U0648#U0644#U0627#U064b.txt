@@ -1,0 +1,76 @@
+دليل رفع ملفات الدمج - Batch 7 (CRM + GBP + Review Requests + Settings)
+=====================================================================
+
+القسم 1: ملفات جاهزة 100% - ارفعها زي ما هي
+-----------------------------------------------------------------
+
+أ) استبدال كامل (احذف القديم وحط بدالها بنفس الاسم والمكان):
+   - app/Controllers/CrmController.php
+   - app/Services/Reputation/GoogleReviewSyncService.php
+
+ب) ملفات جديدة بالكامل - ارفعها في مكانها زي ما هي (46 ملف CRM):
+   - app/Models/Crm*.php  (15 ملف)
+   - app/Services/Crm/Crm*.php  (23 ملف)
+   - app/Controllers/Crm*WebhookController.php + CrmApiController.php  (4 ملفات)
+
+ج) ملفات جديدة بالكامل - GBP (10 ملفات):
+   - app/Services/GoogleBusiness/*.php  (7 ملفات)
+   - app/Controllers/GbpProfileController.php
+   - app/Jobs/GbpBackgroundSyncJob.php
+   - app/Jobs/PublishGbpPostJob.php
+   - cron/gbp_enqueue_background_sync.php
+
+د) ملفات جديدة بالكامل - Review Requests وSettings:
+   - app/Models/ReviewRequestOptOut.php
+   - app/Models/UserApiKey.php
+   - app/Models/AuditLog.php
+
+هـ) الـ migrations (شغّلها بالترتيب التاريخي في اسم كل ملف):
+   - database/migrations/*.sql  (13 ملف)
+
+القسم 2: ملفات "إضافة" - انسخ المحتوى والصقه جوه ملف موجود
+-----------------------------------------------------------------
+   - app/routes/api_ADDITIONS.php     -> يتلزق جوه app/routes/api.php
+   - public_html/index_ADDITIONS.php  -> يتلزق جوه مصفوفة $optionalNewClassFiles
+                                          في public_html/index.php (قبل ]; بتاعتها)
+   - app/Lang/crm_ADDITIONS_ar.php    -> يتلزق جوه app/Lang/ar.php
+   - app/Lang/crm_ADDITIONS_en.php    -> يتلزق جوه app/Lang/en.php
+   - app/Lang/ADDITIONS_ar.php        -> يتلزق جوه app/Lang/ar.php
+   - app/Lang/ADDITIONS_en.php        -> يتلزق جوه app/Lang/en.php
+   - app/Lang/ADDITIONS_de.php        -> يتلزق جوه app/Lang/de.php
+   - app/Lang/ADDITIONS_fr.php        -> يتلزق جوه app/Lang/fr.php
+
+القسم 3: مهم جدًا - ملفات محتاجة نسختك الحالية عشان أدمجها بأمان
+-----------------------------------------------------------------
+الملفات دي مش جديدة - هي كلاسات أساسية موجودة عندك بالفعل، وموديولات
+Settings وReview Requests بتعدّل فيها. معنديش نسختها الحالية (Live) على
+السيرفر، فمينفعش أستبدلها بنسخة الموديول على طول - ده ممكن يمسح تعديلات
+موجودة فعلاً (بالظبط زي مشكلة CrmController.php اللي حليناها قبل كده).
+
+من موديول Settings:
+   - app/Controllers/AuthController.php
+   - app/Controllers/SettingsController.php
+   - app/Controllers/UserController.php
+   - app/Middleware/AuthMiddleware.php
+   - app/Models/Notification.php
+   - app/Models/User.php
+
+من موديول Review Requests:
+   - app/Controllers/ReviewRequestController.php
+   - app/Services/Reputation/ReviewRequestService.php
+   - app/Models/ReviewRequest.php
+   - app/Models/ReviewRequestSettings.php
+
+من موديول GBP (احتمال أقل للخطورة لكن برضه محتاج تأكيد):
+   - app/Controllers/ReputationController.php
+   - app/Controllers/GoogleBusinessContentController.php
+   - app/Services/Reputation/GoogleBusinessAPI.php
+
+ابعتلي الملفات دي من السيرفر (نفس الطريقة اللي عملناها مع CrmController.php)
+وهدمجهم صح وأديك نسخة نهائية.
+
+القسم 4: بعد الرفع - تأكد من:
+-----------------------------------------------------------------
+1. تشغيل كل الـ migrations بالترتيب.
+2. مراجعة ملف panel.css من موديول Settings يدويًا - ماحطتوش هنا لأنه
+   ملف تنسيق مشترك للوحة كاملة، وأي استبدال مباشر له عالي الخطورة.

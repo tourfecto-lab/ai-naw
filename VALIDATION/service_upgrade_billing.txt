@@ -1,0 +1,39 @@
+PASS Missing billing plan returns null without TypeError
+PASS Invalid cycle and user reject before writing
+PASS Subscription insert failure returns null
+PASS Successful subscription saves billing price and currency
+PASS Public offers use billing prices and allowances, not display values
+PASS Legacy feature catalog uses the same billing allowances
+PASS Admin list reflects authoritative billing prices
+PASS Unavailable offer blocked: missing yearly
+PASS Unavailable offer blocked: mixed currencies
+PASS Unavailable offer blocked: different quotas
+PASS Unavailable offer blocked: invalid JSON
+PASS Unavailable offer blocked: duplicate cycle
+PASS Invalid allowance rejected integer -1
+PASS Invalid allowance rejected string "3.5"
+PASS Invalid allowance rejected array []
+PASS Invalid allowance rejected double 
+PASS Invalid allowance rejected string "bad"
+PASS Invalid price rejected integer
+PASS Invalid price rejected double
+PASS Invalid price rejected string
+PASS Invalid price rejected array
+PASS String false is not interpreted as an enabled billing feature
+PASS Partial admin edit keeps current billing prices instead of stale display prices
+PASS Admin sync updates both cycle currencies and all known flags
+PASS Second-cycle write failure rolls back both billing and display edits
+PASS Invalid admin values return 422 and do not partially persist
+PASS USD wallet refuses non-USD plan before any debit
+PASS Active subscription query preserves historical charge currency and price
+PASS Effective entitlements normalize billing flags and honor explicit overrides
+PASS Malformed entitlement configuration fails closed
+PASS Download path rejects foreign file and symlink and wrong owner
+PASS Cleanup deletes only expired owned exports and detaches their paths
+PASS Cleanup replay does not delete fresh files or unsafe references
+PASS Export list hides diagnostics, reflects expiry, and scopes to the current user
+PASS Scheduler and reminder health report missing execution honestly
+PASS Health reports failed reminder worker, disabled cleanup, uncertain and exhausted delivery
+PASS Health does not report a failed SQL read as zero delivery problems
+PASS No valid catalog never falls back to hardcoded paid offers
+RESULT: 38 passed, 0 failed
