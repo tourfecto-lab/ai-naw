@@ -32,20 +32,22 @@ jobs:
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=2G
 
   tests:
-    name: PHPUnit (informational)
+    name: PHPUnit (informational, MariaDB 10.11)
     runs-on: ubuntu-latest
     # الاختبارات لسه فيها فشل معروف (~108 اختبار ميتشخّصوش بالكامل). بنشغّلها ونعرض النتيجة
     # من غير ما نفشّل الـ CI؛ شيل continue-on-error لما العدد يوصل صفر.
     continue-on-error: true
     services:
-      mysql:
-        image: mysql:8.0
+      # MariaDB مش MySQL 8: الهجرات بتستخدم ADD COLUMN/INDEX IF NOT EXISTS (صيغة MariaDB بس، 231 جملة
+      # في 9 ملفات) وتعليقات الكود بتذكر أخطاء MariaDB من الإنتاج، فده الأقرب للبيئة الحقيقية.
+      mariadb:
+        image: mariadb:10.11
         env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-          MYSQL_DATABASE: tourfecto_test
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: '1'
+          MARIADB_DATABASE: tourfecto_test
         ports: ['3306:3306']
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1" --health-interval=5s
+          --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s
           --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
