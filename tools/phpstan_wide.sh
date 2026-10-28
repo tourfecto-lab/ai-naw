@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 PHP="${PHP:-php}"
 CHUNK="${PHPSTAN_CHUNK:-10}"
 MEM="${PHPSTAN_MEMORY:-2G}"
+LEVEL_ARG=""; [ -n "${PHPSTAN_LEVEL:-}" ] && LEVEL_ARG="--level=${PHPSTAN_LEVEL}"
 GEN=0; [ "${1:-}" = "--generate-baseline" ] && GEN=1
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -31,7 +32,7 @@ for c in "${chunks[@]}"; do
       --generate-baseline="$TMP/b$n.neon" --allow-empty-baseline $c >"$TMP/o$n.txt" 2>&1 || true
     if grep -qi "memory limit" "$TMP/o$n.txt"; then echo "CHUNK $n ran out of memory: $c"; fail=1; fi
   else
-    "$PHP" vendor/bin/phpstan analyse -c phpstan-wide.neon --no-progress --memory-limit="$MEM" $c || fail=1
+    "$PHP" vendor/bin/phpstan analyse -c phpstan-wide.neon --no-progress --memory-limit="$MEM" $LEVEL_ARG $c || fail=1
   fi
 done
 if [ $GEN -eq 1 ]; then
