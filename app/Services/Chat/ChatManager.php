@@ -13,6 +13,9 @@ class ChatManager
     /** Why the last sendMessageForWebsite() call failed (no_recipient, outside_24h, provider_rejected), or null. */
     public ?string $lastSendError = null;
 
+    /** WhatsApp message ID (wamid) of the last successful sendMessageForWebsite() call, for delivery ticks. */
+    public ?string $lastSendMessageId = null;
+
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
@@ -393,6 +396,7 @@ class ChatManager
     public function sendMessageForWebsite(int $websiteId, string $recipient, string $message, string $channel = 'whatsapp'): bool
     {
         $this->lastSendError = null;
+        $this->lastSendMessageId = null;
         try {
             switch ($channel) {
                 case 'messenger':
@@ -427,6 +431,7 @@ class ChatManager
                         }
                         $result=$cloud->sendText($recipient,$message);
                         if (empty($result['ok'])) $this->lastSendError = !empty($result['window']) ? 'outside_24h' : 'provider_rejected';
+                        else $this->lastSendMessageId = is_string($result['id'] ?? null) ? $result['id'] : null;
                         if (empty($result['ok'])) Logger::warning('Official WhatsApp send failed',['website_id'=>$websiteId,'http_code'=>(int)($result['http_code']??0),'error_code'=>$result['error_code']??null,'error_type'=>!empty($result['window'])?'outside_24h':'provider_rejected']);
                         return !empty($result['ok']); // Never blindly resend via another gateway after an ambiguous result.
                     }
@@ -743,6 +748,13 @@ class ChatManager
                     WHERE id = :message_id";
 
             $this->db->query($sql, [':message_id' => $messageId]);
+            // The AI reply lives on the incoming row; keep its WhatsApp ID so the inbox can show delivery ticks.
+            if ($this->lastSendMessageId !== null) {
+                $this->db->query(
+                    "UPDATE chat_messages SET webhook_raw_data = JSON_SET(COALESCE(webhook_raw_data, JSON_OBJECT()), '$.reply_wamid', ?) WHERE id = ?",
+                    [$this->lastSendMessageId, $messageId]
+                );
+            }
 
         } catch (Exception $e) {
             Logger::error('Mark Message As Sent Error', [

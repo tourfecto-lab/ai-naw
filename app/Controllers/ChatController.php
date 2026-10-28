@@ -688,6 +688,29 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             .ai-quote-row.total { border-top:1px dashed var(--panel-border); font-weight:700; margin-top:4px; padding-top:8px; }
             .ai-quote-actions { display:flex; gap:6px; padding:10px 14px; flex-wrap:wrap; }
             .q-row { display:grid; grid-template-columns: 1fr 64px 90px 26px; gap:6px; margin-bottom:6px; align-items:center; }
+            .ai-day-sep { align-self:center; font-size:11px; padding:3px 12px; border-radius:10px; background:var(--panel-sidebar-bg-hover); color:var(--panel-text-muted); margin:6px 0; }
+            .ai-bubble .bt { display:flex; gap:6px; justify-content:flex-end; align-items:center; }
+            .ai-bubble .who { font-size:10px; opacity:.7; display:block; margin-bottom:2px; }
+            .ai-tick { font-size:12.5px; letter-spacing:-3px; padding-inline-end:3px; }
+            .ai-bubble.out .ai-tick.read { color:#fff; font-weight:700; }
+            .ai-bubble.in .ai-tick.read { color:var(--panel-info); }
+            .ai-tick.failed { color:var(--panel-danger); font-weight:700; letter-spacing:0; }
+            .ai-bubble.failed { box-shadow:0 0 0 1.5px var(--panel-danger); }
+            .ai-bubble.pending { opacity:.65; }
+            .ai-bubble.ghost { background:transparent; border:1px dashed var(--panel-border); color:var(--panel-text-muted); align-self:flex-end; }
+            .ai-bubble .ai-retry { border:0; background:none; color:inherit; text-decoration:underline; cursor:pointer; font-size:11px; padding:0; font-weight:700; }
+            .ai-media-img { max-width:min(240px,100%); max-height:280px; border-radius:10px; display:block; margin-bottom:4px; background:rgba(0,0,0,.06); }
+            .ai-media-audio { width:240px; max-width:100%; display:block; margin-bottom:2px; }
+            .ai-media-video { max-width:min(260px,100%); border-radius:10px; display:block; margin-bottom:4px; }
+            .ai-media-doc { display:inline-flex; align-items:center; gap:6px; padding:8px 10px; margin-bottom:4px; border-radius:8px; background:rgba(0,0,0,.08); color:inherit; text-decoration:none; word-break:break-all; }
+            .wa-window { font-size:12.5px; padding:7px 10px; border-radius:8px; margin-bottom:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+            .wa-window.ok { background:var(--panel-success-light); color:var(--panel-success); }
+            .wa-window.warn { background:var(--panel-warning-light); color:var(--panel-warning); }
+            .wa-window.closed { background:var(--panel-danger-light, rgba(220,38,38,.12)); color:var(--panel-danger); }
+            .tpl-item { border:1px solid var(--panel-border); border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; }
+            .tpl-item:hover, .tpl-item.sel { border-color:var(--panel-accent); }
+            .tpl-item.off { opacity:.5; cursor:not-allowed; }
+            .tpl-preview { white-space:pre-wrap; font-size:13px; padding:10px; border-radius:8px; background:var(--panel-sidebar-bg-hover); margin:8px 0; }
             @media (max-width: 960px) { .ai-chat-split { grid-template-columns: 1fr; } .ai-chat-list { max-height: 320px; } }
             @media (max-width: 560px) { .q-row { grid-template-columns: 1fr 64px 90px; } .q-row .q-del { grid-column:3; } }
         </style>
@@ -742,6 +765,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             </details>
             <button class="p-btn outline xs" onclick="ucApplyFilters()">{IC_SEARCH}Search</button>
             <div style="flex:1 1 0;min-width:8px;"></div>
+            <button type="button" class="p-btn outline xs" id="ucSoundBtn" onclick="toggleSound()" title="Sound and desktop alert for new messages">🔔</button>
             <a href="/chat/pending" class="p-btn outline xs">{IC_CLOCK}Pending</a>
         </div>
 
@@ -779,11 +803,16 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                         <div id="quoteComposer" style="display:none;margin-bottom:12px;"></div>
                         <div id="quoteList" style="display:none;margin-bottom:12px;"></div>
                         <div id="aiSuggestions" style="display:none;margin-bottom:10px;"></div>
+                        <div id="waWindow" class="wa-window" style="display:none;"></div>
+                        <div id="templateBox" style="display:none;margin-bottom:12px;"></div>
                         <div class="form-group">
-                            <textarea id="manualMessage" class="form-control" rows="3" placeholder="Write your reply here..."></textarea>
+                            <textarea id="manualMessage" class="form-control" rows="3" placeholder="Write your reply here... (Enter to send, Shift+Enter for a new line)"></textarea>
                         </div>
+                        <input type="file" id="attachInput" style="display:none;" accept="image/jpeg,image/png,video/mp4,video/3gpp,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onchange="sendAttachment(this)">
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()">{IC_SEND}Send</button>
+                            <button class="p-btn outline" id="attachBtn" style="display:none;" onclick="document.getElementById('attachInput').click()" title="Send an image, voice note, video or file">📎 File</button>
+                            <button class="p-btn outline" id="templateBtn" style="display:none;" onclick="templateToggle()" title="Approved WhatsApp templates can be sent any time">📋 Template</button>
                             <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()">{IC_SPARKLES}Suggest a reply AI</button>
                             <div style="flex:1;"></div>
                             <a href="/chat/leads" class="p-btn outline xs" style="align-self:center;">{IC_TARGET}View theLeads</a>
@@ -931,21 +960,26 @@ HTML;
             threadEl.innerHTML = '';
         }
 
+        // Don't cut off a voice note or video that is playing; the next refresh picks the new messages up.
+        if (silent === true && threadIsPlaying()) return false;
         const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations/' + id);
         if (!res.success || !res.data || !res.data.conversation) {
             if (silent !== true) toast(res.error || 'Could not load the conversation', 'error');
             return;
         }
+        if (String(id) !== String(activeConvId)) return; // the user opened another conversation meanwhile
 
         currentConversation = res.data.conversation;
         renderHeader(currentConversation);
+        renderComposer(currentConversation);
         const prevScroll = threadEl.scrollTop;
         renderThread(res.data.messages || []);
         if (silent === true) {
             // تحديث تلقائي: لو كنت تحت ننزل للجديد، لو بتقرا فوق نسيبك مكانك
             threadEl.scrollTop = nearBottom ? threadEl.scrollHeight : prevScroll;
-            return;
+            return true;
         }
+        document.getElementById('templateBox').style.display = 'none';
 
         const leadRes = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/leads?conversation_id=' + id);
         renderLeadPanel(leadRes.success ? leadRes.data.leads : []);
@@ -1002,25 +1036,48 @@ HTML;
         return reasons[reason] ? ': ' + reasons[reason] : '';
     }
 
+    let sending = false;
     window.sendManual = async function () {
-        const message = document.getElementById('manualMessage').value.trim();
+        const msgEl = document.getElementById('manualMessage');
+        const message = msgEl.value.trim();
         if (!message) { toast('Write a message first', 'error'); return; }
+        if (sending || !currentConversation) return;
+        sending = true;
         const btn = document.getElementById('sendManualBtn');
         btn.disabled = true;
-        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/reply', {
+        // Show the message right away, like WhatsApp; the refresh below replaces it with the saved one.
+        appendPendingBubble(message);
+        msgEl.value = '';
+        document.getElementById('aiSuggestions').style.display = 'none';
+        const convId = currentConversation.id;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + convId + '/reply', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: message }),
         });
+        sending = false;
         btn.disabled = false;
         if (res.success) {
-            toast(res.data && res.data.sent === false ? 'The message was saved but actually sending it to the customer failed' + sendFailReason(res.data.reason) : 'Sent', res.data && res.data.sent === false ? 'error' : 'success');
-            document.getElementById('manualMessage').value = '';
-            selectConversation(currentConversation.id);
+            if (res.data && res.data.sent === false) toast('The message was saved but actually sending it to the customer failed' + sendFailReason(res.data.reason), 'error');
         } else {
             toast(res.error || 'Submission failed', 'error');
+            if (!msgEl.value) msgEl.value = message; // keep the text so it isn't lost
         }
+        if (String(activeConvId) === String(convId)) {
+            await selectConversation(convId, true);
+            const t = document.getElementById('convThread');
+            t.scrollTop = t.scrollHeight;
+        }
+        msgEl.focus();
     };
+
+    document.getElementById('manualMessage').addEventListener('keydown', function (e) {
+        // Enter sends, Shift+Enter adds a line. On phones Enter stays a new line, like WhatsApp.
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !window.matchMedia('(pointer: coarse)').matches) {
+            e.preventDefault();
+            sendManual();
+        }
+    });
 
     window.loadSuggestions = async function () {
         const box = document.getElementById('aiSuggestions');
@@ -1085,25 +1142,245 @@ HTML;
         `;
     }
 
+    const TICK_LABEL = { pending: 'Sending...', accepted: 'Sent', sent: 'Sent', delivered: 'Delivered', read: 'Read', failed: 'Not delivered' };
+    function ticks(status, err) {
+        if (!status) return '';
+        const sym = status === 'pending' ? '🕓' : status === 'failed' ? '!' : (status === 'delivered' || status === 'read') ? '✓✓' : '✓';
+        const title = (TICK_LABEL[status] || status) + (err ? ': ' + err : '');
+        return '<span class="ai-tick ' + esc(status) + '" title="' + esc(title) + '" aria-label="' + esc(title) + '">' + sym + '</span>';
+    }
+    function toDate(s) { return s ? new Date(String(s).replace(' ', 'T')) : null; }
+    function timeOnly(s) {
+        const d = toDate(s);
+        return d && !isNaN(d) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    }
+    function dayLabel(s) {
+        const d = toDate(s);
+        if (!d || isNaN(d)) return '';
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const day = new Date(d); day.setHours(0, 0, 0, 0);
+        const diff = Math.round((today - day) / 86400000);
+        if (diff === 0) return 'Today';
+        if (diff === 1) return 'Yesterday';
+        return d.toLocaleDateString([], { weekday: diff < 7 ? 'long' : undefined, day: 'numeric', month: 'short', year: day.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+    }
+    function mediaUrl(messageId) {
+        return '/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations/' + activeConvId + '/messages/' + messageId + '/media';
+    }
+    const MEDIA_FAIL = "this.replaceWith(Object.assign(document.createElement('span'),{textContent:'⚠ Media no longer available'}))";
+    function mediaHtml(m) {
+        if (!m.media) return '';
+        const url = mediaUrl(m.id);
+        switch (m.media.type) {
+            case 'image':
+            case 'sticker':
+                return '<a href="' + url + '" target="_blank" rel="noopener"><img class="ai-media-img" src="' + url + '" loading="lazy" alt="" onerror="' + MEDIA_FAIL + '"></a>';
+            case 'audio':
+                return '<audio class="ai-media-audio" controls preload="none" src="' + url + '"></audio>';
+            case 'video':
+                return '<video class="ai-media-video" controls preload="metadata" src="' + url + '"></video>';
+            default:
+                return '<a class="ai-media-doc" href="' + url + '" target="_blank" rel="noopener">📄 ' + esc(m.media.filename || 'File') + '</a>';
+        }
+    }
+    function bodyText(m, text) {
+        if (!m.media) return text;
+        let t = text.replace(/^\[(Image|Video|Voice message|Audio|Sticker|Document)\]\s*/, '');
+        if (m.media.type === 'document' && t === (m.media.filename || '')) t = '';
+        return t;
+    }
+    function bubble(dir, inner, time, extra, cls) {
+        return '<div class="ai-bubble ' + dir + (cls ? ' ' + cls : '') + '">' + inner + '<div class="bt">' + (extra || '') + '<span>' + esc(time) + '</span></div></div>';
+    }
+
     function renderThread(messages) {
         const thread = document.getElementById('convThread');
         if (!messages.length) {
             thread.innerHTML = '<div class="p-empty"><div class="p-empty-icon">' + ic('chat') + '</div>No messages in this conversation yet</div>';
             return;
         }
-        thread.innerHTML = '<div class="ai-chat-bubbles">' + messages.map(m => {
-            const mine = m.message_direction === 'outgoing';
-            const text = m.message_text || m.ai_reply_generated || '';
-            const tag = (m.ai_reply_generated && !mine) ? '<span class="ai-tag">' + ic('sparkles', 'ic-sm') + ' Auto reply' + (m.ai_confidence_score != null ? ' · ' + Math.round(m.ai_confidence_score * 100) + '%' : '') + '</span>' : '';
-            return `
-                <div class="ai-bubble ${mine ? 'out' : 'in'}">
-                    ${tag}
-                    <span>${esc(text)}</span>
-                    <div class="bt">${P.formatDate(m.sent_at || m.created_at)}</div>
-                </div>`;
-        }).join('') + '</div>';
+        const isWa = currentConversation && currentConversation.channel === 'whatsapp';
+        let lastDay = '';
+        const out = [];
+        messages.forEach(m => {
+            const day = dayLabel(m.created_at);
+            if (day && day !== lastDay) { out.push('<div class="ai-day-sep">' + esc(day) + '</div>'); lastDay = day; }
+            const media = mediaHtml(m);
+            if (m.message_direction === 'outgoing') {
+                const text = bodyText(m, m.message_text || '');
+                const failed = m.bot_status === 'failed';
+                const status = failed ? 'failed' : (isWa ? (m.delivery || 'accepted') : 'sent');
+                const who = m.template ? '📋 Template' : (m.by_me ? 'You' : 'Team');
+                let extra = ticks(status, m.delivery_error);
+                if (failed && !m.media && !m.template) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">Retry</button>' + extra;
+                out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : ''));
+                return;
+            }
+            const text = bodyText(m, m.message_text || '');
+            out.push(bubble('in', media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at)));
+            // The AI reply is stored on the customer's message row; show it as its own bubble.
+            const reply = (m.ai_reply_generated || '').trim();
+            if (!reply) return;
+            const conf = m.ai_confidence_score != null ? ' · ' + Math.round(m.ai_confidence_score * 100) + '%' : '';
+            const tag = '<span class="ai-tag">' + ic('sparkles', 'ic-sm') + ' AI reply' + conf + '</span>';
+            if (m.bot_status === 'sent') {
+                out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', timeOnly(m.sent_at || m.created_at), ticks(isWa ? (m.reply_delivery || 'accepted') : 'sent')));
+            } else if (m.bot_status === 'pending_approval' || m.bot_status === 'approved') {
+                out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', m.bot_status === 'approved' ? 'Approved, sending...' : 'Waiting for approval', '', 'ghost'));
+            } else if (m.bot_status === 'failed') {
+                out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', 'AI reply was not delivered', ticks('failed'), 'ghost failed'));
+            }
+        });
+        thread.innerHTML = '<div class="ai-chat-bubbles">' + out.join('') + '</div>';
         thread.scrollTop = thread.scrollHeight;
     }
+
+    function threadIsPlaying() {
+        return Array.from(document.querySelectorAll('#convThread audio, #convThread video')).some(el => !el.paused && !el.ended);
+    }
+
+    function appendPendingBubble(text) {
+        const thread = document.getElementById('convThread');
+        let box = thread.querySelector('.ai-chat-bubbles');
+        if (!box) { thread.innerHTML = '<div class="ai-chat-bubbles"></div>'; box = thread.querySelector('.ai-chat-bubbles'); }
+        box.insertAdjacentHTML('beforeend', bubble('out', '<span class="who">You</span><span>' + esc(text) + '</span>', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), ticks('pending'), 'pending'));
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+    // ===== WhatsApp 24-hour window, files and templates =====
+    let windowDeadline = null;
+    function renderComposer(c) {
+        const wa = c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud;
+        document.getElementById('attachBtn').style.display = wa ? '' : 'none';
+        document.getElementById('templateBtn').style.display = wa ? '' : 'none';
+        if (!wa) document.getElementById('templateBox').style.display = 'none';
+        windowDeadline = wa ? Date.now() + (c.whatsapp.window_seconds_left || 0) * 1000 : null;
+        renderWindowBar();
+    }
+    function renderWindowBar() {
+        const bar = document.getElementById('waWindow');
+        const msg = document.getElementById('manualMessage');
+        const sendBtn = document.getElementById('sendManualBtn');
+        const attachBtn = document.getElementById('attachBtn');
+        if (windowDeadline === null) {
+            bar.style.display = 'none';
+            msg.disabled = false; sendBtn.disabled = false;
+            return;
+        }
+        const left = Math.max(0, Math.floor((windowDeadline - Date.now()) / 1000));
+        bar.style.display = 'flex';
+        if (left > 0) {
+            const h = Math.floor(left / 3600), mnt = Math.floor((left % 3600) / 60);
+            bar.className = 'wa-window ' + (left < 7200 ? 'warn' : 'ok');
+            bar.innerHTML = '<span>⏱ Free reply window: <b>' + (h ? h + 'h ' : '') + mnt + 'm</b> left. After that WhatsApp only allows an approved template.</span>';
+            msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false;
+        } else {
+            bar.className = 'wa-window closed';
+            bar.innerHTML = '<span>🔒 The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 Send a template</button>';
+            msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true;
+        }
+    }
+    setInterval(function () { if (windowDeadline !== null) renderWindowBar(); }, 30000);
+
+    let templatesCache = null, templatesSite = null, tplSelected = null;
+    window.templateToggle = async function (forceOpen) {
+        const box = document.getElementById('templateBox');
+        if (box.style.display === 'block' && forceOpen !== true) { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        if (!templatesCache || templatesSite !== websiteId) {
+            box.innerHTML = '<div class="p-cell-muted">⏳ Loading approved templates...</div>';
+            const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/whatsapp-templates');
+            if (!res.success) { box.innerHTML = '<div class="p-cell-muted">' + esc(res.error || 'Could not load templates') + '</div>'; return; }
+            templatesCache = res.data.templates || [];
+            templatesSite = websiteId;
+        }
+        tplSelected = null;
+        if (!templatesCache.length) {
+            box.innerHTML = '<div class="p-cell-muted">No approved templates yet. Create one from the WhatsApp templates page and wait for Meta approval.</div>';
+            return;
+        }
+        box.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">Choose an approved template</div>' + templatesCache.map((t, i) =>
+            '<div class="tpl-item' + (t.supported ? '' : ' off') + '" data-i="' + i + '" onclick="templatePick(' + i + ')">' +
+            '<b>' + esc(t.name) + '</b> <span class="pill gray">' + esc(t.language) + '</span> <span class="pill gray">' + esc(t.category) + '</span>' +
+            (t.supported ? '' : ' <span class="pill red">Needs media or link: send from the templates page</span>') +
+            '<div class="p-cell-muted" style="margin-top:4px;white-space:pre-wrap;">' + esc(t.body.length > 160 ? t.body.slice(0, 160) + '…' : t.body) + '</div></div>'
+        ).join('') + '<div id="tplForm"></div>';
+    };
+    window.templatePick = function (i) {
+        const t = templatesCache[i];
+        if (!t || !t.supported) return;
+        tplSelected = t;
+        document.querySelectorAll('#templateBox .tpl-item').forEach(el => el.classList.toggle('sel', el.dataset.i === String(i)));
+        const name = currentConversation ? (currentConversation.customer_name || '') : '';
+        document.getElementById('tplForm').innerHTML =
+            t.params.map(p => '<div class="form-group" style="margin-bottom:6px;"><label style="font-size:12px;">Field {{' + esc(p) + '}}</label><input class="form-control tpl-param" data-p="' + esc(p) + '" oninput="templatePreview()" value="' + (p === '1' || p === 'name' || p === 'customer_name' ? esc(name) : '') + '"></div>').join('') +
+            '<div class="tpl-preview" id="tplPreview"></div>' +
+            '<button type="button" class="p-btn primary" id="tplSendBtn" onclick="templateSend()">' + ic('send') + 'Send template</button>';
+        templatePreview();
+    };
+    window.templatePreview = function () {
+        if (!tplSelected) return;
+        let text = (tplSelected.header ? tplSelected.header + '\n' : '') + tplSelected.body;
+        document.querySelectorAll('#tplForm .tpl-param').forEach(inp => {
+            text = text.split('{{' + inp.dataset.p + '}}').join(inp.value || '{{' + inp.dataset.p + '}}');
+        });
+        document.getElementById('tplPreview').textContent = text;
+    };
+    window.templateSend = async function () {
+        if (!tplSelected || !currentConversation) return;
+        const params = {};
+        let missing = false;
+        document.querySelectorAll('#tplForm .tpl-param').forEach(inp => { params[inp.dataset.p] = inp.value.trim(); if (!params[inp.dataset.p]) missing = true; });
+        if (missing) { toast('Fill in every template field', 'error'); return; }
+        const btn = document.getElementById('tplSendBtn');
+        btn.disabled = true;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/template', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: tplSelected.name, language: tplSelected.language, params: params }),
+        });
+        btn.disabled = false;
+        if (!res.success) { toast(res.error || 'Submission failed', 'error'); return; }
+        if (res.data && res.data.sent === false) {
+            toast('The template was not delivered' + (res.data.error ? ': ' + res.data.error : sendFailReason(res.data.reason)), 'error');
+        } else {
+            toast('Template sent', 'success');
+            document.getElementById('templateBox').style.display = 'none';
+        }
+        selectConversation(currentConversation.id, true);
+    };
+
+    window.sendAttachment = async function (input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file || !currentConversation) return;
+        if (file.size > 100 * 1048576) { toast('The file is too large for WhatsApp', 'error'); return; }
+        const msgEl = document.getElementById('manualMessage');
+        const caption = msgEl.value.trim();
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('caption', caption);
+        appendPendingBubble('📎 ' + file.name + (caption ? ' — ' + caption : ''));
+        msgEl.value = '';
+        const btn = document.getElementById('attachBtn');
+        btn.disabled = true;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/media', { method: 'POST', body: fd });
+        btn.disabled = false;
+        if (!res.success) {
+            toast(res.error || 'Submission failed', 'error');
+            if (!msgEl.value) msgEl.value = caption;
+        } else if (res.data && res.data.sent === false) {
+            toast('The file was not delivered' + sendFailReason(res.data.reason), 'error');
+        }
+        selectConversation(currentConversation.id, true).then(() => { const t = document.getElementById('convThread'); t.scrollTop = t.scrollHeight; });
+    };
+
+    window.retryMessage = async function (messageId) {
+        if (!currentConversation) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/messages/' + messageId + '/retry', { method: 'POST' });
+        if (!res.success) toast(res.error || 'Retry failed', 'error');
+        else toast(res.data && res.data.sent ? 'Sent' : 'Still not delivered' + sendFailReason(res.data && res.data.reason), res.data && res.data.sent ? 'success' : 'error');
+        selectConversation(currentConversation.id, true);
+    };
 
     function renderLeadPanel(leads) {
         const panel = document.getElementById('leadPanel');
@@ -1386,10 +1663,61 @@ HTML;
     // ===== تحديث لحظي خفيف =====
     // بنسأل السيرفر "in New?" كل 4 ثواني (والصفحة ظاهرة بس)، وبنحدّث القائمة/المحادثة
     // من غير وميض لما فعلاً يجي جديد. العنوان بيبيّن عدد غير المقروء.
-    let lastFp = null, lastActiveFp = null, pulseBusy = false;
+    let lastFp = null, lastActiveFp = null, pulseBusy = false, lastUnread = null, lastHiddenPoll = 0;
     const baseTitle = document.title;
+
+    // ===== New-message alert (sound + desktop notification) =====
+    let soundOn = true, audioCtx = null;
+    try { soundOn = localStorage.getItem('tf_chat_sound') !== 'off'; } catch (e) {}
+    function paintSoundBtn() {
+        const b = document.getElementById('ucSoundBtn');
+        if (b) { b.textContent = soundOn ? '🔔' : '🔕'; b.title = soundOn ? 'New-message alerts are on (click to mute)' : 'New-message alerts are muted (click to turn on)'; }
+    }
+    paintSoundBtn();
+    function unlockAudio() {
+        try {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        } catch (e) {}
+    }
+    document.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.toggleSound = function () {
+        soundOn = !soundOn;
+        try { localStorage.setItem('tf_chat_sound', soundOn ? 'on' : 'off'); } catch (e) {}
+        paintSoundBtn();
+        unlockAudio();
+        if (soundOn && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+    };
+    function alertNewMessage(count) {
+        if (!soundOn) return;
+        try {
+            if (audioCtx && audioCtx.state === 'running') {
+                const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime;
+                o.type = 'sine';
+                o.frequency.setValueAtTime(880, t);
+                o.frequency.setValueAtTime(1175, t + 0.12);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(t); o.stop(t + 0.4);
+            }
+        } catch (e) {}
+        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+                const n = new Notification('New WhatsApp/chat message', { body: count + ' unread message(s) in your inbox', tag: 'tf-chat', renotify: true });
+                n.onclick = function () { window.focus(); n.close(); };
+            } catch (e) {}
+        }
+    }
+
     async function pulse() {
-        if (pulseBusy || document.hidden) return;
+        if (pulseBusy) return;
+        // In a background tab: check every 15 seconds so alerts still arrive.
+        if (document.hidden) {
+            if (Date.now() - lastHiddenPoll < 15000) return;
+            lastHiddenPoll = Date.now();
+        }
         const id = P.getCurrentWebsiteId && P.getCurrentWebsiteId();
         if (!id) return;
         pulseBusy = true;
@@ -1398,14 +1726,18 @@ HTML;
             if (!res.success || !res.data) return;
             const d = res.data;
             document.title = (d.unread > 0 ? '(' + d.unread + ') ' : '') + baseTitle;
+            if (lastUnread !== null && d.unread > lastUnread) alertNewMessage(d.unread);
+            lastUnread = d.unread;
+            if (document.hidden) return; // refresh the screen when the user comes back
             if (lastFp !== null && d.fp !== lastFp) {
                 loadList(true);
             }
+            let activeDone = true;
             if (activeConvId && lastActiveFp !== null && d.active_fp && d.active_fp !== lastActiveFp) {
-                selectConversation(activeConvId, true);
+                activeDone = (await selectConversation(activeConvId, true)) !== false;
             }
             lastFp = d.fp;
-            lastActiveFp = d.active_fp || null;
+            if (activeDone) lastActiveFp = d.active_fp || null;
         } finally {
             pulseBusy = false;
         }

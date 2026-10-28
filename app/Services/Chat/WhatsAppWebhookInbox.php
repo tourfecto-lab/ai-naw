@@ -118,10 +118,14 @@ class WhatsAppWebhookInbox
         // The customer key is a stable opaque identity, not a fabricated telephone number.
         $thread = 'bsuid:' . $bsuid;
         $session = 'wa_bsuid_' . hash('sha256', $wid . '|' . $bsuid);
-        $id = (int)$db->query("INSERT INTO chat_messages (website_id,user_id,session_id,platform,platform_message_id,customer_name,customer_phone,message_direction,message_text,message_language,bot_status,is_auto_pilot,created_at) VALUES (?,?,?,?,?, ?,NULL,'incoming',?,?,'pending_approval',0,NOW())", [
+        // Keep the BSUID and any media reference (never phone numbers or tokens) for replies and previews.
+        $raw = ['wa_bsuid' => $bsuid];
+        if (isset($payload['media']) && is_array($payload['media'])) $raw['media'] = $payload['media'];
+        $id = (int)$db->query("INSERT INTO chat_messages (website_id,user_id,session_id,platform,platform_message_id,customer_name,customer_phone,message_direction,message_text,message_language,webhook_raw_data,bot_status,is_auto_pilot,created_at) VALUES (?,?,?,?,?, ?,NULL,'incoming',?,?,?,'pending_approval',0,NOW())", [
             $wid,$uid,$session,'whatsapp',$wamid,
             (string)($payload['sender_name'] ?: 'WhatsApp username customer'),
-            (string)$payload['message'],'en'
+            (string)$payload['message'],'en',
+            json_encode($raw, JSON_UNESCAPED_UNICODE)
         ]);
         // Link to the shared Inbox when available; never block message storage for a UI-sync error.
         if ($id > 0 && class_exists('UnifiedInboxService')) {

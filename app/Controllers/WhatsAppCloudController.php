@@ -875,6 +875,17 @@ class WhatsAppCloudController extends Controller
                         default => '[' . $type . ']',
                     };
                     $text = trim($text);
+                    // Keep the Meta media ID so the inbox can show the image/voice/file itself.
+                    $media = null;
+                    if (in_array($type, ['image', 'video', 'audio', 'document', 'sticker'], true) && preg_match('/^[0-9]{1,64}$/D', (string) ($m[$type]['id'] ?? ''))) {
+                        $media = [
+                            'type' => $type,
+                            'id' => (string) $m[$type]['id'],
+                            'mime' => mb_substr((string) ($m[$type]['mime_type'] ?? ''), 0, 100),
+                            'filename' => mb_substr((string) ($m[$type]['filename'] ?? ''), 0, 240),
+                            'voice' => !empty($m[$type]['voice']),
+                        ];
+                    }
                     // Some webhook variants omit messages[].from. Recover only when
                     // exactly one contact provides an unambiguous WhatsApp phone identifier.
                     // Never treat a username / BSUID as a phone number or guess the sender.
@@ -890,6 +901,7 @@ class WhatsAppCloudController extends Controller
                         'sender_name'=>$names[$from]??null,
                         'message'=>$text, 'platform_message_id'=>$id, 'timestamp'=>$m['timestamp']??null,
                     ];
+                    if ($media !== null) $message['media'] = $media;
                     if($flow!==null){$message['flow_response']=$flow;$message['flow_reply_to']=(string)($m['context']['id']??'');}
                     if (WhatsAppWebhookInbox::enqueue($wid,$userId,'message',$id,$message)) {
                         $out['messages']++;

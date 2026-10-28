@@ -246,6 +246,74 @@ class WhatsAppCloudAPI
         return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
     }
 
+    /**
+     * Media message (image/video/audio/document) using a media ID from uploadMedia().
+     * Same recipient rules as sendText(); only allowed inside the 24-hour window.
+     */
+    public function sendMedia(string $to, string $type, string $mediaId, string $caption = '', string $filename = ''): array
+    {
+        $to = trim($to);
+        $isBsuid = preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $to) === 1;
+        try {
+            $destination = $isBsuid ? $to : self::normalizePhone($to);
+        } catch (InvalidArgumentException $e) {
+            $destination = '';
+        }
+        if ($destination === '' || !in_array($type, ['image', 'video', 'audio', 'document'], true) || !preg_match('/^[0-9]{1,64}$/D', $mediaId)) {
+            return ['ok'=>false, 'id'=>null, 'error'=>'Invalid WhatsApp recipient or media', 'error_code'=>null, 'http_code'=>0, 'window'=>false];
+        }
+        $media = ['id' => $mediaId];
+        // Meta rejects captions on audio messages.
+        if ($caption !== '' && $type !== 'audio') $media['caption'] = mb_substr($caption, 0, 1024);
+        if ($type === 'document' && $filename !== '') $media['filename'] = mb_substr($filename, 0, 240);
+        $body = ['messaging_product' => 'whatsapp', 'type' => $type, $type => $media];
+        if ($isBsuid) $body['recipient'] = $destination;
+        else { $body['recipient_type'] = 'individual'; $body['to'] = $destination; }
+        return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
+    }
+
+    /**
+     * Download a media file by its Meta media ID (incoming customer media, or media we uploaded).
+     * Only Meta's own CDN hosts are fetched; redirects are not followed.
+     * @return array{ok:bool, mime:?string, bytes:?string, error:?string}
+     */
+    public function downloadMedia(string $mediaId, int $maxBytes = 26214400): array
+    {
+        if (!preg_match('/^[0-9]{1,64}$/D', $mediaId)) {
+            return ['ok' => false, 'mime' => null, 'bytes' => null, 'error' => 'Invalid media ID'];
+        }
+        $info = $this->call('GET', $mediaId);
+        $url = (string) ($info['data']['url'] ?? '');
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if (!$info['ok'] || parse_url($url, PHP_URL_SCHEME) !== 'https'
+            || !preg_match('/(^|\.)(fbsbx\.com|facebook\.com|fbcdn\.net|whatsapp\.net)$/D', $host)) {
+            return ['ok' => false, 'mime' => null, 'bytes' => null, 'error' => $info['error'] ?: 'Media is no longer available from WhatsApp'];
+        }
+        if ((int) ($info['data']['file_size'] ?? 0) > $maxBytes) {
+            return ['ok' => false, 'mime' => null, 'bytes' => null, 'error' => 'Media file is too large to preview'];
+        }
+        $mime = (string) ($info['data']['mime_type'] ?? 'application/octet-stream');
+        if ($this->transport) {
+            [$code, $body] = ($this->transport)('GET', $url, null);
+        } else {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $this->token],
+                // Meta's CDN rejects requests without a User-Agent.
+                CURLOPT_USERAGENT => 'Tourfecto/1.0',
+                CURLOPT_MAXFILESIZE => $maxBytes,
+            ]);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+        }
+        if ($body === false || (int) $code !== 200 || strlen((string) $body) > $maxBytes) {
+            return ['ok' => false, 'mime' => null, 'bytes' => null, 'error' => 'Could not download the media from WhatsApp'];
+        }
+        return ['ok' => true, 'mime' => $mime, 'bytes' => (string) $body, 'error' => null];
+    }
+
     /** رسالة قالب متوافق عليه - مسموحة في أي وقت */
     public function sendTemplate(string $to, string $name, string $lang, array $bodyParams = [],array $extraComponents=[]): array
     {

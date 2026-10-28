@@ -1588,6 +1588,11 @@ $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply',
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/handoff', 'ChatInboxController', 'handoff', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/resume-ai', 'ChatInboxController', 'resumeAI', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply-suggestions', 'ChatInboxController', 'suggestReplies', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/retry', 'ChatInboxController', 'retry', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/media', 'ChatInboxController', 'media', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/media', 'ChatInboxController', 'sendMedia', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/template', 'ChatInboxController', 'sendTemplate', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/whatsapp-templates', 'ChatInboxController', 'templates', ['AuthMiddleware']);
 
 // ============================================
 // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط
