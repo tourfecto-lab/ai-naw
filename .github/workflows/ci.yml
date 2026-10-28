@@ -32,11 +32,8 @@ jobs:
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=2G
 
   tests:
-    name: PHPUnit (informational, MariaDB 10.11)
+    name: PHPUnit (ratchet, MariaDB 10.11)
     runs-on: ubuntu-latest
-    # الاختبارات لسه فيها فشل معروف (~108 اختبار ميتشخّصوش بالكامل). بنشغّلها ونعرض النتيجة
-    # من غير ما نفشّل الـ CI؛ شيل continue-on-error لما العدد يوصل صفر.
-    continue-on-error: true
     services:
       # MariaDB مش MySQL 8: الهجرات بتستخدم ADD COLUMN/INDEX IF NOT EXISTS (صيغة MariaDB بس، 231 جملة
       # في 9 ملفات) وتعليقات الكود بتذكر أخطاء MariaDB من الإنتاج، فده الأقرب للبيئة الحقيقية.
@@ -70,11 +67,23 @@ jobs:
           php tools/migration_report.php | head -220
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) AS tables_built FROM information_schema.tables WHERE table_schema='tourfecto_test'"
           mysql -h 127.0.0.1 -uroot -e "DROP DATABASE tourfecto_test; CREATE DATABASE tourfecto_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-      - name: PHPUnit
+      - name: PHPUnit (fails if known failures grow beyond the ratchet)
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: '3306'
           DB_NAME: tourfecto_test
           DB_USER: root
           DB_PASS: ''
-        run: vendor/bin/phpunit --configuration tests/phpunit.xml
+          # عدد الإخفاقات المعروفة (أخطاء + إخفاقات) اللي مسموح بيها لحد ما تتصلّح. نزّله كل ما يتصلّح شيء.
+          MAX_KNOWN_FAILURES: '100'
+        run: |
+          set +e
+          # بذرة ثابتة: بعض الاختبارات بتعتمد على الترتيب، والبذرة العشوائية كانت بتغيّر النتيجة بين تشغيلتين
+          vendor/bin/phpunit --configuration tests/phpunit.xml --order-by=random --random-order-seed=1793197154 | tee phpunit.out
+          line=$(grep -E '^Tests: ' phpunit.out | tail -1)
+          errors=$(echo "$line" | grep -oE 'Errors: [0-9]+' | grep -oE '[0-9]+')
+          failures=$(echo "$line" | grep -oE 'Failures: [0-9]+' | grep -oE '[0-9]+')
+          total=$(( ${errors:-0} + ${failures:-0} ))
+          echo "known failing tests: $total (max $MAX_KNOWN_FAILURES)"
+          if [ -z "$line" ]; then echo 'PHPUnit did not finish (no summary line)'; exit 1; fi
+          [ "$total" -le "$MAX_KNOWN_FAILURES" ]
