@@ -117,6 +117,8 @@ final class OutreachDiscoveryIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
+        // المتحكم بقى بيطلب CSRF (Controller::verifyCsrf بيقرأ هيدر X-CSRF-Token زي Panel.fetchJSON)
+        $_SERVER['HTTP_X_CSRF_TOKEN'] = Csrf::token();
         $pdo = $this->db();
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو جداول Outreach/CI مش متشغّلة - راجع تعليق أعلى الملف');

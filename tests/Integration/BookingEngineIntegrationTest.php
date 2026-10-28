@@ -162,7 +162,7 @@ final class BookingEngineIntegrationTest extends TestCase
         ]);
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('السعة مكتملة');
+        $this->expectExceptionMessage('الأماكن المتاحة أقل من العدد المطلوب');
         $engine->createBooking(self::$testUserId, [
             'product_id' => self::$testProductId,
             'start_date' => '2026-12-02',

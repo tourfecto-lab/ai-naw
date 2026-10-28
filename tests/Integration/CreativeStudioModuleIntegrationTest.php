@@ -268,10 +268,10 @@ final class CreativeStudioModuleIntegrationTest extends TestCase
     public function testRequestImageAspectRatiosPerType(): void
     {
         $service = new MediaGenerationService();
-        $story = $service->requestGeneration(999600, 'story', 'قصة');
+        $story = $service->requestGeneration(999600, 'story', 'قصة سياحية عن رحلة النيل');
         $this->assertSame('9:16', (string) (new MediaItem())->find((int) $story->getAttribute('id'))->getAttribute('aspect_ratio'));
 
-        $cover = $service->requestGeneration(999600, 'facebook_cover', 'غلاف');
+        $cover = $service->requestGeneration(999600, 'facebook_cover', 'غلاف صفحة رحلات النيل');
         $this->assertSame('16:9', (string) (new MediaItem())->find((int) $cover->getAttribute('id'))->getAttribute('aspect_ratio'));
     }
 
@@ -310,7 +310,7 @@ final class CreativeStudioModuleIntegrationTest extends TestCase
     public function testRequestVideoDurationFallsBackToEight(): void
     {
         $service = new MediaGenerationService();
-        $item = $service->requestVideoGeneration(999600, 'فيديو', 'general_landscape', 999);
+        $item = $service->requestVideoGeneration(999600, 'فيديو قصير عن رحلة النيل', 'general_landscape', 999);
         $this->assertSame('8', (string) (new MediaItem())->find((int) $item->getAttribute('id'))->getAttribute('duration_seconds'));
         $this->assertSame('16:9', (string) (new MediaItem())->find((int) $item->getAttribute('id'))->getAttribute('aspect_ratio'));
     }
