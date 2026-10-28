@@ -175,31 +175,52 @@ class ChatInboxController extends Controller
             : $conversation->getAttribute('customer_phone');
 
         $sent = false;
+        $failReason = null;
         if ($channel === 'whatsapp' && !$recipient) {
-            // New WhatsApp username users may have a BSUID but no phone number.
-            // Resolve only from this conversation's verified recent inbound event.
-            $recent = Database::getInstance()->query(
-                "SELECT webhook_raw_data FROM chat_messages WHERE conversation_id=? AND website_id=? AND platform='whatsapp' AND message_direction='incoming' AND created_at >= DATE_SUB(UTC_TIMESTAMP(),INTERVAL 24 HOUR) ORDER BY id DESC LIMIT 1",
+            // New WhatsApp username users have a BSUID but no phone number. The inbox
+            // stores it as the conversation thread ("bsuid:<id>"); the raw webhook is
+            // not kept for these messages, so the thread is the authoritative source.
+            $bsuid = '';
+            $thread = (string) $conversation->getAttribute('channel_thread_id');
+            if (str_starts_with($thread, 'bsuid:')) {
+                $bsuid = substr($thread, 6);
+            }
+            $db = Database::getInstance();
+            // Meta's 24-hour window: require a recent inbound message in this conversation.
+            $recent = $db->query(
+                "SELECT webhook_raw_data FROM chat_messages WHERE conversation_id=? AND website_id=? AND platform='whatsapp' AND message_direction='incoming' AND created_at >= DATE_SUB(NOW(),INTERVAL 24 HOUR) ORDER BY id DESC LIMIT 1",
                 [(int)$conversation->getAttribute('id'), (int)$website->getAttribute('id')]
             );
-            $raw = json_decode((string)($recent[0]['webhook_raw_data'] ?? ''), true);
-            $bsuid = is_array($raw) ? trim((string)($raw['wa_bsuid'] ?? '')) : '';
-            if (preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $bsuid) === 1) {
-                $api = WhatsAppCloudAPI::forWebsite((int)$website->getAttribute('id'));
-                if ($api) {
-                    $result = $api->sendText($bsuid, $message);
-                    $sent = !empty($result['ok']);
-                    if (!$sent) Logger::error('WhatsApp manual BSUID send failed', [
+            if ($bsuid === '' && $recent) {
+                $raw = json_decode((string)($recent[0]['webhook_raw_data'] ?? ''), true);
+                $bsuid = is_array($raw) ? trim((string)($raw['wa_bsuid'] ?? '')) : '';
+            }
+            $api = null;
+            if (preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $bsuid) !== 1) {
+                $failReason = 'no_recipient';
+            } elseif (!$recent) {
+                $failReason = 'outside_24h';
+            } elseif (!($api = WhatsAppCloudAPI::forWebsite((int)$website->getAttribute('id')))) {
+                $failReason = 'not_connected';
+            } else {
+                $result = $api->sendText($bsuid, $message);
+                $sent = !empty($result['ok']);
+                if (!$sent) {
+                    $failReason = !empty($result['window']) ? 'outside_24h' : 'provider_rejected';
+                    Logger::error('WhatsApp manual BSUID send failed', [
                         'website_id'=>(int)$website->getAttribute('id'),
                         'http_code'=>(int)($result['http_code']??0),
                         'error_code'=>$result['error_code']??null,
-                        'error_type'=>!empty($result['window'])?'outside_24h':'provider_rejected',
+                        'error_type'=>$failReason,
                     ]);
                 }
             }
         } elseif ($recipient) {
             $chatManager = new ChatManager();
             $sent = $chatManager->sendMessageForWebsite((int) $website->getAttribute('id'), (string)$recipient, $message, $channel);
+            if (!$sent) $failReason = $chatManager->lastSendError ?? 'send_failed';
+        } else {
+            $failReason = 'no_recipient';
         }
 
         $db = Database::getInstance();
@@ -242,7 +263,7 @@ class ChatInboxController extends Controller
             }
         }
 
-        return $this->success(['sent' => $sent], $sent ? 'Reply sent' : 'Reply saved but delivery to channel failed');
+        return $this->success(['sent' => $sent, 'reason' => $sent ? null : $failReason], $sent ? 'Reply sent' : 'Reply saved but delivery to channel failed');
     }
 
     /**

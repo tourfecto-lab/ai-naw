@@ -992,6 +992,16 @@ HTML;
         await updateField('tags', newTags);
     };
 
+    function sendFailReason(reason) {
+        const reasons = {
+            outside_24h: 'the customer has not messaged in the last 24 hours (WhatsApp only allows a template message now)',
+            no_recipient: 'no valid WhatsApp number or ID for this customer',
+            not_connected: 'WhatsApp is not connected for this website',
+            provider_rejected: 'WhatsApp (Meta) rejected the message; check the connection and the logs',
+        };
+        return reasons[reason] ? ': ' + reasons[reason] : '';
+    }
+
     window.sendManual = async function () {
         const message = document.getElementById('manualMessage').value.trim();
         if (!message) { toast('Write a message first', 'error'); return; }
@@ -1004,7 +1014,7 @@ HTML;
         });
         btn.disabled = false;
         if (res.success) {
-            toast(res.data && res.data.sent === false ? 'The message was saved but actually sending it to the customer failed' : 'Sent', res.data && res.data.sent === false ? 'error' : 'success');
+            toast(res.data && res.data.sent === false ? 'The message was saved but actually sending it to the customer failed' + sendFailReason(res.data.reason) : 'Sent', res.data && res.data.sent === false ? 'error' : 'success');
             document.getElementById('manualMessage').value = '';
             selectConversation(currentConversation.id);
         } else {
@@ -1545,6 +1555,16 @@ HTML;
         await updateField('tags', newTags);
     };
 
+    function sendFailReason(reason) {
+        const reasons = {
+            outside_24h: 'the customer has not messaged in the last 24 hours (WhatsApp only allows a template message now)',
+            no_recipient: 'no valid WhatsApp number or ID for this customer',
+            not_connected: 'WhatsApp is not connected for this website',
+            provider_rejected: 'WhatsApp (Meta) rejected the message; check the connection and the logs',
+        };
+        return reasons[reason] ? ': ' + reasons[reason] : '';
+    }
+
     window.sendManual = async function () {
         const message = document.getElementById('manualMessage').value.trim();
         if (!message) { toast('Write a message first', 'error'); return; }
@@ -1557,7 +1577,7 @@ HTML;
         });
         btn.disabled = false;
         if (res.success) {
-            toast(res.data && res.data.sent === false ? 'The message was saved but actually sending it to the customer failed' : 'Sent', res.data && res.data.sent === false ? 'error' : 'success');
+            toast(res.data && res.data.sent === false ? 'The message was saved but actually sending it to the customer failed' + sendFailReason(res.data.reason) : 'Sent', res.data && res.data.sent === false ? 'error' : 'success');
             document.getElementById('manualMessage').value = '';
             load();
         } else {
@@ -1688,7 +1708,7 @@ HTML;
     }
 
     load();
-    setInterval(load, 20000);
+    setInterval(function () { if (!document.hidden) load(); }, 5000);
 })();
 JS;
         $script = str_replace(

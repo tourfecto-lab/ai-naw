@@ -568,7 +568,37 @@ class WhatsAppCloudController extends Controller
         }
         $payload = json_decode($raw, true);
         if (!is_array($payload)) return $this->error('Invalid JSON', 400);
-        return $this->success(self::processPayload($wid, (int) $row['user_id'], (string) $row['external_account_id'], $payload, (int) $row['id']));
+        return $this->respondThenProcess($this->success(self::processPayload($wid, (int) $row['user_id'], (string) $row['external_account_id'], $payload, (int) $row['id'])));
+    }
+
+    /**
+     * Acknowledge Meta first, then process the queued messages in the same PHP process so
+     * they reach the inbox (and the AI reply runs) in seconds instead of on the next cron minute.
+     * Without FPM/LiteSpeed the response is returned normally and the cron processes the queue.
+     */
+    private function respondThenProcess(array $response): array
+    {
+        $finish = function_exists('fastcgi_finish_request') ? 'fastcgi_finish_request'
+            : (function_exists('litespeed_finish_request') ? 'litespeed_finish_request' : null);
+        if ($finish === null || empty($response['success'])) {
+            return $response;
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        ignore_user_abort(true);
+        @set_time_limit(120);
+        if (!headers_sent()) {
+            http_response_code(200);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        while (ob_get_level() > 0) {
+            @ob_end_flush();
+        }
+        $finish();
+        WhatsAppWebhookInbox::processQueuedNow();
+        exit;
     }
 
     /** GET /api/whatsapp-cloud/webhook - تحقق Meta من الـ webhook العام (تطبيق المنصة) */
@@ -629,7 +659,7 @@ class WhatsAppCloudController extends Controller
             } catch (Throwable $ignored) {
                 // Diagnostics must never prevent Meta from receiving a successful response.
             }
-            return $this->success($result);
+            return $this->respondThenProcess($this->success($result));
         } catch (Throwable $e) {
             Logger::error('WhatsApp webhook routing failed', ['exception_class' => get_class($e)]);
             throw $e;

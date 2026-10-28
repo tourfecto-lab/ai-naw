@@ -2,6 +2,29 @@
 /** Durable, encrypted WhatsApp inbox. HTTP handlers only persist and enqueue. */
 class WhatsAppWebhookInbox
 {
+    /** Queue job IDs created during this request, so the webhook can run them right after replying to Meta. */
+    private static array $queuedJobIds = [];
+
+    /**
+     * Run this request's queued events immediately instead of waiting for the per-minute cron.
+     * Call only after the HTTP response is sent. Jobs are claimed atomically, so the cron never runs one twice;
+     * anything not finished here (failure, timeout) stays in the queue for the cron to retry.
+     */
+    public static function processQueuedNow(int $limit = 20): void
+    {
+        $ids = array_slice(array_unique(self::$queuedJobIds), 0, $limit);
+        self::$queuedJobIds = [];
+        if (!$ids) return;
+        $queue = new QueueManager();
+        foreach ($ids as $id) {
+            try {
+                $queue->processJob($id);
+            } catch (Throwable $e) {
+                Logger::error('WhatsApp immediate processing failed', ['job_id' => $id, 'exception_class' => get_class($e)]);
+            }
+        }
+    }
+
     public static function enqueue(int $websiteId, int $userId, string $kind, string $eventKey, array $payload): bool
     {
         if ($websiteId < 1 || $userId < 1 || !in_array($kind, ['message', 'delivery'], true) || $eventKey === '') {
@@ -18,6 +41,7 @@ class WhatsAppWebhookInbox
             $jobId = (new QueueManager($db))->push('ProcessWhatsAppWebhookJob', ['event_id'=>(int)$row['id']], 'whatsapp');
             if (!$jobId) throw new RuntimeException('WhatsApp queue unavailable');
             $db->query('UPDATE whatsapp_webhook_inbox SET job_id=? WHERE id=?', [(int)$jobId,(int)$row['id']]);
+            self::$queuedJobIds[] = (int)$jobId;
             return true;
         });
     }
@@ -84,7 +108,7 @@ class WhatsAppWebhookInbox
     {
         $bsuid = (string)($payload['wa_bsuid'] ?? '');
         $wamid = (string)($payload['platform_message_id'] ?? '');
-        if (!preg_match('/^[A-Z]{2}\.[A-Za-z0-9._-]{8,128}$/D', $bsuid)
+        if (!preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $bsuid)
             || $wamid === '' || strlen($wamid) > 255) {
             throw new InvalidArgumentException('Invalid WhatsApp BSUID inbound event');
         }

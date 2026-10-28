@@ -10,6 +10,9 @@
 
 class ChatManager
 {
+    /** Why the last sendMessageForWebsite() call failed (no_recipient, outside_24h, provider_rejected), or null. */
+    public ?string $lastSendError = null;
+
     /**
      * @var Database $db - اتصال قاعدة البيانات
      */
@@ -389,6 +392,7 @@ class ChatManager
      */
     public function sendMessageForWebsite(int $websiteId, string $recipient, string $message, string $channel = 'whatsapp'): bool
     {
+        $this->lastSendError = null;
         try {
             switch ($channel) {
                 case 'messenger':
@@ -410,6 +414,7 @@ class ChatManager
                         $recipient = WhatsAppCloudAPI::recipientForText($recipient);
                         if ($recipient === '') {
                             Logger::warning('Official WhatsApp send blocked: invalid recipient', ['website_id' => $websiteId]);
+                            $this->lastSendError = 'no_recipient';
                             return false;
                         }
                         // Keep the 24-hour customer-service window and tenant ownership check.
@@ -417,9 +422,11 @@ class ChatManager
                         $window=Database::getInstance()->query("SELECT m.id FROM chat_messages m JOIN websites w ON w.id=m.website_id AND w.user_id=m.user_id WHERE m.website_id=? AND m.platform='whatsapp' AND m.message_direction='incoming' AND m.customer_phone IN (?,?) AND m.created_at>=DATE_SUB(NOW(),INTERVAL 24 HOUR) LIMIT 1",[$websiteId,$recipient,'+'.$recipient]);
                         if(!$window) {
                             Logger::warning('Official WhatsApp send blocked: no recent incoming from recipient', ['website_id'=>$websiteId]);
+                            $this->lastSendError = 'outside_24h';
                             return false;
                         }
                         $result=$cloud->sendText($recipient,$message);
+                        if (empty($result['ok'])) $this->lastSendError = !empty($result['window']) ? 'outside_24h' : 'provider_rejected';
                         if (empty($result['ok'])) Logger::warning('Official WhatsApp send failed',['website_id'=>$websiteId,'http_code'=>(int)($result['http_code']??0),'error_code'=>$result['error_code']??null,'error_type'=>!empty($result['window'])?'outside_24h':'provider_rejected']);
                         return !empty($result['ok']); // Never blindly resend via another gateway after an ambiguous result.
                     }
