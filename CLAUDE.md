@@ -20,8 +20,10 @@ social publishing, ads, creative studio, CRM, bookings/payments, reputation (Goo
 ## Commands (Windows dev box uses XAMPP PHP 8.2 + MariaDB; CI uses PHP 8.2 + MariaDB 10.11 (production is very likely MariaDB: the migrations use MariaDB-only `ADD COLUMN IF NOT EXISTS`))
 - Install: `composer install`
 - Syntax: `git ls-files '*.php' | grep -v '^vendor/' | xargs -n40 php -l`
-- Static analysis: `vendor/bin/phpstan analyse --memory-limit=2G` (level 1 + `phpstan-baseline.neon`; Controllers and
-  Services are too large for PHPStan memory, so they are not analysed yet)
+- Static analysis: `vendor/bin/phpstan analyse --memory-limit=2G` (level 1 on Core/Middleware/Security/Models/Jobs/..., baseline `phpstan-baseline.neon`)
+  and `bash tools/phpstan_wide.sh` for app/Controllers + app/Services (level 1, run in chunks because the huge controllers exhaust
+  PHPStan memory when analysed together; baseline `phpstan-wide-baseline.neon`, regenerate with `--generate-baseline`; ~9 min locally;
+  app/Services/AutoFix is excluded because it generates WordPress plugin code).
 - Tests: create DB `tourfecto_test`, then
   `DB_HOST=127.0.0.1 DB_NAME=tourfecto_test DB_USER=root DB_PASS= vendor/bin/phpunit --configuration tests/phpunit.xml`.
   `tests/bootstrap.php` applies every `database/migrations/20*.sql` in order (statement by statement, only against

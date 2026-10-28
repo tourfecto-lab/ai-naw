@@ -6,6 +6,13 @@
  */
 
 define('TOURFECTO_ROOT', __DIR__);
+// ثوابت بتتعرّف وقت التشغيل في public_html/index.php (ROOT_PATH/APP_PATH) - من غيرها PHPStan بيبلّغ "Constant not found"
+if (!defined('ROOT_PATH')) {
+    define('ROOT_PATH', __DIR__);
+}
+if (!defined('APP_PATH')) {
+    define('APP_PATH', ROOT_PATH . '/app');
+}
 define('TOURFECTO_STORAGE', __DIR__ . '/storage');
 
 require_once __DIR__ . '/vendor/autoload.php';

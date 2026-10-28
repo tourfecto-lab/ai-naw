@@ -11,6 +11,16 @@
  */
 class AdminEmailReputationController extends Controller
 {
+    /**
+     * بيانات الطلب (JSON أو form). كانت 5 مسارات إدارية (إيقاف/استئناف الحساب، الحدود، مراجعة
+     * الاعتماد، إيقاف الحملة) بتنادي $this->input() من غير ما الدالة دي تكون معرّفة في أي مكان،
+     * فكانت بتنهار بـ "Call to undefined method".
+     */
+    private function input(): array
+    {
+        return $this->all();
+    }
+
     private function guard(): EmailReputationGuard
     {
         return new EmailReputationGuard();

@@ -1,0 +1,92 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Anonymous function has an unused use \$cfg\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/SeoExpert/SeoExpertService.php
+
+		-
+			message: '#^Anonymous function has an unused use \$db\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/Subscription/ServiceUsageReservation.php
+
+		-
+			message: '#^Anonymous function has an unused use \$meta\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/OTA/OtaSupplierService.php
+
+		-
+			message: '#^Anonymous function has an unused use \$policy\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/SeoExpert/SeoExpertService.php
+
+		-
+			message: '#^Anonymous function has an unused use \$t\.$#'
+			identifier: closure.unusedUse
+			count: 1
+			path: app/Services/SocialMedia/SocialReport.php
+
+		-
+			message: '#^Call to static method getInstance\(\) on an unknown class App\\Core\\Database\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Controllers/AdsController.php
+
+		-
+			message: '#^Undefined variable\: \$validator$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Services/Automation/ReviewAutoReplyRunner.php
+
+		-
+			message: '#^Variable \$appPassword might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Controllers/AIController.php
+
+		-
+			message: '#^Variable \$bestIssues on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Services/Reputation/ReplyGenerator.php
+
+		-
+			message: '#^Variable \$lastError on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Services/AI/Providers/OpenAICompatibleProvider.php
+
+		-
+			message: '#^Variable \$plans in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.variable
+			count: 1
+			path: app/Controllers/PlansStudioController.php
+
+		-
+			message: '#^Variable \$rows on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Controllers/RevenueIntelligenceController.php
+
+		-
+			message: '#^Variable \$siteUrl might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Controllers/AIController.php
+
+		-
+			message: '#^Variable \$username might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Controllers/AIController.php
+
+		-
+			message: '#^Variable \$validator in isset\(\) is never defined\.$#'
+			identifier: isset.variable
+			count: 1
+			path: app/Services/Automation/ReviewAutoReplyRunner.php
+

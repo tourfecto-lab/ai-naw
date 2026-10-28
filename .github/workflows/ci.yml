@@ -31,6 +31,26 @@ jobs:
           DB_PASS: ''
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=2G
 
+  static-wide:
+    name: PHPStan wide (Controllers + Services, chunked)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: gd, mbstring, pdo_mysql, curl, openssl, zip, intl
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHPStan level 1 on app/Controllers and app/Services (in chunks, baseline phpstan-wide-baseline.neon)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_NAME: tourfecto_test
+          DB_USER: root
+          DB_PASS: ''
+        run: bash tools/phpstan_wide.sh
+
   tests:
     name: PHPUnit (ratchet, MariaDB 10.11)
     runs-on: ubuntu-latest

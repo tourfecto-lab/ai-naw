@@ -1,0 +1,17 @@
+# تحليل ثابت موسَّع لـ app/Controllers و app/Services (level 1).
+# الملفات الضخمة بتخلّص ذاكرة PHPStan لو اتحلّلت مرة واحدة، فالتحليل بيتقسّم لأجزاء صغيرة
+# (tools/phpstan_wide.sh). الأخطاء القديمة المعروفة في phpstan-wide-baseline.neon، وأي خطأ جديد بيفشّل.
+includes:
+    - phpstan-wide-baseline.neon
+
+parameters:
+    level: 1
+    reportUnmatchedIgnoredErrors: false
+    excludePaths:
+        # كود إضافة WordPress مولَّد (دوال WP زي get_post_meta مش معرّفة في المنصة)
+        - app/Services/AutoFix
+    tmpDir: storage/phpstan
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    parallel:
+        maximumNumberOfProcesses: 1
