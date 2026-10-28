@@ -321,7 +321,8 @@ final class WebsiteBookingIntegrationTest extends TestCase
             "SELECT capacity, booked_count FROM inventory WHERE product_id = {$productId} AND date = '2026-12-10'"
         )->fetch(PDO::FETCH_ASSOC);
         $this->assertNotEmpty($inv);
-        $this->assertEquals(50, (int) $inv['capacity']);
+        // السعة الافتراضية للموقع بقت ثابت قابل للضبط (WEBSITE_BOOKING_DEFAULT_CAPACITY، الافتراضي 15)
+        $this->assertEquals(15, (int) $inv['capacity']);
         $this->assertEquals(1, (int) $inv['booked_count']);
     }
 

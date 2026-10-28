@@ -274,7 +274,7 @@ final class OutreachDiscoveryIntegrationTest extends TestCase
 
         $result = $this->service()->discoverForWebsite(self::USER_ID, self::WEBSITE_ID);
 
-        $this->assertTrue($result['available']);
+        $this->assertTrue($result['available'], json_encode($result, JSON_UNESCAPED_UNICODE));
         $this->assertSame(0, $result['discovered']);
         $this->assertSame(1, $result['skipped_own']);
 
@@ -296,7 +296,7 @@ final class OutreachDiscoveryIntegrationTest extends TestCase
 
         $result = $this->service()->discoverForWebsite(self::USER_ID, self::WEBSITE_ID);
 
-        $this->assertTrue($result['available']);
+        $this->assertTrue($result['available'], json_encode($result, JSON_UNESCAPED_UNICODE));
         $this->assertSame(0, $result['discovered']);
         $this->assertSame(1, $result['already_linked']);
     }

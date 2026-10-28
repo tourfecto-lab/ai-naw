@@ -173,6 +173,10 @@ final class StripeCheckoutBookingIntegrationTest extends TestCase
                 'data' => ['object' => [
                     'id' => 'cs_test_completed',
                     'client_reference_id' => $booking['booking_reference'],
+                    // StripeCheckoutService::matchesPaidSession: الدفع والمبلغ (150.00 USD = 15000) والعملة
+                    'payment_status' => 'paid',
+                    'amount_total' => 15000,
+                    'currency' => 'usd',
                 ]],
             ]),
             $this->signWebhook(json_encode([
@@ -180,6 +184,10 @@ final class StripeCheckoutBookingIntegrationTest extends TestCase
                 'data' => ['object' => [
                     'id' => 'cs_test_completed',
                     'client_reference_id' => $booking['booking_reference'],
+                    // StripeCheckoutService::matchesPaidSession: الدفع والمبلغ (150.00 USD = 15000) والعملة
+                    'payment_status' => 'paid',
+                    'amount_total' => 15000,
+                    'currency' => 'usd',
                 ]],
             ]))
         );
@@ -203,6 +211,10 @@ final class StripeCheckoutBookingIntegrationTest extends TestCase
                 'data' => ['object' => [
                     'id' => 'cs_test_completed',
                     'client_reference_id' => $booking['booking_reference'],
+                    // StripeCheckoutService::matchesPaidSession: الدفع والمبلغ (150.00 USD = 15000) والعملة
+                    'payment_status' => 'paid',
+                    'amount_total' => 15000,
+                    'currency' => 'usd',
                 ]],
             ]),
             $this->signWebhook(json_encode([
@@ -210,6 +222,10 @@ final class StripeCheckoutBookingIntegrationTest extends TestCase
                 'data' => ['object' => [
                     'id' => 'cs_test_completed',
                     'client_reference_id' => $booking['booking_reference'],
+                    // StripeCheckoutService::matchesPaidSession: الدفع والمبلغ (150.00 USD = 15000) والعملة
+                    'payment_status' => 'paid',
+                    'amount_total' => 15000,
+                    'currency' => 'usd',
                 ]],
             ]))
         );

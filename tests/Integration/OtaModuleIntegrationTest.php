@@ -113,15 +113,35 @@ final class OtaModuleIntegrationTest extends TestCase
         $pdo->exec("INSERT INTO users (id, email, password, company_name, created_at)
                     VALUES (" . self::TEST_USER_ID . ", 'ota-test@tourfecto.test', 'x', 'OTA Test Travel', NOW())
                     ON DUPLICATE KEY UPDATE email = email");
-        $pdo->exec("DELETE FROM rev_revenue_records WHERE user_id = " . self::TEST_USER_ID);
+        $this->resetOtaRevenue($pdo);
     }
 
     protected function tearDown(): void
     {
         $pdo = self::$pdo;
         if ($pdo !== null) {
-            $pdo->exec("DELETE FROM rev_revenue_records WHERE user_id = " . self::TEST_USER_ID);
+            $this->resetOtaRevenue($pdo);
         }
+    }
+
+    /**
+     * OtaBookingService بيمنع تسجيل نفس الحجز مرتين عبر ota_revenue_bindings/ota_refund_events،
+     * فلازم الاختبار يمسحهم مع rev_revenue_records وإلا أي تشغيل تاني بيتّرفض.
+     */
+    private function resetOtaRevenue(PDO $pdo): void
+    {
+        $ids = self::TEST_USER_ID . ', 999501';
+        $pdo->exec("DELETE e FROM ota_refund_events e JOIN ota_revenue_bindings b ON b.booking_key = e.booking_key WHERE b.user_id IN ({$ids})");
+        $pdo->exec("DELETE FROM ota_revenue_bindings WHERE user_id IN ({$ids})");
+        $pdo->exec("DELETE FROM rev_revenue_records WHERE user_id IN ({$ids})");
+    }
+
+    /** المرجع المخزَّن: 'ota:' + sha256 مرتبط بالمستخدم والمنصة والحساب (OtaBookingService::key خاصة). */
+    private function otaRef(int $userId, string $platform, string $reference, string $account = 'default'): string
+    {
+        $m = new ReflectionMethod(OtaBookingService::class, 'key');
+        $m->setAccessible(true);
+        return 'ota:' . $m->invoke(null, $userId, $platform, $reference, $account);
     }
 
     /** إعادة توقيع سجلات الإيراد لساعة مضت — نفس الأسلوب في BookingRevenueIntegrationTest */
@@ -215,9 +235,10 @@ final class OtaModuleIntegrationTest extends TestCase
         $res = $client->getBooking('weird');
 
         // لازم مترميش استثناء - envelope موحّد على طول
-        $this->assertTrue($res['success']);
+        // رد 200 بجسم مش JSON بقى بيتعامل كفشل (مش نجاح ببيانات فاضية)، من غير استثناء
+        $this->assertFalse($res['success']);
         $this->assertSame(200, $res['http_code']);
-        $this->assertNull($res['data']);
+        $this->assertNull($res['data'] ?? null);
     }
 
     public function testGetYourGuideThirdPartyRejectSurfacesError(): void
@@ -229,7 +250,8 @@ final class OtaModuleIntegrationTest extends TestCase
 
         $this->assertFalse($res['success']);
         $this->assertSame(429, $res['http_code']);
-        $this->assertSame('HTTP 429', $res['error']);
+        // رسالة موحّدة للعميل (من غير تسريب تفاصيل المزوّد)
+        $this->assertSame('Provider request failed', $res['error']);
     }
 
     // ============================================================
@@ -313,8 +335,8 @@ final class OtaModuleIntegrationTest extends TestCase
 
         $res = $client->getBooking('x');
 
-        $this->assertTrue($res['success']);
-        $this->assertNull($res['data']); // لا استثناء
+        $this->assertFalse($res['success']); // رد 200 غير JSON = فشل، لا استثناء
+        $this->assertNull($res['data'] ?? null);
     }
 
     // ============================================================
@@ -340,7 +362,7 @@ final class OtaModuleIntegrationTest extends TestCase
             "SELECT * FROM rev_revenue_records WHERE user_id = " . self::TEST_USER_ID . " AND source = 'ota_booking'"
         )->fetch(PDO::FETCH_ASSOC);
         $this->assertNotFalse($row);
-        $this->assertSame('GYG-HASH-001', $row['reference_id']);
+        $this->assertSame($this->otaRef(self::TEST_USER_ID, 'getyourguide', 'GYG-HASH-001'), $row['reference_id']);
         $this->assertSame('250.00', $row['amount']);
         $this->assertSame('USD', $row['currency']);
         $this->assertSame('Cairo Nile Cruise', $row['product_name']);
@@ -357,7 +379,7 @@ final class OtaModuleIntegrationTest extends TestCase
         $this->assertTrue($first);
         $this->assertFalse($second, 'التكرار لازم يرجّع false ولا يضيف سجل');
         $count = self::$pdo->query(
-            "SELECT COUNT(*) FROM rev_revenue_records WHERE user_id = " . self::TEST_USER_ID . " AND reference_id = 'VI-REF-1'"
+            "SELECT COUNT(*) FROM rev_revenue_records WHERE user_id = " . self::TEST_USER_ID . " AND reference_id = '" . $this->otaRef(self::TEST_USER_ID, 'viator', 'VI-REF-1') . "'"
         )->fetchColumn();
         $this->assertSame('1', (string) $count);
     }
@@ -385,9 +407,12 @@ final class OtaModuleIntegrationTest extends TestCase
         $service->recordBookingRevenue(self::TEST_USER_ID, 'getyourguide', 'REF-REF', 200.00, 'USD');
 
         // استرداد بعد إيراد موجب → سجل سالب
-        $this->assertTrue($service->recordBookingRefund(self::TEST_USER_ID, 'getyourguide', 'REF-REF', 50.0, 'USD'));
-        // استرداد مكرر → مرفوض
+        // استرداد جزئي من غير معرّف استرداد من المزوّد → مرفوض (مينفعش نفرّق بينه وبين تكرار)
         $this->assertFalse($service->recordBookingRefund(self::TEST_USER_ID, 'getyourguide', 'REF-REF', 50.0, 'USD'));
+        // استرداد جزئي بمعرّف فريد → سجل سالب
+        $this->assertTrue($service->recordBookingRefund(self::TEST_USER_ID, 'getyourguide', 'REF-REF', 50.0, 'USD', 'refund-1'));
+        // نفس معرّف الاسترداد تاني → مرفوض
+        $this->assertFalse($service->recordBookingRefund(self::TEST_USER_ID, 'getyourguide', 'REF-REF', 50.0, 'USD', 'refund-1'));
 
         $refund = self::$pdo->query(
             "SELECT amount FROM rev_revenue_records
