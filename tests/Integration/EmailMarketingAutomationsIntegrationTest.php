@@ -122,7 +122,7 @@ final class EmailMarketingAutomationsIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن automations لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
         }
     }
@@ -372,7 +372,8 @@ final class EmailMarketingAutomationsIntegrationTest extends TestCase
             "INSERT INTO email_campaign_recipients (campaign_id, subscriber_id, email, open_token, click_token, status)
              VALUES ({$campaignId}, {$subId}, 'auto4@example.com', 'open-token-{$subId}', 'click-token-{$subId}', 'sent')"
         );
-        $tracking->recordOpen('open-token-' . $subId);
+        // فتح من متصفح حقيقي: الفتح بدون User-Agent بيتصنّف آلي (Apple MPP / فلتر أمان) ومبيشغّلش الأتمتة
+        $tracking->recordOpen('open-token-' . $subId, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36', '203.0.113.5');
         $entries2 = $this->dbq(
             "SELECT * FROM email_automation_entries WHERE automation_id = ? AND subscriber_id = ?",
             [(int) $created['id'], $subId]

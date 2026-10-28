@@ -82,7 +82,7 @@ final class EmailDeliveryWebhookIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن delivery webhook لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
         }
 
@@ -207,7 +207,7 @@ final class EmailDeliveryWebhookIntegrationTest extends TestCase
 
         // SendGrid يتطلب HMAC فوق timestamp + جسم خام
         $raw = json_encode($payload);
-        $ts = '1700000000';
+        $ts = (string) time(); // التوقيع بيتحقق إنه حديث (timestampFresh) ضد إعادة الإرسال
         $sig = hash_hmac('sha256', $ts . $raw, self::SECRET);
         $result = $this->service()->handleDeliveryWebhook(
             self::$userId,
@@ -229,7 +229,7 @@ final class EmailDeliveryWebhookIntegrationTest extends TestCase
     public function testMailgunSignaturePayload(): void
     {
         $this->addSubscriber('mg@example.com');
-        $ts = '1700000000';
+        $ts = (string) time(); // التوقيع بيتحقق إنه حديث (timestampFresh) ضد إعادة الإرسال
         $token = 'webhook-token-abc';
         $payload = [
             'signature' => [

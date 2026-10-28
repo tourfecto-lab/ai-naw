@@ -58,6 +58,48 @@ class FakeOutreachEmailGenerator extends OutreachEmailGenerator
     }
 }
 
+/**
+ * مصدر اكتشاف وهمي للاختبار: بيحوّل المنافسين المتتبَّعين لمرشّحين (domain/signals).
+ * المصدر الحقيقي (CompetitorBacklinkDiscoverySource) بقى بيعتمد على فجوة روابط مقيسة من DataForSEO
+ * لمنافسَين حقيقيين على الأقل، فمنطق ProspectDiscoveryService (تخطي دوميننا، تخطي اللي اتعمل منه رابط،
+ * عدم التكرار، بدون بيانات شخصية) بيتختبر هنا بمصدر مضبوط بدل مصدر خارجي.
+ */
+final class OutreachFakeCompetitorSource implements ProspectDiscoverySourceInterface
+{
+    public function sourceName(): string
+    {
+        return 'competitor_backlinks';
+    }
+
+    public function discover(array $context): array
+    {
+        $rows = Database::getInstance()->query(
+            'SELECT c.competitor_domain, c.competitor_name, c.competitor_score,
+                    (SELECT COUNT(*) FROM ci_snapshots s WHERE s.competitor_id = c.id) AS snaps
+               FROM competitors c WHERE c.user_id = ? AND c.website_id = ? AND c.is_active = 1',
+            [(int) $context['user_id'], (int) $context['website_id']]
+        );
+        if (!$rows) {
+            return ['available' => false, 'reason' => 'no_tracked_competitors', 'candidates' => []];
+        }
+        $candidates = [];
+        foreach ($rows as $r) {
+            $candidates[] = [
+                'domain' => (string) $r['competitor_domain'],
+                'business_type' => 'Competitor referring domain',
+                'relevant_page' => null,
+                'collaboration_idea' => null,
+                'signals' => [
+                    'name' => (string) $r['competitor_name'],
+                    'competitor_score' => (float) $r['competitor_score'],
+                    'has_snapshot' => (int) $r['snaps'] > 0,
+                ],
+            ];
+        }
+        return ['available' => true, 'reason' => null, 'candidates' => $candidates];
+    }
+}
+
 final class OutreachDiscoveryIntegrationTest extends TestCase
 {
     private const USER_ID = 999400;
@@ -193,7 +235,7 @@ final class OutreachDiscoveryIntegrationTest extends TestCase
     private function service(?OutreachEmailGenerator $generator = null): ProspectDiscoveryService
     {
         return new ProspectDiscoveryService(
-            new CompetitorBacklinkDiscoverySource(),
+            new OutreachFakeCompetitorSource(),
             $generator ?? new FakeOutreachEmailGenerator()
         );
     }

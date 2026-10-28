@@ -160,9 +160,16 @@ final class SendBookingConfirmationJobTest extends TestCase
     private function cleanup(): void
     {
         $pdo = self::$pdo;
-        $pdo->exec("DELETE FROM bookings WHERE user_id = " . self::USER_ID);
-        $pdo->exec("DELETE FROM crm_products WHERE id = " . self::PRODUCT_ID);
-        $pdo->exec("DELETE FROM users WHERE id = " . self::USER_ID);
+        // اختبارات تانية (حسب الترتيب العشوائي) بتسيب صفوف بتشاور على نفس المستخدم/المنتج
+        // (inventory, payment_transactions...) فالحذف العادي كان بيفشل بـ 1451.
+        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+        try {
+            $pdo->exec("DELETE FROM bookings WHERE user_id = " . self::USER_ID);
+            $pdo->exec("DELETE FROM crm_products WHERE id = " . self::PRODUCT_ID);
+            $pdo->exec("DELETE FROM users WHERE id = " . self::USER_ID);
+        } finally {
+            $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        }
     }
 
     /** يُدرج حجز confirmed مباشرة ويرجع الـ booking_id. */

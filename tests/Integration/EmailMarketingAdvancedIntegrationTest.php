@@ -95,7 +95,7 @@ final class EmailMarketingAdvancedIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن advanced لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
         }
     }

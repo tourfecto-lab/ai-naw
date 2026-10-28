@@ -98,7 +98,7 @@ final class EmailMarketingModuleIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن M4 (segment_id/automation_logs) لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
         }
         if (empty(self::$subscriberIds)) {

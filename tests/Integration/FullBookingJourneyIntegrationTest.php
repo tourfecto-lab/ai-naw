@@ -135,6 +135,14 @@ final class FullBookingJourneyIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشنز الرحلة لسه ما اتشغّلتش');
         }
+        // اشتراك الموقع مفعّل افتراضيًا: من غير إعداد site_plan_config بيتعرض «الموقع متوقف» وبيعمل exit
+        // ويقتل PHPUnit. كان بيعدّي بس بالصدفة بسبب إعداد باقي في القاعدة من اختبار تاني (اعتماد على الترتيب).
+        try {
+            $pdo->exec("INSERT INTO system_settings (setting_key, setting_value, is_secret, category)
+                        VALUES ('site_plan_config', '{\"enabled\":false}', 0, 'billing')
+                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        } catch (\Throwable $e) {
+        }
 
         // 1) تنظيف صريح قبل أي اختبار (نفس أسلوب بقية الـ Suite)
         $this->cleanup();

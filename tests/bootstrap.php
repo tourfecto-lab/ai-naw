@@ -500,6 +500,22 @@ function loadTestFixtures(): void
 // ============================================
 
 /**
+ * هل المستخدم المخزَّن (static) لسه موجود؟ اختبارات تانية (بحسب الترتيب العشوائي) بتمسح users،
+ * فالصفوف اللي بتخزّن self::$userId مرة واحدة كانت بتفشل كلها بـ FK 1452 بعد كده.
+ */
+function testUserExists(int $id): bool
+{
+    if ($id <= 0) {
+        return false;
+    }
+    try {
+        return (bool) Database::getInstance()->query('SELECT id FROM users WHERE id = ? LIMIT 1', [$id]);
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
  * إنشاء مستخدم اختباري
  * @param array $overrides - بيانات مخصصة
  * @return int

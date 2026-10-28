@@ -87,7 +87,7 @@ final class EmailMarketingIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن email marketing لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
         }
     }
@@ -247,35 +247,53 @@ final class EmailMarketingIntegrationTest extends TestCase
         $this->assertNotEmpty($rows[0]['click_token']);
     }
 
-    public function testSendBatchWithoutSmtpMarksRecipientsFailedAndCampaignFailed(): void
+    /** يجهّز حملة بمستلم واحد ويرجّع [service, campaignId] بمزوّد إرسال وهمي بنتيجة محددة */
+    private function campaignWithProvider(array $sendResult): array
     {
+        $provider = fn () => [
+            'name' => 'test',
+            'mail_domain' => 'example.com',
+            'send' => fn () => $sendResult,
+        ];
         $listService = new EmailListService();
-        $campaignService = new EmailCampaignService();
+        $campaignService = new EmailCampaignService($provider);
 
         $listId = $listService->createList(self::$userId, 'جمهور إرسال')['id'];
         $listService->subscribe(self::$userId, 'send1@example.com', [], $listId);
-
         $campaignId = $campaignService->create(self::$userId, [
             'name' => 'حملة إرسال',
             'subject' => 'اختبار إرسال',
             'html_body' => '<p>مرحبا {{first_name}}</p>',
             'list_id' => $listId,
         ])['id'];
-
         $campaignService->prepareRecipients(self::$userId, $campaignId);
-        $result = $campaignService->sendBatch(self::$userId, $campaignId);
+        return [$campaignService, $campaignId];
+    }
 
-        // SMTP مش مكوّن في بيئة الاختبار → كل الرسائل فشلت بأمان (من غير استثناء)
+    public function testSendBatchDefiniteFailureMarksRecipientsFailedAndCampaignFailed(): void
+    {
+        // المزوّد بيأكّد إن مفيش حاجة اتبعتت (definitive_failure) → ExternalExecution بيصنّفه failed
+        [$service, $campaignId] = $this->campaignWithProvider(['success' => false, 'error' => 'SMTP not configured', 'definitive_failure' => true]);
+        $result = $service->sendBatch(self::$userId, $campaignId);
+
         $this->assertSame(0, $result['processed']);
         $this->assertSame(1, $result['failed']);
         $this->assertFalse($result['remaining']);
 
         $status = self::$pdo->query("SELECT status FROM email_campaigns WHERE id = {$campaignId}")->fetchColumn();
         $this->assertSame(EmailCampaign::STATUS_FAILED, $status);
-
-        $rcptStatus = self::$pdo->query("SELECT status FROM email_campaign_recipients WHERE campaign_id = {$campaignId}")->fetchColumn();
-        $this->assertSame('failed', $rcptStatus);
+        $this->assertSame('failed', self::$pdo->query("SELECT status FROM email_campaign_recipients WHERE campaign_id = {$campaignId}")->fetchColumn());
         $this->assertNotEmpty(self::$pdo->query("SELECT error_message FROM email_campaign_recipients WHERE campaign_id = {$campaignId}")->fetchColumn());
+    }
+
+    public function testSendBatchUnclassifiedFailureIsUncertainAndNeverAutoResent(): void
+    {
+        // فشل من غير outcome_state (زي Mailer الحالي اللي مابيصنّفش) → uncertain: مراجعة يدوية، لا إعادة إرسال تلقائية
+        [$service, $campaignId] = $this->campaignWithProvider(['success' => false, 'error' => 'connection reset']);
+        $service->sendBatch(self::$userId, $campaignId);
+
+        $this->assertSame('uncertain', self::$pdo->query("SELECT status FROM email_campaign_recipients WHERE campaign_id = {$campaignId}")->fetchColumn());
+        $this->assertSame('uncertain', self::$pdo->query("SELECT status FROM email_campaigns WHERE id = {$campaignId}")->fetchColumn());
     }
 
     // ============================ Tracking ============================

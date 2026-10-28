@@ -88,7 +88,7 @@ final class EmailMarketingContactsIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن contacts لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
         } else {
             // Defensive: التنفيذ العشوائي بين الملفات بيخلي FixtureLoader::cleanDatabase()

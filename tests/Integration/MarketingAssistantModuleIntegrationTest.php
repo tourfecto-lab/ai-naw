@@ -228,16 +228,18 @@ final class MarketingAssistantModuleIntegrationTest extends TestCase
     // run(): فشل AI + أداة غير معروفة + اقتطاع العنوان
     // ================================================================
 
-    public function testRunAiFailurePersistsErrorOutput(): void
+    public function testRunAiFailureThrowsAndPersistsNothing(): void
     {
         $fake = new MarketingFakeGemini(['success' => false, 'error' => 'انقطع الاتصال']);
         $service = new MarketingAssistantService($fake);
 
-        $interaction = $service->run(999900, 'slogan', 'فندق');
-
-        $this->assertStringStartsWith('خطأ: ', (string) $interaction->getAttribute('output'));
-        $this->assertStringContainsString('انقطع الاتصال', (string) $interaction->getAttribute('output'));
-        $this->assertSame(1, $this->countInteractions());
+        // فشل المزوّد بقى بيرفع ProviderRequestFailure ومبيحفظش أي سجل «خطأ» (ولا بيتخصم شيء)
+        try {
+            $service->run(999900, 'slogan', 'فندق');
+            $this->fail('كان لازم يرفع ProviderRequestFailure');
+        } catch (ProviderRequestFailure $e) {
+            $this->assertSame(0, $this->countInteractions());
+        }
     }
 
     public function testRunUnknownToolThrowsAndWritesNothing(): void
@@ -280,7 +282,7 @@ final class MarketingAssistantModuleIntegrationTest extends TestCase
         $service->run(999900, 'ad_copy', 'أول طلب');
         $service->run(999900, 'slogan', 'ثاني طلب');
 
-        $items = (new AIAssistantInteraction())->where(['user_id' => 999900], ['created_at' => 'DESC'], 10);
+        $items = (new AIAssistantInteraction())->where(['user_id' => 999900], ['created_at' => 'DESC', 'id' => 'DESC'], 10); // id كمعيار ثانٍ: الصفّان بيتعملوا في نفس الثانية
 
         $this->assertCount(2, $items);
         $this->assertSame('slogan', $items[0]->getAttribute('type'));

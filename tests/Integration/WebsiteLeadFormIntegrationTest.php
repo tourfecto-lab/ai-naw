@@ -109,6 +109,14 @@ final class WebsiteLeadFormIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة');
         }
+        // اشتراك الموقع مفعّل افتراضيًا: من غير إعداد site_plan_config بيتعرض «الموقع متوقف» وبيعمل exit
+        // ويقتل PHPUnit. كان بيعدّي بس بالصدفة بسبب إعداد باقي في القاعدة من اختبار تاني (اعتماد على الترتيب).
+        try {
+            $pdo->exec("INSERT INTO system_settings (setting_key, setting_value, is_secret, category)
+                        VALUES ('site_plan_config', '{\"enabled\":false}', 0, 'billing')
+                        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        } catch (\Throwable $e) {
+        }
 
         $pdo->exec("INSERT INTO users (id, email, password, company_name, created_at)
                     VALUES (999004, 'lead-form@tourfecto.test', 'x', 'Test', NOW())

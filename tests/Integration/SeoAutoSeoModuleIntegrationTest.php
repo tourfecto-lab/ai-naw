@@ -119,7 +119,7 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن M6 (crawl_pages/rank_tracking_history/report_schedules) لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
             self::$websiteId = createTestWebsite(self::$userId);
             // دومين ثابت للزحف + تفعيل الاتصال لفحص dueWebsites
@@ -184,9 +184,12 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
     private function addTrackedKeyword(string $keyword): int
     {
         $pdo = $this->db();
+        // تتبع الترتيب بقى لكل سوق (SeoMarketService): الكلمة لازم تتربط بسوق الموقع الأساسي
+        $markets = (new SeoMarketService($this->database()))->markets((int) self::$websiteId, (int) self::$userId);
+        $marketId = (int) ($markets[0]['id'] ?? 0);
         $pdo->exec(
-            "INSERT INTO tracked_keywords (user_id, website_id, keyword, current_position, search_volume, difficulty)
-             VALUES (" . (int) self::$userId . ", " . (int) self::$websiteId . ", " . $pdo->quote($keyword) . ", NULL, NULL, NULL)"
+            "INSERT INTO tracked_keywords (user_id, website_id, market_id, keyword, current_position, search_volume, difficulty)
+             VALUES (" . (int) self::$userId . ", " . (int) self::$websiteId . ", " . $marketId . ", " . $pdo->quote($keyword) . ", NULL, NULL, NULL)"
         );
         return (int) $pdo->lastInsertId();
     }
@@ -355,7 +358,8 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         $service = new KeywordResearchService();
         $status = $service->status();
         $this->assertIsBool($status['available']);
-        $this->assertContains($status['source'], ['null', 'http_keyword_research']);
+        // المصدر الافتراضي بقى DataForSEO (بيرجع available=false لو مش مربوط)
+        $this->assertContains($status['source'], ['null', 'http_keyword_research', 'dataforseo']);
     }
 
     public function testKeywordResearchEnrichWithConfiguredSource(): void
@@ -399,8 +403,8 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         $result = $service->checkWebsite($this->database(), self::$websiteId, self::$userId);
         $this->assertTrue($result['available']);
         $this->assertSame(1, $result['checked']);
-        $this->assertSame(1, $result['recorded']);
-        $this->assertSame('integration:fake_seo_serp', $result['source']);
+        $this->assertSame(1, $result['recorded'], json_encode($result, JSON_UNESCAPED_UNICODE));
+        $this->assertSame('fake_seo_serp', $result['source']); // اسم المصدر بدون بادئة integration:
 
         $kw = $this->db()->query(
             "SELECT current_position FROM tracked_keywords WHERE user_id = " . (int) self::$userId
@@ -424,10 +428,11 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         $service = new RankTrackingService(new SeoFakeKeywordRankingSource());
         $service->checkWebsite($this->database(), self::$websiteId, self::$userId);
 
-        // قياس أقدم أدنى ترتيب لإثبات حساب best/trend
+        // قياس أقدم (آخر 30 يوم، لنفس السوق) بترتيب أسوأ: الاتجاه = أول قراءة - آخر قراءة
+        $market = (new SeoMarketService($this->database()))->markets((int) self::$websiteId, (int) self::$userId)[0];
         $this->db()->exec(
-            "INSERT INTO seo_rank_tracking_history (website_id, user_id, keyword, position, url, source, checked_at)
-             VALUES (" . (int) self::$websiteId . ", " . (int) self::$userId . ", 'quad bike rental', 5, NULL, 'manual', '2026-08-01 10:00:00')"
+            "INSERT INTO seo_rank_tracking_history (website_id, user_id, market_id, keyword, position, url, source, checked_at)
+             VALUES (" . (int) self::$websiteId . ", " . (int) self::$userId . ", " . (int) $market['id'] . ", 'quad bike rental', 5, NULL, 'manual', '" . gmdate('Y-m-d H:i:s', strtotime('-3 days')) . "')"
         );
 
         $overview = $service->trackingOverview($this->database(), self::$websiteId, self::$userId);
@@ -435,15 +440,15 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         $this->assertCount(1, $overview['keywords']);
         $kw = $overview['keywords'][0];
         $this->assertSame('quad bike rental', $kw['keyword']);
-        $this->assertSame(1, $kw['best_position']);
-        $this->assertSame(1, $kw['current_position']);
-        $this->assertSame(2, $kw['readings']);
+        $this->assertSame(1, (int) $kw['current_position']);
+        $this->assertCount(2, $kw['trend_30_days']);
+        $this->assertSame(4, $kw['trend']); // من 5 إلى 1 = تحسّن 4 مراكز
 
         $history = $service->history($this->database(), self::$websiteId, self::$userId, 'quad bike rental');
         $this->assertSame('quad bike rental', $history['keyword']);
         $this->assertCount(2, $history['points']);
-        $this->assertSame(5, $history['points'][0]['position']);
-        $this->assertSame(1, $history['points'][1]['position']);
+        $this->assertSame(5, (int) $history['points'][0]['position']);
+        $this->assertSame(1, (int) $history['points'][1]['position']);
     }
 
     public function testRankTrackingDueWebsites(): void
@@ -577,13 +582,15 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         $this->assertSame('daily', $updated['schedule']['frequency']);
         $this->assertSame('new@example.com', $updated['schedule']['recipient_email']);
 
-        // عزل تينانت: جدول مستخدم تاني مش محذوف بمحاولة الحذف الخاطئة
+        // عزل تينانت: الخدمة بتتحقق إن الموقع بتاع المستخدم (SELECT ... WHERE id=? AND user_id=?)،
+        // فجدولة على موقع مش بتاعه (أو مش موجود) بتتّرفض بدل ما تتسجّل
         $other = $service->saveSchedule(999999999, $uid, ['frequency' => 'daily', 'recipient_email' => 'other@example.com']);
-        $this->assertTrue($other['success']);
+        $this->assertFalse($other['success']);
+        $this->assertNull($other['schedule']);
 
         $this->assertTrue($service->deleteSchedule($wid, $uid, $id));
         $this->assertFalse($service->deleteSchedule($wid, $uid, $id));
-        $this->assertFalse($service->deleteSchedule($wid, $uid, (int) $other['schedule']['id']));
+        $this->assertFalse($service->deleteSchedule($wid, $uid, 999999999));
     }
 
     public function testScheduleDueSelection(): void

@@ -27,9 +27,8 @@ social publishing, ads, creative studio, CRM, bookings/payments, reputation (Goo
   `tests/bootstrap.php` applies every `database/migrations/20*.sql` in order (statement by statement, only against
   `tourfecto_test`; `TOURFECTO_TEST_MIGRATION_MODE=legacy` restores `schema.sql` + a manual list). `php tools/migration_report.php`
   lists the failing migration statements; see `docs/ops/MIGRATION_CHAIN_GAPS_AR.md`. Tests run in random order; use `--order-by=random --random-order-seed=N` when comparing runs.
-  Baseline (2026-10-28, seed 1793197154): 1147 tests, 42-44 failing (CI 42, local MariaDB 10.4: 44): 9 Outreach discovery tests that need a rewrite for the
-  DataForSEO link-gap flow, 5 SEO rank-tracking/schedule, 2 email delivery webhooks, 2 Marketing Assistant, and a few single cases.
-  CI fails if the number exceeds `MAX_KNOWN_FAILURES` in ci.yml; lower it as tests get fixed.
+  Status (2026-10-28): all 1151 tests pass on 5 different random seeds (local MariaDB 10.4 and CI MariaDB 10.11). CI fails on any failing test
+  (`MAX_KNOWN_FAILURES: '0'` in ci.yml). PHPUnit also prints 32 warnings: 16 legacy script-style classes in tests/Unit and tests/Integration that do not extend TestCase.
 
 ## Rules for changes
 - Deployment to the live server is manual (upload). Never change live config, secrets, or the production DB from here.

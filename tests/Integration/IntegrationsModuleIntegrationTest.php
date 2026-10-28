@@ -364,6 +364,17 @@ final class IntegrationsModuleIntegrationTest extends TestCase
         $this->assertFalse($result['success']);
     }
 
+    public function testOneSignalSendNotificationWithoutAudienceIsRejected(): void
+    {
+        $transport = new IntegrationsTransportFake([
+            ['http_code' => 200, 'body' => json_encode(['id' => 'x']), 'error' => null],
+        ]);
+        $result = (new OneSignalService($transport))->sendNotification(['contents' => ['en' => 'Hi']]);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame([], $transport->calls, 'من غير جمهور محدد ممنوع يوصل أي طلب لـ OneSignal');
+    }
+
     public function testOneSignalSendNotificationBasicAuth(): void
     {
         $transport = new IntegrationsTransportFake([
@@ -371,12 +382,14 @@ final class IntegrationsModuleIntegrationTest extends TestCase
         ]);
         $onesignal = new OneSignalService($transport);
 
-        $result = $onesignal->sendNotification(['contents' => ['en' => 'Hi']]);
+        // لازم يتحدد الجمهور صراحة (كان بيبعت لكل المشتركين لو مفيش جمهور)
+        $result = $onesignal->sendNotification(['contents' => ['en' => 'Hi'], 'included_segments' => ['Subscribed Users']]);
         $this->assertTrue($result['success']);
         $this->assertSame('notif-1', $result['data']['id']);
 
         $call = $transport->calls[0];
-        $this->assertStringContainsString('onesignal.com/api/v1/notifications', $call['url']);
+        // الـ API الجديد: https://api.onesignal.com/notifications؛ والمفتاح os_v2_ بيتبعت بـ «Key » والقديم بـ «Basic »
+        $this->assertStringContainsString('api.onesignal.com/notifications', $call['url']);
         $this->assertContains('Authorization: Basic os-key', $call['headers']);
         $payload = json_decode((string) $call['body'], true);
         $this->assertSame('os-app', $payload['app_id']);

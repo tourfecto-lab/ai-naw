@@ -42,6 +42,12 @@ class FakeMetaAdsAPIForCapiTest extends MetaAdsAPI
     {
     }
 
+    /** البيكسل بقى بيتاخد من حساب إعلانات العميل نفسه (مش متغيّر بيئة على مستوى المنصة) */
+    public function listPixels(string $adAccountId): array
+    {
+        return [['id' => '12345678']];
+    }
+
     public function sendConversionEvent(string $pixelId, array $conversion): array
     {
         $this->lastEvent = ['pixel_id' => $pixelId, 'conversion' => $conversion];
@@ -168,9 +174,10 @@ final class BookingAdAttributionCapiIntegrationTest extends TestCase
     private function addPlatformConnection(int $userId, string $platform = 'meta_ads'): int
     {
         $pdo = $this->db();
+        // التوكن بيتفك بـ Encryption الحقيقي في SendAdConversionJob، فلازم يتخزّن مشفّر فعلًا (مش نص 'enc:...')
         $stmt = $pdo->prepare("INSERT INTO platform_connections (user_id, platform, status, access_token, external_account_id)
-                               VALUES (?, ?, 'connected', 'enc:test-token', 'ext-account-1')");
-        $stmt->execute([$userId, $platform]);
+                               VALUES (?, ?, 'connected', ?, 'ext-account-1')");
+        $stmt->execute([$userId, $platform, (new Encryption())->encrypt('test-token')]);
         return (int) $pdo->lastInsertId();
     }
 
@@ -522,7 +529,8 @@ final class BookingAdAttributionCapiIntegrationTest extends TestCase
         $this->assertNotNull($job->api, 'الـ job لازم يستدعي API المنصة');
         $event = $job->api->lastEvent;
         $this->assertNotNull($event);
-        $this->assertSame('PIXEL_TEST', $event['pixel_id']);
+        // البيكسل من حساب إعلانات صاحب الحملة (listPixels)، مش META_CAPI_PIXEL_ID العام
+        $this->assertSame('12345678', $event['pixel_id']);
         $this->assertSame((string) $booking['booking_reference'], $event['conversion']['event_id']);
         $this->assertSame(AdPiiHasher::hashEmail('customer@example.com'), $event['conversion']['email_hash']);
         $this->assertSame(AdPiiHasher::hashPhone('+966500000001'), $event['conversion']['phone_hash']);

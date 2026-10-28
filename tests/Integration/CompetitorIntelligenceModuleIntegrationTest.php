@@ -90,7 +90,7 @@ final class CompetitorIntelligenceModuleIntegrationTest extends TestCase
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن M5 (keyword_rankings/product_prices/battlecards) لسه ما اتشغّلش');
         }
-        if (self::$userId === 0) {
+        if (!testUserExists((int) self::$userId)) {
             self::$userId = createTestUser();
             self::$websiteId = createTestWebsite(self::$userId);
         }
