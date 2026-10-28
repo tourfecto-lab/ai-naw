@@ -77,18 +77,23 @@ jobs:
           tools: composer:v2
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - name: Migration chain report (informational)
-        continue-on-error: true
+      - name: Migration chain report (fails if failing statements grow beyond the ratchet)
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: '3306'
           DB_NAME: tourfecto_test
           DB_USER: root
           DB_PASS: ''
+          # عدد جمل الهجرات الفاشلة المعروفة على MariaDB 10.11 (docs/ops/MIGRATION_CHAIN_GAPS_AR.md). نزّله كل ما فجوة تتقفل.
+          MAX_MIGRATION_FAILURES: '62'
         run: |
-          php tools/migration_report.php | head -220
+          php tools/migration_report.php --json > migration_report.json || true
+          count=$(php -r '$d=json_decode(file_get_contents("migration_report.json"),true); echo count($d["failures"] ?? [1]);')
+          files=$(php -r '$d=json_decode(file_get_contents("migration_report.json"),true); echo $d["files"] ?? 0;')
+          echo "migration files: $files, failing statements: $count (max $MAX_MIGRATION_FAILURES)"
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) AS tables_built FROM information_schema.tables WHERE table_schema='tourfecto_test'"
           mysql -h 127.0.0.1 -uroot -e "DROP DATABASE tourfecto_test; CREATE DATABASE tourfecto_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          [ "$files" -gt 200 ] && [ "$count" -le "$MAX_MIGRATION_FAILURES" ]
       - name: PHPUnit (fails if known failures grow beyond the ratchet)
         env:
           DB_HOST: 127.0.0.1
