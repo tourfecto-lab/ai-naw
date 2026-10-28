@@ -79,6 +79,16 @@ class WhatsAppCloudAPI
         return WhatsAppMarketingService::phone($phone);
     }
 
+    /** Preserve provider IDs; normalize phone recipients before text delivery. */
+    public static function recipientForText(string $recipient): string
+    {
+        $recipient = trim($recipient);
+        if (preg_match('/^[A-Z]{2}\\.(?:ENT\\.)?[A-Za-z0-9._-]{8,128}$/D', $recipient)) {
+            return $recipient;
+        }
+        return self::normalizePhone($recipient);
+    }
+
     /** قيم القالب: Meta بترفض السطر الجديد والتاب و4 مسافات ورا بعض جوه المتغير، وبترفض المتغير الفاضي */
     public static function cleanParam(string $v): string
     {
