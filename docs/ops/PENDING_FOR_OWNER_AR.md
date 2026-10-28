@@ -31,7 +31,7 @@
 | `AdsController` (Meta Ads) | يستدعي `App\Core\Database` (كلاس غير موجود) في فرع واحد | يُصلح بعد رد مراجعة Meta |
 | `WhatsAppCloudAPI` مكرر | نسختان (`Services/Chat` الأحدث، `Services/WhatsApp` الأقدم) | حذف الأقدم بعد رد مراجعة Meta |
 | `ReviewAutoReplyRunner::sendReply` | يقرأ `$validator` قبل تعريفه (شيفرة ميتة، لا أثر) | تنظيفه عند ملامسة الفوترة |
-| 16 ملف اختبار قديم | لا ترث `TestCase` فلا تُنفَّذ (32 تحذيرًا) | تحويلها لاختبارات PHPUnit أو حذفها |
+| 14 ملف اختبار قديم بمشغّل خاص | لا ترث `TestCase` وعند تشغيلها فعليًا **تفشل كلها** (الكود تغيّر منذ كُتبت). السليمان (`SsrfGuardTest` و`CiPermissionsTest`) يعملان الآن عبر `tests/Integration/LegacyScriptSuiteTest.php` | إعادة كتابة الـ14 (حوالي 6000 سطر) أو حذفها (تبقى 32 تحذيرًا من PHPUnit حتى ذلك) |
 
 ## 5) مؤجّل عمدًا حتى تنتهي مراجعتا Meta وGoogle
 منع تكرار ويب-هوك Meta (`MetaWebhookController::isNew` يسجّل قبل المعالجة فتضيع الرسالة إن فشلت)، و`MediaPreflight` (تثبيت IP وIPv6)،
