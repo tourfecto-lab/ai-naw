@@ -122,7 +122,7 @@ class FollowUpAutomationService
             $step = $steps[$alreadySent];
             // الساعات ممكن تكون كسور (0.5 = نص ساعة) - كانت بتتقرّب لصفر
             $afterHours = max(0.25, (float) ($step['after_hours'] ?? 24));
-            $lastCustomerAt = strtotime((string) $row['last_customer_message_at']);
+            $lastCustomerAt = $this->dbTimestamp((string) $row['last_customer_message_at']);
             $dueAt = $lastCustomerAt + (int) round($afterHours * 3600);
 
             // 🔧 ماسنجر وإنستجرام: Meta بترفض أي رسالة تلقائية بعد 24 ساعة من آخر رسالة للعميل.
@@ -156,7 +156,7 @@ class FollowUpAutomationService
                 'conversation_id' => $conversationId,
                 'lead_id' => !empty($lead) ? $lead[0]->getAttribute('id') : null,
                 'followup_number' => $alreadySent + 1,
-                'scheduled_at' => date('Y-m-d H:i:s', $dueAt),
+                'scheduled_at' => gmdate('Y-m-d H:i:s', $dueAt),
                 'status' => 'pending',
                 'template_used' => $step['template'] ?? null,
             ]);
@@ -164,6 +164,25 @@ class FollowUpAutomationService
             if ($followup->save() !== false) {
                 $stats['scheduled']++;
             }
+        }
+    }
+
+    /**
+     * أوقات قاعدة البيانات مخزّنة بـ UTC (جلسة الاتصال بتضبط time_zone = +00:00)، لكن
+     * strtotime()/date() بيستخدموا APP_TIMEZONE. لو APP_TIMEZONE مش UTC كانت حسابات
+     * الاستحقاق ونافذة 24 ساعة بتتزحزح بفرق التوقيت. هنا بنفسّر القيمة كـ UTC صراحةً.
+     *
+     * @return int|false
+     */
+    private function dbTimestamp(string $value)
+    {
+        if (trim($value) === '') {
+            return false;
+        }
+        try {
+            return (new DateTimeImmutable($value, new DateTimeZone('UTC')))->getTimestamp();
+        } catch (Exception $e) {
+            return false;
         }
     }
 
@@ -213,7 +232,7 @@ class FollowUpAutomationService
                 $nextOpen = BusinessHoursService::nextOpenTime(time(), $schedule);
                 $this->db->query(
                     "UPDATE ai_followups SET scheduled_at = ? WHERE id = ?",
-                    [date('Y-m-d H:i:s', $nextOpen), $followupId]
+                    [gmdate('Y-m-d H:i:s', $nextOpen), $followupId]
                 );
                 continue;
             }
@@ -228,7 +247,7 @@ class FollowUpAutomationService
             // ماسنجر/إنستجرام: لو الشباك (24 ساعة من آخر رسالة للعميل) قفل قبل الإرسال، Meta هترفض - نلغي بدل ما تفشل
             if (in_array((string) $row['channel'], self::META_CHANNELS, true)) {
                 $lastAt = $this->db->query('SELECT last_customer_message_at FROM ai_conversations WHERE id = ?', [$conversationId]);
-                $last = strtotime((string) ($lastAt[0]['last_customer_message_at'] ?? ''));
+                $last = $this->dbTimestamp((string) ($lastAt[0]['last_customer_message_at'] ?? ''));
                 if (!$last || time() > $last + 24 * 3600 - 60) {
                     $this->cancelFollowUp($followupId, 'meta_24h_window');
                     $stats['cancelled']++;
@@ -263,7 +282,7 @@ class FollowUpAutomationService
                 );
 
                 $this->inbox->addTags($conversationId, ['FOLLOW_UP']);
-                $this->inbox->updateConversation($conversationId, ['last_message_at' => date('Y-m-d H:i:s')]);
+                $this->inbox->updateConversation($conversationId, ['last_message_at' => gmdate('Y-m-d H:i:s')]);
                 $stats['sent']++;
 
                 try {
