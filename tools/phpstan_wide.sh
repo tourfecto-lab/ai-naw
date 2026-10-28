@@ -19,7 +19,7 @@ for d in app/Services/*/; do
   chunks+=("$d")
 done
 # 2) ملفات Services المباشرة جزء واحد
-chunks+=("$(ls app/Services/*.php | tr '\n' ' ')")
+chunks+=("$(ls app/Services/*.php)")
 # 3) Controllers على دفعات من $CHUNK ملف
 mapfile -t ctl < <(ls app/Controllers/*.php)
 for ((i=0; i<${#ctl[@]}; i+=CHUNK)); do chunks+=("$(printf '%s

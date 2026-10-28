@@ -12,6 +12,15 @@
 - **crontab:** حُذفت النسخة `app/cron/process_email_automations.php` (مطابقة حرفيًا لـ `cron/process_email_automations.php`). إن كان أمر cron على السيرفر يشير إلى `app/cron/...` فأبقِ هذا الملف على السيرفر أو غيّر المسار إلى `cron/`.
 - جرّب بعد النشر من لوحة العميل: حفظ إعدادات SMTP webhook وSite Connect (نمط CSRF صار مثبَّتًا في بداية المسار).
 
+## 1.5) ملفات التشغيل التي تغيّرت (للرفع عند النشر، بعد رد المراجعتين)
+11 ملف PHP + هجرة اختيارية (التفاصيل في `git log`، والباقي اختبارات/توثيق/أدوات لا تُرفع):
+`app/Controllers/{AdminEmailReputationController, AiVisibilityController, ChatController, MetaWebhookController, WhatsAppCloudController}.php` ·
+`app/Security/RequestOriginGuard.php` · `app/Services/AI/{FollowUpAutomationService, OpenAIImageClient}.php` ·
+`app/Services/Payment/CurrencyService.php` · `app/Services/Seo/SeoProxyService.php` · `app/Services/Subscription/TrialPlanService.php`
+(الأخيران من `OpenAIImageClient` و`CurrencyService` تعديل توثيق فقط). الهجرة `2026_10_28_000001_activity_logs_unified_columns.sql` تُشغَّل يدويًا بقرارك.
+**ملاحظة Meta/واتساب:** `MetaWebhookController` و`WhatsAppCloudController` و`ChatController` ضمن هذه الملفات (تعديل: فشل صريح عند غياب المفتاح،
+و`/api/chat/webhook` القديم يرد 410). ارفعها **بعد** رد مراجعة Meta فقط.
+
 ## 2) أمان (عليك أنت)
 1. **ملف جلسة مسرّب في تاريخ GitHub** (`public_html/storage/sessions/sess_56afu…`): غيّر كلمة مرور المستخدم صاحب الجلسة وأعد توليد `api_token`.
    تنظيف التاريخ بـ `git filter-repo` ثم `force push` **لم يُنفَّذ** لأنه يعيد كتابة التاريخ كله ويحتاج موافقتك الصريحة.
