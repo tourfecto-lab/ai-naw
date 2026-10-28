@@ -251,6 +251,16 @@ function applyTestMigrations(): void
     $db = Database::getInstance();
 
     $migrations = [
+        // هجرات تمهيدية: بتنشئ الجداول الأساسية (crm_deals/crm_leads/ai_knowledge_base/
+        // ai_articles/ad_campaigns/media_items/tracked_keywords) اللي باقي الهجرات
+        // تحتها بتعمل عليها مفاتيح أجنبية. من غيرها 17 هجرة كانت بتتخطى على قاعدة نضيفة.
+        '2026_08_08_000001_create_crm_core_tables.sql',
+        '2026_08_08_000001_create_ai_chat_platform_tables.sql',
+        '2026_07_13_000002_create_ai_articles_table.sql',
+        '2026_01_01_000002b_create_missing_base_tables.sql',
+        '2026_08_15_000070_create_missing_base_tables.sql',
+        '2026_08_20_000002_phase2_indexing_ab.sql',
+        '2026_07_14_000007b_merge_modules_unified_schema.sql',
         '2026_08_08_000009_create_crm_products_and_deal_items_tables.sql',
         '2026_08_25_000001_add_website_binding_to_crm_products.sql',
         '2026_08_21_000001_create_booking_engine_tables.sql',
@@ -310,6 +320,14 @@ function applyTestMigrations(): void
         // بند 2 (2026-09-01): Double Opt-In — حالة pending_optin في الـ ENUM
         // + عمود optin_token في email_subscribers.
         '2026_09_01_000002_email_double_optin.sql',
+        // هجرات أحدث بتضيف أعمدة/جداول الكود الحالي بيعتمد عليها (inventory_units،
+        // brand_name، generation_stage، seo_reports، competitor_keywords، scheduled_at).
+        '2026_08_07_000041_add_article_scheduling.sql',
+        '2026_08_20_000003_seo_phase23.sql',
+        '2026_08_21_000004_create_competitor_keywords.sql',
+        '2026_10_10_000002_brand_studio.sql',
+        '2026_10_10_000003_operations_upgrade.sql',
+        '2026_10_10_000004_creative_studio_pro.sql',
     ];
 
     // إصلاح انحرافات السكيما المحلية: schema.sql القديمة بتحتوي أسماء
@@ -352,6 +370,9 @@ function applyTestMigrations(): void
         }
         try {
             $sql = file_get_contents($path);
+            // أسطر التعليقات (--) ممكن تحتوي ';' فالتقسيم بيقطع الجملة في النص
+            // (SQL syntax error 1064)؛ نشيلها قبل التقسيم.
+            $sql = preg_replace('/^\s*--.*$/m', '', $sql);
             $queries = explode(';', $sql);
             foreach ($queries as $query) {
                 $query = trim($query);
@@ -363,6 +384,15 @@ function applyTestMigrations(): void
         } catch (Exception $e) {
             echo "⚠️ Migration {$file} skipped: " . $e->getMessage() . "\n";
         }
+    }
+
+    // الهجرة 2026_07_14_000007b بتعمل MODIFY لعمود users.role وبتشيل القيمة 'user'
+    // (رغم إن تعليقها بيقول إنها غير مدمّرة)، وده بيخلّي تحميل الـ fixtures يفشل
+    // بـ "Data truncated for column 'role'". بنرجّع القيمة هنا في قاعدة الاختبار بس.
+    try {
+        $db->query("ALTER TABLE users MODIFY COLUMN role ENUM('super_admin','admin','manager','agent','user','agency_owner','client') NOT NULL DEFAULT 'user'");
+    } catch (Exception $e) {
+        echo "⚠️ users.role enum restore skipped: " . $e->getMessage() . "\n";
     }
 
     echo "✅ Test migrations applied successfully\n";

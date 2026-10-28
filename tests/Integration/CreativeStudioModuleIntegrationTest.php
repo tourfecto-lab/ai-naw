@@ -66,7 +66,7 @@ final class CreativeStudioFakeGemini extends GeminiClient
         $this->contentResult = $r;
     }
 
-    public function generateImage(string $prompt, string $aspectRatio = '1:1'): array
+    public function generateImage(string $prompt, string $aspectRatio = '1:1', array $meta = []): array
     {
         $this->calls[] = ['method' => 'generateImage', 'prompt' => $prompt, 'aspect_ratio' => $aspectRatio];
         return $this->imageResult;
@@ -96,7 +96,7 @@ final class CreativeStudioFakeVeo extends VeoClient
         $this->downloadResult = $downloadResult;
     }
 
-    public function startGeneration(string $prompt, string $aspectRatio = '16:9', int $durationSeconds = 8): array
+    public function startGeneration(string $prompt, string $aspectRatio = '16:9', int $durationSeconds = 8, array $settings = []): array
     {
         $this->calls[] = ['method' => 'startGeneration', 'prompt' => $prompt, 'aspect_ratio' => $aspectRatio, 'duration' => $durationSeconds];
         return $this->startResult;
