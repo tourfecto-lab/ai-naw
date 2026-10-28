@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: Lint + static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: gd, mbstring, pdo_mysql, curl, openssl, zip, intl
+          tools: composer:v2
+          coverage: none
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHP syntax check (all tracked PHP files)
+        run: |
+          errors=$(git ls-files '*.php' | grep -v '^vendor/' | xargs -P4 -n40 php -l 2>&1 | grep -v '^No syntax errors' || true)
+          if [ -n "$errors" ]; then echo "$errors"; exit 1; fi
+      - name: PHPStan (level 1, baseline)
+        env:
+          DB_HOST: 127.0.0.1
+          DB_NAME: tourfecto_test
+          DB_USER: root
+          DB_PASS: ''
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=2G
+
+  tests:
+    name: PHPUnit (informational)
+    runs-on: ubuntu-latest
+    # الاختبارات لسه فيها فشل معروف (~108 اختبار ميتشخّصوش بالكامل). بنشغّلها ونعرض النتيجة
+    # من غير ما نفشّل الـ CI؛ شيل continue-on-error لما العدد يوصل صفر.
+    continue-on-error: true
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: tourfecto_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1" --health-interval=5s
+          --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: gd, mbstring, pdo_mysql, curl, openssl, zip, intl
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: PHPUnit
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_NAME: tourfecto_test
+          DB_USER: root
+          DB_PASS: ''
+        run: vendor/bin/phpunit --configuration tests/phpunit.xml

@@ -1,0 +1,43 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Variable \$appPassword might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Jobs/PublishScheduledArticleJob.php
+
+		-
+			message: '#^Variable \$siteUrl might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Jobs/PublishScheduledArticleJob.php
+
+		-
+			message: '#^Variable \$username might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Jobs/PublishScheduledArticleJob.php
+
+		-
+			message: '#^Constant ROOT_PATH not found\.$#'
+			identifier: constant.notFound
+			count: 2
+			path: app/Jobs/PublishSocialPostJob.php
+
+		-
+			message: '#^Variable \$platform on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Jobs/PublishSocialPostJob.php
+
+		-
+			message: '#^Variable \$post on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Jobs/PublishSocialPostJob.php
+
+		-
+			message: '#^Variable \$size in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.variable
+			count: 1
+			path: app/Jobs/RenderStoryboardJob.php

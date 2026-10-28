@@ -5,17 +5,17 @@
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.3/phpunit.xsd"
-         bootstrap="bootstrap.php"
+         bootstrap="tests/bootstrap.php"
          colors="true"
          verbose="true"
          stopOnFailure="false">
     
     <testsuites>
         <testsuite name="Unit">
-            <directory>Unit</directory>
+            <directory>tests/Unit</directory>
         </testsuite>
         <testsuite name="Integration">
-            <directory>Integration</directory>
+            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
     
@@ -28,12 +28,12 @@
     
     <coverage>
         <include>
-            <directory suffix=".php">../app</directory>
+            <directory suffix=".php">app</directory>
         </include>
         <exclude>
-            <directory>../app/Config</directory>
-            <directory>../app/Exceptions</directory>
-            <directory>../app/Helpers</directory>
+            <directory>app/Config</directory>
+            <directory>app/Exceptions</directory>
+            <directory>app/Helpers</directory>
         </exclude>
     </coverage>
 </phpunit>

@@ -1,3 +1,6 @@
+includes:
+    - phpstan-baseline.neon
+
 parameters:
     level: 1
     paths:
@@ -5,8 +8,14 @@ parameters:
         - app/Middleware
         - app/Security
         - app/Exceptions
+        - app/Models
+        - app/Jobs
+        - app/Repositories
+        - app/Integrations
     tmpDir: storage/phpstan
     bootstrapFiles:
         - phpstan-bootstrap.php
     parallel:
         maximumNumberOfProcesses: 2
+    # app/Controllers و app/Services مش موجودين هنا لسه: فيهم ملفات ضخمة (AdsController ~330KB)
+    # بتخلّص ذاكرة PHPStan حتى مع 2G-4G. التوسّع فيهم محتاج تقسيم الملفات الكبيرة الأول.
