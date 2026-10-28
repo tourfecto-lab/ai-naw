@@ -15,7 +15,7 @@ final class SeoServiceReadiness
         $checks=[];$add=static function($id,$state,$ar,$en,$hint,$page,$required=false,$extra=[])use(&$checks,$wid){$checks[]=array_merge(['id'=>$id,'state'=>$state,'label_ar'=>$ar,'label_en'=>$en,'hint'=>$hint,'href'=>str_replace('{site}',(string)$wid,$page),'required'=>$required],$extra);};
         $prerequisites=['pay_per_use_pricing','billing_usage_reservations','service_usage_reservations','external_execution_attempts'];
         $add('platform',array_diff($prerequisites,$this->tables)?'blocked':'recorded','تجهيزات المنصة','Platform setup','فيه تجهيز ناقص من ناحيتنا. فريق الدعم هيتابعه، ومش مطلوب منك أي حاجة على موقعك.','/seo-expert?website_id={site}&page=settings',true);
-        $profile=null;try{$profile=(new BusinessHubService($this->db))->profile($uid,$wid);}catch(Throwable $e){}
+        $profile=null;try{$profile=(new BusinessHubService($this->db))->profile($uid,$wid);}catch(Throwable $e){error_log('[SeoServiceReadiness] profile failed: '.$e->getMessage());}
         $confirmed=$profile&&!empty($profile['confirmed_at'])&&empty($profile['needs_reconfirmation']);
         $add('facts',$confirmed?'recorded':'action','بيانات نشاط مؤكدة','Confirmed business facts','أكد خدماتك وعروضك وجمهورك. المنصة مابتنشرش أي معلومة عن شركتك من غير ما تأكدها.','/business-hub?website_id={site}',true);
         $config=$this->has('seo_expert_sites')?($this->rows('SELECT brief_json,policy_json,status FROM seo_expert_sites WHERE website_id=? AND user_id=?',[$wid,$uid])[0]??null):null;

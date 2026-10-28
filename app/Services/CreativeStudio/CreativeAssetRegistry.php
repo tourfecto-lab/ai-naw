@@ -68,7 +68,7 @@ class CreativeAssetRegistry
             $item=new MediaItem(['user_id'=>$userId,'type'=>'marketing_image','prompt'=>mb_substr($title,0,500),'aspect_ratio'=>self::closestRatio($image['width'],$image['height']),'status'=>'completed','generation_stage'=>'completed','usage_charged'=>1,'width'=>$image['width'],'height'=>$image['height'],'generation_meta'=>json_encode($meta,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
             GenerationLifecycle::save($item);$id=(int)$item->getAttribute('id');
             $path=GeneratedMediaFiles::write($id,$image['data'],$image['extension']);
-            $thumb=null;try{$thumb=GeneratedMediaFiles::thumbnail($path,$id);}catch(Throwable $e){}
+            $thumb=null;try{$thumb=GeneratedMediaFiles::thumbnail($path,$id);}catch(Throwable $e){error_log('[CreativeAssetRegistry] thumbnail failed: '.$e->getMessage());}
             $item->setAttribute('file_path',$path);$item->setAttribute('thumbnail_path',$thumb?:$path);GenerationLifecycle::save($item);
             return $id;
         }catch(Throwable $e){

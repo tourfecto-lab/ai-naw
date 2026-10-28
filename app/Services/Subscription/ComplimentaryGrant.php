@@ -73,12 +73,12 @@ final class ComplimentaryGrant
             $pdo->prepare("UPDATE subscriptions SET status = 'cancelled' WHERE id = ?")->execute([$id]);
             throw new RuntimeException('تعذر تفعيل المنحة');
         }
-        try { $pdo->prepare('UPDATE subscriptions SET payment_gateway = ? WHERE id = ?')->execute([self::GATEWAY, $id]); } catch (Throwable $e) {}
+        try { $pdo->prepare('UPDATE subscriptions SET payment_gateway = ? WHERE id = ?')->execute([self::GATEWAY, $id]); } catch (Throwable $e) { error_log('[ComplimentaryGrant] gateway tag failed: ' . $e->getMessage()); }
         if (class_exists('ActivityLog')) {
             ActivityLog::record('subscription', 'subscription.admin_grant', ['user_id' => $uid, 'subject_type' => 'subscriptions', 'subject_id' => $id, 'meta' => ['plan' => $planKey, 'days' => $days, 'by_admin' => $adminId]]);
         }
         if (class_exists('Notification')) {
-            try { Notification::notify($uid, 'subscription_granted', '🎁 اتفعّلتلك باقة مجانية', 'فريق Tourfecto فعّلك كل خدمات الباقة لحد ' . substr($end, 0, 10) . ' من غير أي دفع.', '/subscription'); } catch (Throwable $e) {}
+            try { Notification::notify($uid, 'subscription_granted', '🎁 اتفعّلتلك باقة مجانية', 'فريق Tourfecto فعّلك كل خدمات الباقة لحد ' . substr($end, 0, 10) . ' من غير أي دفع.', '/subscription'); } catch (Throwable $e) { error_log('[ComplimentaryGrant] notify failed: ' . $e->getMessage()); }
         }
         return ['subscription_id' => $id, 'plan' => $planKey, 'ends_at' => $end, 'days' => $days];
     }

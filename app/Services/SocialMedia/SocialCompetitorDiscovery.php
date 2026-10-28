@@ -171,7 +171,7 @@ final class SocialCompetitorDiscovery
         $pages = $this->db->query('SELECT domain, name, facebook_url, instagram_username, tracked, track_error FROM social_competitor_pages WHERE user_id = ? ORDER BY (instagram_username IS NOT NULL) DESC, (facebook_url IS NOT NULL) DESC, domain', [$owner]);
         $ig = ['competitors' => [], 'me' => null, 'insights' => []];
         if (class_exists('SocialCompetitors')) {
-            try { $ig = (new SocialCompetitors($this->db))->list($owner); } catch (Throwable $e) {}
+            try { $ig = (new SocialCompetitors($this->db))->list($owner); } catch (Throwable $e) { error_log('[SocialCompetitorDiscovery] competitors list failed: ' . $e->getMessage()); }
         }
         $byUser = [];
         foreach ((array) ($ig['competitors'] ?? []) as $c) $byUser[strtolower((string) $c['username'])] = $c;

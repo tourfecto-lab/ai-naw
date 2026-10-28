@@ -109,7 +109,7 @@ final class SocialAutopilotService
                 $out['failed']++;
                 $msg = mb_substr(CustomerError::message($e->getMessage(), 422), 0, 480);
                 $this->q("UPDATE social_autopilot_settings SET last_month_key=?,last_status='failed',last_error=?,last_run_at=UTC_TIMESTAMP() WHERE website_id=?", [$month, $msg, $wid]);
-                try { Notification::notify($uid, 'social_autopilot_failed', 'Next month social plan was not prepared', $msg, '/social'); } catch (Throwable $ignored) {}
+                try { Notification::notify($uid, 'social_autopilot_failed', 'Next month social plan was not prepared', $msg, '/social'); } catch (Throwable $ignored) { error_log('[SocialAutopilot] notify failed: ' . $ignored->getMessage()); }
                 Logger::warning('Social autopilot did not prepare a plan', ['website_id' => $wid, 'error' => $e->getMessage()]);
             }
         }
@@ -220,7 +220,7 @@ final class SocialAutopilotService
             // التوليد فشل (والحجز اترجّع): نسجّل السبب ونعيد بكرة بخطة جديدة
             $msg = mb_substr((string) ($d['plan']['error_message'] ?? 'The monthly plan could not be generated.'), 0, 480);
             $this->q("UPDATE social_autopilot_settings SET last_status='failed',last_plan_id=NULL,last_error=?,last_run_at=UTC_TIMESTAMP() WHERE website_id=?", [$msg, (int) $s['website_id']]);
-            try { Notification::notify($uid, 'social_autopilot_failed', 'Next month social plan was not prepared', $msg . ' We will retry tomorrow.', '/social'); } catch (Throwable $ignored) {}
+            try { Notification::notify($uid, 'social_autopilot_failed', 'Next month social plan was not prepared', $msg . ' We will retry tomorrow.', '/social'); } catch (Throwable $ignored) { error_log('[SocialAutopilot] notify failed: ' . $ignored->getMessage()); }
             return 'failed';
         }
         if ($status !== 'draft') {
@@ -230,11 +230,11 @@ final class SocialAutopilotService
         if ((int) $s['auto_approve'] === 1 && self::planAllowsAutopilot($uid)) {
             $this->plans->approve($uid, (int) $d['plan']['id'], (int) $d['plan']['version']);
             $this->q("UPDATE social_autopilot_settings SET last_status='approved' WHERE website_id=?", [(int) $s['website_id']]);
-            try { Notification::notify($uid, 'social_autopilot_scheduled', 'Next month social plan is scheduled', 'Your posts for ' . $d['plan']['month_key'] . ' were prepared from your bookings and active trips and are scheduled. You can pause or edit them anytime.', '/social'); } catch (Throwable $ignored) {}
+            try { Notification::notify($uid, 'social_autopilot_scheduled', 'Next month social plan is scheduled', 'Your posts for ' . $d['plan']['month_key'] . ' were prepared from your bookings and active trips and are scheduled. You can pause or edit them anytime.', '/social'); } catch (Throwable $ignored) { error_log('[SocialAutopilot] notify failed: ' . $ignored->getMessage()); }
             return 'approved';
         }
         $this->q("UPDATE social_autopilot_settings SET last_status='waiting_review' WHERE website_id=?", [(int) $s['website_id']]);
-        try { Notification::notify($uid, 'social_autopilot_review', 'Next month social plan is ready for review', 'Posts for ' . $d['plan']['month_key'] . ' were prepared from your bookings and active trips. Review and approve to schedule them.', '/social'); } catch (Throwable $ignored) {}
+        try { Notification::notify($uid, 'social_autopilot_review', 'Next month social plan is ready for review', 'Posts for ' . $d['plan']['month_key'] . ' were prepared from your bookings and active trips. Review and approve to schedule them.', '/social'); } catch (Throwable $ignored) { error_log('[SocialAutopilot] notify failed: ' . $ignored->getMessage()); }
         return 'waiting_review';
     }
 

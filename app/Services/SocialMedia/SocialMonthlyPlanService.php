@@ -69,7 +69,7 @@ class SocialMonthlyPlanService
         foreach($media as &$m){$meta=SocialBrandStudio::meta($m);unset($m['generation_meta']);$m['source']=$meta['source']??null;$m['learned']=$meta['vision']['description']??null;$m['place']=$meta['vision']['place']??null;$m['preview_url']=PrivateMedia::valid((string)$m['file_path'])?PrivateMedia::preview((int)$m['id']):(preg_match('#^/uploads/social/'.$uid.'/[a-zA-Z0-9_.-]+\.(jpg|jpeg|png|webp|mp4|mov)$#D',(string)$m['file_path'])?$m['file_path']:null);unset($m['file_path']);$m['prompt']=mb_substr((string)$m['prompt'],0,160);}unset($m);
         $quote=PlanUsage::check($uid,'marketing_tool','marketing_tool','Insufficient credit to generate a monthly plan.');
         $quote['hash']=self::quoteHash($quote);
-        $learned=['photos'=>0,'places'=>[],'kinds'=>[]];try{$learned=$studio->learnedSummary($uid);}catch(Throwable $e){}
+        $learned=['photos'=>0,'places'=>[],'kinds'=>[]];try{$learned=$studio->learnedSummary($uid);}catch(Throwable $e){error_log('[SocialMonthlyPlan] learnedSummary failed: '.$e->getMessage());}
         $month=self::planningMonth();foreach($sites as &$site)$site['growth']=self::growthBrief($this->db,$uid,(int)$site['id'],$month,12);unset($site);
         return ['installed'=>$this->ready(),'websites'=>$sites,'connections'=>$connections,'media'=>$media,'worker'=>self::worker(),'generation_quote'=>$quote,'learned'=>$learned,'designer'=>SocialPostDesigner::available()];
     }
@@ -209,7 +209,7 @@ class SocialMonthlyPlanService
             $brief=json_decode($p['brief_json'],true,512,JSON_THROW_ON_ERROR);$wid=(int)$p['website_id'];$count=(int)$brief['post_count'];(new BusinessHubService($this->db))->assertRevision($uid,$wid,$brief);
             $connections=$this->connections($uid,$wid,$brief['connection_ids']);
             // الذكاء الصناعي يشوف صور العميل اللي لسه ماشافهاش قبل ما يختار صورة لكل بوست
-            $studio=new SocialBrandStudio($this->pdo);try{$studio->learnMissing($uid,$brief['media_ids'],12);}catch(Throwable $e){}
+            $studio=new SocialBrandStudio($this->pdo);try{$studio->learnMissing($uid,$brief['media_ids'],12);}catch(Throwable $e){error_log('[SocialMonthlyPlan] learnMissing failed: '.$e->getMessage());}
             $assets=$this->assets($uid,$brief['media_ids']);
             $slots=self::slotsFor($brief,$count,$brief['publish_time']==='smart'?SocialBestTimes::preferences($uid,$brief['timezone']):null);
             $this->q("UPDATE social_monthly_plans SET status='generating',updated_at=UTC_TIMESTAMP() WHERE id=? AND status='queued'",[$planId]);
@@ -249,10 +249,10 @@ class SocialMonthlyPlanService
         $p=$this->q('SELECT * FROM social_monthly_plans WHERE id=? AND user_id=?',[$planId,$uid])->fetch(PDO::FETCH_ASSOC);if(!$p)return;
         $when=!empty($p['starts_on'])?' ('.$p['starts_on'].' → '.$p['ends_on'].')':'';
         if(!empty($p['auto_approve'])&&$p['status']==='draft'){
-            try{$this->approve($uid,$planId,(int)$p['version']);try{Notification::notify($uid,'social_monthly_plan_ready','خطة الفترة الجاية اتعتمدت لوحدها','خطة السوشيال الجديدة'.$when.' اتجهزت واتجدولت تلقائيًا. تقدر تعدّل أو تتخطى أي بوست قبل ميعاده.','/social#plan');}catch(Throwable $ignored){}return;}
+            try{$this->approve($uid,$planId,(int)$p['version']);try{Notification::notify($uid,'social_monthly_plan_ready','خطة الفترة الجاية اتعتمدت لوحدها','خطة السوشيال الجديدة'.$when.' اتجهزت واتجدولت تلقائيًا. تقدر تعدّل أو تتخطى أي بوست قبل ميعاده.','/social#plan');}catch(Throwable $ignored){error_log('[SocialMonthlyPlan] notify failed: '.$ignored->getMessage());}return;}
             catch(Throwable $e){$this->q('UPDATE social_monthly_plans SET error_message=? WHERE id=?',[mb_substr('Automatic approval stopped: '.$e->getMessage(),0,500),$planId]);}
         }
-        try{Notification::notify($uid,'social_monthly_plan_ready','خطة السوشيال جاهزة للمراجعة','خطتك'.$when.' جاهزة. راجعها واعتمدها عشان النشر يبدأ في ميعاده.','/social#plan');}catch(Throwable $ignored){}
+        try{Notification::notify($uid,'social_monthly_plan_ready','خطة السوشيال جاهزة للمراجعة','خطتك'.$when.' جاهزة. راجعها واعتمدها عشان النشر يبدأ في ميعاده.','/social#plan');}catch(Throwable $ignored){error_log('[SocialMonthlyPlan] notify failed: '.$ignored->getMessage());}
     }
     /** Scheduled, read-only measurement for Meta channels. Never invents unavailable metrics. */
     public function refreshTargetMetrics(int $targetId): void {
@@ -541,7 +541,7 @@ class SocialMonthlyPlanService
             try{$new=$this->renewOne($p);$this->q('UPDATE social_monthly_plans SET renewed_plan_id=?,renew_error=NULL WHERE id=?',[$new,$p['id']]);$done++;}
             catch(Throwable $e){
                 $msg=mb_substr($e instanceof InvalidArgumentException||$e instanceof SocialPackageLimit?$e->getMessage():'Renewal could not start; we will retry automatically.',0,300);
-                if($msg!==(string)$p['renew_error']){try{Notification::notify($uid,'social_monthly_attention','تجديد خطة السوشيال محتاج تدخّل','الخطة الدايمة ما اتجددتش: '.$msg,'/social#plan');}catch(Throwable $ignored){}}
+                if($msg!==(string)$p['renew_error']){try{Notification::notify($uid,'social_monthly_attention','تجديد خطة السوشيال محتاج تدخّل','الخطة الدايمة ما اتجددتش: '.$msg,'/social#plan');}catch(Throwable $ignored){error_log('[SocialMonthlyPlan] notify failed: '.$ignored->getMessage());}}
                 $this->q('UPDATE social_monthly_plans SET renew_error=? WHERE id=?',[$msg,$p['id']]);
                 Logger::warning('Social plan renewal failed',['plan_id'=>(int)$p['id'],'message'=>$e->getMessage()]);
             }

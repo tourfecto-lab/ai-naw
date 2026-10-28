@@ -242,7 +242,7 @@ class OperatorPayments
     {
         $acct = self::connectedAccountId($userId);
         if ($acct && class_exists('StripeConnectOAuth') && StripeConnectOAuth::configured()) {
-            try { (new StripeConnectOAuth())->deauthorize($acct); } catch (Throwable $e) {}
+            try { (new StripeConnectOAuth())->deauthorize($acct); } catch (Throwable $e) { error_log('[OperatorPayments] stripe deauthorize failed: ' . $e->getMessage()); }
         }
         Database::getInstance()->exec(
             "UPDATE operator_payment_settings SET stripe_secret_key = NULL, stripe_key_last4 = NULL, stripe_account_name = NULL, verified_at = NULL,
