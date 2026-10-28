@@ -710,6 +710,11 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             .tpl-item { border:1px solid var(--panel-border); border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer; }
             .tpl-item:hover, .tpl-item.sel { border-color:var(--panel-accent); }
             .tpl-item.off { opacity:.5; cursor:not-allowed; }
+            .cat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; max-height:320px; overflow-y:auto; }
+            .cat-item { border:1px solid var(--panel-border); border-radius:8px; overflow:hidden; cursor:pointer; font-size:12.5px; }
+            .cat-item:hover { border-color:var(--panel-accent); }
+            .cat-item img { width:100%; height:80px; object-fit:cover; display:block; }
+            .cat-item div { padding:6px 8px; }
             .tpl-preview { white-space:pre-wrap; font-size:13px; padding:10px; border-radius:8px; background:var(--panel-sidebar-bg-hover); margin:8px 0; }
             @media (max-width: 960px) { .ai-chat-split { grid-template-columns: 1fr; } .ai-chat-list { max-height: 320px; } }
             @media (max-width: 560px) { .q-row { grid-template-columns: 1fr 64px 90px; } .q-row .q-del { grid-column:3; } }
@@ -805,6 +810,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                         <div id="aiSuggestions" style="display:none;margin-bottom:10px;"></div>
                         <div id="waWindow" class="wa-window" style="display:none;"></div>
                         <div id="templateBox" style="display:none;margin-bottom:12px;"></div>
+                        <div id="catalogBox" style="display:none;margin-bottom:12px;"></div>
                         <div class="form-group">
                             <textarea id="manualMessage" class="form-control" rows="3" placeholder="Write your reply here... (Enter to send, Shift+Enter for a new line)"></textarea>
                         </div>
@@ -813,6 +819,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                             <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()">{IC_SEND}Send</button>
                             <button class="p-btn outline" id="attachBtn" style="display:none;" onclick="document.getElementById('attachInput').click()" title="Send an image, voice note, video or file">📎 File</button>
                             <button class="p-btn outline" id="templateBtn" style="display:none;" onclick="templateToggle()" title="Approved WhatsApp templates can be sent any time">📋 Template</button>
+                            <button class="p-btn outline" id="catalogBtn" style="display:none;" onclick="catalogToggle()" title="Send your WhatsApp catalog or one trip">🛍 Catalog</button>
                             <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()">{IC_SPARKLES}Suggest a reply AI</button>
                             <div style="flex:1;"></div>
                             <a href="/chat/leads" class="p-btn outline xs" style="align-self:center;">{IC_TARGET}View theLeads</a>
@@ -980,6 +987,7 @@ HTML;
             return true;
         }
         document.getElementById('templateBox').style.display = 'none';
+        document.getElementById('catalogBox').style.display = 'none';
 
         const leadRes = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/leads?conversation_id=' + id);
         renderLeadPanel(leadRes.success ? leadRes.data.leads : []);
@@ -1133,6 +1141,8 @@ HTML;
                 ${isAi ? '<span class="pill green">' + ic('sparkles', 'ic-sm') + ' Replying now: AI</span>' : '<span class="pill">' + ic('user', 'ic-sm') + ' Replying now: agent</span>'}
                 <button class="p-btn ${isAi ? 'outline' : 'primary'} xs" onclick="toggleHandoff()">${ic('handoff')}${isAi ? 'Hand off to agent' : 'Restore the auto reply'}</button>
                 <button class="p-btn outline xs" onclick="assignToggle()">${isMine ? ic('x') + 'Unassign me' : ic('user-plus') + 'Assign to me'}</button>
+                ${c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud ? '<button class="p-btn outline xs" onclick="blockToggle()">' + ((c.tags || []).includes('BLOCKED') ? '✅ Unblock' : '🚫 Block') + '</button>' : ''}
+                ${(c.tags || []).includes('BLOCKED') ? '<span class="pill red">🚫 Blocked</span>' : ''}
                 ${statusSelect}
                 ${prioritySelect}
                 ${badges.join('')}
@@ -1210,9 +1220,9 @@ HTML;
                 const text = bodyText(m, m.message_text || '');
                 const failed = m.bot_status === 'failed';
                 const status = failed ? 'failed' : (isWa ? (m.delivery || 'accepted') : 'sent');
-                const who = m.template ? '📋 Template' : (m.by_me ? 'You' : 'Team');
+                const who = m.template ? '📋 Template' : m.catalog ? '🛍 Catalog' : (m.by_me ? 'You' : 'Team');
                 let extra = ticks(status, m.delivery_error);
-                if (failed && !m.media && !m.template) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">Retry</button>' + extra;
+                if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">Retry</button>' + extra;
                 out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : ''));
                 return;
             }
@@ -1253,7 +1263,8 @@ HTML;
         const wa = c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud;
         document.getElementById('attachBtn').style.display = wa ? '' : 'none';
         document.getElementById('templateBtn').style.display = wa ? '' : 'none';
-        if (!wa) document.getElementById('templateBox').style.display = 'none';
+        document.getElementById('catalogBtn').style.display = wa ? '' : 'none';
+        if (!wa) { document.getElementById('templateBox').style.display = 'none'; document.getElementById('catalogBox').style.display = 'none'; }
         windowDeadline = wa ? Date.now() + (c.whatsapp.window_seconds_left || 0) * 1000 : null;
         renderWindowBar();
     }
@@ -1273,11 +1284,11 @@ HTML;
             const h = Math.floor(left / 3600), mnt = Math.floor((left % 3600) / 60);
             bar.className = 'wa-window ' + (left < 7200 ? 'warn' : 'ok');
             bar.innerHTML = '<span>⏱ Free reply window: <b>' + (h ? h + 'h ' : '') + mnt + 'm</b> left. After that WhatsApp only allows an approved template.</span>';
-            msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false;
+            msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false; document.getElementById('catalogBtn').disabled = false;
         } else {
             bar.className = 'wa-window closed';
             bar.innerHTML = '<span>🔒 The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 Send a template</button>';
-            msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true;
+            msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; document.getElementById('catalogBtn').disabled = true;
         }
     }
     setInterval(function () { if (windowDeadline !== null) renderWindowBar(); }, 30000);
@@ -1372,6 +1383,59 @@ HTML;
             toast('The file was not delivered' + sendFailReason(res.data.reason), 'error');
         }
         selectConversation(currentConversation.id, true).then(() => { const t = document.getElementById('convThread'); t.scrollTop = t.scrollHeight; });
+    };
+
+
+    // ===== WhatsApp catalog and blocking =====
+    let catalogCache = null, catalogSite = null;
+    window.catalogToggle = async function () {
+        const box = document.getElementById('catalogBox');
+        if (box.style.display === 'block') { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        if (!catalogCache || catalogSite !== websiteId) {
+            box.innerHTML = '<div class="p-cell-muted">⏳ Loading the catalog...</div>';
+            const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/whatsapp-catalog');
+            if (!res.success) { box.innerHTML = '<div class="p-cell-muted">' + esc(res.error || 'Could not load the catalog') + '</div>'; return; }
+            catalogCache = res.data;
+            catalogSite = websiteId;
+        }
+        const d = catalogCache;
+        if (!d.catalog_id) {
+            box.innerHTML = '<div class="p-cell-muted">' + esc(d.error || 'No catalog is connected') + ' <a href="/chat/settings">WhatsApp settings → Catalog</a></div>';
+            return;
+        }
+        box.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="flex:1;">Send to the customer</b>'
+            + '<button type="button" class="p-btn primary xs" onclick="catalogSend(\'\')">🛍 Send the whole catalog</button></div>'
+            + (d.products.length ? '<div class="cat-grid">' + d.products.map((p, i) =>
+                '<div class="cat-item" onclick="catalogSend(' + i + ')" title="Send this item">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" loading="lazy">' : '') + '<div><b>' + esc(p.name) + '</b><br><span class="p-cell-muted">' + esc(p.price) + '</span></div></div>').join('') + '</div>'
+              : '<div class="p-cell-muted">' + esc(d.error || 'No products in the catalog yet') + '</div>')
+            + '<div class="p-cell-muted" style="font-size:12px;margin-top:6px;">Text in the reply box is sent with it.</div>';
+    };
+    window.catalogSend = async function (i) {
+        if (!currentConversation) return;
+        const p = i === '' ? null : catalogCache.products[i];
+        const msgEl = document.getElementById('manualMessage');
+        const text = msgEl.value.trim();
+        appendPendingBubble((p ? '🛍 ' + p.name : '🛍 Catalog') + (text ? ' — ' + text : ''));
+        msgEl.value = '';
+        document.getElementById('catalogBox').style.display = 'none';
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/catalog', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ retailer_id: p ? p.retailer_id : '', name: p ? p.name : '', text: text }),
+        });
+        if (!res.success) { toast(res.error || 'Submission failed', 'error'); if (!msgEl.value) msgEl.value = text; }
+        else if (res.data && res.data.sent === false) toast('Not delivered' + (res.data.error ? ': ' + res.data.error : sendFailReason(res.data.reason)), 'error');
+        selectConversation(currentConversation.id, true).then(() => { const t = document.getElementById('convThread'); t.scrollTop = t.scrollHeight; });
+    };
+    window.blockToggle = async function () {
+        if (!currentConversation) return;
+        const blocked = (currentConversation.tags || []).includes('BLOCKED');
+        if (!confirm(blocked ? 'Unblock this customer on WhatsApp?' : 'Block this customer on WhatsApp? They will not be able to message you, and auto replies stop.')) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/block', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ block: !blocked }),
+        });
+        toast(res.success ? (blocked ? 'Customer unblocked' : 'Customer blocked') : (res.error || 'Operation failed'), res.success ? 'success' : 'error');
+        if (res.success) { loadList(true); selectConversation(currentConversation.id, true); }
     };
 
     window.retryMessage = async function (messageId) {
@@ -2238,7 +2302,7 @@ JS;
             </div>
         </div>
         <div id="waCloudCard" class="p-card" style="display:none;margin-top:14px;"></div>
-        <script src="/assets/js/wa-cloud.js?v=6" defer></script>
+        <script src="/assets/js/wa-cloud.js?v=9" defer></script>
         <div id="waQrCard" class="p-card" style="display:none;margin-top:14px;"></div>
         <div id="metaChatCard" class="p-card" style="display:none;margin-top:14px;"></div>
         <script src="/assets/js/chat-connect.js?v=1" defer></script>

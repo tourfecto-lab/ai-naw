@@ -450,6 +450,14 @@ $router->get('/api/whatsapp-cloud/profile', 'WhatsAppCloudController', 'profile'
 $router->post('/api/whatsapp-cloud/profile', 'WhatsAppCloudController', 'saveProfile', ['AuthMiddleware']);
 $router->post('/api/whatsapp-cloud/profile/photo', 'WhatsAppCloudController', 'profilePhoto', ['AuthMiddleware']);
 $router->post('/api/whatsapp-cloud/diagnose', 'WhatsAppCloudController', 'diagnose', ['AuthMiddleware']);
+$router->get('/api/whatsapp-cloud/health', 'WhatsAppCloudController', 'health', ['AuthMiddleware']);
+$router->post('/api/whatsapp-cloud/pin', 'WhatsAppCloudController', 'pin', ['AuthMiddleware']);
+$router->get('/api/whatsapp-cloud/automation', 'WhatsAppCloudController', 'automation', ['AuthMiddleware']);
+$router->post('/api/whatsapp-cloud/automation', 'WhatsAppCloudController', 'saveAutomation', ['AuthMiddleware']);
+$router->get('/api/whatsapp-cloud/blocked', 'WhatsAppCloudController', 'blocked', ['AuthMiddleware']);
+$router->post('/api/whatsapp-cloud/block', 'WhatsAppCloudController', 'block', ['AuthMiddleware']);
+$router->get('/api/whatsapp-cloud/catalog', 'WhatsAppCloudController', 'catalog', ['AuthMiddleware']);
+$router->post('/api/whatsapp-cloud/catalog', 'WhatsAppCloudController', 'saveCatalog', ['AuthMiddleware']);
 // رسائل Messenger وInstagram لكل الشركات على تطبيق Meta بتاع المنصة
 $router->get('/api/meta/webhook', 'MetaWebhookController', 'verify');
 $router->post('/api/meta/webhook', 'MetaWebhookController', 'receive');
@@ -1593,6 +1601,9 @@ $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/media', 'ChatInboxController', 'sendMedia', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/template', 'ChatInboxController', 'sendTemplate', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/whatsapp-templates', 'ChatInboxController', 'templates', ['AuthMiddleware']);
+$router->get('/api/ai-chat/websites/{id}/whatsapp-catalog', 'ChatInboxController', 'catalogProducts', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/catalog', 'ChatInboxController', 'sendCatalog', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/block', 'ChatInboxController', 'block', ['AuthMiddleware']);
 
 // ============================================
 // Consolidated Multi-Phase Module (2026-08-08) - إضافات جديدة فقط

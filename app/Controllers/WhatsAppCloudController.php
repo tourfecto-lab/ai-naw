@@ -432,24 +432,216 @@ class WhatsAppCloudController extends Controller
         if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
             return $this->error('اختار صورة', 422);
         }
-        $mime = (string) (new finfo(FILEINFO_MIME_TYPE))->file((string) $f['tmp_name']);
-        if (!in_array($mime, ['image/jpeg', 'image/png'], true) || (int) $f['size'] > 5 * 1024 * 1024) {
+        // getimagesize() reads the real image type without the fileinfo extension (often missing on aaPanel).
+        $size = @getimagesize((string) $f['tmp_name']);
+        $mime = $size ? ([IMAGETYPE_JPEG => 'image/jpeg', IMAGETYPE_PNG => 'image/png'][$size[2]] ?? '') : '';
+        if ($mime === '' || (int) $f['size'] > 5 * 1024 * 1024) {
             return $this->error('الصورة لازم تبقى JPG أو PNG وأقل من 5 ميجا', 422);
         }
-        $size = @getimagesize((string) $f['tmp_name']);
-        if (!$size || $size[0] < 192 || $size[1] < 192) {
+        if ($size[0] < 192 || $size[1] < 192) {
             return $this->error('الصورة لازم تبقى 192×192 بكسل على الأقل (يفضّل 640×640 مربعة)', 422);
         }
         try {
             $up = $api->uploadMedia((string) $f['tmp_name'], $mime, true);
+            if (!$up['ok'] || empty($up['value'])) {
+                return $this->error('تعذر رفع الصورة لـ Meta: ' . ($up['error'] ?? ''), 422);
+            }
+            $r = $api->updateBusinessProfile(['profile_picture_handle' => (string) $up['value']]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('WhatsApp profile photo failed', ['exception_class' => get_class($e), 'error' => mb_substr($e->getMessage(), 0, 300)]);
+            return $this->error('تعذر رفع الصورة: ' . mb_substr($e->getMessage(), 0, 200), 500);
+        }
+        return $r['ok'] ? $this->success([], 'اتغيرت صورة البروفايل ✓') : $this->error('Meta رفضت الصورة: ' . $r['error'], 422);
+    }
+
+    // ------------------------------------------------------------------ حالة الحساب والتحكم
+
+    /** GET /api/whatsapp-cloud/health?website_id= - حالة الرقم والحساب لحظيًا من Meta */
+    public function health(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        $wid = (int) $this->get('website_id');
+        [$api, $err] = $this->apiFor($wid);
+        if ($err) {
+            return $err;
+        }
+        $r = $api->accountHealth();
+        if (!$r['ok']) {
+            return $this->error('تعذر قراءة حالة الحساب من Meta: ' . $r['error'], 422);
+        }
+        // Keep the stored quality fresh for the connection card.
+        $row = $this->conn($wid);
+        if ($row && !empty($r['phone']['quality_rating'])) {
+            try { WhatsAppTemplates::saveMeta((int) $row['id'], ['quality' => (string) $r['phone']['quality_rating'], 'health_checked_at' => gmdate('Y-m-d H:i:s')]); } catch (Throwable $e) {}
+        }
+        return $this->success(['phone' => $r['phone'], 'account' => $r['account']]);
+    }
+
+    /** POST /api/whatsapp-cloud/pin {website_id, pin} - تغيير رمز التحقق بخطوتين للرقم */
+    public function pin(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        [$api, $err] = $this->apiFor((int) $this->get('website_id'));
+        if ($err) {
+            return $err;
+        }
+        $pin = (string) $this->get('pin', '');
+        if (!preg_match('/^[0-9]{6}$/D', $pin)) {
+            return $this->error('الرمز لازم يبقى 6 أرقام', 422);
+        }
+        $r = $api->setPin($pin);
+        return $r['ok'] ? $this->success([], 'اتغير رمز التحقق بخطوتين ✓ احتفظ بيه في مكان آمن') : $this->error('Meta رفضت الرمز: ' . $r['error'], 422);
+    }
+
+    /** GET /api/whatsapp-cloud/automation?website_id= - اقتراحات الأسئلة والأوامر اللي بتظهر للعميل */
+    public function automation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        [$api, $err] = $this->apiFor((int) $this->get('website_id'));
+        if ($err) {
+            return $err;
+        }
+        $r = $api->conversationalAutomation();
+        return $r['ok'] ? $this->success(['prompts' => $r['prompts'], 'commands' => $r['commands']]) : $this->error('تعذر القراءة من Meta: ' . $r['error'], 422);
+    }
+
+    /** POST /api/whatsapp-cloud/automation {website_id, prompts[], commands[{command_name, command_description}]} */
+    public function saveAutomation(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        [$api, $err] = $this->apiFor((int) $this->get('website_id'));
+        if ($err) {
+            return $err;
+        }
+        try {
+            $r = $api->setConversationalAutomation((array) $this->get('prompts', []), (array) $this->get('commands', []));
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         }
-        if (!$up['ok'] || empty($up['value'])) {
-            return $this->error('تعذر رفع الصورة لـ Meta: ' . ($up['error'] ?? ''), 422);
+        return $r['ok'] ? $this->success([], 'اتحفظ ✓ ممكن ياخد دقايق لحد ما يظهر عند العملاء') : $this->error('Meta رفضت التعديل: ' . $r['error'], 422);
+    }
+
+    /** GET /api/whatsapp-cloud/blocked?website_id= - العملاء المحظورين */
+    public function blocked(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
         }
-        $r = $api->updateBusinessProfile(['profile_picture_handle' => (string) $up['value']]);
-        return $r['ok'] ? $this->success([], 'اتغيرت صورة البروفايل ✓') : $this->error('Meta رفضت الصورة: ' . $r['error'], 422);
+        [$api, $err] = $this->apiFor((int) $this->get('website_id'));
+        if ($err) {
+            return $err;
+        }
+        $r = $api->blockedUsers();
+        return $r['ok'] ? $this->success(['users' => $r['users']]) : $this->error('تعذر القراءة من Meta: ' . $r['error'], 422);
+    }
+
+    /** POST /api/whatsapp-cloud/block {website_id, phone, block} - حظر عميل أو فك الحظر */
+    public function block(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $wid = (int) $this->get('website_id');
+        [$api, $err] = $this->apiFor($wid);
+        if ($err) {
+            return $err;
+        }
+        $block = filter_var($this->get('block', true), FILTER_VALIDATE_BOOLEAN);
+        try {
+            $r = $api->blockUser((string) $this->get('phone', ''), $block);
+        } catch (InvalidArgumentException $e) {
+            return $this->error('رقم غير صحيح - اكتبه دولي بكود الدولة', 422);
+        }
+        if (!$r['ok']) {
+            return $this->error(($block ? 'Meta رفضت الحظر: ' : 'Meta رفضت فك الحظر: ') . $r['error'] . ($block ? ' (Meta بتسمح بحظر اللي كلمك آخر 24 ساعة بس)' : ''), 422);
+        }
+        return $this->success([], $block ? 'اتحظر العميل ✓' : 'اتفك الحظر ✓');
+    }
+
+    /** GET /api/whatsapp-cloud/catalog?website_id=&catalog_id= - إعدادات الكتالوج والكتالوجات المربوطة والمنتجات */
+    public function catalog(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        $wid = (int) $this->get('website_id');
+        [$api, $err] = $this->apiFor($wid);
+        if ($err) {
+            return $err;
+        }
+        $settings = $api->commerceSettings();
+        $cats = $api->linkedCatalogs();
+        $row = $this->conn($wid);
+        $meta = $row ? (json_decode((string) ($row['meta_json'] ?? ''), true) ?: []) : [];
+        $ids = array_map(fn($c) => (string) ($c['id'] ?? ''), $cats['items']);
+        $chosen = (string) $this->get('catalog_id', $meta['catalog_id'] ?? '');
+        if (!in_array($chosen, $ids, true)) $chosen = $ids[0] ?? '';
+        if ($row && $chosen !== ($meta['catalog_id'] ?? '')) {
+            try { WhatsAppTemplates::saveMeta((int) $row['id'], ['catalog_id' => $chosen]); } catch (Throwable $e) {}
+        }
+        $products = $chosen !== '' ? $api->catalogProducts($chosen) : ['ok' => true, 'items' => [], 'error' => null];
+        return $this->success([
+            'settings_ok' => $settings['ok'],
+            'catalog_visible' => $settings['catalog_visible'],
+            'cart_enabled' => $settings['cart_enabled'],
+            'catalogs' => $cats['items'],
+            // 200/10/100 errors here usually mean the connection was made without catalog access.
+            'catalogs_error' => $cats['ok'] ? null : $cats['error'],
+            'catalog_id' => $chosen,
+            'products' => array_map([self::class, 'productView'], $products['items']),
+            'products_error' => $products['ok'] ? null : $products['error'],
+        ]);
+    }
+
+    /** POST /api/whatsapp-cloud/catalog {website_id, catalog_visible, cart_enabled} */
+    public function saveCatalog(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        [$api, $err] = $this->apiFor((int) $this->get('website_id'));
+        if ($err) {
+            return $err;
+        }
+        $r = $api->setCommerceSettings(
+            filter_var($this->get('catalog_visible', false), FILTER_VALIDATE_BOOLEAN),
+            filter_var($this->get('cart_enabled', false), FILTER_VALIDATE_BOOLEAN)
+        );
+        return $r['ok'] ? $this->success([], 'اتحفظت إعدادات الكتالوج ✓') : $this->error('Meta رفضت التعديل: ' . $r['error'], 422);
+    }
+
+    public static function productView(array $p): array
+    {
+        $img = (string) ($p['image_url'] ?? '');
+        return [
+            'retailer_id' => (string) ($p['retailer_id'] ?? ''),
+            'name' => (string) ($p['name'] ?? ''),
+            'price' => (string) ($p['price'] ?? ''),
+            'availability' => (string) ($p['availability'] ?? ''),
+            'image_url' => preg_match('#^https://#i', $img) ? $img : '',
+        ];
     }
 
     public function disconnect(array $params = []): array
@@ -871,6 +1063,7 @@ class WhatsAppCloudController extends Controller
                         'document' => '[Document] ' . (string) ($m['document']['filename'] ?? ''),
                         'location' => '[Location] ' . ($m['location']['latitude'] ?? '') . ',' . ($m['location']['longitude'] ?? ''),
                         'sticker' => '[Sticker]',
+                        'order' => '[Order] ' . implode(', ', array_map(fn($i) => (int) ($i['quantity'] ?? 1) . ' × ' . (string) ($i['product_retailer_id'] ?? '?') . (isset($i['item_price']) ? ' (' . $i['item_price'] . ' ' . ($i['currency'] ?? '') . ')' : ''), array_slice((array) ($m['order']['product_items'] ?? []), 0, 30))) . (!empty($m['order']['text']) ? ' — ' . (string) $m['order']['text'] : ''),
                         'reaction' => '',
                         default => '[' . $type . ']',
                     };

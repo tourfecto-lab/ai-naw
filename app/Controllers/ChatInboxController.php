@@ -153,6 +153,7 @@ class ChatInboxController extends Controller
                 ];
             }
             $m['template'] = is_array($raw) && !empty($raw['template']) ? (string) $raw['template'] : null;
+            $m['catalog'] = is_array($raw) && !empty($raw['catalog']) ? (string) $raw['catalog'] : null;
             $m['reply_wamid'] = is_array($raw) && is_string($raw['reply_wamid'] ?? null) ? $raw['reply_wamid'] : null;
             if ($m['message_direction'] === 'outgoing' && !empty($m['platform_message_id'])) $wamids[] = (string) $m['platform_message_id'];
             if ($m['reply_wamid'] !== null) $wamids[] = $m['reply_wamid'];
@@ -255,6 +256,9 @@ class ChatInboxController extends Controller
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
@@ -272,7 +276,7 @@ class ChatInboxController extends Controller
             return $this->error('Only a failed message can be resent', 404);
         }
         $raw = json_decode((string) ($row['webhook_raw_data'] ?? ''), true);
-        if (is_array($raw) && (!empty($raw['media']) || !empty($raw['template']))) {
+        if (is_array($raw) && (!empty($raw['media']) || !empty($raw['template']) || !empty($raw['catalog']))) {
             return $this->error('Send the file or template again from the reply box', 422);
         }
         // Claim the row first so a double click cannot send the same message twice.
@@ -367,6 +371,9 @@ class ChatInboxController extends Controller
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
@@ -382,7 +389,7 @@ class ChatInboxController extends Controller
             return $this->error($tooBig ? 'The file is larger than the server upload limit' : 'Choose a file to send', 422);
         }
         // Trust the file's content, not the browser-supplied type.
-        $mime = class_exists('finfo') ? (string) (new finfo(FILEINFO_MIME_TYPE))->file((string) $f['tmp_name']) : (string) mime_content_type((string) $f['tmp_name']);
+        $mime = self::detectMime((string) $f['tmp_name'], (string) ($f['name'] ?? ''));
         if ($mime === 'audio/x-m4a') $mime = 'audio/mp4';
         // WhatsApp Cloud API supported types and size limits.
         $types = [
@@ -433,6 +440,42 @@ class ChatInboxController extends Controller
             'sent' => $sent, 'message_id' => (int) $id,
             'reason' => $sent ? null : (!empty($r['window']) ? 'outside_24h' : 'provider_rejected'),
         ], $sent ? 'Sent' : 'Saved but not delivered');
+    }
+
+    /**
+     * Real file type from its content. Uses fileinfo when installed; otherwise reads the file signature,
+     * because aaPanel PHP builds often ship without fileinfo.
+     */
+    private static function detectMime(string $path, string $name): string
+    {
+        if (class_exists('finfo')) {
+            return (string) (new finfo(FILEINFO_MIME_TYPE))->file($path);
+        }
+        $img = @getimagesize($path);
+        if ($img && in_array($img[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+            return $img[2] === IMAGETYPE_JPEG ? 'image/jpeg' : 'image/png';
+        }
+        $head = (string) @file_get_contents($path, false, null, 0, 16);
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (str_starts_with($head, '%PDF')) return 'application/pdf';
+        if (str_starts_with($head, 'OggS')) return 'audio/ogg';
+        if (str_starts_with($head, 'ID3') || (strlen($head) > 1 && ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0)) return 'audio/mpeg';
+        if (str_starts_with($head, '#!AMR')) return 'audio/amr';
+        if (substr($head, 4, 4) === 'ftyp') {
+            $brand = substr($head, 8, 4);
+            if (str_starts_with($brand, '3gp')) return 'video/3gpp';
+            return in_array($brand, ['M4A ', 'M4B '], true) || $ext === 'm4a' ? 'audio/mp4' : 'video/mp4';
+        }
+        $office = [
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        ];
+        $legacy = ['doc' => 'application/msword', 'xls' => 'application/vnd.ms-excel', 'ppt' => 'application/vnd.ms-powerpoint'];
+        if (str_starts_with($head, "PK\x03\x04") && isset($office[$ext])) return $office[$ext];
+        if (str_starts_with($head, "\xD0\xCF\x11\xE0") && isset($legacy[$ext])) return $legacy[$ext];
+        if ($ext === 'txt' && strpos((string) @file_get_contents($path, false, null, 0, 4096), "\0") === false) return 'text/plain';
+        return 'application/octet-stream';
     }
 
     /**
@@ -516,6 +559,9 @@ class ChatInboxController extends Controller
         if (!$this->authenticated) {
             return $this->error('Unauthorized', 401);
         }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
@@ -584,6 +630,152 @@ class ChatInboxController extends Controller
             'reason' => $sent ? null : 'provider_rejected',
             'error' => $sent ? null : ($r['error'] ?? null),
         ], $sent ? 'Sent' : 'Saved but not delivered');
+    }
+
+    /**
+     * منتجات كتالوج واتساب المربوط (لإرسال رحلة/خدمة من الشات).
+     * GET /api/ai-chat/websites/{id}/whatsapp-catalog
+     */
+    public function catalogProducts(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $api = WhatsAppCloudAPI::forWebsite($websiteId);
+        if (!$api) {
+            return $this->error('The catalog needs the official WhatsApp connection (Cloud API)', 409);
+        }
+        $catalogId = $this->chosenCatalogId($websiteId, $api);
+        if ($catalogId === '') {
+            return $this->success(['catalog_id' => '', 'products' => [], 'error' => 'No catalog is connected to this WhatsApp number yet. Connect one from WhatsApp settings.']);
+        }
+        $p = $api->catalogProducts($catalogId);
+        return $this->success([
+            'catalog_id' => $catalogId,
+            'products' => array_values(array_filter(array_map([WhatsAppCloudController::class, 'productView'], $p['items']), fn($x) => $x['retailer_id'] !== '')),
+            'error' => $p['ok'] ? null : 'Products could not be listed (you can still send the whole catalog)',
+        ]);
+    }
+
+    /**
+     * إرسال الكتالوج كله أو منتج واحد للعميل.
+     * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/catalog  Body: retailer_id (اختياري), text (اختياري)
+     */
+    public function sendCatalog(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if (!$conversation || $conversation->getAttribute('channel') !== 'whatsapp') {
+            return $this->error('The catalog can only be sent in WhatsApp conversations', 422);
+        }
+        $api = WhatsAppCloudAPI::forWebsite($websiteId);
+        if (!$api) {
+            return $this->error('The catalog needs the official WhatsApp connection (Cloud API)', 409);
+        }
+        [$to, $reason] = $this->whatsappRecipient($conversation);
+        if ($to === '') {
+            return $this->success(['sent' => false, 'reason' => $reason], 'Not sent');
+        }
+        if ($this->windowSecondsLeft((int) $conversation->getAttribute('id'), $websiteId) <= 0) {
+            return $this->success(['sent' => false, 'reason' => 'outside_24h'], 'Not sent');
+        }
+        $retailerId = trim((string) $this->get('retailer_id', ''));
+        $name = trim((string) $this->get('name', ''));
+        $text = trim((string) $this->get('text', ''));
+        $catalogId = '';
+        if ($retailerId !== '') {
+            $catalogId = $this->chosenCatalogId($websiteId, $api);
+            if ($catalogId === '') {
+                return $this->error('No catalog is connected to this WhatsApp number', 422);
+            }
+        }
+        $r = $api->sendCatalog($to, $text, $catalogId, $retailerId);
+        $sent = !empty($r['ok']);
+        if (!$sent) {
+            Logger::warning('WhatsApp catalog send failed', ['website_id' => $websiteId, 'http_code' => (int) ($r['http_code'] ?? 0), 'error_code' => $r['error_code'] ?? null]);
+        }
+        $label = $retailerId !== '' ? '[Product] ' . ($name !== '' ? mb_substr($name, 0, 200) : $retailerId) : '[Catalog]';
+        $id = $this->insertOutgoing($website, $conversation, trim($label . ($text !== '' ? ' — ' . $text : '')), $sent, $sent ? (string) $r['id'] : null, ['catalog' => $retailerId !== '' ? 'product' : 'catalog']);
+        return $this->success([
+            'sent' => $sent, 'message_id' => (int) $id,
+            'reason' => $sent ? null : (!empty($r['window']) ? 'outside_24h' : 'provider_rejected'),
+            'error' => $sent ? null : ($r['error'] ?? null),
+        ], $sent ? 'Sent' : 'Saved but not delivered');
+    }
+
+    /**
+     * حظر العميل على واتساب أو فك الحظر (المحادثة بتاخد وسم BLOCKED).
+     * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/block  Body: block (true/false)
+     */
+    public function block(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if (!$conversation || $conversation->getAttribute('channel') !== 'whatsapp') {
+            return $this->error('Only WhatsApp customers can be blocked', 422);
+        }
+        $api = WhatsAppCloudAPI::forWebsite($websiteId);
+        if (!$api) {
+            return $this->error('Blocking needs the official WhatsApp connection (Cloud API)', 409);
+        }
+        [$to] = $this->whatsappRecipient($conversation);
+        if ($to === '') {
+            return $this->error('No WhatsApp number for this customer', 422);
+        }
+        $block = filter_var($this->get('block', true), FILTER_VALIDATE_BOOLEAN);
+        try {
+            $r = $api->blockUser($to, $block);
+        } catch (InvalidArgumentException $e) {
+            return $this->error('No valid WhatsApp number for this customer', 422);
+        }
+        if (!$r['ok']) {
+            return $this->error(($block ? 'WhatsApp did not block the customer: ' : 'WhatsApp did not unblock the customer: ') . $r['error'] . ($block ? ' (WhatsApp only allows blocking someone who messaged in the last 24 hours)' : ''), 422);
+        }
+        $tags = json_decode((string) $conversation->getAttribute('tags'), true) ?: [];
+        $tags = array_values(array_diff($tags, ['BLOCKED']));
+        if ($block) $tags[] = 'BLOCKED';
+        $update = ['tags' => json_encode($tags, JSON_UNESCAPED_UNICODE)];
+        // A blocked customer should not get automatic replies or follow-ups.
+        if ($block) $update['do_not_contact'] = 1;
+        $this->inbox->updateConversation((int) $conversation->getAttribute('id'), $update);
+        return $this->success(['blocked' => $block], $block ? 'Customer blocked' : 'Customer unblocked');
+    }
+
+    /** The catalog chosen in WhatsApp settings, or the first one linked to the account. */
+    private function chosenCatalogId(int $websiteId, WhatsAppCloudAPI $api): string
+    {
+        $row = WhatsAppCloudAPI::connectionRow($websiteId);
+        $meta = $row ? (json_decode((string) ($row['meta_json'] ?? ''), true) ?: []) : [];
+        if (preg_match('/^[0-9]{1,32}$/D', (string) ($meta['catalog_id'] ?? ''))) {
+            return (string) $meta['catalog_id'];
+        }
+        $c = $api->linkedCatalogs();
+        return (string) ($c['items'][0]['id'] ?? '');
     }
 
     /**

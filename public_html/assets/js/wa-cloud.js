@@ -91,8 +91,9 @@
                 + '<p class="p-cell-muted" style="margin:0;font-size:12.5px">' + L('تتابع من الموبايل إزاي: اضغط «تثبيت التطبيق» تحت وافتح الوارد منه زي أي تطبيق. ولو عايز نفس الرقم يشتغل على تطبيق واتساب بزنس كمان: افصل الربط، ونزّل الرقم على تطبيق واتساب بزنس، واربطه تاني من زرار «اربط رقم واتساب بزنس اللي على موبايلي».', 'Follow from your phone: tap “Install app” below and open the inbox from it like any app. To also use this number in the WhatsApp Business app: disconnect, set the number up in the WhatsApp Business app, then reconnect with “Connect my WhatsApp Business app number”.') + '</p>';
         card.innerHTML = head(L('رقم شركتك الرسمي - الرسايل بتطلع باسمك', 'Your official company number - messages go out in your name'))
             + '<div class="alert alert-success">✔ ' + L('مربوط', 'Connected') + ': <b dir="ltr">' + esc(d.display_phone || d.phone_number_id) + '</b> ' + (d.verified_name ? '· ' + esc(d.verified_name) : '') + ' · ' + L('جودة الرقم', 'Number quality') + ': <b style="color:' + q[1] + '">' + esc(q[0]) + '</b></div>'
-            + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px"><a class="p-btn primary sm" href="/chat">📥 ' + L('افتح الوارد (رسايل العملاء)', 'Open inbox (customer messages)') + '</a><button class="p-btn outline sm" id="waProfileOpen">👤 ' + L('ملف الشركة على واتساب', 'WhatsApp business profile') + '</button><button class="p-btn outline sm" id="waDiag">🔎 ' + L('افحص استقبال الرسايل', 'Check incoming messages') + '</button></div><div id="waDiagOut" style="display:none;margin:0 0 12px"></div>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px"><a class="p-btn primary sm" href="/chat">📥 ' + L('افتح الوارد (رسايل العملاء)', 'Open inbox (customer messages)') + '</a><button class="p-btn outline sm" id="waProfileOpen">👤 ' + L('ملف الشركة على واتساب', 'WhatsApp business profile') + '</button><button class="p-btn outline sm" data-panel="waHealth">📊 ' + L('حالة الحساب', 'Account status') + '</button><button class="p-btn outline sm" data-panel="waCatalog">🛍 ' + L('الكتالوج', 'Catalog') + '</button><button class="p-btn outline sm" data-panel="waAuto">💬 ' + L('أسئلة البداية والأوامر', 'Starter questions & commands') + '</button><button class="p-btn outline sm" data-panel="waSecurity">🔐 ' + L('الأمان والحظر', 'Security & blocking') + '</button><button class="p-btn outline sm" id="waDiag">🔎 ' + L('افحص استقبال الرسايل', 'Check incoming messages') + '</button></div><div id="waDiagOut" style="display:none;margin:0 0 12px"></div>'
             + '<div id="waProfile" style="display:none;margin:0 0 14px;padding:12px;border:1px solid var(--panel-border,#2a3247);border-radius:10px"></div>'
+            + ['waHealth', 'waCatalog', 'waAuto', 'waSecurity'].map(function (id) { return '<div id="' + id + '" class="wa-panel" style="display:none;margin:0 0 14px;padding:12px;border:1px solid var(--panel-border,#2a3247);border-radius:10px"></div>'; }).join('')
             + '<p style="margin:0 0 4px;font-weight:600">📱 ' + L('على الموبايل', 'On your phone') + '</p>' + phone
             + (!d.webhook_secure ? '<div class="alert alert-danger">' + L('استقبال الرسائل متوقف لحد إضافة App Secret: افصل الربط وأعد ربطه بالسر الصحيح.', 'Incoming messages are blocked until App Secret is configured. Reconnect with the correct secret.') + '</div>' : '')
             + '<div id="waDeliveryStatuses" class="p-cell-muted"></div>'
@@ -138,7 +139,8 @@
         var p = r.data.profile || {}, w = p.websites || [];
         var f = function (id, label, val, max, rows) { return '<div class="form-group"><label class="form-label">' + label + ' <span class="p-cell-muted">(' + max + ' ' + L('حرف', 'chars') + ')</span></label>' + (rows ? '<textarea id="' + id + '" class="form-control" dir="auto" rows="' + rows + '" maxlength="' + max + '">' + esc(val) + '</textarea>' : '<input id="' + id + '" class="form-control" dir="auto" maxlength="' + max + '" value="' + esc(val) + '">') + '</div>'; };
         box.innerHTML = '<p class="p-cell-muted" style="margin:0 0 10px;font-size:12.5px">' + L('ده اللي عملاءك بيشوفوه لما يفتحوا بروفايل رقمك على واتساب. اسم الشركة نفسه بيتغير من Meta (WhatsApp Manager) وبيحتاج موافقتهم.', 'This is what customers see when they open your number’s profile on WhatsApp. The display name itself is changed in WhatsApp Manager and needs Meta approval.') + '</p>'
-            + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">' + (p.profile_picture_url ? '<img src="' + esc(p.profile_picture_url) + '" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover">' : '<div style="width:64px;height:64px;border-radius:50%;background:rgba(127,127,127,.2)"></div>') + '<div><input type="file" id="wpPhoto" accept="image/jpeg,image/png"><div style="margin-top:6px"><button class="p-btn outline xs" id="waPhotoSave">' + L('غيّر الصورة', 'Change photo') + '</button> <span class="p-cell-muted" style="font-size:12px">' + L('JPG أو PNG مربعة، 640×640 أحسن', 'Square JPG or PNG, 640×640 is best') + '</span></div></div></div>'
+            + '<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap">' + (p.profile_picture_url ? '<img id="wpAvatar" src="' + esc(p.profile_picture_url) + '" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover" onerror="this.style.visibility=\'hidden\'">' : '<img id="wpAvatar" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;background:rgba(127,127,127,.2);visibility:hidden">') + '<div><input type="file" id="wpPhoto" accept="image/jpeg,image/png,image/webp" style="display:none"><button type="button" class="p-btn outline xs" id="wpPick">📷 ' + L(p.profile_picture_url ? 'غيّر الصورة' : 'ضيف صورة', p.profile_picture_url ? 'Change photo' : 'Add photo') + '</button> <span class="p-cell-muted" style="font-size:12px">' + L('اختار أي صورة وظبط مكانها في الدايرة', 'Pick any photo, then position it in the circle') + '</span>' + (p.profile_picture_url ? '' : '<div class="p-cell-muted" style="font-size:12px;margin-top:4px">' + L('مفيش صورة على الرقم لسه', 'No photo on this number yet') + '</div>') + '</div></div>'
+            + '<div id="wpCrop" style="display:none;margin:0 0 14px;padding:10px;border:1px dashed var(--panel-border,#2a3247);border-radius:10px"></div>'
             + f('wpAbout', L('نبذة قصيرة (About)', 'About'), p.about || '', 139)
             + f('wpDesc', L('وصف الشركة', 'Description'), p.description || '', 512, 3)
             + f('wpAddr', L('العنوان', 'Address'), p.address || '', 256)
@@ -147,6 +149,155 @@
             + '<div class="form-group"><label class="form-label">' + L('مجال النشاط', 'Business category') + '</label><select id="wpVertical" class="form-control">' + (r.data.verticals || []).map(function (v) { return '<option value="' + v + '"' + (v === (p.vertical || 'TRAVEL') ? ' selected' : '') + '>' + esc(VERT[v] || v) + '</option>'; }).join('') + '</select></div>'
             + '<button class="p-btn primary sm" id="waProfileSave">' + L('احفظ الملف', 'Save profile') + '</button>';
     }
+
+
+    // ------------------------------------------------------------ حالة الحساب والكتالوج والتحكم
+    function pill(text, color) { return '<span style="display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:' + color + '1a;color:' + color + '">' + esc(text) + '</span>'; }
+    function kv(k, v, hint) { return '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--panel-border,#2a3247)"><span>' + k + (hint ? '<br><span class="p-cell-muted" style="font-size:12px">' + hint + '</span>' : '') + '</span><span style="text-align:end">' + v + '</span></div>'; }
+    var GOOD = '#16a34a', WARN = '#d97706', BAD = '#dc2626', NEUTRAL = '#64748b';
+
+    async function loadHealth(box) {
+        box.innerHTML = '<div class="p-cell-muted">' + L('بنسأل Meta…', 'Asking Meta…') + '</div>';
+        var r = await fetchJSON('/api/whatsapp-cloud/health?website_id=' + encodeURIComponent(site));
+        if (!r.success) { box.innerHTML = '<div class="alert alert-danger">' + esc(r.error || '') + '</div>'; return; }
+        var p = r.data.phone || {}, a = r.data.account || {}, out = '';
+        var st = String(p.status || '').toUpperCase();
+        var STATUS = { CONNECTED: [L('شغال', 'Active'), GOOD], PENDING: [L('مستني التفعيل', 'Pending'), WARN], FLAGGED: [L('عليه إنذار - الجودة نازلة', 'Flagged - quality dropped'), WARN], RESTRICTED: [L('مقيّد - ممنوع تبدأ محادثات', 'Restricted - cannot start chats'), BAD], RATE_LIMITED: [L('وصل لحد الرسايل مؤقتًا', 'Temporarily rate limited'), WARN], BANNED: [L('محظور من Meta', 'Banned by Meta'), BAD], DISCONNECTED: [L('مفصول', 'Disconnected'), BAD], MIGRATED: [L('اتنقل لحساب تاني', 'Migrated'), WARN], UNVERIFIED: [L('مش متوثق', 'Unverified'), WARN] };
+        var s1 = STATUS[st] || [st || L('مش معروف', 'Unknown'), NEUTRAL];
+        out += kv(L('حالة الرقم', 'Number status'), pill(s1[0], s1[1]));
+        var QUAL = { GREEN: [L('عالية', 'High'), GOOD], YELLOW: [L('متوسطة', 'Medium'), WARN], RED: [L('ضعيفة', 'Low'), BAD] };
+        var q = QUAL[String(p.quality_rating || '').toUpperCase()] || [L('لسه بتتحسب', 'Not rated yet'), NEUTRAL];
+        out += kv(L('جودة الرقم', 'Quality rating'), pill(q[0], q[1]), L('بتتحسب من تقييم العملاء لرسايلك (بلوك/إبلاغ). لو نزلت، قلّل الرسايل التسويقية.', 'Based on how customers react (blocks/reports). If it drops, send fewer marketing messages.'));
+        var tier = String(a.whatsapp_business_manager_messaging_limit || p.messaging_limit_tier || '');
+        var TIERS = { TIER_50: '50', TIER_250: '250', TIER_1K: '1,000', TIER_2K: '2,000', TIER_10K: '10,000', TIER_100K: '100,000', TIER_UNLIMITED: L('بلا حد', 'Unlimited') };
+        if (tier) out += kv(L('حد المحادثات اللي تبدأها', 'Business-initiated limit'), '<b>' + esc(TIERS[tier] || tier) + '</b> ' + L('عميل/24 ساعة', 'customers / 24h'), L('عدد العملاء المختلفين اللي تقدر تبعتلهم قالب في اليوم. الرد على اللي كلموك مش محسوب. بيزيد لوحده مع الاستخدام والجودة العالية.', 'How many different customers you can start a template chat with per day. Replies to customers who wrote first don’t count. It grows with use and good quality.'));
+        var NAME = { APPROVED: [L('متوافق عليه', 'Approved'), GOOD], AVAILABLE_WITHOUT_REVIEW: [L('شغال من غير مراجعة', 'Available without review'), GOOD], PENDING_REVIEW: [L('تحت المراجعة', 'In review'), WARN], DECLINED: [L('اترفض', 'Declined'), BAD], EXPIRED: [L('انتهى', 'Expired'), BAD], NON_EXISTS: [L('مش موجود', 'Not set'), NEUTRAL], NONE: [L('مش موجود', 'Not set'), NEUTRAL] };
+        var nm = NAME[String(p.name_status || '').toUpperCase()] || [String(p.name_status || '-'), NEUTRAL];
+        out += kv(L('اسم العرض', 'Display name'), '<b>' + esc(p.verified_name || '-') + '</b> ' + pill(nm[0], nm[1]) + (p.new_name_status && p.new_name_status !== 'NONE' ? '<br><span class="p-cell-muted" style="font-size:12px">' + L('اسم جديد: ', 'New name: ') + esc(p.new_name_status) + '</span>' : ''), L('الاسم بيتغير من WhatsApp Manager وبيحتاج موافقة Meta.', 'Change it in WhatsApp Manager; Meta reviews it.'));
+        if (p.code_verification_status) out += kv(L('توثيق الرقم', 'Number verification'), p.code_verification_status === 'VERIFIED' ? pill(L('متوثق', 'Verified'), GOOD) : pill(p.code_verification_status, WARN));
+        if (p.account_mode) out += kv(L('وضع الحساب', 'Account mode'), p.account_mode === 'LIVE' ? pill(L('حقيقي (Live)', 'Live'), GOOD) : pill(L('تجريبي - بيبعت لأرقام الاختبار بس', 'Sandbox - test numbers only'), WARN));
+        if (p.is_official_business_account !== undefined) out += kv(L('العلامة الخضرا (حساب رسمي)', 'Official business badge'), p.is_official_business_account ? pill(L('موجودة', 'Yes'), GOOD) : pill(L('مش موجودة', 'No'), NEUTRAL), p.is_official_business_account ? '' : L('بتتطلب من WhatsApp Manager بعد توثيق الشركة.', 'Request it in WhatsApp Manager after business verification.'));
+        if (a.account_review_status) out += kv(L('مراجعة الحساب', 'Account review'), a.account_review_status === 'APPROVED' ? pill(L('متوافق عليه', 'Approved'), GOOD) : pill(a.account_review_status, a.account_review_status === 'REJECTED' ? BAD : WARN));
+        if (a.business_verification_status) out += kv(L('توثيق الشركة', 'Business verification'), a.business_verification_status === 'verified' ? pill(L('متوثقة', 'Verified'), GOOD) : pill(({ not_verified: L('مش متوثقة', 'Not verified'), pending: L('تحت المراجعة', 'In review'), pending_submission: L('مستنية تقديم الطلب', 'Not submitted'), rejected: L('اترفضت', 'Rejected'), failed: L('فشلت', 'Failed') })[a.business_verification_status] || a.business_verification_status, a.business_verification_status === 'rejected' ? BAD : WARN), a.business_verification_status === 'verified' ? '' : L('من Business Settings ← Security Center في Meta. بيرفع الحدود ويفتح العلامة الخضرا.', 'From Meta Business Settings → Security Center. Raises limits and enables the badge.'));
+        if (p.throughput && p.throughput.level) out += kv(L('سرعة الإرسال', 'Throughput'), esc(p.throughput.level));
+        box.innerHTML = out + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="p-btn outline xs" data-reload="waHealth">' + L('تحديث', 'Refresh') + '</button><a class="p-btn outline xs" href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noopener">WhatsApp Manager ↗</a></div>';
+    }
+
+    async function loadCatalog(box, catalogId) {
+        box.innerHTML = '<div class="p-cell-muted">…</div>';
+        var r = await fetchJSON('/api/whatsapp-cloud/catalog?website_id=' + encodeURIComponent(site) + (catalogId ? '&catalog_id=' + encodeURIComponent(catalogId) : ''));
+        if (!r.success) { box.innerHTML = '<div class="alert alert-danger">' + esc(r.error || '') + '</div>'; return; }
+        var d = r.data, html = '<p class="p-cell-muted" style="margin:0 0 10px;font-size:12.5px">' + L('الكتالوج بيعرض رحلاتك وخدماتك بالصور والأسعار جوه واتساب: العميل يتصفحها من بروفايلك، وانت تبعتها من الشات بضغطة، ولو السلة شغالة يقدر يبعتلك طلب.', 'The catalog shows your trips and services with photos and prices inside WhatsApp: customers browse it from your profile, you send items from the chat in one tap, and with the cart on they can send you an order.') + '</p>';
+        if (!d.catalogs.length) {
+            html += '<div class="alert alert-warning">' + (d.catalogs_error
+                ? L('مقدرناش نقرا الكتالوجات من Meta: ', 'Could not read catalogs from Meta: ') + esc(d.catalogs_error) + '<br>' + L('غالبًا الربط اتعمل من غير صلاحية الكتالوج (catalog_management). أعد الربط وفعّلها، أو اربط الكتالوج من Commerce Manager.', 'The connection was probably made without catalog access (catalog_management). Reconnect with it, or link the catalog in Commerce Manager.')
+                : L('مفيش كتالوج مربوط برقمك. اعمله واربطه في 3 خطوات:', 'No catalog is linked to your number yet. Set one up in 3 steps:')) + '</div>'
+                + '<ol style="line-height:1.9;font-size:13.5px;margin:6px 0;padding-inline-start:20px"><li>' + L('ادخل <a href="https://business.facebook.com/commerce" target="_blank" rel="noopener">Commerce Manager</a> واعمل كتالوج نوع «Travel / Other».', 'Open <a href="https://business.facebook.com/commerce" target="_blank" rel="noopener">Commerce Manager</a> and create a catalog.') + '</li><li>' + L('ضيف رحلاتك (اسم، صورة، سعر، رابط الحجز).', 'Add your trips (name, photo, price, booking link).') + '</li><li>' + L('من WhatsApp Manager ← Catalog: اختار الكتالوج واربطه برقمك، وبعدين ارجع هنا واضغط تحديث.', 'In WhatsApp Manager → Catalog, connect it to your number, then come back and refresh.') + '</li></ol>';
+        } else {
+            if (d.catalogs.length > 1) html += '<div class="form-group"><label class="form-label">' + L('الكتالوج المستخدم في الشات', 'Catalog used in the chat') + '</label><select id="waCatSel" class="form-control">' + d.catalogs.map(function (c) { return '<option value="' + esc(c.id) + '"' + (c.id === d.catalog_id ? ' selected' : '') + '>' + esc(c.name || c.id) + '</option>'; }).join('') + '</select></div>';
+            else html += '<p style="margin:0 0 8px">' + L('الكتالوج المربوط: ', 'Linked catalog: ') + '<b>' + esc(d.catalogs[0].name || d.catalogs[0].id) + '</b></p>';
+        }
+        if (d.settings_ok) {
+            html += '<label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="waCatVisible"' + (d.catalog_visible ? ' checked' : '') + '> ' + L('اعرض الكتالوج في بروفايل الرقم وفي الشات (أيقونة المتجر)', 'Show the catalog on the profile and in chats (shop icon)') + '</label>'
+                + '<label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="waCatCart"' + (d.cart_enabled ? ' checked' : '') + '> ' + L('شغّل السلة (العميل يختار كذا رحلة ويبعتلك طلب يظهر في الوارد)', 'Turn on the cart (customers pick items and send you an order that shows in the inbox)') + '</label>'
+                + '<button class="p-btn primary sm" id="waCatSave">' + L('احفظ', 'Save') + '</button>';
+        }
+        if (d.products.length) {
+            html += '<p style="margin:14px 0 6px;font-weight:600">' + L('المنتجات', 'Products') + ' (' + d.products.length + ')</p><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">' + d.products.map(function (p) {
+                return '<div style="border:1px solid var(--panel-border,#2a3247);border-radius:8px;overflow:hidden">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" loading="lazy" style="width:100%;height:90px;object-fit:cover;display:block">' : '') + '<div style="padding:6px 8px;font-size:12.5px"><b>' + esc(p.name) + '</b><br><span class="p-cell-muted">' + esc(p.price) + '</span>' + (p.availability && p.availability !== 'in stock' ? '<br>' + pill(p.availability, WARN) : '') + '</div></div>';
+            }).join('') + '</div><p class="p-cell-muted" style="font-size:12px;margin-top:6px">' + L('تعديل المنتجات نفسها من Commerce Manager.', 'Edit products in Commerce Manager.') + '</p>';
+        } else if (d.products_error) {
+            html += '<p class="p-cell-muted" style="font-size:12.5px;margin-top:10px">' + L('مقدرناش نعرض المنتجات (', 'Could not list products (') + esc(d.products_error) + L('). تقدر تبعت الكتالوج كله من الشات برضه.', '). You can still send the whole catalog from the chat.') + '</p>';
+        }
+        box.innerHTML = html + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="p-btn outline xs" data-reload="waCatalog">' + L('تحديث', 'Refresh') + '</button><a class="p-btn outline xs" href="https://business.facebook.com/commerce" target="_blank" rel="noopener">Commerce Manager ↗</a></div>';
+    }
+
+    async function loadAuto(box) {
+        box.innerHTML = '<div class="p-cell-muted">…</div>';
+        var r = await fetchJSON('/api/whatsapp-cloud/automation?website_id=' + encodeURIComponent(site));
+        if (!r.success) { box.innerHTML = '<div class="alert alert-danger">' + esc(r.error || '') + '</div>'; return; }
+        var pr = r.data.prompts || [], cm = r.data.commands || [];
+        var prompts = [0, 1, 2, 3].map(function (i) { return '<input class="form-control wa-prompt" dir="auto" maxlength="80" style="margin-bottom:6px" placeholder="' + esc([L('إيه الرحلات المتاحة الأسبوع ده؟', 'What trips are available this week?'), L('عايز أعرف الأسعار', 'I want to know the prices'), L('إزاي أحجز؟', 'How do I book?'), L('عايز أكلم موظف', 'I want to talk to an agent')][i]) + '" value="' + esc(pr[i] || '') + '">'; }).join('');
+        var rowsHtml = function (list) { return list.map(function (c) { return '<div class="wa-cmd" style="display:grid;grid-template-columns:130px 1fr 30px;gap:6px;margin-bottom:6px"><input class="form-control wa-cmd-n" dir="ltr" maxlength="32" placeholder="prices" value="' + esc(c.command_name) + '"><input class="form-control wa-cmd-d" dir="auto" maxlength="256" placeholder="' + esc(L('اعرض الأسعار', 'Show prices')) + '" value="' + esc(c.command_description) + '"><button type="button" class="p-btn outline xs wa-cmd-del">✕</button></div>'; }).join(''); };
+        box.innerHTML = '<p class="p-cell-muted" style="margin:0 0 10px;font-size:12.5px">' + L('أسئلة البداية بتظهر للعميل كأزرار أول ما يفتح شات جديد معاك، والأوامر بتظهر لما يكتب «/». اللي العميل يختاره بيوصلك رسالة عادية والرد الآلي بيرد عليها.', 'Starter questions show as buttons when a customer opens a new chat with you; commands show when they type “/”. Whatever they pick arrives as a normal message the auto-reply answers.') + '</p>'
+            + '<p style="margin:0 0 6px;font-weight:600">' + L('أسئلة البداية (4 بالكتير، 80 حرف)', 'Starter questions (up to 4, 80 chars)') + '</p>' + prompts
+            + '<p style="margin:12px 0 6px;font-weight:600">' + L('الأوامر', 'Commands') + ' <span class="p-cell-muted" style="font-weight:400;font-size:12px">' + L('(الاسم بالإنجليزي من غير /)', '(name in English, without /)') + '</span></p><div id="waCmds">' + rowsHtml(cm) + '</div>'
+            + '<button type="button" class="p-btn outline xs" id="waCmdAdd">+ ' + L('أمر جديد', 'Add command') + '</button>'
+            + '<div style="margin-top:12px"><button class="p-btn primary sm" id="waAutoSave">' + L('احفظ', 'Save') + '</button></div>';
+    }
+
+    async function loadSecurity(box) {
+        box.innerHTML = '<div class="p-cell-muted">…</div>';
+        var r = await fetchJSON('/api/whatsapp-cloud/blocked?website_id=' + encodeURIComponent(site));
+        var list = r.success ? (r.data.users || []) : [];
+        box.innerHTML = '<p style="margin:0 0 6px;font-weight:600">🔐 ' + L('رمز التحقق بخطوتين', 'Two-step verification PIN') + '</p>'
+            + '<p class="p-cell-muted" style="margin:0 0 8px;font-size:12.5px">' + L('6 أرقام بتحمي رقمك من إن حد ينقله لحساب تاني. هتحتاجه لو نقلت الرقم أو سجّلته من جديد، فاحتفظ بيه.', 'Six digits that stop anyone from moving your number to another account. You need it to re-register or move the number, so keep it safe.') + '</p>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="waPin" class="form-control" dir="ltr" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••" style="max-width:140px"><input id="waPin2" class="form-control" dir="ltr" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="' + esc(L('أعد الكتابة', 'Repeat')) + '" style="max-width:140px"><button class="p-btn outline sm" id="waPinSave">' + L('غيّر الرمز', 'Change PIN') + '</button></div>'
+            + '<p style="margin:16px 0 6px;font-weight:600">🚫 ' + L('العملاء المحظورين', 'Blocked customers') + '</p>'
+            + '<p class="p-cell-muted" style="margin:0 0 8px;font-size:12.5px">' + L('المحظور مش هيقدر يبعتلك ولا انت تبعتله. Meta بتسمح تحظر بس اللي كلمك آخر 24 ساعة. تقدر كمان تحظر من جوه الشات.', 'Blocked customers can’t message you and you can’t message them. Meta only lets you block someone who wrote in the last 24 hours. You can also block from the chat.') + '</p>'
+            + (!r.success ? '<div class="alert alert-warning">' + esc(r.error || '') + '</div>' : list.length ? '<div>' + list.map(function (u) { return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--panel-border,#2a3247)"><span dir="ltr">+' + esc(u) + '</span><button class="p-btn outline xs" data-unblock="' + esc(u) + '">' + L('فك الحظر', 'Unblock') + '</button></div>'; }).join('') + '</div>' : '<p class="p-cell-muted" style="font-size:13px">' + L('مفيش حد محظور.', 'Nobody is blocked.') + '</p>')
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><input id="waBlockPhone" class="form-control" dir="ltr" placeholder="2010xxxxxxxx" style="max-width:200px"><button class="p-btn outline sm" id="waBlockBtn">' + L('احظر الرقم', 'Block number') + '</button></div>';
+    }
+    var PANELS = { waHealth: loadHealth, waCatalog: loadCatalog, waAuto: loadAuto, waSecurity: loadSecurity };
+
+
+    // ------------------------------------------------------------ ضبط صورة البروفايل (قص مربع 640×640)
+    var crop = null;
+    function openCropper(file) {
+        var box = document.getElementById('wpCrop');
+        if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toast(L('اختار صورة JPG أو PNG', 'Choose a JPG or PNG image'), 'error'); return; }
+        if (file.size > 15 * 1024 * 1024) { toast(L('الصورة كبيرة قوي (15 ميجا بالكتير)', 'The photo is too large (max 15 MB)'), 'error'); return; }
+        // Read as a data: URL - the panel's Content-Security-Policy allows data: images but not blob: URLs.
+        var reader = new FileReader(), img = new Image(), url = '';
+        img.onload = function () {
+            if (img.naturalWidth < 192 || img.naturalHeight < 192) { toast(L('الصورة صغيرة قوي - لازم 192×192 على الأقل', 'The photo is too small - at least 192×192'), 'error'); return; }
+            var V = 240, base = V / Math.min(img.naturalWidth, img.naturalHeight);
+            crop = { img: img, url: url, V: V, base: base, zoom: 1, x: 0, y: 0 };
+            box.style.display = 'block';
+            box.innerHTML = '<p style="margin:0 0 8px;font-weight:600">' + L('ظبط الصورة', 'Adjust the photo') + ' <span class="p-cell-muted" style="font-weight:400;font-size:12px">' + L('اسحب الصورة لتحريكها، واستخدم الشريط للتكبير', 'Drag to move, use the slider to zoom') + '</span></p>'
+                + '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><canvas id="wpCanvas" width="' + V + '" height="' + V + '" style="width:' + V + 'px;height:' + V + 'px;max-width:100%;border-radius:50%;cursor:grab;touch-action:none;background:#000"></canvas>'
+                + '<div style="flex:1;min-width:160px"><label class="p-cell-muted" style="font-size:12px">' + L('تكبير', 'Zoom') + '</label><input type="range" id="wpZoom" min="1" max="4" step="0.01" value="1" style="width:100%">'
+                + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="p-btn primary sm" id="waPhotoSave">' + L('احفظ الصورة على واتساب', 'Save photo to WhatsApp') + '</button><button type="button" class="p-btn outline sm" id="wpCropCancel">' + L('إلغاء', 'Cancel') + '</button></div></div></div>';
+            var cv = document.getElementById('wpCanvas'), drag = null;
+            cv.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, ox: crop.x, oy: crop.y }; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+            cv.addEventListener('pointermove', function (e) { if (!drag) return; var k = cv.width / cv.getBoundingClientRect().width; crop.x = drag.ox + (e.clientX - drag.x) * k; crop.y = drag.oy + (e.clientY - drag.y) * k; drawCrop(); });
+            var end = function () { drag = null; cv.style.cursor = 'grab'; };
+            cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+            cv.addEventListener('wheel', function (e) { e.preventDefault(); var z = document.getElementById('wpZoom'); z.value = Math.min(4, Math.max(1, crop.zoom - e.deltaY * 0.002)); z.dispatchEvent(new Event('input')); }, { passive: false });
+            document.getElementById('wpZoom').addEventListener('input', function () { crop.zoom = parseFloat(this.value); drawCrop(); });
+            drawCrop();
+        };
+        img.onerror = function () { toast(L('تعذر قراءة الصورة - جرّب صورة JPG أو PNG تانية', 'Could not read the image - try another JPG or PNG'), 'error'); };
+        reader.onload = function () { url = String(reader.result || ''); img.src = url; };
+        reader.onerror = img.onerror;
+        reader.readAsDataURL(file);
+    }
+    // Keep the image covering the whole square so the saved photo never has empty edges.
+    function clampCrop(size) {
+        var s = crop.base * crop.zoom * size / crop.V, w = crop.img.naturalWidth * s, h = crop.img.naturalHeight * s;
+        var maxX = (w - size) / 2 * crop.V / size, maxY = (h - size) / 2 * crop.V / size;
+        crop.x = Math.max(-maxX, Math.min(maxX, crop.x)); crop.y = Math.max(-maxY, Math.min(maxY, crop.y));
+    }
+    function paintCrop(ctx, size) {
+        clampCrop(size);
+        var s = crop.base * crop.zoom * size / crop.V, w = crop.img.naturalWidth * s, h = crop.img.naturalHeight * s;
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(crop.img, (size - w) / 2 + crop.x * size / crop.V, (size - h) / 2 + crop.y * size / crop.V, w, h);
+    }
+    function drawCrop() { var cv = document.getElementById('wpCanvas'); if (cv && crop) paintCrop(cv.getContext('2d'), cv.width); }
+    function closeCropper() { crop = null; var b = document.getElementById('wpCrop'); if (b) { b.style.display = 'none'; b.innerHTML = ''; } }
+    function cropBlob() {
+        return new Promise(function (resolve) {
+            var out = document.createElement('canvas'); out.width = out.height = 640;
+            paintCrop(out.getContext('2d'), 640);
+            crop.preview = out.toDataURL('image/jpeg', 0.8);
+            out.toBlob(function (b) { resolve(b); }, 'image/jpeg', 0.9);
+        });
+    }
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'wpPhoto' && e.target.files && e.target.files[0]) { openCropper(e.target.files[0]); e.target.value = ''; }
+    });
 
     async function post(url, body) {
         return fetchJSON(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
@@ -210,6 +361,66 @@
             try { await navigator.clipboard.writeText(el.textContent); toast(L('اتنسخ', 'Copied'), 'success'); } catch (x) { }
             return;
         }
+        if (t.dataset.panel) {
+            var pb = document.getElementById(t.dataset.panel);
+            if (pb.style.display === 'none') { pb.style.display = 'block'; PANELS[t.dataset.panel](pb); } else pb.style.display = 'none';
+            return;
+        }
+        if (t.dataset.reload) { PANELS[t.dataset.reload](document.getElementById(t.dataset.reload)); return; }
+        if (t.dataset.unblock) {
+            if (!confirm(L('فك الحظر عن الرقم ده؟', 'Unblock this number?'))) return;
+            busy(t, true);
+            var ub = await post('/api/whatsapp-cloud/block', { website_id: site, phone: t.dataset.unblock, block: false });
+            busy(t, false);
+            toast(ub.message || ub.error, ub.success ? 'success' : 'error');
+            if (ub.success) loadSecurity(document.getElementById('waSecurity'));
+            return;
+        }
+        if (t.classList.contains('wa-cmd-del')) { t.closest('.wa-cmd').remove(); return; }
+        if (t.id === 'waCmdAdd') {
+            var wrap = document.getElementById('waCmds');
+            if (wrap.querySelectorAll('.wa-cmd').length >= 30) { toast(L('30 أمر بالكتير', 'Up to 30 commands'), 'error'); return; }
+            wrap.insertAdjacentHTML('beforeend', '<div class="wa-cmd" style="display:grid;grid-template-columns:130px 1fr 30px;gap:6px;margin-bottom:6px"><input class="form-control wa-cmd-n" dir="ltr" maxlength="32" placeholder="prices"><input class="form-control wa-cmd-d" dir="auto" maxlength="256"><button type="button" class="p-btn outline xs wa-cmd-del">✕</button></div>');
+            return;
+        }
+        if (t.id === 'waAutoSave') {
+            var prompts = Array.prototype.map.call(document.querySelectorAll('#waAuto .wa-prompt'), function (i) { return i.value.trim(); }).filter(Boolean);
+            var commands = Array.prototype.map.call(document.querySelectorAll('#waAuto .wa-cmd'), function (row) { return { command_name: row.querySelector('.wa-cmd-n').value.trim().replace(/^\//, ''), command_description: row.querySelector('.wa-cmd-d').value.trim() }; }).filter(function (c) { return c.command_name || c.command_description; });
+            busy(t, true, L('بنحفظ…', 'Saving…'));
+            var sa = await post('/api/whatsapp-cloud/automation', { website_id: site, prompts: prompts, commands: commands });
+            busy(t, false);
+            toast(sa.message || sa.error, sa.success ? 'success' : 'error');
+            return;
+        }
+        if (t.id === 'waCatSave') {
+            busy(t, true, L('بنحفظ…', 'Saving…'));
+            var cs = await post('/api/whatsapp-cloud/catalog', { website_id: site, catalog_visible: document.getElementById('waCatVisible').checked, cart_enabled: document.getElementById('waCatCart').checked });
+            busy(t, false);
+            toast(cs.message || cs.error, cs.success ? 'success' : 'error');
+            return;
+        }
+        if (t.id === 'waPinSave') {
+            var p1 = document.getElementById('waPin').value, p2 = document.getElementById('waPin2').value;
+            if (!/^[0-9]{6}$/.test(p1)) { toast(L('الرمز لازم يبقى 6 أرقام', 'The PIN must be 6 digits'), 'error'); return; }
+            if (p1 !== p2) { toast(L('الرمزين مش زي بعض', 'The two PINs don’t match'), 'error'); return; }
+            busy(t, true);
+            var pn = await post('/api/whatsapp-cloud/pin', { website_id: site, pin: p1 });
+            busy(t, false);
+            toast(pn.message || pn.error, pn.success ? 'success' : 'error');
+            if (pn.success) { document.getElementById('waPin').value = ''; document.getElementById('waPin2').value = ''; }
+            return;
+        }
+        if (t.id === 'waBlockBtn') {
+            var ph = document.getElementById('waBlockPhone').value.trim();
+            if (!ph) return;
+            if (!confirm(L('حظر الرقم ده؟ مش هيقدر يبعتلك تاني.', 'Block this number? They won’t be able to message you.'))) return;
+            busy(t, true);
+            var bl = await post('/api/whatsapp-cloud/block', { website_id: site, phone: ph, block: true });
+            busy(t, false);
+            toast(bl.message || bl.error, bl.success ? 'success' : 'error');
+            if (bl.success) loadSecurity(document.getElementById('waSecurity'));
+            return;
+        }
         if (t.id === 'waEmbed' || t.id === 'waEmbedApp') {
             embeddedSignup(t, t.id === 'waEmbedApp');
         } else if (t.id === 'waDiag') {
@@ -235,15 +446,25 @@
             var sv = await post('/api/whatsapp-cloud/profile', { website_id: site, about: g('wpAbout'), description: g('wpDesc'), address: g('wpAddr'), email: g('wpEmail'), vertical: g('wpVertical'), websites: [g('wpWeb1'), g('wpWeb2')] });
             busy(t, false);
             toast(sv.message || sv.error, sv.success ? 'success' : 'error');
+        } else if (t.id === 'wpPick') {
+            document.getElementById('wpPhoto').click();
+        } else if (t.id === 'wpCropCancel') {
+            closeCropper();
         } else if (t.id === 'waPhotoSave') {
-            var fi = document.getElementById('wpPhoto');
-            if (!fi.files || !fi.files[0]) { toast(L('اختار صورة الأول', 'Choose a photo first'), 'error'); return; }
-            var fd = new FormData(); fd.append('website_id', site); fd.append('photo', fi.files[0]);
+            if (!crop) { toast(L('اختار صورة الأول', 'Choose a photo first'), 'error'); return; }
+            var blob = await cropBlob();
+            if (!blob) { toast(L('تعذر تجهيز الصورة', 'Could not prepare the photo'), 'error'); return; }
+            var fd = new FormData(); fd.append('website_id', site); fd.append('photo', blob, 'profile.jpg');
             busy(t, true, L('بنرفع…', 'Uploading…'));
             var ph = await fetchJSON('/api/whatsapp-cloud/profile/photo', { method: 'POST', body: fd });
             busy(t, false);
             toast(ph.message || ph.error, ph.success ? 'success' : 'error');
-            if (ph.success) loadProfile(document.getElementById('waProfile'));
+            if (ph.success) {
+                // Meta can take a little while to serve the new photo; show it right away.
+                var av = document.getElementById('wpAvatar');
+                if (av && crop && crop.preview) { av.src = crop.preview; av.style.visibility = 'visible'; }
+                closeCropper();
+            }
         } else if (t.id === 'waConnect') {
             var al = document.getElementById('waAlert'); al.style.display = 'none';
             busy(t, true, L('بنتأكد من البيانات مع Meta…', 'Checking with Meta…'));
@@ -276,6 +497,10 @@
             toast(d.message || d.error, d.success ? 'success' : 'error');
             load();
         }
+    });
+
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'waCatSel') loadCatalog(document.getElementById('waCatalog'), e.target.value);
     });
 
     function init() {

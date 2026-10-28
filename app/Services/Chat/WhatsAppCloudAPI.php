@@ -314,6 +314,156 @@ class WhatsAppCloudAPI
         return ['ok' => true, 'mime' => $mime, 'bytes' => (string) $body, 'error' => null];
     }
 
+    // ------------------------------------------------------------------ حالة الحساب والتحكم
+
+    /**
+     * Live number + account health from Meta. Optional fields are requested separately so an
+     * API-version change in one of them never hides the rest.
+     * @return array{ok:bool, phone:array, account:array, error:?string}
+     */
+    public function accountHealth(): array
+    {
+        $core = $this->call('GET', $this->phoneNumberId, null, ['fields' => 'display_phone_number,verified_name,quality_rating,code_verification_status,name_status,status']);
+        if (!$core['ok']) {
+            return ['ok' => false, 'phone' => [], 'account' => [], 'error' => $core['error']];
+        }
+        $phone = $core['data'];
+        foreach (['messaging_limit_tier', 'account_mode', 'is_official_business_account', 'throughput', 'new_name_status', 'platform_type'] as $f) {
+            $r = $this->call('GET', $this->phoneNumberId, null, ['fields' => $f]);
+            if ($r['ok'] && array_key_exists($f, $r['data'])) $phone[$f] = $r['data'][$f];
+        }
+        $account = [];
+        if ($this->wabaId !== '') {
+            foreach (['name', 'account_review_status', 'business_verification_status', 'whatsapp_business_manager_messaging_limit'] as $f) {
+                $r = $this->call('GET', $this->wabaId, null, ['fields' => $f]);
+                if ($r['ok'] && array_key_exists($f, $r['data'])) $account[$f] = $r['data'][$f];
+            }
+        }
+        return ['ok' => true, 'phone' => $phone, 'account' => $account, 'error' => null];
+    }
+
+    /** Two-step verification PIN of the number (6 digits). */
+    public function setPin(string $pin): array
+    {
+        if (!preg_match('/^[0-9]{6}$/D', $pin)) {
+            return ['ok' => false, 'error' => 'PIN must be 6 digits'];
+        }
+        $r = $this->call('POST', $this->phoneNumberId, ['pin' => $pin]);
+        return ['ok' => $r['ok'], 'error' => $r['error']];
+    }
+
+    /** Welcome-screen suggestions (ice breakers) and "/" commands shown to customers. */
+    public function conversationalAutomation(): array
+    {
+        $r = $this->call('GET', $this->phoneNumberId, null, ['fields' => 'conversational_automation']);
+        $c = $r['data']['conversational_automation'] ?? [];
+        return ['ok' => $r['ok'], 'prompts' => array_values(array_map('strval', (array) ($c['prompts'] ?? []))),
+            'commands' => array_values(array_map(fn($x) => ['command_name' => (string) ($x['command_name'] ?? ''), 'command_description' => (string) ($x['command_description'] ?? '')], (array) ($c['commands'] ?? []))),
+            'error' => $r['error']];
+    }
+
+    public function setConversationalAutomation(array $prompts, array $commands): array
+    {
+        $prompts = array_values(array_filter(array_map(fn($p) => mb_substr(trim((string) $p), 0, 80), $prompts), 'strlen'));
+        if (count($prompts) > 4) throw new InvalidArgumentException('Up to 4 suggested questions');
+        $clean = [];
+        foreach ($commands as $c) {
+            $name = strtolower(trim((string) ($c['command_name'] ?? ''), " /\t"));
+            $desc = mb_substr(trim((string) ($c['command_description'] ?? '')), 0, 256);
+            if ($name === '' && $desc === '') continue;
+            if (!preg_match('/^[a-z0-9_]{1,32}$/D', $name) || $desc === '') throw new InvalidArgumentException('Commands use English letters, numbers or _ and need a description');
+            $clean[] = ['command_name' => $name, 'command_description' => $desc];
+        }
+        if (count($clean) > 30) throw new InvalidArgumentException('Up to 30 commands');
+        $r = $this->call('POST', $this->phoneNumberId . '/conversational_automation', [
+            'enable_welcome_message' => false, 'prompts' => $prompts, 'commands' => $clean,
+        ]);
+        return ['ok' => $r['ok'], 'error' => $r['error']];
+    }
+
+    /** Block (or unblock) a customer. Meta only allows blocking someone who messaged in the last 24 hours. */
+    public function blockUser(string $to, bool $block = true): array
+    {
+        $r = $this->call($block ? 'POST' : 'DELETE', $this->phoneNumberId . '/block_users', [
+            'messaging_product' => 'whatsapp', 'block_users' => [['user' => self::recipientForText($to)]],
+        ]);
+        $failed = $r['data']['block_users']['failed_users'] ?? $r['data']['failed_users'] ?? [];
+        $ok = $r['ok'] && empty($failed);
+        $err = $r['error'] ?? (($failed[0]['errors'][0]['message'] ?? null) ?: null);
+        return ['ok' => $ok, 'error' => $ok ? null : ($err ?: 'Meta did not confirm the block'), 'error_code' => $r['error_code'] ?? null];
+    }
+
+    /** @return array{ok:bool, users:string[], error:?string} */
+    public function blockedUsers(): array
+    {
+        $r = $this->call('GET', $this->phoneNumberId . '/block_users', null, ['limit' => 100]);
+        $users = [];
+        foreach ((array) ($r['data']['data'] ?? []) as $u) {
+            $id = (string) ($u['wa_id'] ?? $u['user'] ?? '');
+            if ($id !== '') $users[] = $id;
+        }
+        return ['ok' => $r['ok'], 'users' => $users, 'error' => $r['error']];
+    }
+
+    // ------------------------------------------------------------------ الكتالوج
+
+    /** Whether the catalog shows on the WhatsApp profile and the cart is on. */
+    public function commerceSettings(): array
+    {
+        $r = $this->call('GET', $this->phoneNumberId . '/whatsapp_commerce_settings');
+        $d = $r['data']['data'][0] ?? [];
+        return ['ok' => $r['ok'], 'catalog_visible' => !empty($d['is_catalog_visible']), 'cart_enabled' => !empty($d['is_cart_enabled']), 'error' => $r['error']];
+    }
+
+    public function setCommerceSettings(bool $catalogVisible, bool $cartEnabled): array
+    {
+        $r = $this->call('POST', $this->phoneNumberId . '/whatsapp_commerce_settings', [
+            'is_catalog_visible' => $catalogVisible, 'is_cart_enabled' => $cartEnabled,
+        ]);
+        return ['ok' => $r['ok'], 'error' => $r['error']];
+    }
+
+    /** Catalogs connected to the WhatsApp account (made in Meta Commerce Manager). Needs catalog_management access. */
+    public function linkedCatalogs(): array
+    {
+        if ($this->wabaId === '') return ['ok' => false, 'items' => [], 'error' => 'WABA ID ناقص', 'error_code' => null];
+        $r = $this->call('GET', $this->wabaId . '/product_catalogs', null, ['fields' => 'id,name']);
+        return ['ok' => $r['ok'], 'items' => array_values((array) ($r['data']['data'] ?? [])), 'error' => $r['error'], 'error_code' => $r['error_code']];
+    }
+
+    public function catalogProducts(string $catalogId): array
+    {
+        if (!preg_match('/^[0-9]{1,32}$/D', $catalogId)) return ['ok' => false, 'items' => [], 'error' => 'Invalid catalog'];
+        $r = $this->call('GET', $catalogId . '/products', null, ['fields' => 'id,retailer_id,name,price,image_url,availability,url', 'limit' => 100]);
+        return ['ok' => $r['ok'], 'items' => array_values((array) ($r['data']['data'] ?? [])), 'error' => $r['error']];
+    }
+
+    /**
+     * Interactive catalog message (opens the whole catalog), or a single product when $retailerId is given.
+     * Session message: only inside the 24-hour window.
+     */
+    public function sendCatalog(string $to, string $bodyText, string $catalogId = '', string $retailerId = ''): array
+    {
+        $to = trim($to);
+        $isBsuid = preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $to) === 1;
+        try {
+            $destination = $isBsuid ? $to : self::normalizePhone($to);
+        } catch (InvalidArgumentException $e) {
+            return ['ok'=>false, 'id'=>null, 'error'=>'Invalid WhatsApp recipient', 'error_code'=>null, 'http_code'=>0, 'window'=>false];
+        }
+        $bodyText = mb_substr(trim($bodyText), 0, 1024);
+        if ($retailerId !== '') {
+            $interactive = ['type' => 'product', 'action' => ['catalog_id' => $catalogId, 'product_retailer_id' => mb_substr($retailerId, 0, 100)]];
+            if ($bodyText !== '') $interactive['body'] = ['text' => $bodyText];
+        } else {
+            $interactive = ['type' => 'catalog_message', 'body' => ['text' => $bodyText !== '' ? $bodyText : 'Browse our trips and services'], 'action' => ['name' => 'catalog_message']];
+        }
+        $body = ['messaging_product' => 'whatsapp', 'type' => 'interactive', 'interactive' => $interactive];
+        if ($isBsuid) $body['recipient'] = $destination;
+        else { $body['recipient_type'] = 'individual'; $body['to'] = $destination; }
+        return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
+    }
+
     /** رسالة قالب متوافق عليه - مسموحة في أي وقت */
     public function sendTemplate(string $to, string $name, string $lang, array $bodyParams = [],array $extraComponents=[]): array
     {
@@ -396,9 +546,11 @@ class WhatsAppCloudAPI
         if(!$templateExample)return $this->binaryRequest($this->phoneNumberId.'/media',$file,$mime,true);
         $appId=class_exists('MetaOAuthClient')?MetaOAuthClient::setting('meta_app_id','META_APP_ID'):'';
         if(!preg_match('/^[0-9]{1,32}$/D',$appId))throw new InvalidArgumentException('Configure the Meta application before uploading template examples');
-        $r=$this->call('POST',$appId.'/uploads',null,['file_length'=>filesize($file),'file_type'=>$mime]);
+        // Resumable Upload API step 1: open a session (params in the body so the POST always has a Content-Length).
+        $r=$this->call('POST',$appId.'/uploads',['file_name'=>'upload'.($mime==='image/png'?'.png':($mime==='image/jpeg'?'.jpg':'')),'file_length'=>filesize($file),'file_type'=>$mime]);
         $session=$r['data']['id']??'';
-        if(!$r['ok']||!is_string($session)||!preg_match('/^upload:[a-zA-Z0-9_?=&%:.-]{1,2000}$/D',$session))return ['ok'=>false,'error'=>'Meta did not confirm the template upload session'];
+        // Session IDs are base64-like ("upload:MTph...?sig=AR..") and may contain + / = characters.
+        if(!$r['ok']||!is_string($session)||!preg_match('#^upload:[A-Za-z0-9_?=&%:.+/-]{1,2000}$#D',$session))return ['ok'=>false,'value'=>null,'error'=>'Meta did not open the upload session'.($r['error']?': '.$r['error']:'')];
         return $this->binaryRequest($session,$file,$mime,false);
     }
     private function binaryRequest(string $path,string $file,string $mime,bool $multipart): array
@@ -408,7 +560,9 @@ class WhatsAppCloudAPI
             if($this->transport){[$code,$body]=($this->transport)('POST',$url,['upload_kind'=>$multipart?'media':'template_example','mime'=>$mime,'bytes'=>filesize($file),'sha256'=>hash_file('sha256',$file)]);}
             else{$ch=curl_init($url);$headers=$multipart?['Authorization: Bearer '.$this->token]:['Authorization: OAuth '.$this->token,'file_offset: 0','Content-Type: '.$mime];$data=$multipart?['messaging_product'=>'whatsapp','type'=>$mime,'file'=>new CURLFile($file,$mime,basename($file))]:file_get_contents($file);curl_setopt_array($ch,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>60,CURLOPT_POST=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_HTTPHEADER=>$headers,CURLOPT_POSTFIELDS=>$data]);$body=curl_exec($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);}
             $d=json_decode((string)$body,true);$id=$d[$multipart?'id':'h']??null;$valid=is_string($id)&&($multipart?preg_match('/^[0-9]{1,64}$/D',$id):strlen($id)>0&&strlen($id)<4096);
-            return ['ok'=>$code>=200&&$code<300&&$valid,'value'=>$valid?$id:null,'error'=>$code>=200&&$code<300&&$valid?null:'Meta did not confirm the media upload; check the account before retrying'];
+            // Pass Meta's own reason through (no tokens are in it) so the user sees why an upload failed.
+            $metaErr=is_array($d)?(string)($d['error']['error_user_msg']??$d['error']['message']??''):'';
+            return ['ok'=>$code>=200&&$code<300&&$valid,'value'=>$valid?$id:null,'error'=>$code>=200&&$code<300&&$valid?null:('Meta did not confirm the media upload'.($metaErr!==''?': '.mb_substr($metaErr,0,300):' (HTTP '.(int)$code.')'))];
         }catch(Throwable $e){return ['ok'=>false,'value'=>null,'error'=>'Media upload outcome could not be confirmed'];}
     }
 
