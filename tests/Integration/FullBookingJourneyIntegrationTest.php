@@ -128,6 +128,9 @@ final class FullBookingJourneyIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
+        // حالة الـ RateLimiter محفوظة في file cache ومشتركة بين الاختبارات (نفس الـ IP)،
+        // فكانت بتطلع 429 بدل النتيجة المتوقعة. نفضّيها قبل كل اختبار.
+        (new Cache())->clear();
         $pdo = $this->db();
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشنز الرحلة لسه ما اتشغّلتش');
@@ -293,7 +296,8 @@ final class FullBookingJourneyIntegrationTest extends TestCase
      */
     private function insertPendingTx(int $bookingId, string $reference, string $gateway, string $gatewayTxId, string $amountCents = '10000'): int
     {
-        $amount = $gateway === 'paymob' ? $amountCents : '100.00';
+        // المبلغ المخزّن بالجنيه (10000 قرش = 100.00 EGP)؛ البوابة بتقارن بالوحدة الصغرى
+        $amount = $gateway === 'paymob' ? number_format(((int) $amountCents) / 100, 2, '.', '') : '100.00';
         $currency = $gateway === 'paymob' ? 'EGP' : 'USD';
         self::$pdo->prepare('INSERT INTO payment_transactions
             (internal_transaction_id, user_id, amount, currency, payment_method, gateway,
@@ -309,7 +313,7 @@ final class FullBookingJourneyIntegrationTest extends TestCase
                 'pending',
                 $reference,
                 $bookingId,
-                '{}',
+                $gateway === 'paymob' ? json_encode(['paymob_order_id' => 999510]) : '{}',
                 'idem_' . $gateway . '_' . $bookingId,
                 $gatewayTxId,
             ]);
@@ -326,6 +330,12 @@ final class FullBookingJourneyIntegrationTest extends TestCase
     private function stripePayload(string $type, string $sessionId, string $reference): string
     {
         $object = ['id' => $sessionId, 'client_reference_id' => $reference];
+        if ($type === 'checkout.session.completed') {
+            // StripeCheckoutService::matchesPaidSession بتتأكد من الدفع والمبلغ (100.00 USD = 10000) والعملة
+            $object['payment_status'] = 'paid';
+            $object['amount_total'] = 10000;
+            $object['currency'] = 'usd';
+        }
         if ($type === 'checkout.session.expired') {
             $object['status'] = 'expired';
         }
@@ -349,19 +359,18 @@ final class FullBookingJourneyIntegrationTest extends TestCase
         $secret = getenv('PAYMOB_HMAC_SECRET') ?: 'test_paymob_hmac';
         $data = json_decode($payload, true);
         $keys = [
-            'amount_cents', 'created_at', 'currency', 'error_occurred', 'has_ssl_certificate',
+            'amount_cents', 'created_at', 'currency', 'error_occured', 'has_parent_transaction',
             'id', 'integration_id', 'is_3d_secure', 'is_auth', 'is_capture', 'is_refunded',
             'is_standalone_payment', 'is_voided', 'order.id', 'owner', 'pending',
-            'source_data.pan', 'source_data.sub_type', 'source_data.type', 'success', 'transaction_id',
+            'source_data.pan', 'source_data.sub_type', 'source_data.type', 'success',
         ];
         $concatenated = '';
         foreach ($keys as $key) {
             $value = $this->getValueByKey($data, $key);
-            if ($value !== null && $value !== '' && $value !== false && $value !== 0) {
-                $concatenated .= (string) $value;
-            }
+            // مواصفة Paymob: كل الحقول بالترتيب، والـ boolean نص 'true'/'false'
+            $concatenated .= is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
         }
-        return hash_hmac('sha256', $concatenated, $secret);
+        return hash_hmac('sha512', $concatenated, $secret);
     }
 
     private function paymobPayload(string $txId, string $reference, bool $success = true): string
@@ -373,7 +382,7 @@ final class FullBookingJourneyIntegrationTest extends TestCase
             'currency' => 'EGP',
             'success' => $success,
             'pending' => false,
-            'error_occurred' => !$success,
+            'error_occured' => !$success,
             'is_refunded' => false,
             'is_voided' => false,
             'is_auth' => false,
@@ -382,7 +391,7 @@ final class FullBookingJourneyIntegrationTest extends TestCase
             'is_standalone_payment' => true,
             'created_at' => date('Y-m-d H:i:s'),
             'integration_id' => 12345,
-            'has_ssl_certificate' => true,
+            'has_parent_transaction' => false,
             'owner' => 6789,
             'source_data' => ['pan' => 'xxxxxx', 'sub_type' => 'VISA', 'type' => 'card'],
             'order' => ['id' => 999510, 'merchant_order_id' => $reference],

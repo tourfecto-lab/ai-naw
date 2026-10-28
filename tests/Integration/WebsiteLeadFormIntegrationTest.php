@@ -102,6 +102,9 @@ final class WebsiteLeadFormIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
+        // حالة الـ RateLimiter محفوظة في file cache ومشتركة بين الاختبارات (نفس الـ IP)،
+        // فكانت بتطلع 429 بدل النتيجة المتوقعة. نفضّيها قبل كل اختبار.
+        (new Cache())->clear();
         $pdo = $this->db();
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة');
@@ -162,9 +165,17 @@ final class WebsiteLeadFormIntegrationTest extends TestCase
         $ref->setAccessible(true);
         $ref->invoke(self::$controller, $content);
 
-        $render = $industry === 'hotel'
-            ? 'renderHotelHome'
-            : 'renderToursHome';
+        // موقع الرحلات بقى متعدد الصفحات: نموذج الـ lead في صفحة 'contact' (renderTourSitePage)
+        // بدل renderToursHome القديمة. الفندق لسه في صفحته الرئيسية.
+        if ($industry !== 'hotel') {
+            return $this->invokePrivate(self::$controller, 'renderTourSitePage', [
+                'contact',
+                self::TEST_SLUG,
+                $content,
+                $website,
+            ]);
+        }
+        $render = 'renderHotelHome';
         return $this->invokePrivate(self::$controller, $render, [
             self::TEST_SLUG,
             $content,
@@ -214,7 +225,7 @@ final class WebsiteLeadFormIntegrationTest extends TestCase
 
         $html = $this->renderHome('tours');
 
-        $this->assertStringContainsString('ws-btn-outline', $html, 'زرار احجز الآن لازم يظهر لما يكون فيه منتج مرتبط');
+        $this->assertStringContainsString('class="ws-btn"', $html, 'زرار احجز الآن لازم يظهر لما يكون فيه منتج مرتبط');
         $this->assertStringContainsString('احجز الآن', $html);
         $this->assertStringContainsString('href="#tours"', $html, 'الزرار لازم يوجّه لأقرب قسم جولات');
     }

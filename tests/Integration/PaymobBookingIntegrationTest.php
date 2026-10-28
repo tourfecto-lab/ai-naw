@@ -145,7 +145,7 @@ final class PaymobBookingIntegrationTest extends TestCase
             'currency' => 'EGP',
             'success' => $success,
             'pending' => false,
-            'error_occurred' => !$success,
+            'error_occured' => !$success,
             'is_refunded' => false,
             'is_voided' => false,
             'is_auth' => false,
@@ -154,7 +154,7 @@ final class PaymobBookingIntegrationTest extends TestCase
             'is_standalone_payment' => true,
             'created_at' => date('Y-m-d H:i:s'),
             'integration_id' => 12345,
-            'has_ssl_certificate' => true,
+            'has_parent_transaction' => false,
             'owner' => 6789,
             'source_data' => ['pan' => 'xxxxxx', 'sub_type' => 'VISA', 'type' => 'card'],
             'order' => ['id' => 999000, 'merchant_order_id' => $reference],
@@ -192,7 +192,7 @@ final class PaymobBookingIntegrationTest extends TestCase
             ->execute([
                 'PTX-' . bin2hex(random_bytes(8)), self::$testUserId, 250.00, 'EGP', 'card',
                 'paymob', 'pending', $reference, $bookingId,
-                json_encode(['booking_reference' => $reference]),
+                json_encode(['booking_reference' => $reference, 'paymob_order_id' => 999000]),
                 'booking-checkout-paymob-' . $bookingId . '-' . $reference,
                 $txId,
             ]);
@@ -248,7 +248,7 @@ final class PaymobBookingIntegrationTest extends TestCase
             ->execute([
                 'PTX-' . bin2hex(random_bytes(8)), self::$testUserId, 250.00, 'EGP', 'card',
                 'paymob', 'pending', $reference, $bookingId,
-                json_encode(['booking_reference' => $reference]),
+                json_encode(['booking_reference' => $reference, 'paymob_order_id' => 999000]),
                 'booking-checkout-paymob-' . $bookingId . '-' . $reference,
                 $txId,
             ]);
@@ -272,21 +272,20 @@ final class PaymobBookingIntegrationTest extends TestCase
         $data = json_decode($payload, true);
 
         $keys = [
-            'amount_cents', 'created_at', 'currency', 'error_occurred', 'has_ssl_certificate',
+            'amount_cents', 'created_at', 'currency', 'error_occured', 'has_parent_transaction',
             'id', 'integration_id', 'is_3d_secure', 'is_auth', 'is_capture', 'is_refunded',
             'is_standalone_payment', 'is_voided', 'order.id', 'owner', 'pending',
-            'source_data.pan', 'source_data.sub_type', 'source_data.type', 'success', 'transaction_id',
+            'source_data.pan', 'source_data.sub_type', 'source_data.type', 'success',
         ];
 
         $concatenated = '';
         foreach ($keys as $key) {
             $value = $this->getValueByKey($data, $key);
-            if ($value !== null && $value !== '' && $value !== false && $value !== 0) {
-                $concatenated .= (string) $value;
-            }
+            // مواصفة Paymob: كل الحقول بالترتيب، والـ boolean نص 'true'/'false'
+            $concatenated .= is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
         }
 
-        return hash_hmac('sha256', $concatenated, $secret);
+        return hash_hmac('sha512', $concatenated, $secret);
     }
 
     private function getValueByKey(array $data, string $key)

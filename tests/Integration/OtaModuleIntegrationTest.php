@@ -158,7 +158,7 @@ final class OtaModuleIntegrationTest extends TestCase
         $res = $client->verifyToken();
 
         $this->assertFalse($res['success']);
-        $this->assertStringContainsString('غير صحيح أو منتهي', (string) $res['error']);
+        $this->assertStringContainsString('Invalid or expired credential', (string) $res['error']);
     }
 
     public function testGetYourGuideVerifyTokenNetworkFailure(): void
@@ -250,12 +250,17 @@ final class OtaModuleIntegrationTest extends TestCase
 
     public function testViatorVerifyTokenInvalidKey401And403(): void
     {
-        foreach ([401, 403] as $code) {
+        // ViatorAPI::verifyToken بتفرّق بين 401 (مفتاح غلط) و403 (مفيش صلاحية)
+        $expected = [
+            401 => 'Invalid or expired credential',
+            403 => 'Your account does not have the required API permission',
+        ];
+        foreach ($expected as $code => $message) {
             $transport = new FakeOtaTransport('{"error":"denied"}', $code);
             $client = new ViatorAPI('bad-key', 'en-US', $transport);
             $res = $client->verifyToken();
             $this->assertFalse($res['success']);
-            $this->assertStringContainsString('غير صحيح أو منتهي', (string) $res['error']);
+            $this->assertStringContainsString($message, (string) $res['error']);
         }
     }
 

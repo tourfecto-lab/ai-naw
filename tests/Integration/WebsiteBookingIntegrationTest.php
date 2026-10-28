@@ -129,6 +129,9 @@ final class WebsiteBookingIntegrationTest extends TestCase
 
     protected function setUp(): void
     {
+        // حالة الـ RateLimiter محفوظة في file cache ومشتركة بين الاختبارات (نفس الـ IP)،
+        // فكانت بتطلع 429 بدل النتيجة المتوقعة. نفضّيها قبل كل اختبار.
+        (new Cache())->clear();
         $pdo = $this->db();
         if ($pdo === null) {
             $this->markTestSkipped('DB غير متاحة أو ميجريشن ربط المواقع لسه ما اتشغّلش');

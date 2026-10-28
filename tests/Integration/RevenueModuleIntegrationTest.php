@@ -25,7 +25,14 @@ require_once __DIR__ . '/../../app/Services/RevenueIntelligence/RevenueQuotaServ
 final class RevenueModuleIntegrationTest extends TestCase
 {
     private const TEST_USER_ID = 999010;
-    private const TEST_PERIOD = '2026-08';
+    /**
+     * الشهر الحالي، مش تاريخ ثابت: RevenueQuotaService بيحكم على الشهور الماضية بالنتيجة النهائية
+     * فقط ('behind')، فالتاريخ الثابت '2026-08' خلّى اختبارات الـ status تفشل بعد انتهاء الشهر.
+     */
+    private static function period(): string
+    {
+        return date('Y-m');
+    }
 
     private static ?PDO $pdo = null;
     private static bool $dbChecked = false;
@@ -145,17 +152,17 @@ final class RevenueModuleIntegrationTest extends TestCase
 
     public function testGetQuotasComputesAchievedAndProgress(): void
     {
-        $this->addGoal(self::TEST_PERIOD, 1000.0);
-        $this->addRevenue(400.0, self::TEST_PERIOD . '-05 12:00:00');
-        $this->addRevenue(250.0, self::TEST_PERIOD . '-15 09:00:00');
+        $this->addGoal(self::period(), 1000.0);
+        $this->addRevenue(400.0, self::period() . '-05 12:00:00');
+        $this->addRevenue(250.0, self::period() . '-15 09:00:00');
 
         $service = new RevenueQuotaService();
-        $result = $service->getQuotas(self::TEST_USER_ID, self::TEST_PERIOD);
+        $result = $service->getQuotas(self::TEST_USER_ID, self::period());
 
         $this->assertTrue($result['has_data']);
         $this->assertCount(1, $result['quotas']);
         $quota = $result['quotas'][0];
-        $this->assertSame(self::TEST_PERIOD, $quota['period']);
+        $this->assertSame(self::period(), $quota['period']);
         $this->assertEquals(1000.0, $quota['target_value']);
         $this->assertEquals(650.0, $quota['achieved_value']);
         $this->assertEquals(65.0, $quota['progress_percent']);
@@ -165,11 +172,11 @@ final class RevenueModuleIntegrationTest extends TestCase
 
     public function testGetQuotasAheadWhenGoalMet(): void
     {
-        $this->addGoal(self::TEST_PERIOD, 500.0);
-        $this->addRevenue(600.0, self::TEST_PERIOD . '-10 10:00:00');
+        $this->addGoal(self::period(), 500.0);
+        $this->addRevenue(600.0, self::period() . '-10 10:00:00');
 
         $service = new RevenueQuotaService();
-        $result = $service->getQuotas(self::TEST_USER_ID, self::TEST_PERIOD);
+        $result = $service->getQuotas(self::TEST_USER_ID, self::period());
 
         $this->assertTrue($result['has_data']);
         $quota = $result['quotas'][0];
@@ -185,16 +192,16 @@ final class RevenueModuleIntegrationTest extends TestCase
              VALUES (999001, NULL, 'Test Stage', 'test-stage', 0, 0, 0, NOW())"
         );
         $stmt->execute();
-        $this->addGoal(self::TEST_PERIOD, 1000.0);
+        $this->addGoal(self::period(), 1000.0);
         $dealStmt = self::$pdo->prepare(
             "INSERT INTO crm_deals
                 (id, owner_user_id, stage_id, title, value, currency, probability, expected_close_date, status, created_at, updated_at)
              VALUES (999001, 999010, 999001, 'صفقة نيل', 2000.0, 'USD', 50, ?, 'open', NOW(), NOW())"
         );
-        $dealStmt->execute([self::TEST_PERIOD . '-20']);
+        $dealStmt->execute([self::period() . '-20']);
 
         $service = new RevenueQuotaService();
-        $result = $service->getQuotas(self::TEST_USER_ID, self::TEST_PERIOD);
+        $result = $service->getQuotas(self::TEST_USER_ID, self::period());
 
         $this->assertTrue($result['has_data']);
         $quota = $result['quotas'][0];

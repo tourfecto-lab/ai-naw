@@ -92,7 +92,9 @@ final class SocialMediaModuleIntegrationTest extends TestCase
         $this->assertNull($result['pages'][1]['instagram_id']);
 
         $this->assertStringContainsString('graph.facebook.com/v25.0/me/accounts', $transport->calls[0]['url']);
-        $this->assertStringContainsString('access_token=user-tok', $transport->calls[0]['url']);
+        // التوكن بيتبعت في Authorization header (مش في الـ URL) - انظر MetaSocialAPI::requestOnce
+        $this->assertStringNotContainsString('access_token=', $transport->calls[0]['url']);
+        $this->assertContains('Authorization: Bearer user-tok', $transport->calls[0]['headers']);
     }
 
     public function testMetaListPagesAuthError(): void
@@ -142,7 +144,8 @@ final class SocialMediaModuleIntegrationTest extends TestCase
         $this->assertStringContainsString('/v25.0/page1/feed', $call['url']);
         parse_str((string) $call['body'], $payload);
         $this->assertSame('مرحبا من تورفكتو', $payload['message']);
-        $this->assertSame('pat1', $payload['access_token']);
+        $this->assertArrayNotHasKey('access_token', $payload);
+        $this->assertContains('Authorization: Bearer pat1', $call['headers']);
     }
 
     public function testMetaPublishWithImageUsesPhotosEndpoint(): void

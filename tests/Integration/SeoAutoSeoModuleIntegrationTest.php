@@ -386,7 +386,8 @@ final class SeoAutoSeoModuleIntegrationTest extends TestCase
         $service = new RankTrackingService();
         $result = $service->checkWebsite($this->database(), self::$websiteId, self::$userId);
         $this->assertFalse($result['available']);
-        $this->assertSame('no_keyword_ranking_source_configured', $result['reason']);
+        // الخدمة بترجّع 'not_measured' لما مصدر الترتيب (DataForSEO) مش مربوط
+        $this->assertSame('not_measured', $result['reason']);
         $this->assertSame(0, $result['recorded']);
     }
 
