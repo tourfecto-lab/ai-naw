@@ -24,8 +24,9 @@ social publishing, ads, creative studio, CRM, bookings/payments, reputation (Goo
   Services are too large for PHPStan memory, so they are not analysed yet)
 - Tests: create DB `tourfecto_test`, then
   `DB_HOST=127.0.0.1 DB_NAME=tourfecto_test DB_USER=root DB_PASS= vendor/bin/phpunit --configuration tests/phpunit.xml`.
-  `tests/bootstrap.php` loads `schema.sql`, a known migration list, then every remaining migration (statement by statement,
-  only against `tourfecto_test`). Tests run in random order; use `--order-by=random --random-order-seed=N` when comparing runs.
+  `tests/bootstrap.php` applies every `database/migrations/20*.sql` in order (statement by statement, only against
+  `tourfecto_test`; `TOURFECTO_TEST_MIGRATION_MODE=legacy` restores `schema.sql` + a manual list). `php tools/migration_report.php`
+  lists the failing migration statements; see `docs/ops/MIGRATION_CHAIN_GAPS_AR.md`. Tests run in random order; use `--order-by=random --random-order-seed=N` when comparing runs.
   Baseline (2026-10-28): 1147 tests, ~97 failing (Creative Studio funding fixtures, OTA, Outreach, SEO, TikTok v2, a few email tests).
 - CI: `.github/workflows/ci.yml` (lint + PHPStan blocking, PHPUnit informational).
 
