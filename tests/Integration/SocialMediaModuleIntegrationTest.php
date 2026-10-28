@@ -233,10 +233,15 @@ final class SocialMediaModuleIntegrationTest extends TestCase
 
     public function testTikTokPublishVideoHoistsPublishId(): void
     {
+        // Content Posting API v2: creator_info أولًا، بعدين video/init (JSON + Bearer)
         $transport = new SocialMediaTransportFake([
             ['http_code' => 200, 'body' => json_encode([
+                'data' => ['privacy_level_options' => ['PUBLIC_TO_EVERYONE', 'SELF_ONLY']],
+                'error' => ['code' => 'ok'],
+            ]), 'error' => null],
+            ['http_code' => 200, 'body' => json_encode([
                 'data' => ['publish_id' => 'pub-1'],
-                'error' => ['code' => 0],
+                'error' => ['code' => 'ok'],
             ]), 'error' => null],
         ]);
         $api = new TikTokAPI('tt-tok', 'open-id-1', $transport);
@@ -245,23 +250,22 @@ final class SocialMediaModuleIntegrationTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame('pub-1', $result['publish_id']);
 
-        $call = $transport->calls[0];
-        $this->assertStringContainsString('open-api.tiktok.com/share/video/upload/', $call['url']);
-        parse_str((string) $call['body'], $payload);
-        $this->assertSame('tt-tok', $payload['access_token']);
-        $this->assertSame('open-id-1', $payload['open_id']);
-        $sourceInfo = json_decode($payload['source_info'], true);
-        $this->assertSame('PULL_FROM_URL', $sourceInfo['source']);
-        $this->assertSame('https://cdn.example/v.mp4', $sourceInfo['url']);
-        $this->assertSame('public', $payload['privacy_level']);
+        $this->assertStringContainsString('open.tiktokapis.com/v2/post/publish/creator_info/query/', $transport->calls[0]['url']);
+        $call = $transport->calls[1];
+        $this->assertStringContainsString('open.tiktokapis.com/v2/post/publish/video/init/', $call['url']);
+        $this->assertContains('Authorization: Bearer tt-tok', $call['headers']);
+        $payload = json_decode((string) $call['body'], true);
+        $this->assertSame('PULL_FROM_URL', $payload['source_info']['source']);
+        $this->assertSame('https://cdn.example/v.mp4', $payload['source_info']['video_url']);
+        $this->assertSame('PUBLIC_TO_EVERYONE', $payload['post_info']['privacy_level']);
     }
 
     public function testTikTokCheckPublishStatus(): void
     {
         $transport = new SocialMediaTransportFake([
             ['http_code' => 200, 'body' => json_encode([
-                'data' => ['data' => ['status' => 'PUBLISHED']],
-                'error' => ['code' => 0],
+                'data' => ['status' => 'PUBLISH_COMPLETE'],
+                'error' => ['code' => 'ok'],
             ]), 'error' => null],
         ]);
         $api = new TikTokAPI('tt-tok', 'open-id-1', $transport);
@@ -269,15 +273,16 @@ final class SocialMediaModuleIntegrationTest extends TestCase
         $result = $api->checkPublishStatus('pub-1');
         $this->assertTrue($result['success']);
         $this->assertSame('PUBLISHED', $result['status']);
-        $this->assertStringContainsString('publish_id=pub-1', $transport->calls[0]['url']);
+        $this->assertStringContainsString('/v2/post/publish/status/fetch/', $transport->calls[0]['url']);
+        $this->assertSame('pub-1', json_decode((string) $transport->calls[0]['body'], true)['publish_id']);
     }
 
     public function testTikTokCheckPublishStatusFailed(): void
     {
         $transport = new SocialMediaTransportFake([
             ['http_code' => 200, 'body' => json_encode([
-                'data' => ['data' => ['status' => 'FAILED', 'fail_reason' => 'invalid video format']],
-                'error' => ['code' => 0],
+                'data' => ['status' => 'FAILED', 'fail_reason' => 'invalid video format'],
+                'error' => ['code' => 'ok'],
             ]), 'error' => null],
         ]);
         $api = new TikTokAPI('tt-tok', 'open-id-1', $transport);

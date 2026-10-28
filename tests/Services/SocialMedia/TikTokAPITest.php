@@ -8,18 +8,24 @@ class TikTokAPITest extends TestCase
 {
     public function testPublishVideoSuccess(): void
     {
+        // v2: طلب أول لـ creator_info (الخصوصيات المسموحة) ثم طلب بدء النشر
         $api = $this->createPartialMock(TikTokAPI::class, ['request']);
-        $api->expects($this->once())
+        $urls = [];
+        $api->expects($this->exactly(2))
             ->method('request')
-            ->with('POST', $this->stringContains('share/video/upload/'), $this->anything())
-            ->willReturn([
-                'success' => true,
-                'data'    => ['publish_id' => 'pub_123'],
-            ]);
+            ->willReturnCallback(function (string $method, string $url) use (&$urls) {
+                $urls[] = $url;
+                return count($urls) === 1
+                    ? ['success' => true, 'data' => ['privacy_level_options' => ['PUBLIC_TO_EVERYONE', 'SELF_ONLY']]]
+                    : ['success' => true, 'data' => ['publish_id' => 'pub_123']];
+            });
 
         $result = $api->publishVideo('https://example.com/vid.mp4', 'Test Title');
         $this->assertTrue($result['success']);
         $this->assertEquals('pub_123', $result['publish_id']);
+        $this->assertEquals('PUBLIC_TO_EVERYONE', $result['privacy']);
+        $this->assertStringContainsString('/v2/post/publish/creator_info/query/', $urls[0]);
+        $this->assertStringContainsString('/v2/post/publish/video/init/', $urls[1]);
     }
 
     public function testPublishVideoFailure(): void
@@ -41,7 +47,7 @@ class TikTokAPITest extends TestCase
             ->method('request')
             ->willReturn([
                 'success' => true,
-                'data'    => ['data' => ['status' => 'PENDING']],
+                'data'    => ['status' => 'PROCESSING_DOWNLOAD'],
             ]);
 
         $result = $api->checkPublishStatus('pub_123');
@@ -56,7 +62,7 @@ class TikTokAPITest extends TestCase
             ->method('request')
             ->willReturn([
                 'success' => true,
-                'data'    => ['data' => ['status' => 'PUBLISHED']],
+                'data'    => ['status' => 'PUBLISH_COMPLETE'],
             ]);
 
         $result = $api->checkPublishStatus('pub_123');
@@ -70,7 +76,7 @@ class TikTokAPITest extends TestCase
             ->method('request')
             ->willReturn([
                 'success' => true,
-                'data'    => ['data' => ['status' => 'FAILED', 'fail_reason' => 'Policy violation']],
+                'data'    => ['status' => 'FAILED', 'fail_reason' => 'Policy violation'],
             ]);
 
         $result = $api->checkPublishStatus('pub_123');
