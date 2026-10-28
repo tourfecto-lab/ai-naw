@@ -13,3 +13,4 @@ Limits: Incoming webhook->CRM details, the worker cron script/schedule, browser 
 Safety check: run `php -l` on all four files before deployment; test ONE NEW reply to an already inbound conversation within 24h and inspect logs if rejected. Never retry an uncertain outgoing send blindly.
 "# ai-naw" 
 "# ai-naw" 
+"# ai-naw" 
