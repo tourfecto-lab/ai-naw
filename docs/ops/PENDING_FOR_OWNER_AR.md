@@ -9,6 +9,7 @@
 - **حذف الملفات القديمة على السيرفر:** المستودع حذف نسخًا مكررة (`app/app/`، و`app/Integrations/IntegrationManager.php`،
   و`app/Services/Integrations/Ota*.php` المسطّحة، وغيرها). رفع الملفات المتغيّرة فقط لا يحذف القديم من السيرفر. إن كان `vendor/composer`
   على السيرفر مبنيًا قبل الحذف فقد يشير لمسارات محذوفة؛ أعد توليده (`composer dump-autoload`) بعد رفع الكود، أو أبقِ النسخ القديمة حتى تتأكد.
+- **crontab:** حُذفت النسخة `app/cron/process_email_automations.php` (مطابقة حرفيًا لـ `cron/process_email_automations.php`). إن كان أمر cron على السيرفر يشير إلى `app/cron/...` فأبقِ هذا الملف على السيرفر أو غيّر المسار إلى `cron/`.
 - جرّب بعد النشر من لوحة العميل: حفظ إعدادات SMTP webhook وSite Connect (نمط CSRF صار مثبَّتًا في بداية المسار).
 
 ## 2) أمان (عليك أنت)
