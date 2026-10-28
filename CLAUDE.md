@@ -27,8 +27,8 @@ social publishing, ads, creative studio, CRM, bookings/payments, reputation (Goo
   `tests/bootstrap.php` applies every `database/migrations/20*.sql` in order (statement by statement, only against
   `tourfecto_test`; `TOURFECTO_TEST_MIGRATION_MODE=legacy` restores `schema.sql` + a manual list). `php tools/migration_report.php`
   lists the failing migration statements; see `docs/ops/MIGRATION_CHAIN_GAPS_AR.md`. Tests run in random order; use `--order-by=random --random-order-seed=N` when comparing runs.
-  Baseline (2026-10-28): 1147 tests, ~97 failing (Creative Studio funding fixtures, OTA, Outreach, SEO, TikTok v2, a few email tests).
-- CI: `.github/workflows/ci.yml` (lint + PHPStan blocking, PHPUnit informational).
+  Baseline (2026-10-28, seed 1793197154, CI + local agree): 1147 tests, 95 failing (Creative Studio funding fixtures, OTA revenue,
+  Outreach, SEO rank tracking, TikTok v2, a few email tests). CI fails if that number exceeds `MAX_KNOWN_FAILURES` in ci.yml; lower it as tests get fixed.
 
 ## Rules for changes
 - Deployment to the live server is manual (upload). Never change live config, secrets, or the production DB from here.
