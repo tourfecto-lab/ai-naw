@@ -947,7 +947,7 @@ abstract class Controller
             }
             if ($match) {
                 try {
-                    $owner = !empty($this->user['owner_user_id']) ? (int) $this->user['owner_user_id'] : (int) $this->user['id'];
+                    $owner = class_exists('TeamAccess') ? TeamAccess::billingOwner($this->user) : (!empty($this->user['owner_user_id']) ? (int) $this->user['owner_user_id'] : (int) $this->user['id']);
                     $db = Database::getInstance();
                     $sites = (int) ($db->query('SELECT COUNT(*) AS c FROM websites WHERE user_id = ?', [$owner])[0]['c'] ?? 0);
                     if ($sites === 0) {
@@ -987,7 +987,7 @@ abstract class Controller
         $tfCurrency = 'USD';
         if (!empty($this->user['id'])) {
             try {
-                $ownerId = !empty($this->user['owner_user_id']) ? (int) $this->user['owner_user_id'] : (int) $this->user['id'];
+                $ownerId = class_exists('TeamAccess') ? TeamAccess::billingOwner($this->user) : (!empty($this->user['owner_user_id']) ? (int) $this->user['owner_user_id'] : (int) $this->user['id']);
                 $cur = Database::getInstance()->query('SELECT default_currency FROM businesses WHERE owner_user_id = ? AND default_currency IS NOT NULL ORDER BY id LIMIT 1', [$ownerId]);
                 if (!empty($cur[0]['default_currency']) && preg_match('/^[A-Z]{3}$/', strtoupper((string) $cur[0]['default_currency']))) {
                     $tfCurrency = strtoupper((string) $cur[0]['default_currency']);

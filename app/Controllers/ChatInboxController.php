@@ -1105,28 +1105,12 @@ class ChatInboxController extends Controller
             $this->inboxRole = 'owner';
             return $website;
         }
-        $role = self::teamRole($ownerId, (int) $this->user['id']);
-        if ($role === null) {
+        $role = TeamAccess::inboxRole($ownerId, (int) $this->user['id']);
+        if ($role === null || $role === 'owner') {
             return null;
         }
         $this->inboxRole = $role;
         return $website;
-    }
-
-    /** Highest active team role a user has in businesses owned by $ownerId, or null. */
-    private static function teamRole(int $ownerId, int $userId): ?string
-    {
-        try {
-            $r = Database::getInstance()->query(
-                "SELECT m.role FROM business_members m JOIN businesses b ON b.id = m.business_id
-                 WHERE b.owner_user_id = ? AND m.user_id = ? AND m.status = 'active' AND m.role IN ('admin','member','viewer')
-                 ORDER BY FIELD(m.role, 'admin', 'member', 'viewer') LIMIT 1",
-                [$ownerId, $userId]
-            );
-        } catch (Throwable $e) {
-            return null; // team tables not installed
-        }
-        return $r ? (string) $r[0]['role'] : null;
     }
 
     /** Viewers can read the inbox but not send or change anything. */
@@ -1158,17 +1142,7 @@ class ChatInboxController extends Controller
     private function teamAgents(Website $website): array
     {
         $ownerId = (int) $website->getAttribute('user_id');
-        $ids = [$ownerId];
-        try {
-            foreach (Database::getInstance()->query(
-                "SELECT DISTINCT m.user_id FROM business_members m JOIN businesses b ON b.id = m.business_id
-                 WHERE b.owner_user_id = ? AND m.status = 'active' AND m.user_id IS NOT NULL AND m.role IN ('admin','member')",
-                [$ownerId]
-            ) ?: [] as $r) {
-                $ids[] = (int) $r['user_id'];
-            }
-        } catch (Throwable $e) {
-        }
+        $ids = array_merge([$ownerId], TeamAccess::agentIds($ownerId));
         $names = self::userNames($ids);
         $out = [];
         foreach (array_values(array_unique($ids)) as $id) {
@@ -1192,19 +1166,11 @@ class ChatInboxController extends Controller
         foreach ($db->query('SELECT id, company_name, main_url FROM websites WHERE user_id = ? ORDER BY id', [$uid]) ?: [] as $w) {
             $sites[(int) $w['id']] = ['id' => (int) $w['id'], 'name' => (string) ($w['company_name'] ?: $w['main_url']), 'url' => (string) $w['main_url'], 'role' => 'owner'];
         }
-        try {
-            $rows = $db->query(
-                "SELECT w.id, w.company_name, w.main_url, m.role FROM business_members m
-                 JOIN businesses b ON b.id = m.business_id JOIN websites w ON w.user_id = b.owner_user_id
-                 WHERE m.user_id = ? AND m.status = 'active' AND m.role IN ('admin','member','viewer') ORDER BY w.id",
-                [$uid]
-            ) ?: [];
-        } catch (Throwable $e) {
-            $rows = [];
-        }
-        foreach ($rows as $w) {
-            if (!isset($sites[(int) $w['id']])) {
-                $sites[(int) $w['id']] = ['id' => (int) $w['id'], 'name' => (string) ($w['company_name'] ?: $w['main_url']), 'url' => (string) $w['main_url'], 'role' => (string) $w['role']];
+        foreach (TeamAccess::ownersFor($uid) as $ownerId => $role) {
+            foreach ($db->query('SELECT id, company_name, main_url FROM websites WHERE user_id = ? ORDER BY id', [$ownerId]) ?: [] as $w) {
+                if (!isset($sites[(int) $w['id']])) {
+                    $sites[(int) $w['id']] = ['id' => (int) $w['id'], 'name' => (string) ($w['company_name'] ?: $w['main_url']), 'url' => (string) $w['main_url'], 'role' => $role];
+                }
             }
         }
         return $this->success(['websites' => array_values($sites)]);

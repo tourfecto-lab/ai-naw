@@ -421,6 +421,8 @@ HTML;
         document.getElementById('bcAuditPrev').disabled = bcAuditPage <= 1;
         document.getElementById('bcAuditNext').disabled = bcAuditPage * 20 >= (res.data.total || 0);
     };
+    // The audit tab's search and page buttons call bcLoadAudit().
+    window.bcLoadAudit = function (page) { return window.loadAudit(Math.max(1, page || 1)); };
 
     loadOverview();
 })();

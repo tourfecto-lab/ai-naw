@@ -795,6 +795,12 @@ class DashboardController extends Controller
                     }
                 }
                 if ($websiteCount === 0 && $onboarded === 0) {
+                    // Staff of another account have no website of their own: send them to the shared inbox,
+                    // not to new-customer setup.
+                    if (class_exists('TeamAccess') && TeamAccess::ownerFor($this->user) !== null) {
+                        header('Location: /chat');
+                        exit;
+                    }
                     header('Location: /onboarding');
                     exit;
                 }

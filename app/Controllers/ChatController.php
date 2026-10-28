@@ -313,7 +313,9 @@ class ChatController extends Controller
             }
 
             $limit = (int) ($this->get('limit', 50));
-            $messages = ChatMessage::getPendingApprovals($this->user['id'], $limit);
+            // Staff see and approve the replies of the account they work for.
+            $ownerId = class_exists('TeamAccess') ? TeamAccess::billingOwner($this->user) : (int) $this->user['id'];
+            $messages = ChatMessage::getPendingApprovals($ownerId, $limit);
 
             return $this->success([
                 // تصحيح: كانت بترجع array من ChatMessage objects مباشرة -
@@ -322,7 +324,7 @@ class ChatController extends Controller
                 // (مفيش message_text ولا ai_reply_generated ولا أي حاجة).
                 'pending' => array_map(fn ($m) => $m->toArray(), $messages),
                 'count' => count($messages),
-                'total_unread' => ChatMessage::getUnreadCount($this->user['id'])
+                'total_unread' => ChatMessage::getUnreadCount($ownerId)
             ]);
 
         } catch (Exception $e) {
@@ -353,11 +355,15 @@ class ChatController extends Controller
             if (!$messageId) {
                 return $this->error('Message ID is required', 400);
             }
+            $ownerId = class_exists('TeamAccess') ? TeamAccess::billingOwner($this->user) : (int) $this->user['id'];
+            if ($ownerId !== (int) $this->user['id'] && in_array(TeamAccess::inboxRole($ownerId, (int) $this->user['id']), [null, 'viewer'], true)) {
+                return $this->error('Your team role can view conversations but not reply or change them', 403);
+            }
 
             // مركز الأتمتة: نحتفظ بالمسودة الأصلية قبل أي تعديل عشان نتعلم منه
             $draftBefore = null;
             $customerText = null;
-            $msgRow = $this->db->query('SELECT ai_reply_generated, message_text FROM chat_messages WHERE id = ? AND user_id = ? LIMIT 1', [(int) $messageId, (int) $this->user['id']]);
+            $msgRow = $this->db->query('SELECT ai_reply_generated, message_text FROM chat_messages WHERE id = ? AND user_id = ? LIMIT 1', [(int) $messageId, $ownerId]);
             if (!empty($msgRow)) {
                 $draftBefore = (string) ($msgRow[0]['ai_reply_generated'] ?? '');
                 $customerText = (string) ($msgRow[0]['message_text'] ?? '');
@@ -367,13 +373,13 @@ class ChatController extends Controller
             // الأول قبل ما نوافق - عشان اللي يتبعت فعليًا يبقى النص المُعدّل
             // مش المسودة الأصلية اللي ولّدها الذكاء الاصطناعي.
             if ($csrfError=$this->verifyCsrf())return $csrfError;
-            $lock='approved-reply:'.(int)$this->user['id'].':'.(int)$messageId;
+            $lock='approved-reply:'.$ownerId.':'.(int)$messageId;
             if(!ExternalExecution::lock($lock))return $this->error('Reply approval is busy',409);
             try{
                 if ($action === 'approve' && $editedReply !== null && trim((string)$editedReply) !== '') {
-                    $this->db->query("UPDATE chat_messages SET ai_reply_generated=?,updated_at=NOW() WHERE id=? AND user_id=? AND bot_status='pending_approval'",[trim((string)$editedReply),(int)$messageId,(int)$this->user['id']]);
+                    $this->db->query("UPDATE chat_messages SET ai_reply_generated=?,updated_at=NOW() WHERE id=? AND user_id=? AND bot_status='pending_approval'",[trim((string)$editedReply),(int)$messageId,$ownerId]);
                 }
-                $result=$this->chatManager->approveBotReply($messageId,$this->user['id'],$action);
+                $result=$this->chatManager->approveBotReply($messageId,$ownerId,$action);
             }finally{ExternalExecution::unlock($lock);}
 
             if (!$result['success']) {
@@ -384,9 +390,9 @@ class ChatController extends Controller
                 $engine = AutomationEngine::instance();
                 if ($action === 'approve') {
                     $finalText = ($editedReply !== null && trim((string) $editedReply) !== '') ? trim((string) $editedReply) : $draftBefore;
-                    $engine->recordManualAction((int) $this->user['id'], 'chat_replies', 'default', 'chat_message', (string) $messageId, $finalText, $customerText, $draftBefore);
+                    $engine->recordManualAction($ownerId, 'chat_replies', 'default', 'chat_message', (string) $messageId, $finalText, $customerText, $draftBefore);
                 } else {
-                    $engine->recordManualRejection((int) $this->user['id'], 'chat_replies', 'chat_message', (string) $messageId);
+                    $engine->recordManualRejection($ownerId, 'chat_replies', 'chat_message', (string) $messageId);
                 }
             }
 
@@ -1123,6 +1129,7 @@ HTML;
     };
 
     let agentsCache = {}, myRole = 'owner';
+    const BLOCK_LABEL = 'Block', UNBLOCK_LABEL = 'Unblock', BLOCKED_LABEL = 'Blocked', UNASSIGNED_LABEL = 'Unassigned', ME_LABEL = 'Me', TEAM_SUFFIX = 'Team';
     async function loadAgents() {
         if (!websiteId || agentsCache[websiteId]) return;
         const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/agents');
@@ -1135,8 +1142,8 @@ HTML;
             return readOnly ? '' : '<button class="p-btn outline xs" onclick="assignToggle()">' + (c.assigned_agent_id == currentUserId ? ic('x') + 'Unassign me' : ic('user-plus') + 'Assign to me') + '</button>';
         }
         return '<select class="p-select" title="Assigned to" onchange="assignTo(this.value)"' + (readOnly ? ' disabled' : '') + '>'
-            + '<option value="">👤 Unassigned</option>'
-            + agents.map(a => '<option value="' + a.id + '"' + (String(c.assigned_agent_id) === String(a.id) ? ' selected' : '') + '>👤 ' + esc(a.id == currentUserId ? 'Me (' + a.name + ')' : a.name) + '</option>').join('')
+            + '<option value="">👤 ' + esc(UNASSIGNED_LABEL) + '</option>'
+            + agents.map(a => '<option value="' + a.id + '"' + (String(c.assigned_agent_id) === String(a.id) ? ' selected' : '') + '>👤 ' + esc(a.id == currentUserId ? ME_LABEL + ' (' + a.name + ')' : a.name) + '</option>').join('')
             + '</select>';
     }
     window.assignTo = async function (agentId) {
@@ -1180,8 +1187,8 @@ HTML;
                 ${isAi ? '<span class="pill green">' + ic('sparkles', 'ic-sm') + ' Replying now: AI</span>' : '<span class="pill">' + ic('user', 'ic-sm') + ' Replying now: agent</span>'}
                 <button class="p-btn ${isAi ? 'outline' : 'primary'} xs" onclick="toggleHandoff()">${ic('handoff')}${isAi ? 'Hand off to agent' : 'Restore the auto reply'}</button>
                 ${agentSelect(c)}
-                ${c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud ? '<button class="p-btn outline xs" onclick="blockToggle()">' + ((c.tags || []).includes('BLOCKED') ? '✅ Unblock' : '🚫 Block') + '</button>' : ''}
-                ${(c.tags || []).includes('BLOCKED') ? '<span class="pill red">🚫 Blocked</span>' : ''}
+                ${c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud ? '<button class="p-btn outline xs" onclick="blockToggle()">' + ((c.tags || []).includes('BLOCKED') ? '✅ ' + esc(UNBLOCK_LABEL) : '🚫 ' + esc(BLOCK_LABEL)) + '</button>' : ''}
+                ${(c.tags || []).includes('BLOCKED') ? '<span class="pill red">🚫 ' + esc(BLOCKED_LABEL) + '</span>' : ''}
                 ${statusSelect}
                 ${prioritySelect}
                 ${badges.join('')}
@@ -1216,7 +1223,9 @@ HTML;
     function mediaUrl(messageId) {
         return '/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/conversations/' + activeConvId + '/messages/' + messageId + '/media';
     }
-    const MEDIA_FAIL = "this.replaceWith(Object.assign(document.createElement('span'),{textContent:'⚠ Media no longer available'}))";
+    const MEDIA_FAIL_TEXT = '⚠ Media no longer available';
+    window.mediaFail = function (el) { const sp = document.createElement('span'); sp.textContent = MEDIA_FAIL_TEXT; el.replaceWith(sp); };
+    const MEDIA_FAIL = 'mediaFail(this)';
     function mediaHtml(m) {
         if (!m.media) return '';
         const url = mediaUrl(m.id);
@@ -1229,9 +1238,10 @@ HTML;
             case 'video':
                 return '<video class="ai-media-video" controls preload="metadata" src="' + url + '"></video>';
             default:
-                return '<a class="ai-media-doc" href="' + url + '" target="_blank" rel="noopener">📄 ' + esc(m.media.filename || 'File') + '</a>';
+                return '<a class="ai-media-doc" href="' + url + '" target="_blank" rel="noopener">📄 ' + esc(m.media.filename || FILE_LABEL) + '</a>';
         }
     }
+    const FILE_LABEL = 'File';
     function bodyText(m, text) {
         if (!m.media) return text;
         let t = text.replace(/^\[(Image|Video|Voice message|Audio|Sticker|Document)\]\s*/, '');
@@ -1242,6 +1252,7 @@ HTML;
         return '<div class="ai-bubble ' + dir + (cls ? ' ' + cls : '') + '">' + inner + '<div class="bt">' + (extra || '') + '<span>' + esc(time) + '</span></div></div>';
     }
 
+    const RETRY_LABEL = 'Retry', AI_REPLY_LABEL = 'AI reply';
     function renderThread(messages) {
         const thread = document.getElementById('convThread');
         if (!messages.length) {
@@ -1261,7 +1272,7 @@ HTML;
                 const status = failed ? 'failed' : (isWa ? (m.delivery || 'accepted') : 'sent');
                 const who = m.template ? '📋 Template' : m.catalog ? '🛍 Catalog' : (m.by_me ? 'You' : (m.sender_name || 'Team'));
                 let extra = ticks(status, m.delivery_error);
-                if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">Retry</button>' + extra;
+                if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">' + esc(RETRY_LABEL) + '</button>' + extra;
                 out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : ''));
                 return;
             }
@@ -1271,7 +1282,7 @@ HTML;
             const reply = (m.ai_reply_generated || '').trim();
             if (!reply) return;
             const conf = m.ai_confidence_score != null ? ' · ' + Math.round(m.ai_confidence_score * 100) + '%' : '';
-            const tag = '<span class="ai-tag">' + ic('sparkles', 'ic-sm') + ' AI reply' + conf + '</span>';
+            const tag = '<span class="ai-tag">' + ic('sparkles', 'ic-sm') + ' ' + esc(AI_REPLY_LABEL) + conf + '</span>';
             if (m.bot_status === 'sent') {
                 out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', timeOnly(m.sent_at || m.created_at), ticks(isWa ? (m.reply_delivery || 'accepted') : 'sent')));
             } else if (m.bot_status === 'pending_approval' || m.bot_status === 'approved') {
@@ -1325,23 +1336,24 @@ HTML;
         if (left > 0) {
             const h = Math.floor(left / 3600), mnt = Math.floor((left % 3600) / 60);
             bar.className = 'wa-window ' + (left < 7200 ? 'warn' : 'ok');
-            bar.innerHTML = '<span>⏱ Free reply window: <b>' + (h ? h + 'h ' : '') + mnt + 'm</b> left. After that WhatsApp only allows an approved template.</span>';
+            bar.innerHTML = '<span>⏱ ' + esc('Free reply window:') + ' <b dir="ltr">' + (h ? h + 'h ' : '') + mnt + 'm</b> ' + esc('left. After that WhatsApp only allows an approved template.') + '</span>';
             msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false; document.getElementById('catalogBtn').disabled = false;
         } else {
             bar.className = 'wa-window closed';
-            bar.innerHTML = '<span>🔒 The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 Send a template</button>';
+            bar.innerHTML = '<span>🔒 ' + esc('The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.') + '</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 ' + esc('Send a template') + '</button>';
             msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; document.getElementById('catalogBtn').disabled = true;
         }
     }
     setInterval(function () { if (windowDeadline !== null) renderWindowBar(); }, 30000);
 
     let templatesCache = null, templatesSite = null, tplSelected = null;
+    const SEND_TEMPLATE_LABEL = 'Send template', FIELD_LABEL = 'Field', TPL_UNSUPPORTED = 'Needs media or link: send from the templates page', TPL_CHOOSE = 'Choose an approved template';
     window.templateToggle = async function (forceOpen) {
         const box = document.getElementById('templateBox');
         if (box.style.display === 'block' && forceOpen !== true) { box.style.display = 'none'; return; }
         box.style.display = 'block';
         if (!templatesCache || templatesSite !== websiteId) {
-            box.innerHTML = '<div class="p-cell-muted">⏳ Loading approved templates...</div>';
+            box.innerHTML = '<div class="p-cell-muted">⏳ ' + esc('Loading approved templates...') + '</div>';
             const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/whatsapp-templates');
             if (!res.success) { box.innerHTML = '<div class="p-cell-muted">' + esc(res.error || 'Could not load templates') + '</div>'; return; }
             templatesCache = res.data.templates || [];
@@ -1349,13 +1361,13 @@ HTML;
         }
         tplSelected = null;
         if (!templatesCache.length) {
-            box.innerHTML = '<div class="p-cell-muted">No approved templates yet. Create one from the WhatsApp templates page and wait for Meta approval.</div>';
+            box.innerHTML = '<div class="p-cell-muted">' + esc('No approved templates yet. Create one from the WhatsApp templates page and wait for Meta approval.') + '</div>';
             return;
         }
-        box.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">Choose an approved template</div>' + templatesCache.map((t, i) =>
+        box.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">' + esc(TPL_CHOOSE) + '</div>' + templatesCache.map((t, i) =>
             '<div class="tpl-item' + (t.supported ? '' : ' off') + '" data-i="' + i + '" onclick="templatePick(' + i + ')">' +
             '<b>' + esc(t.name) + '</b> <span class="pill gray">' + esc(t.language) + '</span> <span class="pill gray">' + esc(t.category) + '</span>' +
-            (t.supported ? '' : ' <span class="pill red">Needs media or link: send from the templates page</span>') +
+            (t.supported ? '' : ' <span class="pill red">' + esc(TPL_UNSUPPORTED) + '</span>') +
             '<div class="p-cell-muted" style="margin-top:4px;white-space:pre-wrap;">' + esc(t.body.length > 160 ? t.body.slice(0, 160) + '…' : t.body) + '</div></div>'
         ).join('') + '<div id="tplForm"></div>';
     };
@@ -1366,9 +1378,9 @@ HTML;
         document.querySelectorAll('#templateBox .tpl-item').forEach(el => el.classList.toggle('sel', el.dataset.i === String(i)));
         const name = currentConversation ? (currentConversation.customer_name || '') : '';
         document.getElementById('tplForm').innerHTML =
-            t.params.map(p => '<div class="form-group" style="margin-bottom:6px;"><label style="font-size:12px;">Field {{' + esc(p) + '}}</label><input class="form-control tpl-param" data-p="' + esc(p) + '" oninput="templatePreview()" value="' + (p === '1' || p === 'name' || p === 'customer_name' ? esc(name) : '') + '"></div>').join('') +
+            t.params.map(p => '<div class="form-group" style="margin-bottom:6px;"><label style="font-size:12px;">' + esc(FIELD_LABEL) + ' {{' + esc(p) + '}}</label><input class="form-control tpl-param" data-p="' + esc(p) + '" oninput="templatePreview()" value="' + (p === '1' || p === 'name' || p === 'customer_name' ? esc(name) : '') + '"></div>').join('') +
             '<div class="tpl-preview" id="tplPreview"></div>' +
-            '<button type="button" class="p-btn primary" id="tplSendBtn" onclick="templateSend()">' + ic('send') + 'Send template</button>';
+            '<button type="button" class="p-btn primary" id="tplSendBtn" onclick="templateSend()">' + ic('send') + esc(SEND_TEMPLATE_LABEL) + '</button>';
         templatePreview();
     };
     window.templatePreview = function () {
@@ -1435,7 +1447,7 @@ HTML;
         if (box.style.display === 'block') { box.style.display = 'none'; return; }
         box.style.display = 'block';
         if (!catalogCache || catalogSite !== websiteId) {
-            box.innerHTML = '<div class="p-cell-muted">⏳ Loading the catalog...</div>';
+            box.innerHTML = '<div class="p-cell-muted">⏳ ' + esc('Loading the catalog...') + '</div>';
             const res = await fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(websiteId) + '/whatsapp-catalog');
             if (!res.success) { box.innerHTML = '<div class="p-cell-muted">' + esc(res.error || 'Could not load the catalog') + '</div>'; return; }
             catalogCache = res.data;
@@ -1443,15 +1455,15 @@ HTML;
         }
         const d = catalogCache;
         if (!d.catalog_id) {
-            box.innerHTML = '<div class="p-cell-muted">' + esc(d.error || 'No catalog is connected') + ' <a href="/chat/settings">WhatsApp settings → Catalog</a></div>';
+            box.innerHTML = '<div class="p-cell-muted">' + esc(d.error || 'No catalog is connected') + ' <a href="/chat/settings">' + esc('WhatsApp settings → Catalog') + '</a></div>';
             return;
         }
-        box.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="flex:1;">Send to the customer</b>'
-            + '<button type="button" class="p-btn primary xs" onclick="catalogSend(\'\')">🛍 Send the whole catalog</button></div>'
+        box.innerHTML = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><b style="flex:1;">' + esc('Send to the customer') + '</b>'
+            + '<button type="button" class="p-btn primary xs" onclick="catalogSend(\'\')">🛍 ' + esc('Send the whole catalog') + '</button></div>'
             + (d.products.length ? '<div class="cat-grid">' + d.products.map((p, i) =>
-                '<div class="cat-item" onclick="catalogSend(' + i + ')" title="Send this item">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" loading="lazy">' : '') + '<div><b>' + esc(p.name) + '</b><br><span class="p-cell-muted">' + esc(p.price) + '</span></div></div>').join('') + '</div>'
+                '<div class="cat-item" onclick="catalogSend(' + i + ')">' + (p.image_url ? '<img src="' + esc(p.image_url) + '" alt="" loading="lazy">' : '') + '<div><b>' + esc(p.name) + '</b><br><span class="p-cell-muted">' + esc(p.price) + '</span></div></div>').join('') + '</div>'
               : '<div class="p-cell-muted">' + esc(d.error || 'No products in the catalog yet') + '</div>')
-            + '<div class="p-cell-muted" style="font-size:12px;margin-top:6px;">Text in the reply box is sent with it.</div>';
+            + '<div class="p-cell-muted" style="font-size:12px;margin-top:6px;">' + esc('Text in the reply box is sent with it.') + '</div>';
     };
     window.catalogSend = async function (i) {
         if (!currentConversation) return;
@@ -1778,7 +1790,7 @@ HTML;
         }
         const team = sites.some(w => w.role !== 'owner');
         if (sites.length > 1 || team) {
-            sel.innerHTML = sites.map(w => '<option value="' + w.id + '">' + esc(w.name || ('#' + w.id)) + (w.role !== 'owner' ? ' · team' : '') + '</option>').join('');
+            sel.innerHTML = sites.map(w => '<option value="' + w.id + '">' + esc(w.name || ('#' + w.id)) + (w.role !== 'owner' ? ' · ' + esc(TEAM_SUFFIX) : '') + '</option>').join('');
             sel.value = current;
             sel.style.display = '';
             sel.addEventListener('change', function () { P.setCurrentWebsiteId(sel.value); });
@@ -1800,10 +1812,11 @@ HTML;
 
     // ===== New-message alert (sound + desktop notification) =====
     let soundOn = true, audioCtx = null;
+    const NOTIF_TITLE = 'New WhatsApp/chat message', NOTIF_BODY = 'unread message(s) in your inbox', SOUND_ON = 'New-message alerts are on (click to mute)', SOUND_OFF = 'New-message alerts are muted (click to turn on)';
     try { soundOn = localStorage.getItem('tf_chat_sound') !== 'off'; } catch (e) {}
     function paintSoundBtn() {
         const b = document.getElementById('ucSoundBtn');
-        if (b) { b.textContent = soundOn ? '🔔' : '🔕'; b.title = soundOn ? 'New-message alerts are on (click to mute)' : 'New-message alerts are muted (click to turn on)'; }
+        if (b) { b.textContent = soundOn ? '🔔' : '🔕'; b.title = soundOn ? SOUND_ON : SOUND_OFF; }
     }
     paintSoundBtn();
     function unlockAudio() {
@@ -1837,7 +1850,7 @@ HTML;
         } catch (e) {}
         if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
             try {
-                const n = new Notification('New WhatsApp/chat message', { body: count + ' unread message(s) in your inbox', tag: 'tf-chat', renotify: true });
+                const n = new Notification(NOTIF_TITLE, { body: count + ' ' + NOTIF_BODY, tag: 'tf-chat', renotify: true });
                 n.onclick = function () { window.focus(); n.close(); };
             } catch (e) {}
         }

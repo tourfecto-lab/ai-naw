@@ -117,13 +117,22 @@ class AiLeadController extends Controller
      * @param int $websiteId
      * @return Website|null
      */
+    /** Role of the current user on the website last authorized (owner, admin, member, viewer). */
+    private ?string $teamRole = null;
+
     private function authorizedWebsite(int $websiteId): ?Website
     {
         if ($websiteId <= 0) {
             return null;
         }
         $website = (new Website())->find($websiteId);
-        if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
+        if (!$website) {
+            return null;
+        }
+        // The owner, or their team (Workspace or Business Center) working from the shared inbox.
+        $this->teamRole = (int) $website->getAttribute('user_id') === (int) $this->user['id'] ? 'owner'
+            : (class_exists('TeamAccess') ? TeamAccess::inboxRole((int) $website->getAttribute('user_id'), (int) $this->user['id']) : null);
+        if ($this->teamRole === null) {
             return null;
         }
         return $website;

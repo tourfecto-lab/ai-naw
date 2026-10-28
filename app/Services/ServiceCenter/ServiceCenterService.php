@@ -8,6 +8,8 @@ class ServiceCenterService
     public function scope(int $actor,bool $write=false,bool $finance=false): array {
         $u=$this->q('SELECT id,owner_user_id,workspace_role FROM users WHERE id=?',[$actor])->fetch(PDO::FETCH_ASSOC);if(!$u)throw new RuntimeException('Unauthorized',401);
         $owner=(int)($u['owner_user_id']?:$actor);$role=$owner===$actor?'owner':(string)$u['workspace_role'];
+        // Staff added from Business Center → Team work in the owner's account too (admin → admin, member → sales, viewer → viewer).
+        if($owner===$actor&&class_exists('TeamAccess')&&($biz=TeamAccess::ownerFor(['id'=>$actor]))!==null){$owner=$biz;$role=['admin'=>'admin','member'=>'sales','viewer'=>'viewer'][TeamAccess::inboxRole($biz,$actor)??'viewer']??'viewer';}
         $manage=in_array($role,['owner','admin','manager'],true);
         if(($write||$finance)&&!$manage)throw new RuntimeException('This action requires the workspace owner, admin or manager',403);
         return ['owner_id'=>$owner,'actor_id'=>$actor,'role'=>$role,'can_manage'=>$manage];

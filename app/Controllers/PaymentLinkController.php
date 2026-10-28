@@ -18,6 +18,10 @@ class PaymentLinkController extends Controller
     private function ownerId(): int
     {
         $id = (int) ($this->user['id'] ?? 0);
+        // Staff added from Business Center work on the owner's bookings too.
+        if (class_exists('TeamAccess') && ($owner = TeamAccess::ownerFor($this->user ?? [])) !== null) {
+            return $owner;
+        }
         try {
             $o = (int) ($this->db->query('SELECT owner_user_id FROM users WHERE id = ? LIMIT 1', [$id])[0]['owner_user_id'] ?? 0);
             return $o > 0 ? $o : $id;
@@ -28,6 +32,9 @@ class PaymentLinkController extends Controller
 
     private function isViewer(): bool
     {
+        if (class_exists('TeamAccess') && ($owner = TeamAccess::ownerFor($this->user ?? [])) !== null) {
+            return in_array(TeamAccess::inboxRole($owner, (int) ($this->user['id'] ?? 0)), [null, 'viewer'], true);
+        }
         try {
             $r = $this->db->query('SELECT owner_user_id, workspace_role FROM users WHERE id = ? LIMIT 1', [(int) ($this->user['id'] ?? 0)]);
             return !$r || ((int) $r[0]['owner_user_id'] > 0 && !in_array(($r[0]['workspace_role'] ?? ''), ['admin', 'manager', 'sales', 'support'], true));

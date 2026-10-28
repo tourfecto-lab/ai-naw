@@ -65,7 +65,7 @@ class PlanLock
         // عميل جديد لسه ماجربش: نعرض له «ابدأ تجربتك المجانية» بدل «اشتراكك خلص»
         if ($state === 'no_subscription' && class_exists('PlanExtras')) {
             try {
-                $owner = !empty($user['owner_user_id']) ? (int) $user['owner_user_id'] : (int) $user['id'];
+                $owner = class_exists('TeamAccess') ? TeamAccess::billingOwner($user) : (!empty($user['owner_user_id']) ? (int) $user['owner_user_id'] : (int) $user['id']);
                 $x = new PlanExtras();
                 if ($x->trialEligible($owner)) {
                     $lock['trial'] = ['days' => (int) ($x->config()['trial_days'] ?? 3), 'needs_card' => $x->trialNeedsCard($owner)];
@@ -88,7 +88,8 @@ class PlanLock
         }
         $locked = [];
         try {
-            $owner = !empty($user['owner_user_id']) ? (int) $user['owner_user_id'] : $uid;
+            // Staff use the plan of the account they work for (Workspace or Business Center team).
+            $owner = class_exists('TeamAccess') ? TeamAccess::billingOwner($user) : (!empty($user['owner_user_id']) ? (int) $user['owner_user_id'] : $uid);
             $sub = class_exists('Subscription') ? Subscription::activeSubscriptionRow($owner) : null;
             $features = $sub && class_exists('FeatureResolver') ? (FeatureResolver::resolve($owner)['features'] ?? []) : [];
             $balance = null;

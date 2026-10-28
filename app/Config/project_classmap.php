@@ -1,6 +1,7 @@
 <?php
 // Generated release map. Rebuild via tools/build_project_classmap.php after code changes.
 return [
+    'TeamAccess' => dirname(__DIR__,2).'/app/Services/TeamAccess.php',
     'StripeConnectOAuth' => dirname(__DIR__,2).'/app/Services/Payment/StripeConnectOAuth.php',
     'WhatsAppQrGateway' => dirname(__DIR__,2).'/app/Services/Chat/WhatsAppQrGateway.php',
     'WhatsAppQrController' => dirname(__DIR__,2).'/app/Controllers/WhatsAppQrController.php',

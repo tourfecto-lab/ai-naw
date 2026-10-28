@@ -802,6 +802,10 @@ $router->get('/api/admin/social-packages', 'SocialMediaController', 'adminPackag
 $router->post('/api/admin/social-packages', 'SocialMediaController', 'adminPackagesSave', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/social/tiktok/creator-info', 'SocialMediaController', 'tikTokCreatorInfo', ['AuthMiddleware']);
 $router->get('/api/social/history', 'SocialMediaController', 'history', ['AuthMiddleware']);
+// The Social page's history import / saved posts / summary buttons call these; the controller methods existed without routes.
+$router->post('/api/social/history/import', 'SocialMediaController', 'importHistory', ['AuthMiddleware']);
+$router->get('/api/social/history/saved', 'SocialMediaController', 'savedHistory', ['AuthMiddleware']);
+$router->get('/api/social/history/summary', 'SocialMediaController', 'historySummary', ['AuthMiddleware']);
 $router->get('/api/social/posts', 'SocialMediaController', 'listPosts', ['AuthMiddleware']);
 $router->post('/api/social/posts', 'SocialMediaController', 'createPost', ['AuthMiddleware']);
 $router->post('/api/social/generate-caption', 'SocialMediaController', 'generateCaption', ['AuthMiddleware', 'PlanGateMiddleware:ai_tool']);

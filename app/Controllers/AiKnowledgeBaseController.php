@@ -68,12 +68,15 @@ class AiKnowledgeBaseController extends Controller
         if (!$website) {
             return $this->error('الموقع غير موجود', 404);
         }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
+        }
         $message = mb_substr(trim((string) $this->get('message', '')), 0, 1500);
         if ($message === '') {
             return $this->error('اكتب رسالة زي ما السائح هيكتبها', 422);
         }
         $history = $this->get('history', []);
-        $result = (new AIConversationEngine())->previewReply((int) $website->getAttribute('id'), (int) $this->user['id'], $message, is_array($history) ? $history : []);
+        $result = (new AIConversationEngine())->previewReply((int) $website->getAttribute('id'), (int) $website->getAttribute('user_id'), $message, is_array($history) ? $history : []);
         if ($result['error'] !== null) {
             return $this->error('الذكاء الاصطناعي مارد دلوقتي - جرّب تاني بعد دقيقة', 502);
         }
@@ -97,6 +100,9 @@ class AiKnowledgeBaseController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
         }
 
         $section = trim((string) $this->get('section', ''));
@@ -140,6 +146,9 @@ class AiKnowledgeBaseController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
+        }
 
         $entryId = (int) ($params['entryId'] ?? 0);
         $updated = $this->knowledgeBase->updateEntry($entryId, (int) $website->getAttribute('id'), $this->all());
@@ -164,6 +173,9 @@ class AiKnowledgeBaseController extends Controller
         $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
         if (!$website) {
             return $this->error('Website not found', 404);
+        }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
         }
 
         $entryId = (int) ($params['entryId'] ?? 0);
@@ -216,11 +228,14 @@ class AiKnowledgeBaseController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
+        }
         if ($rl = $this->rateLimitGuard('user', 'kb_import', 10, 3600)) {
             return $rl;
         }
         if($csrf=$this->verifyCsrf())return $csrf;
-        $uid = (int) $this->user['id'];
+        $uid = (int) $website->getAttribute('user_id'); // AI usage is billed to the business account
         $svc = new KnowledgeImportService();
         $file = $_FILES['file'] ?? null;
         if ($file && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
@@ -282,6 +297,9 @@ class AiKnowledgeBaseController extends Controller
         if (!$website) {
             return $this->error('Website not found', 404);
         }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
+        }
         $entries = $this->get('entries', []);
         $entries = KnowledgeImportService::sanitizeEntries(is_array($entries) ? $entries : []);
         if (!$entries) {
@@ -310,13 +328,22 @@ class AiKnowledgeBaseController extends Controller
         return $this->success(['saved' => $saved], 'Saved ' . $saved . ' items - the bot will use them from now on', 201);
     }
 
+    /** Role of the current user on the website last authorized (owner, admin, member, viewer). */
+    private ?string $teamRole = null;
+
     private function authorizedWebsite(int $websiteId): ?Website
     {
         if ($websiteId <= 0) {
             return null;
         }
         $website = (new Website())->find($websiteId);
-        if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
+        if (!$website) {
+            return null;
+        }
+        // The owner, or their team (Workspace or Business Center): everyone can view, owner/admin can change.
+        $this->teamRole = (int) $website->getAttribute('user_id') === (int) $this->user['id'] ? 'owner'
+            : (class_exists('TeamAccess') ? TeamAccess::inboxRole((int) $website->getAttribute('user_id'), (int) $this->user['id']) : null);
+        if ($this->teamRole === null) {
             return null;
         }
         return $website;

@@ -57,6 +57,9 @@ class AiFollowupSettingsController extends Controller
         if (!$website) {
             return $this->error('الموقع غير موجود', 404);
         }
+        if (!in_array($this->teamRole, ['owner', 'admin'], true)) {
+            return $this->error('Only the account owner or a team admin can change this', 403);
+        }
 
         $steps = $this->get('steps');
         if ($steps !== null && !is_array($steps)) {
@@ -95,13 +98,22 @@ class AiFollowupSettingsController extends Controller
      * @param int $websiteId
      * @return Website|null
      */
+    /** Role of the current user on the website last authorized (owner, admin, member, viewer). */
+    private ?string $teamRole = null;
+
     private function authorizedWebsite(int $websiteId): ?Website
     {
         if ($websiteId <= 0) {
             return null;
         }
         $website = (new Website())->find($websiteId);
-        if (!$website || (int) $website->getAttribute('user_id') !== (int) $this->user['id']) {
+        if (!$website) {
+            return null;
+        }
+        // The owner, or their team (Workspace or Business Center): everyone can view, owner/admin can change.
+        $this->teamRole = (int) $website->getAttribute('user_id') === (int) $this->user['id'] ? 'owner'
+            : (class_exists('TeamAccess') ? TeamAccess::inboxRole((int) $website->getAttribute('user_id'), (int) $this->user['id']) : null);
+        if ($this->teamRole === null) {
             return null;
         }
         return $website;
