@@ -34,9 +34,8 @@
     function mount(data) {
         if (!data || !data.list || data.list.length < 2) return;
         css();
-        // panel: the picker lives in the sidebar footer (the top bar keeps only what is needed while working)
-        var foot = document.querySelector('.panel-sidebar-footer');
-        var top = foot || document.querySelector('.panel-topbar-actions') || document.querySelector('.nav-right');
+        // panel: panel.js moves the picker from the top bar into the sidebar footer
+        var top = document.querySelector('.panel-topbar-actions') || document.querySelector('.nav-right');
         if (top && !top.querySelector('.tf-cur')) top.insertBefore(build(data, true), top.firstChild);
         var mm = document.getElementById('mobileMenu');
         if (mm && !mm.querySelector('.tf-cur')) mm.appendChild(build(data, false));

@@ -895,17 +895,24 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 .panel-content section[id^="op-"] > p { color: var(--panel-text-muted); font-size: 13px; }
 .panel-content section[id^="op-"] label { display: block; margin: 10px 0; font-size: 13px; }
 
-/* ---- slim top bar for the whole panel: only what is needed while working (notifications, wallet, language, theme, profile).
-        The currency picker and the monthly-analyses chip move to the sidebar footer (panel.js / tf-currency.js); the SEO
-        and e-mail shortcuts are already in the sidebar menu. ---- */
+/* ---- slim top bar for the whole panel: only the notifications stay. Account (company icon), theme, language, wallet balance,
+        monthly-analyses chip and currency live in the sidebar footer (panel.js moves them). ---- */
 .panel-topbar{min-height:0}
 .panel-topbar h1{font-size:18px;line-height:1.2;margin:0}
 .panel-topbar .subtitle{display:none}
 .panel-topbar-actions{gap:6px}
-.panel-topbar-actions a.icon-btn[href="/ai/analyze"],
-.panel-topbar-actions a.icon-btn[href*="email"]{display:none!important}
+.panel-topbar-actions a.icon-btn,.panel-topbar-actions #panelWebsiteSelect{display:none!important}
 .panel-topbar-actions .icon-btn,.panel-topbar-actions .ap-icon-btn{width:34px;height:34px;min-width:0;padding:0}
-.panel-topbar-actions .panel-credits{padding:0 10px;height:34px;font-size:12.5px}
 .panel-sidebar-footer{display:flex;flex-direction:column;gap:8px}
-.panel-sidebar-footer .tf-cur,.panel-sidebar-footer .panel-credits{width:100%;justify-content:space-between;box-sizing:border-box}
-.panel-sidebar-footer .tf-cur select{flex:1 1 auto;max-width:none}
+.tf-side-tools{display:flex;flex-direction:column;gap:8px}
+.tf-side-acct{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;text-decoration:none;color:inherit;border:1px solid var(--panel-border,rgba(127,127,127,.25));min-width:0}
+.tf-side-acct:hover{border-color:var(--panel-accent,#c9a227)}
+.tf-side-av{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--panel-accent,#c9a227);color:#14100a;font-weight:700;font-size:15px}
+.tf-side-av img{width:100%;height:100%;object-fit:cover;display:block}
+.tf-side-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
+.tf-side-icons{display:flex;align-items:center;gap:8px}
+.tf-side-icons .ap-icon-btn,.tf-side-icons .icon-btn{width:36px;height:36px}
+.tf-side-icons .panel-langsel{position:relative}
+.tf-side-icons .panel-langsel-menu{inset-inline-start:0;inset-inline-end:auto;top:auto;bottom:calc(100% + 6px)}
+.tf-side-tools .tf-cur,.tf-side-tools .panel-credits{width:100%;justify-content:space-between;box-sizing:border-box;height:auto;min-height:34px;padding:4px 10px;font-size:12.5px}
+.tf-side-tools .tf-cur select{flex:1 1 auto;max-width:none}

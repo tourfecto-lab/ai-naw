@@ -710,13 +710,92 @@
     });
 })(window);
 
-/* The monthly-analyses chip moves from the top bar to the sidebar footer (same node, so the code that fills it keeps working). */
+/*
+ * Slim top bar: it keeps only the notifications. The account (company icon -> profile), theme, language, wallet balance and
+ * monthly-analyses chip live at the bottom of the sidebar. The nodes are MOVED (same elements and ids), so the code that
+ * fills them keeps working.
+ */
 (function () {
     'use strict';
-    function move() {
-        var chip = document.getElementById('panelCreditsWrap');
-        var foot = document.querySelector('.panel-sidebar-footer');
-        if (chip && foot && chip.parentNode !== foot) foot.insertBefore(chip, foot.firstChild);
+    var tools = null;
+
+    function footer() { return document.querySelector('.panel-sidebar-footer'); }
+    function ensureTools() {
+        if (tools && tools.isConnected) return tools;
+        var f = footer();
+        if (!f) return null;
+        tools = document.createElement('div');
+        tools.className = 'tf-side-tools';
+        f.insertBefore(tools, f.firstChild);
+        return tools;
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', move); else move();
+    function relocate() {
+        var t = ensureTools();
+        if (!t) return;
+        var acct = document.getElementById('tfSideAcct');
+        var rowIcons = t.querySelector('.tf-side-icons');
+        if (!rowIcons) { rowIcons = document.createElement('div'); rowIcons.className = 'tf-side-icons'; t.appendChild(rowIcons); }
+        [document.getElementById('tfThemeBtn'), document.querySelector('.panel-topbar-actions .panel-langsel')].forEach(function (n) {
+            if (n && n.parentNode !== rowIcons) rowIcons.appendChild(n);
+        });
+        ['panelWalletWrap', 'panelCreditsWrap'].forEach(function (id) {
+            var n = document.getElementById(id);
+            if (n && n.parentNode !== t) t.appendChild(n);
+        });
+        var cur = document.querySelector('.panel-topbar-actions .tf-cur');
+        if (cur && cur.parentNode !== t) t.appendChild(cur);
+        if (acct && t.firstChild !== acct) t.insertBefore(acct, t.firstChild);
+    }
+
+    function paintAccount(data) {
+        var t = ensureTools();
+        if (!t) return;
+        var a = document.getElementById('tfSideAcct');
+        if (!a) { a = document.createElement('a'); a.id = 'tfSideAcct'; a.className = 'tf-side-acct'; a.href = '/profile/settings'; }
+        var name = (data && data.name) || '';
+        var icons = (data && data.icons) || [];
+        a.title = name || 'Account';
+        a.textContent = '';
+        var av = document.createElement('span');
+        av.className = 'tf-side-av';
+        var letter = (name.trim().charAt(0) || '?').toUpperCase();
+        av.textContent = letter;
+        var i = 0;
+        (function next() {
+            if (i >= icons.length) return;
+            var img = new Image();
+            img.alt = '';
+            img.referrerPolicy = 'no-referrer';
+            img.onload = function () { if (img.naturalWidth > 1) { av.textContent = ''; av.appendChild(img); } else { next(); } };
+            img.onerror = next;
+            img.src = icons[i++];
+        })();
+        var nm = document.createElement('span');
+        nm.className = 'tf-side-name';
+        nm.textContent = name || letter;
+        a.appendChild(av);
+        a.appendChild(nm);
+        t.insertBefore(a, t.firstChild);
+    }
+    function loadAccount() {
+        var wid = 0;
+        try { wid = (window.Panel && Panel.getCurrentWebsiteId && Panel.getCurrentWebsiteId()) || 0; } catch (e) { wid = 0; }
+        fetch('/api/panel/company' + (wid ? '?website_id=' + encodeURIComponent(wid) : ''), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) { paintAccount(j && j.data); })
+            .catch(function () { paintAccount(null); });
+    }
+
+    function start() {
+        relocate();
+        loadAccount();
+        var top = document.querySelector('.panel-topbar-actions');
+        if (top) {
+            var obs = new MutationObserver(relocate); // the theme button and the currency picker are added by other scripts a moment later
+            obs.observe(top, { childList: true });
+            setTimeout(function () { obs.disconnect(); relocate(); }, 6000);
+        }
+        window.addEventListener('tourfecto:website-changed', loadAccount);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

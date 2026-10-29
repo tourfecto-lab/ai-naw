@@ -479,6 +479,8 @@ $router->post('/api/ota/disconnect/{platform}/{website_id}', 'OTAController', 'd
 // مسارات المواقع الإلكترونية (Websites)
 // ============================================
 $router->get('/api/websites', 'WebsiteController', 'index', ['AuthMiddleware']);
+$router->get('/api/panel/company', 'PanelCompanyController', 'show', ['AuthMiddleware']);
+$router->get('/api/panel/company', 'PanelCompanyController', 'show', ['AuthMiddleware']);
 $router->post('/api/websites', 'WebsiteController', 'store', ['AuthMiddleware']);
 $router->get('/api/websites/{id}', 'WebsiteController', 'show', ['AuthMiddleware']);
 $router->put('/api/websites/{id}', 'WebsiteController', 'update', ['AuthMiddleware']);
