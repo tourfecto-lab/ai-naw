@@ -125,14 +125,25 @@ final class CustomerSuccess
             'past_due' => array_map(static fn ($r) => ['user_id' => (int) $r['user_id'], 'company' => $r['company_name'] ?: $r['email'], 'mrr' => (float) $r['mrr'], 'since' => $r['updated_at']], $pastDue ?? [])];
     }
 
+    /** تاريخ التجديد من الأعمدة الموجودة فعلًا (السيرفرات مختلفة: current_period_end / next_billing_at / expires_at / expiry_date) */
+    private function renewExpr(): ?string
+    {
+        $have = array_column($this->safe("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'subscriptions'
+            AND COLUMN_NAME IN ('current_period_end','next_billing_at','expires_at','expiry_date')") ?? [], 'COLUMN_NAME');
+        $cols = array_values(array_filter(['current_period_end', 'next_billing_at', 'expires_at', 'expiry_date'], static fn ($c) => in_array($c, $have, true)));
+        return $cols ? 'COALESCE(' . implode(', ', array_map(static fn ($c) => 's.' . $c, $cols)) . ', NULL)' : null;
+    }
+
     /** التجديدات في الـ 30 يوم الجايين، واللي طالب إلغاء آخر الفترة */
     public function renewals(int $days = 30): ?array
     {
+        $renew = $this->renewExpr();
+        if ($renew === null) return null;
         $rows = $this->safe("SELECT s.user_id, u.email, u.company_name, COALESCE(sp.name, s.plan_name) AS plan, ROUND(" . self::MONTHLY . ", 2) AS mrr, s.cancel_at_period_end,
-                COALESCE(s.current_period_end, s.next_billing_at, s.expires_at, s.expiry_date) AS renews_at
+                {$renew} AS renews_at
             FROM subscriptions s LEFT JOIN subscription_plans sp ON sp.id = s.plan_id JOIN users u ON u.id = s.user_id
-            WHERE " . self::PAID . ' AND ' . self::CUSTOMER . self::notTest('s.user_id') . '
-              AND COALESCE(s.current_period_end, s.next_billing_at, s.expires_at, s.expiry_date) BETWEEN NOW() AND NOW() + INTERVAL ' . max(1, min(90, $days)) . ' DAY ORDER BY renews_at ASC LIMIT 200');
+            WHERE " . self::PAID . ' AND ' . self::CUSTOMER . self::notTest('s.user_id') . "
+              AND {$renew} BETWEEN NOW() AND NOW() + INTERVAL " . max(1, min(90, $days)) . ' DAY ORDER BY renews_at ASC LIMIT 200');
         if ($rows === null) return null;
         $items = array_map(static fn ($r) => ['user_id' => (int) $r['user_id'], 'company' => $r['company_name'] ?: $r['email'], 'plan' => $r['plan'], 'mrr' => (float) $r['mrr'], 'renews_at' => $r['renews_at'], 'cancelling' => (bool) $r['cancel_at_period_end']], $rows);
         $cancelling = array_values(array_filter($items, static fn ($i) => $i['cancelling']));
