@@ -107,4 +107,34 @@ final class HotelSitePagesTest extends TestCase
         $this->assertStringContainsString('href="/sites/demo/rooms/nile-view"', $html);
         $this->assertStringContainsString('See our rooms', $html);
     }
+
+    public function testRoomPageUsesTheKitAndEmbedsTheBookingFormUntouched(): void
+    {
+        $content = $this->content('en');
+        $content['rooms'][0]['highlights'] = ['Private balcony'];
+        $form = '<form id="booking-form-marker" data-x="1"><input name="check_in"><button>Pay & book</button></form>';
+        $html = $this->call($this->controller(), 'renderHotelRoomPage', 'demo', 'nile-view', $content['rooms'][0], $content, $this->site($content), 'en', 'ltr', $form);
+        $this->assertStringContainsString($form, $html, 'the booking form markup is passed through byte for byte');
+        $this->assertGreaterThan(strpos($html, 'class="wsx-bookcard"'), strpos($html, $form), 'inside the booking card');
+        $this->assertStringContainsString('Room highlights', $html);
+        $this->assertStringContainsString('Private balcony', $html);
+        $this->assertStringContainsString('Room amenities', $html);
+        $this->assertStringContainsString('Book this room', $html);
+        $this->assertStringContainsString('href="/sites/demo/rooms/family-suite"', $html, 'other rooms link to room pages');
+        $this->assertStringContainsString('wa.me/201000000000', $html);
+        $text = str_replace('tourfecto', '', mb_strtolower(strip_tags(preg_replace('~<script.*?</script>|<style.*?</style>~is', '', $html))));
+        $this->assertStringNotContainsString('tour', $text);
+    }
+
+    public function testRoomPageWithoutAProductFallsBackToWhatsAppOnly(): void
+    {
+        $content = $this->content('ar');
+        $html = $this->call($this->controller(), 'renderHotelRoomPage', 'demo', 'nile-view', $content['rooms'][0], $content, $this->site($content), 'ar', 'rtl', '');
+        $card = substr($html, (int) strpos($html, 'class="wsx-bookcard"'), 1500);
+        $this->assertStringNotContainsString('<form', substr($card, 0, (int) strpos($card, '</aside>') ?: 1500), 'no booking form without a linked product');
+        $this->assertStringContainsString('href="/sites/demo/rooms/family-suite"', $html);
+        $this->assertStringNotContainsString('/sites/demo/tours/', $html, 'footer room links point to room pages');
+        $this->assertStringContainsString('احجز على واتساب', $html);
+        $this->assertStringContainsString('احجز الغرفة دي', $html);
+    }
 }

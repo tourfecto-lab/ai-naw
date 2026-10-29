@@ -162,7 +162,7 @@ class TourSiteTheme
             'how_book_q' => 'How do I book a room?', 'how_book_a' => 'Open the room you like and book online, or send us your dates on WhatsApp. We confirm your booking by message.',
             'cancel_a' => 'Free cancellation up to %d hours before check-in. After that, %s%% of the price is refunded.',
             'cancel_contact' => 'Please contact us about cancellation for your stay - the conditions depend on the room and dates.', 'tours_n' => 'Rooms',
-            'highlights' => 'Room highlights', 'included' => 'Included in your stay', 'pickup_t' => 'Airport / station transfer', 'pickup_d' => 'Ask us about transfers to and from the hotel.',
+            'highlights' => 'Room highlights', 'amenities' => 'Room amenities', 'included' => 'Included in your stay', 'pickup_t' => 'Airport / station transfer', 'pickup_d' => 'Ask us about transfers to and from the hotel.',
         ],
         'ar' => [
             'tours' => 'الغرف', 'view' => 'تفاصيل الغرفة', 'our_tours' => 'غرفنا', 'our_tours_sub' => 'اختار غرفتك، واعرف بالظبط إيه اللي شامل، واحجز مباشرة مع الفندق.',
@@ -174,7 +174,7 @@ class TourSiteTheme
             'how_book_q' => 'أحجز غرفة إزاي؟', 'how_book_a' => 'افتح الغرفة اللي عاجباك واحجز أونلاين، أو ابعتلنا التواريخ على واتساب، وهنأكد حجزك برسالة.',
             'cancel_a' => 'الإلغاء مجاني لحد %d ساعة قبل الوصول. بعد كده بيترد %s%% من السعر.',
             'cancel_contact' => 'كلّمنا بخصوص الإلغاء لإقامتك - الشروط بتختلف حسب الغرفة والتاريخ.', 'tours_n' => 'غرفة',
-            'highlights' => 'أبرز مميزات الغرفة', 'included' => 'الإقامة شاملة', 'pickup_t' => 'توصيل من وإلى المطار / المحطة', 'pickup_d' => 'اسألنا عن خدمة التوصيل من وإلى الفندق.',
+            'highlights' => 'أبرز مميزات الغرفة', 'amenities' => 'مرافق الغرفة', 'included' => 'الإقامة شاملة', 'pickup_t' => 'توصيل من وإلى المطار / المحطة', 'pickup_d' => 'اسألنا عن خدمة التوصيل من وإلى الفندق.',
         ],
     ];
     private bool $hotel = false;

@@ -1297,6 +1297,12 @@ HTML;
         $c['tours'] = $rooms;
         $c['_hotel'] = true;
         $html = $this->renderTourSitePage($page, $slug, $c, $website, $seoTitle, $seoDescription);
+        return $this->hotelRoomLinks($html);
+    }
+
+    /** روابط البطاقات والفوتر اللي القالب بيبنيها كـ /tours/ تتحوّل لـ /rooms/ في الفنادق */
+    private function hotelRoomLinks(string $html): string
+    {
         return preg_replace('~(href=")(/sites/[^"/]+(?:/[a-z]{2})?)/tours/~', '$1$2/rooms/', $html) ?? $html;
     }
 
@@ -1936,6 +1942,90 @@ HTML;
         exit;
     }
 
+    /** صفحة غرفة فندقية بالقالب الاحترافي (مماثلة لصفحة الرحلة): الصورة، الحقائق، المميزات، المرافق، كارت الحجز، تقييمات، غرف تانية */
+    private function renderHotelRoomPage(string $slug, string $roomSlug, array $room, array $c, GeneratedWebsite $website, string $lang, string $dir, string $bookingFormHtml): string
+    {
+        $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
+        $rooms = array_values(array_filter((array) ($c['rooms'] ?? []), 'is_array'));
+        $cc = $c;
+        $cc['tours'] = $rooms;
+        $cc['_hotel'] = true;
+        $kit = $this->tourSiteKit($slug, $cc, $website, $lang, $dir);
+        $T = $kit['T'];
+        $base = '/sites/' . rawurlencode($slug);
+        $design = $this->siteDesignAttrs($website);
+        $contact = (array) ($c['contact'] ?? []);
+        $waRoom = $T->waLink(TourSiteTheme::waNumber($contact), $T->t('wa_tour', (string) ($room['name'] ?? '')));
+        $businessName = $esc($c['business_name'] ?? '');
+        $roomName = $esc($room['name'] ?? '');
+        $metaDesc = trim((string) ($room['short_description'] ?? '')) !== '' ? mb_substr(trim((string) $room['short_description']), 0, 300) : null;
+        $image = !empty($room['image_url']) && preg_match('#^https?://#', (string) $room['image_url']) ? (string) $room['image_url'] : null;
+        $head = $this->siteHeadHtml("{$roomName} | {$businessName}", $design['theme'], $metaDesc, $this->publicSiteUrl($slug, $website) . '/rooms/' . rawurlencode($roomSlug), $image) . "\n    " . $T->headStyle();
+
+        $list = static function (array $items) use ($esc): string {
+            $out = '';
+            foreach ($items as $x) {
+                if (is_string($x) && trim($x) !== '') {
+                    $out .= '<li>' . $esc($x) . '</li>';
+                }
+            }
+            return $out;
+        };
+        $hl = $list((array) ($room['highlights'] ?? []));
+        $am = $list((array) ($room['amenities'] ?? []));
+        $facts = '';
+        foreach ([['💰', 'price'], ['👥', 'capacity'], ['📐', 'size']] as [$ic, $k]) {
+            if (!empty($room[$k])) {
+                $facts .= '<span>' . $ic . ' <b><bdi>' . $esc($room[$k]) . '</bdi></b></span>';
+            }
+        }
+        $idx = 0;
+        foreach ($rooms as $i => $r) {
+            if (($r['slug'] ?? '') === $roomSlug) {
+                $idx = (int) $i;
+            }
+        }
+        $gallery = !empty($room['image_url'])
+            ? '<div class="wsx-gallery" style="background-image:url(\'' . $esc($room['image_url']) . '\')" role="img" aria-label="' . $roomName . '"></div>'
+            : '<div class="wsx-gallery">' . TourSiteTheme::art((string) ($room['name'] ?? ''), $idx) . '</div>';
+
+        $more = '';
+        $shown = 0;
+        foreach ($rooms as $i => $r) {
+            if (($r['slug'] ?? '') === $roomSlug || $shown >= 3) {
+                continue;
+            }
+            $shown++;
+            $img = (string) ($r['image_url'] ?? '');
+            $media = $img !== '' ? '<div class="wsx-card-img" style="background-image:url(\'' . $esc($img) . '\')"></div>' : '<div class="wsx-card-img">' . TourSiteTheme::art((string) ($r['name'] ?? ''), (int) $i) . '</div>';
+            $more .= '<a class="wsx-card" href="' . $esc($base . '/rooms/' . rawurlencode((string) ($r['slug'] ?? ''))) . '">' . $media . '<div class="wsx-card-body"><h3>' . $esc($r['name'] ?? '') . '</h3>'
+                . '<div class="wsx-card-foot">' . (!empty($r['price']) ? '<div class="wsx-price"><bdi>' . $esc($r['price']) . '</bdi></div>' : '<div></div>') . '<span class="wsx-more">' . $T->h('view') . ' ›</span></div></div></a>';
+        }
+
+        $bookCard = '<div class="wsx-bookcard" id="book">' . (!empty($room['price']) ? '<div class="wsx-price"><small>' . $T->h('price') . '</small><bdi>' . $esc($room['price']) . '</bdi></div>' : '')
+            . '<h2>' . $T->h('book_tour') . '</h2><p>' . ($bookingFormHtml !== '' ? $T->h('book_sub_form') : $T->h('book_sub_wa')) . '</p>'
+            . $bookingFormHtml
+            . ($waRoom !== '' ? ($bookingFormHtml !== '' ? '<div class="wsx-or">' . $T->h('or') . '</div>' : '') . '<a class="wsx-btn wsx-btn-wa wsx-btn-block" href="' . $esc($waRoom) . '" target="_blank" rel="noopener">' . $T->h('book_wa') . '</a>' : '')
+            . '</div>';
+
+        $nav = $T->nav($base, (string) ($c['business_name'] ?? ''), $kit['logo'], $kit['links'], $T->t('book'), '#book', $base . '/tours');
+        return $this->hotelRoomLinks('<!DOCTYPE html><html lang="' . $esc($lang) . '" dir="' . $esc($dir) . '"><head>' . $head . '</head><body class="' . $esc(trim($design['body_class'] . ' wsx has-mbar wsx-s-' . $T->style() . ' wsx-p-tour')) . '">'
+            . $nav
+            . '<main id="wsx-main" tabindex="-1" class="wsx-wrap"><div class="wsx-crumb"><a href="' . $esc($base) . '">' . $T->h('home') . '</a> › <a href="' . $esc($base . '/tours') . '">' . $T->h('all') . '</a></div>'
+            . '<div class="wsx-tour-head"><h1>' . $roomName . '</h1>' . (($room['short_description'] ?? '') !== '' ? '<p>' . $esc($room['short_description']) . '</p>' : '') . '</div>'
+            . $gallery . ($facts !== '' ? '<div class="wsx-facts">' . $facts . '</div>' : '')
+            . '<div class="wsx-tour"><div>'
+            . ($hl !== '' ? '<div class="wsx-block"><h2>' . $T->h('highlights') . '</h2><ul class="wsx-hl">' . $hl . '</ul></div>' : '')
+            . ($am !== '' ? '<div class="wsx-block"><h2>' . $T->h('amenities') . '</h2><ul class="wsx-hl">' . $am . '</ul></div>' : '')
+            . '</div><aside class="wsx-aside">' . $bookCard . '</aside></div></main>'
+            . $this->siteReviewsSectionHtml((int) $website->getAttribute('id'), $slug, $roomSlug)
+            . ($more !== '' ? '<section class="wsx-sec alt"><div class="wsx-wrap"><h2 class="wsx-h2">' . $T->h('more') . '</h2><div class="wsx-grid" style="margin-top:18px">' . $more . '</div></div></section>' : '')
+            . $kit['footer']
+            . $T->floatingWa($waRoom)
+            . $T->mobileBar((string) ($room['price'] ?? ''), $T->t('book'), '#book')
+            . '</body></html>');
+    }
+
     /** GET /sites/{slug}/rooms/{roomSlug} - صفحة تفصيل غرفة فندقية واحدة */
     public function showRoomDetail(array $params = []): array
     {
@@ -1983,6 +2073,12 @@ HTML;
         );
         if (!empty($productLinked)) {
             $bookingFormHtml = $this->siteBookingFormHtml($slug, $roomSlug, 'room', (int)$website->getAttribute('user_id'), (int)$productLinked[0]['id']);
+        }
+
+        // فندق بالعربي/الإنجليزي: صفحة الغرفة بنفس القالب الاحترافي، ونموذج الحجز هو هو نفس الـ HTML بالظبط
+        if ($this->hotelUsesSiteKit($c)) {
+            echo $this->renderHotelRoomPage($slug, $roomSlug, $room, $c, $website, (string) $lang, (string) $dir, $bookingFormHtml);
+            exit;
         }
 
         $highlightsHtml = '';
