@@ -261,6 +261,8 @@ HTML;
                 addMessage('assistant', esc(res.data.question));
                 showQuickOptions(res.data.options);
             }
+        } else {
+            addMessage('assistant', esc((res && res.error) || 'حصلت مشكلة في الإرسال - جرّب تاني أو حدّث الصفحة.'));
         }
     }
 

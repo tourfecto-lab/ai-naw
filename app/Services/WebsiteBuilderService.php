@@ -13,6 +13,9 @@ class WebsiteBuilderService
     /** @var GeminiClient */
     private $gemini;
 
+    private const MAX_ITEMS = 8;
+    private const MAX_ANSWER_CHARS = 1500;
+
     private const DONE_SIGNALS = ['خلصت', 'خلاص', 'تم', 'كفاية', 'مفيش تاني', 'no', 'done'];
 
     /** كل مجال بيتحدد له تسمية عنصره (رحلة/غرفة) ولغته في السؤال */
@@ -141,16 +144,27 @@ class WebsiteBuilderService
             return $state;
         }
 
-        $message = trim($message);
+        $message = mb_substr(trim($message), 0, self::MAX_ANSWER_CHARS);
+        $retry = fn (string $why) => array_merge($state, ['question' => $why . ' ' . $state['question']]);
+
+        if ($message === '') {
+            return $retry('اكتب إجابتك الأول 🙏');
+        }
 
         if ($state['step'] === 'language') {
             $langKey = $this->matchLanguageChoice($message);
+            if ($langKey === null) {
+                return $retry('مش متأكد من اللغة دي - اختار واحدة من الأزرار.');
+            }
             $_SESSION['website_builder_answers']['language'] = $langKey;
         } elseif ($state['step'] === 'industry') {
             $industryKey = $this->matchIndustryChoice($message);
+            if ($industryKey === null) {
+                return $retry('دلوقتي بنبني مواقع للرحلات والفنادق بس - اختار واحد من الأزرار.');
+            }
             $_SESSION['website_builder_answers']['industry'] = $industryKey;
         } elseif ($state['step'] === 'items') {
-            $isDoneSignal = in_array(mb_strtolower($message), self::DONE_SIGNALS, true) || mb_stripos($message, 'خلص') !== false;
+            $isDoneSignal = self::isDoneSignal($message);
             $hasAtLeastOne = !empty($_SESSION['website_builder_answers']['items']);
 
             if ($isDoneSignal && $hasAtLeastOne) {
@@ -159,6 +173,10 @@ class WebsiteBuilderService
                 return ['done' => false, 'step' => 'items', 'question' => 'محتاجين عنصر واحد على الأقل الأول 🙏 احكيلي عن أول واحد عندك.'];
             } else {
                 $_SESSION['website_builder_answers']['items'][] = $message;
+                // كل عنصر بيتولّد له صورة داخل نفس الطلب: سقف يمنع انتهاء المهلة
+                if (count($_SESSION['website_builder_answers']['items']) >= self::MAX_ITEMS) {
+                    $_SESSION['website_builder_answers']['items_done'] = true;
+                }
             }
         } else {
             $_SESSION['website_builder_answers'][$state['step']] = $message;
@@ -167,26 +185,52 @@ class WebsiteBuilderService
         return $this->getCurrentState();
     }
 
-    private function matchLanguageChoice(string $message): string
+    /** كلمة "خلصت" لوحدها (أو جملة قصيرة جدًا فيها خلص): وصف رحلة فيه كلمة خلص ما يتحسبش إنهاء */
+    public static function isDoneSignal(string $message): bool
     {
-        $message = trim($message);
-        foreach (self::LANGUAGES as $key => $meta) {
-            if (mb_stripos($message, $meta['label']) !== false || mb_stripos($meta['label'], $message) !== false) {
-                return $key;
-            }
-        }
-        return 'ar'; // افتراضي آمن لو الرد مش واضح
+        $m = mb_strtolower(trim($message));
+        return in_array($m, self::DONE_SIGNALS, true) || (mb_strlen($m) <= 14 && mb_strpos($m, 'خلص') !== false);
     }
 
-    private function matchIndustryChoice(string $message): string
+    /** @return string|null null لما الرد مش لغة معروفة (بدل ما نختار العربية بصمت) */
+    private function matchLanguageChoice(string $message): ?string
     {
-        $message = trim($message);
-        foreach (self::INDUSTRIES as $key => $meta) {
-            if (mb_stripos($message, $meta['label']) !== false || mb_stripos($meta['label'], $message) !== false) {
+        $m = mb_strtolower(trim($message));
+        $aliases = ['ar' => ['ar', 'عربي', 'عربى', 'العربيه'], 'en' => ['en', 'eng', 'انجليزي', 'انجليزى', 'إنجليزي', 'الانجليزية', 'الإنجليزية'], 'fr' => ['fr', 'فرنسي', 'فرنسى', 'الفرنسية'], 'de' => ['de', 'ألماني', 'الماني', 'المانى', 'الألمانية']];
+        foreach ($aliases as $key => $words) {
+            if (in_array($m, $words, true)) {
                 return $key;
             }
         }
-        return 'tours'; // افتراضي آمن
+        foreach (self::LANGUAGES as $key => $meta) {
+            if ($m !== '' && mb_strtolower($meta['label']) === $m) {
+                return $key;
+            }
+        }
+        foreach (self::LANGUAGES as $key => $meta) {
+            if (mb_strlen($m) >= 3 && mb_stripos($meta['label'], $m) !== false) {
+                return $key;
+            }
+        }
+        return null;
+    }
+
+    /** @return string|null null لما الرد مش مجال متاح */
+    private function matchIndustryChoice(string $message): ?string
+    {
+        $m = trim($message);
+        foreach (self::INDUSTRIES as $key => $meta) {
+            if ($m === $meta['label'] || (mb_strlen($m) >= 3 && mb_stripos($meta['label'], $m) !== false)) {
+                return $key;
+            }
+        }
+        if (preg_match('/رحل|جول|tour|trip/iu', $m)) {
+            return 'tours';
+        }
+        if (preg_match('/فندق|منتجع|غرف|hotel|resort|room/iu', $m)) {
+            return 'hotel';
+        }
+        return null;
     }
 
     /** إعادة تصفير المعالج (لو العميل عايز يبدأ موقع تاني من الصفر) */
