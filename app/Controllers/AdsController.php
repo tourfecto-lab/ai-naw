@@ -375,7 +375,7 @@ HTML;
                         ${c.target_audience_brief ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;">🎯 ' + esc(c.target_audience_brief) + '</div>' : ''}
                     </td>
                     <td>${esc(c.daily_budget || '-')} ${esc(c.currency)}</td>
-                    <td>${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;">' + (c.recent_activity === 'observed_last_30_days' ? 'Recorded activity within 30 days (not a live delivery check)' : (c.recent_activity === 'not_observed_last_30_days' ? 'No activity recorded in the last 30 days (not a live delivery check)' : 'Recent activity unavailable — status does not confirm delivery')) + '</div>' : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill yellow xs">Meta campaign linked · delivery not verified</span>' : '<span class="pill blue xs">Google campaign linked</span>') : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
+                    <td>${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? (c.recent_activity === 'observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Recorded activity, not a live delivery check">Active in last 30 days</div>' : (c.recent_activity === 'not_observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Not a live delivery check">No activity in 30 days</div>' : '')) : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill blue xs" title="Linked to Meta. Delivery is not verified from here.">Meta</span>' : '<span class="pill blue xs">Google</span>') : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
                     <td>${esc(c.spend)} ${esc(c.currency)}</td>
                     <td>
                         ${!c.external_campaign_id ? '<button class="p-btn primary xs" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">🚀 انشر</button>' : (c.platform === 'meta_ads' && c.status === 'draft' ? '<button class="p-btn outline xs" data-resume="' + (c.external_adset_id ? 'ad' : '1') + '" data-adset-id="' + esc(c.external_adset_id || '') + '" data-meta-id="' + esc(c.external_campaign_id) + '" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">' + (c.external_adset_id ? 'Resume missing PAUSED Ad' : 'Resume paused setup') + '</button>' : '')}
@@ -1006,7 +1006,8 @@ HTML;
         box.innerHTML = `<div>رابط التتبع القصير: <a href="${esc(res.data.short_redirect_url)}" target="_blank">${esc(res.data.short_redirect_url)}</a></div>`;
     };
 
-    let summaryLoadVersion = 0;
+    let summaryLoadVersion = 0, summaryUserPicked = false;
+    document.getElementById('dashPeriod').addEventListener('change', function (e) { if (e.isTrusted) summaryUserPicked = true; });
     async function loadDashboardSummary() {
         const version = ++summaryLoadVersion;
         const box = document.getElementById('dashboardKpis');
@@ -1027,11 +1028,18 @@ HTML;
         }
         if (!res.success) { box.innerHTML = '<div class="p-cell-muted">تعذر تحميل الملخص</div>'; return; }
         const d = res.data;
+        // Nothing recorded for the default window: widen it once (30 days, then all history) instead of showing an empty board.
+        if ((d.spend === null || d.spend === undefined) && !summaryUserPicked && period !== 'lifetime') {
+            const sel = document.getElementById('dashPeriod');
+            const want = period === 'monthly' ? 'lifetime' : 'monthly';
+            const opt = Array.from(sel.options).find(o => o.value === want);
+            if (opt) { sel.value = opt.value; return loadDashboardSummary(); }
+        }
 
         const kpi = (label, value) => `
             <div class="p-card" style="padding:14px;">
                 <div class="p-cell-muted" style="font-size:11.5px;">${label}</div>
-                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" style="font-size:13px;">لا توجد بيانات كافية</span>' : esc(String(value))}</div>
+                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" title="No data for this period">&mdash;</span>' : esc(String(value))}</div>
             </div>`;
 
         const lifetimeMode = period === 'lifetime';
@@ -1044,8 +1052,8 @@ HTML;
             kpi('CPC', d.cpc) +
             kpi('CPM', d.cpm) +
             kpi('ROAS', d.roas !== null ? d.roas + 'x' : null) +
-            kpi('Administratively active (not necessarily delivering)', d.active_campaigns) +
-            kpi('Administratively paused', d.paused_campaigns) +
+            kpi('Active campaigns', d.active_campaigns) +
+            kpi('Paused campaigns', d.paused_campaigns) +
             kpi('استخدام الميزانية', d.budget_utilization_pct !== null ? d.budget_utilization_pct + '%' : null);
     }
 
@@ -4465,9 +4473,9 @@ JS;
         const kpi = (label, value) => `
             <div class="p-card" style="padding:14px;">
                 <div class="p-cell-muted" style="font-size:11.5px;">${label}</div>
-                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" style="font-size:13px;">لا توجد بيانات كافية</span>' : esc(String(value))}</div>
+                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" title="No data for this period">&mdash;</span>' : esc(String(value))}</div>
             </div>`;
-        box.innerHTML = kpi('الإنفاق (آخر 30 يوم)', d.spend) + kpi('استخدام الميزانية', d.budget_utilization_pct !== null ? d.budget_utilization_pct + '%' : null) + kpi('Administratively active (not necessarily delivering)', d.active_campaigns) + kpi('Administratively paused', d.paused_campaigns);
+        box.innerHTML = kpi('الإنفاق (آخر 30 يوم)', d.spend) + kpi('استخدام الميزانية', d.budget_utilization_pct !== null ? d.budget_utilization_pct + '%' : null) + kpi('Active campaigns', d.active_campaigns) + kpi('Paused campaigns', d.paused_campaigns);
     }
 
     window.loadComparisonChart = async function () {
