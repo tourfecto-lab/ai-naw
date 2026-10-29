@@ -357,3 +357,6 @@ html[data-theme="dark"] body.ap-theme [style*="color:#dc2626" i],
 html[data-theme="dark"] body.ap-theme [style*="color: #dc2626" i] { color: var(--ap-bad) !important; }
 html[data-theme="dark"] body.ap-theme [style*="background:#16a34a" i],
 html[data-theme="dark"] body.ap-theme [style*="background: #16a34a" i] { background: #15803D !important; }
+
+/* Contrast, part 6: critical pills (competitor intelligence) used white on the light dark-mode red. */
+html[data-theme="dark"] body.ap-theme .pill.critical { background: #C92A1F; color: #fff; }
