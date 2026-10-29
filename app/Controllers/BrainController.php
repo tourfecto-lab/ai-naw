@@ -30,8 +30,9 @@ class BrainController extends Controller
             $sharing = new SharedIntelligence($this->db);
             $optedIn = $sharing->optedIn($uid);
             $patterns = $optedIn ? $sharing->patterns() : [];
-            return $this->success(['websites' => $sites, 'website_id' => $wid, 'snapshot' => $snapshot, 'decisions' => $store->sync($uid, $wid, $snapshot, $patterns), 'results' => $store->results($uid, $wid),
-                'sharing' => ['opted_in' => $optedIn, 'patterns' => count($patterns), 'min_companies' => SharedIntelligence::MIN_COMPANIES]]);
+            $autonomy = $store->autonomy($uid);
+            return $this->success(['websites' => $sites, 'website_id' => $wid, 'snapshot' => $snapshot, 'decisions' => $store->sync($uid, $wid, $snapshot, $patterns, $autonomy, current_lang() === 'en' ? 'en' : 'ar'), 'results' => $store->results($uid, $wid),
+                'sharing' => ['opted_in' => $optedIn, 'patterns' => count($patterns), 'min_companies' => SharedIntelligence::MIN_COMPANIES], 'autonomy' => $autonomy]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -50,13 +51,28 @@ class BrainController extends Controller
             if (!$wid) return $this->error('Website not found', 404);
             $snapshot = (new CompanyBrainService($this->db))->snapshot($uid, $wid, false);
             $store = new BrainDecisionStore($this->db);
-            $decisions = $store->setStatus($uid, $wid, (int) ($params['id'] ?? 0), (string) $this->get('status'), $snapshot);
+            $decisions = $store->setStatus($uid, $wid, (int) ($params['id'] ?? 0), (string) $this->get('status'), $snapshot, current_lang() === 'en' ? 'en' : 'ar');
             return $this->success(['decisions' => $decisions, 'results' => $store->results($uid, $wid)]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {
             Logger::error('Brain decision update failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
             return $this->error(current_lang() === 'ar' ? 'تعذر حفظ القرار.' : 'Could not save the decision.', 503);
+        }
+    }
+
+    /** POST /api/brain/autonomy  {on: bool} — التشغيل الذاتي: القرارات اللي مافيهاش صرف بتتحول لمهام وتنبيهات لوحدها */
+    public function autonomy(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($e = $this->verifyCsrf()) return $e;
+        try {
+            $store = new BrainDecisionStore($this->db);
+            $store->setAutonomy((int) $this->user['id'], filter_var($this->get('on', false), FILTER_VALIDATE_BOOLEAN));
+            return $this->success(['autonomy' => $store->autonomy((int) $this->user['id'])]);
+        } catch (Throwable $e) {
+            Logger::error('Brain autonomy update failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
+            return $this->error(current_lang() === 'ar' ? 'تعذر حفظ الاختيار.' : 'Could not save your choice.', 503);
         }
     }
 

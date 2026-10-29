@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/BrainSchema.php';
 require_once __DIR__ . '/StrategicDecisions.php';
+require_once __DIR__ . '/BrainExecutor.php';
 
 /**
  * Tourfecto - العقل الاستراتيجي: حفظ القرارات وقياس نتيجتها (الحلقة: قرار ← موافقة ← تنفيذ ← قياس ← تعلّم)
@@ -17,16 +18,49 @@ final class BrainDecisionStore
     public const MEASURE_AFTER_DAYS = 7;
 
     private Database $db;
+    private ?BrainExecutor $executor;
 
-    public function __construct(?Database $db = null)
+    public function __construct(?Database $db = null, ?BrainExecutor $executor = null)
     {
         $this->db = $db ?? Database::getInstance();
         BrainSchema::ensure($this->db);
+        $this->executor = $executor;
+    }
+
+    private function executor(): BrainExecutor
+    {
+        return $this->executor ??= new BrainExecutor($this->db);
+    }
+
+    /** التشغيل الذاتي: مقفول افتراضيًا */
+    public function autonomy(int $uid): bool
+    {
+        return (bool) ($this->db->query('SELECT autonomy FROM brain_settings WHERE user_id = ? LIMIT 1', [$uid])[0]['autonomy'] ?? false);
+    }
+
+    public function setAutonomy(int $uid, bool $on): void
+    {
+        $this->db->query('INSERT INTO brain_settings (user_id, autonomy, updated_at) VALUES (?, ?, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE autonomy = VALUES(autonomy), updated_at = VALUES(updated_at)', [$uid, $on ? 1 : 0]);
+    }
+
+    /** موافقة + تنفيذ (مهمة وتنبيه). القرار اللي فيه صرف مابيتنفّذش من هنا أبدًا */
+    private function approveAndExecute(int $uid, int $wid, array $row, array $snapshot, string $lang): void
+    {
+        $current = $row['metric_key'] ? StrategicDecisions::metricValue($snapshot, $row['metric_key']) : null;
+        $this->db->query("UPDATE brain_decisions SET status = 'approved', decided_at = UTC_TIMESTAMP(), baseline_value = COALESCE(?, baseline_value) WHERE id = ? AND user_id = ?", [$current, (int) $row['id'], $uid]);
+        $decision = json_decode((string) $row['payload_json'], true) ?: [];
+        if (!empty($decision['requires_spend']) || (int) $row['requires_spend'] === 1) return;
+        try {
+            $this->executor()->executeDecision($uid, $wid, $decision, $lang);
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) Logger::warning('Brain execution failed', ['user_id' => $uid, 'decision' => $row['decision_key'], 'error' => $e->getMessage()]);
+        }
     }
 
     /** يحدّث قرارات الشركة من صورتها الحالية ويرجعها مرتبة */
     /** @param array $shared أنماط الذكاء المشترك (فاضية لو الشركة مش مشارِكة) */
-    public function sync(int $uid, int $wid, array $snapshot, array $shared = []): array
+    public function sync(int $uid, int $wid, array $snapshot, array $shared = [], ?bool $autonomy = null, string $lang = 'ar'): array
     {
         $now = gmdate('Y-m-d H:i:s');
         $fresh = StrategicDecisions::decide($snapshot, $this->learnedWeights($uid, $wid), $shared);
@@ -69,6 +103,17 @@ final class BrainDecisionStore
             $this->db->query('UPDATE brain_decisions SET status = ?, result_value = ?, outcome = ?, measured_at = ? WHERE id = ? AND user_id = ?',
                 [$gone ? 'resolved' : 'done', $after, $outcome, $now, (int) $row['id'], $uid]);
         }
+        // التشغيل الذاتي: القرارات المقترحة اللي مافيهاش صرف بتتوافق وتتنفّذ (مهمة + تنبيه) من غير ما حد يدوس
+        if ($autonomy ?? $this->autonomy($uid)) {
+            foreach ($this->db->query("SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ? AND status = 'proposed' AND requires_spend = 0", [$uid, $wid]) ?: [] as $row) {
+                $this->approveAndExecute($uid, $wid, $row, $snapshot, $lang);
+            }
+        }
+        // أي قرار متوافق عليه لازم يكون ليه مهمة (منع التكرار في المنفّذ بيخلي ده آمن مع كل تحديث)
+        foreach ($this->db->query("SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ? AND status = 'approved' AND requires_spend = 0", [$uid, $wid]) ?: [] as $row) {
+            try { $this->executor()->executeDecision($uid, $wid, json_decode((string) $row['payload_json'], true) ?: [], $lang); }
+            catch (Throwable $e) { if (class_exists('Logger')) Logger::warning('Brain execution failed', ['user_id' => $uid, 'decision' => $row['decision_key'], 'error' => $e->getMessage()]); }
+        }
         return $this->list($uid, $wid);
     }
 
@@ -84,7 +129,7 @@ final class BrainDecisionStore
     }
 
     /** صاحب الشركة بيوافق/يرفض/يعلّم إنه اتنفّذ. القرار لازم يكون بتاعه. */
-    public function setStatus(int $uid, int $wid, int $id, string $status, array $snapshot): array
+    public function setStatus(int $uid, int $wid, int $id, string $status, array $snapshot, string $lang = 'ar'): array
     {
         if (!in_array($status, ['approved', 'dismissed', 'done', 'proposed'], true)) throw new InvalidArgumentException('Invalid status');
         $row = $this->db->query('SELECT * FROM brain_decisions WHERE id = ? AND user_id = ? AND website_id = ? LIMIT 1', [$id, $uid, $wid])[0] ?? null;
@@ -92,7 +137,7 @@ final class BrainDecisionStore
         $now = gmdate('Y-m-d H:i:s');
         $current = $row['metric_key'] ? StrategicDecisions::metricValue($snapshot, $row['metric_key']) : null;
         if ($status === 'approved') {
-            $this->db->query('UPDATE brain_decisions SET status = ?, decided_at = ?, baseline_value = COALESCE(?, baseline_value) WHERE id = ? AND user_id = ?', [$status, $now, $current, $id, $uid]);
+            $this->approveAndExecute($uid, $wid, $row, $snapshot, $lang);
         } elseif ($status === 'done') {
             $this->db->query('UPDATE brain_decisions SET status = ?, decided_at = COALESCE(decided_at, ?), done_at = ?, outcome = NULL, measured_at = NULL WHERE id = ? AND user_id = ?', [$status, $now, $now, $id, $uid]);
         } else {

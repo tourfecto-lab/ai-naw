@@ -3,6 +3,7 @@
 return [
     'BrainController' => dirname(__DIR__,2).'/app/Controllers/BrainController.php',
     'BrainDecisionStore' => dirname(__DIR__,2).'/app/Services/Brain/BrainDecisionStore.php',
+    'BrainExecutor' => dirname(__DIR__,2).'/app/Services/Brain/BrainExecutor.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
     'MarketIntelligenceService' => dirname(__DIR__,2).'/app/Services/Brain/MarketIntelligenceService.php',
