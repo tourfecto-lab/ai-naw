@@ -638,6 +638,15 @@ class ChatManager
     }
 
     /**
+     * chat_messages.platform is an ENUM that has no 'instagram' (a strict-mode INSERT with it fails and the message is lost).
+     * Instagram is stored as 'other'; the real channel lives on the conversation (ai_conversations.channel).
+     */
+    public static function storedPlatform(string $platform): string
+    {
+        return in_array($platform, ['whatsapp', 'telegram', 'messenger', 'webchat', 'other'], true) ? $platform : 'other';
+    }
+
+    /**
      * حفظ رسالة واردة
      * @param int $userId
      * @param int $websiteId
@@ -675,7 +684,7 @@ class ChatManager
                 ':website_id' => $websiteId,
                 ':user_id' => $userId,
                 ':session_id' => $processedMessage['session_id'] ?? $this->generateSessionId($phoneNumber),
-                ':platform' => $webhookData['platform'] ?? 'whatsapp',
+                ':platform' => self::storedPlatform((string) ($webhookData['platform'] ?? 'whatsapp')),
                 ':platform_message_id' => $webhookData['platform_message_id'] ?? null,
                 ':customer_name' => $webhookData['sender_name'] ?? null,
                 ':customer_phone' => $phoneNumber,

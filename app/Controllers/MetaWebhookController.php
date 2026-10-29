@@ -121,7 +121,7 @@ class MetaWebhookController extends Controller
                     continue;
                 }
                 try {
-                    ($chatManager ?? new ChatManager())->processIncomingMessage([
+                    $res = ($chatManager ?? new ChatManager())->processIncomingMessage([
                         'user_id' => (int) $rows[0]['user_id'],
                         'website_id' => $websiteId,
                         'platform' => $platform,
@@ -129,7 +129,8 @@ class MetaWebhookController extends Controller
                         'message' => mb_substr($text, 0, 4000),
                     ] + ($media !== null ? ['media_ext' => $media] : []));
                     $total['messages']++;
-                    MetaWebhookLog::add(['result' => 'processed', 'object' => $platform, 'account' => $accountId, 'website' => $websiteId]);
+                    $ok = !is_array($res) || ($res['success'] ?? true) !== false;
+                    MetaWebhookLog::add(['result' => $ok ? 'processed' : 'not_saved', 'object' => $platform, 'account' => $accountId, 'website' => $websiteId] + ($ok ? [] : ['error' => (string) ($res['error'] ?? '')]));
                     if ($chatManager === null) {
                         self::addProfile($db, $websiteId, $platform, $senderId, (string) ($rows[0]['access_token'] ?? ''));
                     }

@@ -52,6 +52,16 @@ final class MetaWebhookAttachmentsTest extends TestCase
         $this->assertSame('[weirdtype]', MetaWebhookController::describeAttachment(['attachments' => [['type' => 'Weird<Type>!', 'payload' => []]]])[0]);
     }
 
+    /** chat_messages.platform has no 'instagram' value: storing it fails in strict mode and the DM was silently lost. */
+    public function testInstagramIsStoredWithAPlatformTheTableAccepts(): void
+    {
+        foreach (['whatsapp', 'telegram', 'messenger', 'webchat', 'other'] as $p) {
+            $this->assertSame($p, ChatManager::storedPlatform($p));
+        }
+        $this->assertSame('other', ChatManager::storedPlatform('instagram'));
+        $this->assertSame('other', ChatManager::storedPlatform(''));
+    }
+
     /** Instagram's webhooks product can send the message as entry.changes[] {field: messages, value: {...}} instead of entry.messaging[]. */
     public function testInstagramChangesFormatIsRouted(): void
     {
