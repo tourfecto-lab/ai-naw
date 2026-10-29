@@ -331,9 +331,14 @@ HTML;
         if (!res.success || !res.data || !res.data.configured) return; // stays hidden until the platform admin adds the TikTok app keys
         card.style.display = '';
         box.innerHTML = res.data.connected
-            ? '<div style="display:flex;justify-content:space-between;align-items:center;"><span><span class="pill green">\u2714 مربوط</span> ' + esc(res.data.external_account_id || '') + '</span><button class="p-btn danger xs" onclick="disconnectTikTok()">فصل الربط</button></div>'
+            ? '<div style="display:flex;justify-content:space-between;align-items:center;"><span><span class="pill green">\u2714 مربوط</span> ' + esc(res.data.external_account_id || '') + '</span><div style="display:flex;gap:8px"><button class="p-btn outline xs" onclick="syncTikTok()">\ud83d\udd04 مزامنة الحملات الآن</button><button class="p-btn danger xs" onclick="disconnectTikTok()">فصل الربط</button></div></div>'
             : '<a href="/ads/connect/tiktok" class="p-btn primary xs">\ud83d\udd17 ربط حساب TikTok Ads</a>';
     }
+    window.syncTikTok = async function () {
+        P.toast('جارِ سحب الحملات من TikTok...', 'success');
+        const res = await fetchJSON('/api/ads/tiktok/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (res.success) { P.toast('تمت المزامنة: ' + res.data.synced + ' حملة', 'success'); load(); } else P.toast(res.error || 'تعذرت المزامنة', 'error');
+    };
     window.disconnectTikTok = async function () {
         if (!confirm('متأكد من فصل ربط TikTok Ads؟')) return;
         const res = await fetchJSON('/api/ads/tiktok/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });

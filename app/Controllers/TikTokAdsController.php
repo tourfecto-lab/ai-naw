@@ -150,6 +150,19 @@ class TikTokAdsController extends Controller
         return $this->success(['configured' => true, 'connected' => !empty($row), 'external_account_id' => $row[0]['external_account_id'] ?? null]);
     }
 
+    /** POST /api/ads/tiktok/sync - pull the advertiser's campaigns and their last 30 days of results. */
+    public function sync(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $r = (new AdsSyncService($this->db))->sync((int) $this->user['id'], 'tiktok_ads');
+        return !empty($r['success']) ? $this->success(['synced' => (int) ($r['synced'] ?? 0)], 'Synced') : $this->error((string) ($r['error'] ?? 'Sync failed'), (int) ($r['status'] ?? 502));
+    }
+
     /** POST /api/ads/tiktok/disconnect */
     public function disconnect(array $params = []): array
     {
@@ -236,24 +249,11 @@ class TikTokAdsController extends Controller
             'platform_connection_id' => $conn['id'], 'daily_budget' => $budget, 'target_countries_json' => json_encode($countries),
             'status' => 'paused', 'published_at' => date('Y-m-d H:i:s'),
         ];
-        if (self::platformEnumAllowsTikTok($this->db)) {
-            $fill['platform'] = 'tiktok_ads';
-        }
+        $fill['platform'] = AdsSyncService::platformValue('tiktok_ads', $this->db);
         $campaign->fill($fill);
         $campaign->save();
         ActivityLog::record('ads', 'ad_campaign.published', ['subject_type' => 'ad_campaigns', 'subject_id' => (int) $campaign->getAttribute('id'), 'meta' => ['platform' => 'tiktok_ads', 'external_campaign_id' => $result['external_campaign_id'], 'countries' => $countries]]);
         return $this->success(['campaign' => $campaign->toArray(), 'warning' => $result['warning'] ?? null, 'summary' => ['countries' => $countries, 'daily_budget' => (string) $budget, 'ads' => 1]], 'The campaign was created on TikTok, paused. Review it in TikTok Ads Manager and switch it on when ready.');
-    }
-
-    /** ad_campaigns.platform is an ENUM; it only accepts 'tiktok_ads' after migration 2026_10_30_000001 has been applied. */
-    private static function platformEnumAllowsTikTok($db): bool
-    {
-        try {
-            $r = $db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ad_campaigns' AND COLUMN_NAME = 'platform' LIMIT 1");
-            return stripos((string) ($r[0]['COLUMN_TYPE'] ?? ''), 'tiktok_ads') !== false;
-        } catch (Throwable $e) {
-            return false;
-        }
     }
 
     private function ownerBusiness(int $ownerId): array

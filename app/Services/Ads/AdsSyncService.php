@@ -28,7 +28,7 @@ class AdsSyncService
             [$ownerId, $platform]
         );
         if (!$conn) {
-            return ['success' => false, 'error' => $platform === 'meta_ads' ? 'مفيش حساب Meta Ads مربوط' : 'مفيش حساب Google Ads مربوط', 'status' => 400];
+            return ['success' => false, 'error' => ['meta_ads' => 'مفيش حساب Meta Ads مربوط', 'tiktok_ads' => 'مفيش حساب TikTok Ads مربوط'][$platform] ?? 'مفيش حساب Google Ads مربوط', 'status' => 400];
         }
         $conn = $conn[0];
         $enc = new Encryption();
@@ -36,6 +36,8 @@ class AdsSyncService
         try {
             if ($platform === 'meta_ads') {
                 $result = (new MetaAdsAPI($enc->decrypt((string) $conn['access_token'])))->listCampaignsWithInsights((string) $conn['external_account_id']);
+            } elseif ($platform === 'tiktok_ads') {
+                $result = (new TikTokAdsAPI($enc->decrypt((string) $conn['access_token'])))->listCampaignsWithInsights((string) $conn['external_account_id']);
             } else {
                 $token = $this->googleAccessToken($conn, $enc);
                 if (!$token) {
@@ -73,7 +75,7 @@ class AdsSyncService
                         $ownerId,
                         $conn['website_id'],
                         $conn['id'],
-                        $platform,
+                        self::platformValue($platform),
                         $c['name'],
                         $c['objective'],
                         $c['daily_budget'],
@@ -220,7 +222,7 @@ class AdsSyncService
                 $ownerId,
                 'ads_integration_error',
                 'مزامنة الإعلانات واقفة',
-                'مقدرناش نجيب بيانات حملاتك (' . ($conn['platform'] === 'meta_ads' ? 'Meta' : 'Google Ads') . '). اربط الحساب تاني من صفحة الإعلانات.',
+                'مقدرناش نجيب بيانات حملاتك (' . (['meta_ads' => 'Meta', 'tiktok_ads' => 'TikTok Ads'][$conn['platform']] ?? 'Google Ads') . '). اربط الحساب تاني من صفحة الإعلانات.',
                 '/ads'
             );
         }
@@ -250,6 +252,20 @@ class AdsSyncService
     public function shouldRetry(int $connId): bool
     {
         return $this->getFails($connId) < self::MAX_FAILS;
+    }
+
+    /** ad_campaigns.platform is an ENUM; 'tiktok_ads' is only accepted after migration 2026_10_30_000001 (else rows stay 'manual'). */
+    public static function platformValue(string $platform, ?Database $db = null): string
+    {
+        if ($platform !== 'tiktok_ads') {
+            return $platform;
+        }
+        try {
+            $r = ($db ?: Database::getInstance())->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ad_campaigns' AND COLUMN_NAME = 'platform' LIMIT 1");
+            return stripos((string) ($r[0]['COLUMN_TYPE'] ?? ''), 'tiktok_ads') !== false ? 'tiktok_ads' : 'manual';
+        } catch (Throwable $e) {
+            return 'manual';
+        }
     }
 
     private function status(string $s): string

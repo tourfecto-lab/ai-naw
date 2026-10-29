@@ -102,6 +102,70 @@ final class TikTokAdsAPI
         return $r['success'] ? ['success' => true, 'rows' => (array) ($r['data']['list'] ?? [])] : ['success' => false, 'error' => $r['error']];
     }
 
+    /**
+     * Campaigns of an advertiser with their last 30 days of results, in the shape AdsSyncService expects.
+     * spend / clicks / impressions are 30-day totals (TikTok reports are per day); budgets come from the ad groups.
+     * @return array{success: bool, campaigns?: array, error?: string}
+     */
+    public function listCampaignsWithInsights(string $advertiserId): array
+    {
+        $camps = $this->call('GET', '/campaign/get/', ['advertiser_id' => $advertiserId, 'fields' => json_encode(['campaign_id', 'campaign_name', 'objective_type', 'operation_status', 'create_time']), 'page_size' => 200]);
+        if (!$camps['success']) {
+            return ['success' => false, 'error' => $camps['error']];
+        }
+        $currency = ($this->advertisers([$advertiserId])[0]['currency'] ?? '') ?: null;
+
+        $budgets = [];
+        $groups = $this->call('GET', '/adgroup/get/', ['advertiser_id' => $advertiserId, 'fields' => json_encode(['campaign_id', 'budget', 'budget_mode']), 'page_size' => 1000]);
+        foreach ((array) ($groups['data']['list'] ?? []) as $g) {
+            if (($g['budget_mode'] ?? '') === 'BUDGET_MODE_DAY') {
+                $budgets[(string) ($g['campaign_id'] ?? '')] = ($budgets[(string) ($g['campaign_id'] ?? '')] ?? 0.0) + (float) ($g['budget'] ?? 0);
+            }
+        }
+
+        $daily = [];
+        $report = $this->call('GET', '/report/integrated/get/', [
+            'advertiser_id' => $advertiserId, 'report_type' => 'BASIC', 'data_level' => 'AUCTION_CAMPAIGN',
+            'dimensions' => json_encode(['campaign_id', 'stat_time_day']), 'metrics' => json_encode(['spend', 'impressions', 'clicks', 'conversion']),
+            'start_date' => gmdate('Y-m-d', time() - 29 * 86400), 'end_date' => gmdate('Y-m-d'), 'page_size' => 1000,
+        ]);
+        foreach ((array) ($report['data']['list'] ?? []) as $row) {
+            $id = (string) ($row['dimensions']['campaign_id'] ?? '');
+            $day = substr((string) ($row['dimensions']['stat_time_day'] ?? ''), 0, 10);
+            if ($id !== '' && $day !== '') {
+                $m = (array) ($row['metrics'] ?? []);
+                $daily[$id][] = ['date' => $day, 'spend' => (float) ($m['spend'] ?? 0), 'impressions' => (int) ($m['impressions'] ?? 0), 'clicks' => (int) ($m['clicks'] ?? 0), 'conversions' => (float) ($m['conversion'] ?? 0)];
+            }
+        }
+
+        $objectives = ['TRAFFIC' => 'traffic', 'REACH' => 'awareness', 'VIDEO_VIEWS' => 'engagement', 'WEB_CONVERSIONS' => 'sales', 'LEAD_GENERATION' => 'leads'];
+        $status = ['ENABLE' => 'active', 'DISABLE' => 'paused', 'DELETE' => 'removed'];
+        $out = [];
+        foreach ((array) ($camps['data']['list'] ?? []) as $c) {
+            $id = (string) ($c['campaign_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $days = $daily[$id] ?? [];
+            $out[] = [
+                'external_campaign_id' => $id,
+                'name' => (string) ($c['campaign_name'] ?? $id),
+                'objective' => $objectives[(string) ($c['objective_type'] ?? '')] ?? 'traffic',
+                'daily_budget' => $budgets[$id] ?? 0.0,
+                'status' => $status[(string) ($c['operation_status'] ?? '')] ?? 'paused',
+                'impressions' => array_sum(array_column($days, 'impressions')),
+                'clicks' => array_sum(array_column($days, 'clicks')),
+                'spend' => round(array_sum(array_column($days, 'spend')), 2),
+                'started_at' => (string) ($c['create_time'] ?? '') ?: null,
+                'ended_at' => null,
+                'currency' => $currency,
+                'daily' => $days,
+                'insights_available' => !empty($report['success']),
+            ];
+        }
+        return ['success' => true, 'campaigns' => $out];
+    }
+
     public static function validVideoUrl(string $url): bool
     {
         return (bool) preg_match('#^https://[^\s/]+/[^\s]+$#i', $url);

@@ -123,4 +123,48 @@ final class TikTokAdsApiTest extends TestCase
         $ok = TikTokAdsAPI::exchangeAuthCode('APP', 'S', 'good');
         $this->assertSame(['success' => true, 'access_token' => 'TT-TOKEN', 'advertiser_ids' => ['111', '222']], $ok);
     }
+
+    public function testCampaignListingMapsStatusObjectiveBudgetAndThirtyDayTotals(): void
+    {
+        $ok = fn (array $data) => ['code' => 0, 'message' => 'OK', 'data' => $data];
+        $this->transport([
+            '/campaign/get/' => $ok(['list' => [
+                ['campaign_id' => 'c1', 'campaign_name' => 'Luxor', 'objective_type' => 'REACH', 'operation_status' => 'ENABLE', 'create_time' => '2026-10-01 10:00:00'],
+                ['campaign_id' => 'c2', 'campaign_name' => 'Cairo', 'objective_type' => 'WEB_CONVERSIONS', 'operation_status' => 'DISABLE'],
+                ['campaign_id' => 'c3', 'campaign_name' => 'Old', 'objective_type' => 'ODD', 'operation_status' => 'DELETE'],
+            ]]),
+            '/advertiser/info/' => $ok(['list' => [['advertiser_id' => 'adv1', 'name' => 'Biz', 'currency' => 'egp', 'timezone' => 'x']]]),
+            '/adgroup/get/' => $ok(['list' => [
+                ['campaign_id' => 'c1', 'budget' => 30, 'budget_mode' => 'BUDGET_MODE_DAY'],
+                ['campaign_id' => 'c1', 'budget' => 20, 'budget_mode' => 'BUDGET_MODE_DAY'],
+                ['campaign_id' => 'c2', 'budget' => 999, 'budget_mode' => 'BUDGET_MODE_TOTAL'],
+            ]]),
+            '/report/integrated/get/' => $ok(['list' => [
+                ['dimensions' => ['campaign_id' => 'c1', 'stat_time_day' => '2026-10-28 00:00:00'], 'metrics' => ['spend' => '10.5', 'impressions' => '1000', 'clicks' => '40', 'conversion' => '2']],
+                ['dimensions' => ['campaign_id' => 'c1', 'stat_time_day' => '2026-10-29 00:00:00'], 'metrics' => ['spend' => '4.25', 'impressions' => '500', 'clicks' => '10', 'conversion' => '0']],
+            ]]),
+        ]);
+        $r = (new TikTokAdsAPI('tok'))->listCampaignsWithInsights('adv1');
+        $this->assertTrue($r['success']);
+        [$c1, $c2, $c3] = $r['campaigns'];
+        $this->assertSame(['awareness', 'active', 50.0, 1500, 50, 14.75, 'EGP'], [$c1['objective'], $c1['status'], $c1['daily_budget'], $c1['impressions'], $c1['clicks'], $c1['spend'], $c1['currency']]);
+        $this->assertSame('2026-10-28', $c1['daily'][0]['date']);
+        $this->assertSame(['sales', 'paused', 0.0, 0.0], [$c2['objective'], $c2['status'], $c2['daily_budget'], $c2['spend']], 'a lifetime ad-group budget is not a daily budget');
+        $this->assertSame(['traffic', 'removed'], [$c3['objective'], $c3['status']]);
+    }
+
+    public function testListingErrorIsReportedNotSwallowed(): void
+    {
+        $this->transport(['/campaign/get/' => ['code' => 40105, 'message' => 'Access token expired']]);
+        $r = (new TikTokAdsAPI('tok'))->listCampaignsWithInsights('adv1');
+        $this->assertFalse($r['success']);
+        $this->assertSame('Access token expired', $r['error']);
+    }
+
+    public function testPlatformValueIsUnchangedForMetaAndGoogle(): void
+    {
+        $this->assertSame('meta_ads', AdsSyncService::platformValue('meta_ads'));
+        $this->assertSame('google_ads', AdsSyncService::platformValue('google_ads'));
+        $this->assertContains(AdsSyncService::platformValue('tiktok_ads'), ['tiktok_ads', 'manual'], 'falls back to manual until the ENUM migration is applied');
+    }
 }

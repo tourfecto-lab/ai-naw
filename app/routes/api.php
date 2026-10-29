@@ -912,6 +912,7 @@ $router->patch('/api/ads/copies/{id}/reject', 'AdsController', 'rejectCopy', ['A
 $router->get('/api/ads/tiktok/status', 'TikTokAdsController', 'status', ['AuthMiddleware']);
 $router->post('/api/ads/tiktok/choose-account', 'TikTokAdsController', 'chooseAccount', ['AuthMiddleware']);
 $router->post('/api/ads/tiktok/disconnect', 'TikTokAdsController', 'disconnect', ['AuthMiddleware']);
+$router->post('/api/ads/tiktok/sync', 'TikTokAdsController', 'sync', ['AuthMiddleware']);
 $router->post('/api/ads/campaigns/{id}/publish-tiktok', 'TikTokAdsController', 'publish', ['AuthMiddleware']);
 $router->get('/api/ads/meta/status', 'AdsController', 'getMetaConnectionStatus', ['AuthMiddleware']);
 $router->post('/api/ads/meta/choose-account', 'AdsController', 'chooseMetaAdAccount', ['AuthMiddleware']);
