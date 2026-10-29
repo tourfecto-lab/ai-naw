@@ -90,7 +90,7 @@ final class BrainActionsIntegrationTest extends TestCase
         $this->assertSame(false, $p['publishes']);
         $this->assertSame([], $calls, 'المعاينة مابتكتبش حاجة');
 
-        $r = $svc->run(self::USER_ID, 'review_drafts');
+        $r = $svc->run(self::USER_ID, 'review_drafts', 10);
         $this->assertSame(1, $r['drafted']);
         $this->assertSame(1, $r['skipped']);
         $this->assertSame(1, $r['ready_drafts']);
@@ -107,7 +107,7 @@ final class BrainActionsIntegrationTest extends TestCase
 
         // مرة تانية: المسودة الجاهزة مابتتكتبش تاني
         $calls = [];
-        $svc->run(self::USER_ID, 'review_drafts');
+        $svc->run(self::USER_ID, 'review_drafts', 10);
         $this->assertSame([[$meh, self::USER_ID]], $calls);
     }
 
@@ -115,5 +115,17 @@ final class BrainActionsIntegrationTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         (new BrainActions($this->db))->preview(self::USER_ID, 'publish_everything');
+    }
+
+    public function testEachCallDraftsOneSmallBatchSoTheRequestStaysShort(): void
+    {
+        foreach (range(1, BrainActions::BATCH + 2) as $i) $this->review(self::USER_ID, 'Bad trip ' . $i, 1);
+        $svc = new BrainActions($this->db, fn () => 'Sorry, we are fixing this.');
+        $first = $svc->run(self::USER_ID, 'review_drafts');
+        $this->assertSame(BrainActions::BATCH, $first['drafted']);
+        $this->assertSame(2, $first['without_draft']);
+        $second = $svc->run(self::USER_ID, 'review_drafts');
+        $this->assertSame(2, $second['drafted']);
+        $this->assertSame(0, $second['without_draft']);
     }
 }
