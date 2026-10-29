@@ -1992,6 +1992,7 @@ $router->post('/api/ai-visibility/questions','AiVisibilityController','questions
 // العقل الاستراتيجي لكل شركة
 $router->get('/api/brain','BrainController','data',['AuthMiddleware']);
 $router->post('/api/brain/decisions/{id}','BrainController','decision',['AuthMiddleware']);
+$router->post('/api/brain/sharing','BrainController','sharing',['AuthMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);
 $router->post('/api/ai-visibility/generate','AiVisibilityController','generate',['AuthMiddleware']);
 $router->post('/api/ai-visibility/llms','AiVisibilityController','llms',['AuthMiddleware']);

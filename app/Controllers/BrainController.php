@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../Services/Brain/CompanyBrainService.php';
 require_once __DIR__ . '/../Services/Brain/BrainDecisionStore.php';
+require_once __DIR__ . '/../Services/Brain/SharedIntelligence.php';
 
 /** العقل الاستراتيجي لكل شركة: الفهم + القرارات + النتايج. كل حاجة مقيّدة بحساب المستخدم الحالي. */
 class BrainController extends Controller
@@ -25,7 +26,12 @@ class BrainController extends Controller
             if (!$wid) return $this->success(['websites' => [], 'snapshot' => null, 'decisions' => [], 'results' => []]);
             $snapshot = (new CompanyBrainService($this->db))->snapshot($uid, $wid);
             $store = new BrainDecisionStore($this->db);
-            return $this->success(['websites' => $sites, 'website_id' => $wid, 'snapshot' => $snapshot, 'decisions' => $store->sync($uid, $wid, $snapshot), 'results' => $store->results($uid, $wid)]);
+            // الأرقام المجمّعة بتتشاف بس للشركات اللي بتشارك نتايجها هي كمان
+            $sharing = new SharedIntelligence($this->db);
+            $optedIn = $sharing->optedIn($uid);
+            $patterns = $optedIn ? $sharing->patterns() : [];
+            return $this->success(['websites' => $sites, 'website_id' => $wid, 'snapshot' => $snapshot, 'decisions' => $store->sync($uid, $wid, $snapshot, $patterns), 'results' => $store->results($uid, $wid),
+                'sharing' => ['opted_in' => $optedIn, 'patterns' => count($patterns), 'min_companies' => SharedIntelligence::MIN_COMPANIES]]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -42,7 +48,7 @@ class BrainController extends Controller
         try {
             [$uid, $wid] = $this->site();
             if (!$wid) return $this->error('Website not found', 404);
-            $snapshot = (new CompanyBrainService($this->db))->snapshot($uid, $wid);
+            $snapshot = (new CompanyBrainService($this->db))->snapshot($uid, $wid, false);
             $store = new BrainDecisionStore($this->db);
             $decisions = $store->setStatus($uid, $wid, (int) ($params['id'] ?? 0), (string) $this->get('status'), $snapshot);
             return $this->success(['decisions' => $decisions, 'results' => $store->results($uid, $wid)]);
@@ -51,6 +57,21 @@ class BrainController extends Controller
         } catch (Throwable $e) {
             Logger::error('Brain decision update failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
             return $this->error(current_lang() === 'ar' ? 'تعذر حفظ القرار.' : 'Could not save the decision.', 503);
+        }
+    }
+
+    /** POST /api/brain/sharing  {on: bool} — مشاركة نتايج القرارات من غير هوية (اختياري) */
+    public function sharing(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($e = $this->verifyCsrf()) return $e;
+        try {
+            $s = new SharedIntelligence($this->db);
+            $s->setOptIn((int) $this->user['id'], filter_var($this->get('on', false), FILTER_VALIDATE_BOOLEAN));
+            return $this->success(['opted_in' => $s->optedIn((int) $this->user['id'])]);
+        } catch (Throwable $e) {
+            Logger::error('Brain sharing update failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
+            return $this->error(current_lang() === 'ar' ? 'تعذر حفظ الاختيار.' : 'Could not save your choice.', 503);
         }
     }
 

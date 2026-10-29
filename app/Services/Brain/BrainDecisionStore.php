@@ -25,10 +25,11 @@ final class BrainDecisionStore
     }
 
     /** يحدّث قرارات الشركة من صورتها الحالية ويرجعها مرتبة */
-    public function sync(int $uid, int $wid, array $snapshot): array
+    /** @param array $shared أنماط الذكاء المشترك (فاضية لو الشركة مش مشارِكة) */
+    public function sync(int $uid, int $wid, array $snapshot, array $shared = []): array
     {
         $now = gmdate('Y-m-d H:i:s');
-        $fresh = StrategicDecisions::decide($snapshot, $this->learnedWeights($uid, $wid));
+        $fresh = StrategicDecisions::decide($snapshot, $this->learnedWeights($uid, $wid), $shared);
         $existing = [];
         foreach ($this->db->query('SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ?', [$uid, $wid]) ?: [] as $row) $existing[$row['decision_key']] = $row;
 

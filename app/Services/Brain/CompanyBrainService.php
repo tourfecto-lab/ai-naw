@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../ExecutiveDashboard/ExecutiveDashboardService.php';
 require_once __DIR__ . '/../Growth/GrowthSignalsService.php';
 require_once __DIR__ . '/../BusinessHub/BusinessHubService.php';
+require_once __DIR__ . '/MarketIntelligenceService.php';
 
 /**
  * Tourfecto - العقل الاستراتيجي لكل شركة (الفهم)
@@ -29,7 +30,8 @@ final class CompanyBrainService
         return $this->rows('SELECT id, main_url, company_name FROM websites WHERE user_id = ? ORDER BY id DESC LIMIT 50', [$uid]) ?? [];
     }
 
-    public function snapshot(int $uid, int $wid): array
+    /** @param bool $refreshMarket يحدّث مصدر سوق قديم واحد (مهلة قصيرة)؛ false في الاختبارات أو وقت الحفظ */
+    public function snapshot(int $uid, int $wid, bool $refreshMarket = true): array
     {
         $site = $this->first('SELECT id, main_url, company_name FROM websites WHERE id = ? AND user_id = ? LIMIT 1', [$wid, $uid]);
         if (!$site) throw new InvalidArgumentException('Website not found');
@@ -56,6 +58,11 @@ final class CompanyBrainService
                 SUM(status = 'scheduled') AS scheduled FROM social_posts WHERE user_id = ?", [$uid]);
         $ads = $this->first("SELECT SUM(status = 'active') AS active, COALESCE(SUM(spend), 0) AS spend_total FROM ad_campaigns WHERE user_id = ?", [$uid]);
         $aiQuestions = $this->first('SELECT COUNT(*) AS sets, SUM(approved_at IS NOT NULL) AS approved FROM seo_ai_prompt_sets WHERE website_id = ? AND user_id = ?', [$wid, $uid]);
+
+        // ذكاء السوق: الوجهة والأسواق من نص الشركة نفسه، والأرقام من مصادر رسمية عامة
+        $place = MarketIntelligenceService::detect((string) ($facts['business_facts'] ?? ''), (string) ($facts['audience'] ?? ''), (array) ($growth['markets']['countries'] ?? []));
+        $market = $this->safe(fn () => (new MarketIntelligenceService($this->db))->forCompany($place['destination'], $place['markets'], $growth['lead_time_days'] ?? null, $refreshMarket));
+        if ($market) $market['markets_default'] = $place['markets_default'];
 
         $policy = json_decode((string) ($seoSite['policy_json'] ?? ''), true) ?: [];
         $month = gmdate('Y-m');
@@ -96,6 +103,7 @@ final class CompanyBrainService
             'competitors' => ['tracked' => $int($competitors, 'c')],
             'social' => $social === null ? null : ['published_30' => $int($social, 'published_30') ?? 0, 'scheduled' => $int($social, 'scheduled') ?? 0],
             'ads' => $ads === null ? null : ['active' => $int($ads, 'active') ?? 0, 'spend_total' => isset($ads['spend_total']) ? round((float) $ads['spend_total'], 2) : null],
+            'market' => $market,
             'generated_at' => gmdate('c'),
         ];
     }

@@ -5,6 +5,8 @@ return [
     'BrainDecisionStore' => dirname(__DIR__,2).'/app/Services/Brain/BrainDecisionStore.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
+    'MarketIntelligenceService' => dirname(__DIR__,2).'/app/Services/Brain/MarketIntelligenceService.php',
+    'SharedIntelligence' => dirname(__DIR__,2).'/app/Services/Brain/SharedIntelligence.php',
     'StrategicDecisions' => dirname(__DIR__,2).'/app/Services/Brain/StrategicDecisions.php',
     'TeamAccess' => dirname(__DIR__,2).'/app/Services/TeamAccess.php',
     'StripeConnectOAuth' => dirname(__DIR__,2).'/app/Services/Payment/StripeConnectOAuth.php',
