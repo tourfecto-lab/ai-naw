@@ -157,6 +157,10 @@ class ChatInboxController extends Controller
             $raw = json_decode((string) ($m['webhook_raw_data'] ?? ''), true);
             unset($m['webhook_raw_data']); // never send raw provider data to the browser
             $m['media'] = null;
+            // Messenger / Instagram attachments are served from Meta's own CDN (https only), not stored by us.
+            if (is_array($raw) && is_array($raw['media_ext'] ?? null) && self::isMetaCdnUrl((string) ($raw['media_ext']['url'] ?? ''))) {
+                $m['media'] = ['type' => (string) ($raw['media_ext']['type'] ?? 'file'), 'mime' => '', 'filename' => '', 'voice' => false, 'url' => (string) $raw['media_ext']['url']];
+            }
             if (is_array($raw) && isset($raw['media']['id'], $raw['media']['type'])) {
                 $m['media'] = [
                     'type' => (string) $raw['media']['type'],
@@ -221,6 +225,13 @@ class ChatInboxController extends Controller
         $data['my_role'] = $this->inboxRole;
         $aid = (int) $conversation->getAttribute('assigned_agent_id');
         $data['assigned_agent_name'] = $aid ? (self::userNames([$aid])[$aid] ?? null) : null;
+        if (in_array((string) $conversation->getAttribute('channel'), ['messenger', 'instagram'], true)) {
+            $r = Database::getInstance()->query(
+                "SELECT TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(MAX(created_at), INTERVAL 24 HOUR)) AS s FROM chat_messages WHERE conversation_id = ? AND website_id = ? AND message_direction = 'incoming'",
+                [(int) $conversation->getAttribute('id'), $websiteId]
+            );
+            $data['meta_window'] = ['seconds_left' => max(0, (int) ($r[0]['s'] ?? 0))];
+        }
         if ($conversation->getAttribute('channel') === 'whatsapp') {
             $data['whatsapp'] = [
                 'window_seconds_left' => $this->windowSecondsLeft((int) $conversation->getAttribute('id'), $websiteId),
@@ -1203,6 +1214,12 @@ class ChatInboxController extends Controller
     }
 
     /** Seconds left in Meta's 24-hour customer-service window (0 when closed), from the last inbound message. */
+    /** Same check as MetaWebhookController::isMetaCdn, used when the inbox shows a stored attachment URL. */
+    private static function isMetaCdnUrl(string $url): bool
+    {
+        return MetaWebhookController::isMetaCdn($url);
+    }
+
     private function windowSecondsLeft(int $conversationId, int $websiteId): int
     {
         $r = Database::getInstance()->query(

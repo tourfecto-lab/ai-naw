@@ -80,6 +80,10 @@ class MetaWebhookController extends Controller
                 $message = (array) ($event['message'] ?? []);
                 $senderId = (string) ($event['sender']['id'] ?? '');
                 $text = trim((string) ($message['text'] ?? ''));
+                $media = null;
+                if ($text === '') {
+                    [$text, $media] = self::describeAttachment($message, $event);
+                }
                 // رسايلنا إحنا (echo) أو من غير نص: مفيش حاجة نرد عليها
                 if (!empty($message['is_echo']) || $senderId === '' || $senderId === $accountId || $text === '') {
                     $total['skipped']++;
@@ -96,7 +100,7 @@ class MetaWebhookController extends Controller
                         'platform' => $platform,
                         'phone_number' => $senderId, // PSID/IGSID - نفس الحقل العام لمعرّف العميل
                         'message' => mb_substr($text, 0, 4000),
-                    ]);
+                    ] + ($media !== null ? ['media_ext' => $media] : []));
                     $total['messages']++;
                 } catch (Throwable $e) {
                     Logger::error('Meta webhook message failed', ['website_id' => $websiteId, 'platform' => $platform, 'message' => $e->getMessage()]);
@@ -104,6 +108,50 @@ class MetaWebhookController extends Controller
             }
         }
         return $total;
+    }
+
+    /**
+     * A Messenger / Instagram message without text: a picture, voice note, video, file, sticker, location or a tap on a
+     * button. It used to be dropped silently, so the conversation looked broken. Returns [text, media|null]; media keeps
+     * only an https URL on Meta's own CDN (the inbox shows it from there, nothing is downloaded or stored by us).
+     * @return array{0:string,1:?array}
+     */
+    public static function describeAttachment(array $message, array $event = []): array
+    {
+        $labels = ['image' => '[Image]', 'audio' => '[Voice message]', 'video' => '[Video]', 'file' => '[File]', 'sticker' => '[Sticker]',
+            'story_mention' => '[Story mention]', 'share' => '[Shared post]', 'reel' => '[Reel]', 'ig_reel' => '[Reel]', 'fallback' => '[Link]'];
+        foreach (array_slice((array) ($message['attachments'] ?? []), 0, 1) as $a) {
+            $type = strtolower((string) ($a['type'] ?? 'file'));
+            if ($type === 'location') {
+                $lat = $a['payload']['coordinates']['lat'] ?? null;
+                $lng = $a['payload']['coordinates']['long'] ?? null;
+                if (is_numeric($lat) && is_numeric($lng)) {
+                    return ['[Location] ' . $lat . ',' . $lng, null];
+                }
+                return ['[Location]', null];
+            }
+            $url = (string) ($a['payload']['url'] ?? '');
+            $media = null;
+            if (in_array($type, ['image', 'audio', 'video', 'file', 'sticker'], true) && self::isMetaCdn($url)) {
+                $media = ['type' => $type === 'sticker' ? 'image' : $type, 'url' => $url];
+            }
+            return [$labels[$type] ?? '[' . preg_replace('/[^a-z_]/', '', $type) . ']', $media];
+        }
+        $postback = trim((string) ($event['postback']['title'] ?? ''));
+        return [$postback, null];
+    }
+
+    /** Only https URLs on Meta's own CDNs are ever kept or shown. */
+    public static function isMetaCdn(string $url): bool
+    {
+        if ($url === '' || strlen($url) > 2000) {
+            return false;
+        }
+        $p = parse_url($url);
+        if (!$p || strtolower((string) ($p['scheme'] ?? '')) !== 'https' || empty($p['host']) || isset($p['user']) || isset($p['port'])) {
+            return false;
+        }
+        return (bool) preg_match('/(^|\.)(fbcdn\.net|cdninstagram\.com|fbsbx\.com)$/i', (string) $p['host']);
     }
 
     /** Meta بتعيد إرسال نفس الرسالة لو اتأخرنا - الـ UNIQUE على (channel, external_event_id) بيمنع الرد مرتين */

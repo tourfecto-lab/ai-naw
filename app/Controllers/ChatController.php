@@ -1490,7 +1490,7 @@ HTML;
     const MEDIA_FAIL = 'mediaFail(this)';
     function mediaHtml(m) {
         if (!m.media) return '';
-        const url = mediaUrl(m.id);
+        const url = m.media.url ? esc(m.media.url) : mediaUrl(m.id);
         switch (m.media.type) {
             case 'image':
             case 'sticker':
@@ -1620,9 +1620,12 @@ HTML;
         document.getElementById('catalogBtn').style.display = wa ? '' : 'none';
         document.getElementById('interactiveBtn').style.display = wa ? '' : 'none';
         if (!wa) { document.getElementById('templateBox').style.display = 'none'; document.getElementById('catalogBox').style.display = 'none'; }
-        windowDeadline = wa ? Date.now() + (c.whatsapp.window_seconds_left || 0) * 1000 : null;
+        const metaWin = (c.channel === 'messenger' || c.channel === 'instagram') && c.meta_window;
+        windowChannel = c.channel === 'messenger' ? 'Messenger' : c.channel === 'instagram' ? 'Instagram' : 'WhatsApp';
+        windowDeadline = wa ? Date.now() + (c.whatsapp.window_seconds_left || 0) * 1000 : (metaWin ? Date.now() + (c.meta_window.seconds_left || 0) * 1000 : null);
         renderWindowBar();
     }
+    let windowChannel = 'WhatsApp';
     function renderWindowBar() {
         const bar = document.getElementById('waWindow');
         const msg = document.getElementById('manualMessage');
@@ -1638,11 +1641,11 @@ HTML;
         if (left > 0) {
             const h = Math.floor(left / 3600), mnt = Math.floor((left % 3600) / 60);
             bar.className = 'wa-window ' + (left < 7200 ? 'warn' : 'ok');
-            bar.innerHTML = '<span>⏱ ' + esc('Free reply window:') + ' <b dir="ltr">' + (h ? h + 'h ' : '') + mnt + 'm</b> ' + esc('left. After that WhatsApp only allows an approved template.') + '</span>';
+            bar.innerHTML = '<span>⏱ ' + esc('Free reply window:') + ' <b dir="ltr">' + (h ? h + 'h ' : '') + mnt + 'm</b> ' + esc(windowChannel === 'WhatsApp' ? 'left. After that WhatsApp only allows an approved template.' : 'left. After that ' + windowChannel + ' does not allow replies until the customer writes again.') + '</span>';
             msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false; document.getElementById('catalogBtn').disabled = false; document.getElementById('interactiveBtn').disabled = false;
         } else {
             bar.className = 'wa-window closed';
-            bar.innerHTML = '<span>🔒 ' + esc('The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.') + '</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 ' + esc('Send a template') + '</button>';
+            bar.innerHTML = '<span>🔒 ' + esc(windowChannel === 'WhatsApp' ? 'The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.' : 'The 24-hour window is closed: the customer has not written in the last 24 hours. ' + windowChannel + ' does not allow replies until they write again.') + '</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 ' + esc('Send a template') + '</button>';
             msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; document.getElementById('catalogBtn').disabled = true; document.getElementById('interactiveBtn').disabled = true;
         }
     }
