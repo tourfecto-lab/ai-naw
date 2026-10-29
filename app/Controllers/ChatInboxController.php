@@ -170,10 +170,23 @@ class ChatInboxController extends Controller
             $m['reply_wamid'] = is_array($raw) && is_string($raw['reply_wamid'] ?? null) ? $raw['reply_wamid'] : null;
             $m['quote'] = is_array($raw) && is_array($raw['quote'] ?? null) ? ['id' => (int) ($raw['quote']['id'] ?? 0), 'text' => (string) ($raw['quote']['text'] ?? ''), 'who' => (string) ($raw['quote']['who'] ?? '')] : null;
             $m['our_reaction'] = is_array($raw) && is_string($raw['our_reaction'] ?? null) ? $raw['our_reaction'] : null;
+            $m['customer_reaction'] = is_array($raw) && is_string($raw['customer_reaction'] ?? null) ? $raw['customer_reaction'] : null;
+            $m['customer_reaction_reply'] = is_array($raw) && is_string($raw['customer_reaction_reply'] ?? null) ? $raw['customer_reaction_reply'] : null;
+            $m['reply_to_wamid'] = is_array($raw) && is_string($raw['reply_to_wamid'] ?? null) ? $raw['reply_to_wamid'] : null;
             if ($m['message_direction'] === 'outgoing' && !empty($m['platform_message_id'])) $wamids[] = (string) $m['platform_message_id'];
             if ($m['reply_wamid'] !== null) $wamids[] = $m['reply_wamid'];
         }
         unset($m);
+
+        // A customer's swipe-reply: look up the message they quoted (same conversation) so the bubble can show it.
+        $quoted = [];
+        $replyIds = array_values(array_unique(array_filter(array_column($rows, 'reply_to_wamid'))));
+        if ($replyIds) {
+            $in = implode(',', array_fill(0, count($replyIds), '?'));
+            foreach ($db->query("SELECT id, message_direction, message_text, platform_message_id FROM chat_messages WHERE conversation_id = ? AND website_id = ? AND platform_message_id IN ($in)", array_merge([$conversation->getAttribute('id'), $websiteId], $replyIds)) ?: [] as $q) {
+                $quoted[(string) $q['platform_message_id']] = ['id' => (int) $q['id'], 'text' => mb_substr(trim((string) $q['message_text']) !== '' ? trim((string) $q['message_text']) : '📎', 0, 120), 'who' => $q['message_direction'] === 'outgoing' ? 'you' : 'customer'];
+            }
+        }
 
         $statuses = [];
         if ($wamids && $conversation->getAttribute('channel') === 'whatsapp') {
@@ -195,7 +208,8 @@ class ChatInboxController extends Controller
             $m['reply_delivery'] = $m['reply_wamid'] !== null ? ($statuses[$m['reply_wamid']]['status'] ?? 'accepted') : null;
             $m['by_me'] = $m['message_direction'] === 'outgoing' && (int) $m['user_id'] === (int) $this->user['id'];
             $m['sender_name'] = $m['message_direction'] === 'outgoing' && str_starts_with((string) ($m['session_id'] ?? ''), 'agent_') ? ($senderNames[(int) $m['user_id']] ?? null) : null;
-            unset($m['reply_wamid'], $m['platform_message_id'], $m['user_id'], $m['session_id']);
+            if (empty($m['quote']) && !empty($m['reply_to_wamid']) && isset($quoted[$m['reply_to_wamid']])) $m['quote'] = $quoted[$m['reply_to_wamid']];
+            unset($m['reply_wamid'], $m['reply_to_wamid'], $m['platform_message_id'], $m['user_id'], $m['session_id']);
         }
         unset($m);
 

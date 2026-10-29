@@ -883,6 +883,50 @@ class WhatsAppCloudController extends Controller
         }
     }
 
+    /**
+     * Store a customer's emoji reaction on the message it targets (our outgoing message, or the AI reply kept on a
+     * customer's row). An empty emoji means the customer removed it. Returns false when there is nothing to attach it to.
+     */
+    private static function applyCustomerReaction(int $websiteId, array $reaction): bool
+    {
+        $target = (string) ($reaction['message_id'] ?? '');
+        $emoji = (string) ($reaction['emoji'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9._=+\/-]{10,255}$/D', $target)) {
+            return false;
+        }
+        if ($emoji !== '' && (mb_strlen($emoji) > 8 || preg_match('/[\p{L}\p{N}\s<>&"\x27]/u', $emoji))) {
+            return false;
+        }
+        try {
+            $db = Database::getInstance();
+            $field = 'customer_reaction';
+            $row = $db->query('SELECT id, webhook_raw_data FROM chat_messages WHERE website_id = ? AND platform_message_id = ? LIMIT 1', [$websiteId, $target])[0] ?? null;
+            if (!$row) {
+                // The AI reply is stored on the customer's own row; its WhatsApp id lives in the raw data.
+                $row = $db->query(
+                    "SELECT id, webhook_raw_data FROM chat_messages WHERE website_id = ? AND JSON_VALID(webhook_raw_data) AND JSON_UNQUOTE(JSON_EXTRACT(webhook_raw_data, '$.reply_wamid')) = ? LIMIT 1",
+                    [$websiteId, $target]
+                )[0] ?? null;
+                $field = 'customer_reaction_reply';
+            }
+            if (!$row) {
+                return false;
+            }
+            $raw = json_decode((string) ($row['webhook_raw_data'] ?? ''), true);
+            $raw = is_array($raw) ? $raw : [];
+            if ($emoji === '') {
+                unset($raw[$field]);
+            } else {
+                $raw[$field] = $emoji;
+            }
+            $db->query('UPDATE chat_messages SET webhook_raw_data = ? WHERE id = ?', [$raw ? json_encode($raw, JSON_UNESCAPED_UNICODE) : null, (int) $row['id']]);
+            return true;
+        } catch (Throwable $e) {
+            Logger::error('WhatsApp customer reaction not stored', ['website_id' => $websiteId, 'exception_class' => get_class($e)]);
+            return false;
+        }
+    }
+
     /** آخر مرة Meta اتحققت من الـ webhook العام أو بعتت عليه (صفحة جاهزية مراجعة Meta في الأدمن بتقراها) */
     private static function markPlatform(string $key): void
     {
@@ -1077,6 +1121,11 @@ class WhatsAppCloudController extends Controller
                     $id = (string) ($m['id'] ?? '');
                     if ($id === '') { $out['skipped']++; continue; }
                     $type = (string) ($m['type'] ?? 'text');
+                    if ($type === 'reaction') {
+                        // A customer reacting to one of our messages is not a new message: attach it to that bubble.
+                        if (!self::applyCustomerReaction($wid, (array) ($m['reaction'] ?? []))) { $out['skipped']++; }
+                        continue;
+                    }
                     $flow=null;if($type==='interactive'&&isset($m['interactive']['nfm_reply'])){$raw=$m['interactive']['nfm_reply']['response_json']??'';if(!is_string($raw)||strlen($raw)>20000||!is_object(json_decode($raw))){$out['skipped']++;continue;}$flow=json_decode($raw,true);}
 
                     $text = match ($type) {
@@ -1121,6 +1170,9 @@ class WhatsAppCloudController extends Controller
                         'message'=>$text, 'platform_message_id'=>$id, 'timestamp'=>$m['timestamp']??null,
                     ];
                     if ($media !== null) $message['media'] = $media;
+                    // The customer replied to one of our messages (swipe-reply): keep its id so the inbox can show the quote.
+                    $ctx = (string) ($m['context']['id'] ?? '');
+                    if ($ctx !== '' && preg_match('/^[A-Za-z0-9._=+\/-]{10,255}$/D', $ctx)) $message['reply_to_wamid'] = $ctx;
                     if($flow!==null){$message['flow_response']=$flow;$message['flow_reply_to']=(string)($m['context']['id']??'');}
                     if (WhatsAppWebhookInbox::enqueue($wid,$userId,'message',$id,$message)) {
                         $out['messages']++;

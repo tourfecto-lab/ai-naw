@@ -1511,7 +1511,7 @@ HTML;
     function bubble(dir, inner, time, extra, cls, meta) {
         let pre = '', post = '', attr = '';
         if (meta) {
-            attr = ' data-mid="' + meta.id + '"';
+            attr = meta.id ? ' data-mid="' + meta.id + '"' : '';
             if (meta.quote && meta.quote.text) {
                 pre += '<div class="ai-quote" data-qid="' + meta.quote.id + '"><b>' + esc(meta.quote.who === 'you' ? 'You' : 'Customer') + '</b><span>' + esc(meta.quote.text) + '</span></div>';
             }
@@ -1526,7 +1526,9 @@ HTML;
     }
     let threadMessages = [], waOlder = [], waOlderConv = null, waHasMore = false, waLastRaw = [];
     function metaOf(m, canAct, canReact) {
-        return { id: m.id, quote: m.quote || null, reaction: m.our_reaction || '', canAct: !!canAct && !!m.id, canReact: !!canReact && !!m.id };
+        // The badge shows the other side's reaction on our bubbles, and ours on the customer's.
+        const reaction = m.message_direction === 'outgoing' ? (m.customer_reaction || '') : (m.our_reaction || '');
+        return { id: m.id, quote: m.quote || null, reaction: reaction, canAct: !!canAct && !!m.id, canReact: !!canReact && !!m.id };
     }
 
 
@@ -1566,7 +1568,7 @@ HTML;
             const conf = m.ai_confidence_score != null ? ' · ' + Math.round(m.ai_confidence_score * 100) + '%' : '';
             const tag = '<span class="ai-tag">' + ic('sparkles', 'ic-sm') + ' ' + esc(AI_REPLY_LABEL) + conf + '</span>';
             if (m.bot_status === 'sent') {
-                out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', timeOnly(m.sent_at || m.created_at), ticks(isWa ? (m.reply_delivery || 'accepted') : 'sent')));
+                out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', timeOnly(m.sent_at || m.created_at), ticks(isWa ? (m.reply_delivery || 'accepted') : 'sent'), '', { id: 0, reaction: m.customer_reaction_reply || '' }));
             } else if (m.bot_status === 'pending_approval' || m.bot_status === 'approved') {
                 out.push(bubble('out', tag + '<span>' + esc(reply) + '</span>', m.bot_status === 'approved' ? 'Approved, sending...' : 'Waiting for approval', '', 'ghost'));
             } else if (m.bot_status === 'failed') {
