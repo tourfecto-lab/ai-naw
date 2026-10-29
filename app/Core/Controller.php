@@ -1050,6 +1050,8 @@ abstract class Controller
         if ($isChatModule) {
             $chatAssetsHead .= '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat-wa.css') . '">' . "
 ";
+            $chatAssetsFoot .= '    <script src="' . asset_v('/assets/js/chat-wa.js') . '"></script>' . "
+";
         }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();

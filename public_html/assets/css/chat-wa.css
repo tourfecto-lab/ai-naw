@@ -102,3 +102,48 @@ html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
   html body.wa-app .ai-chat-list-card .p-toolbar #ucSearch{flex:1 1 100%;width:100%;min-width:100%!important}
   html body.wa-app #ucEmptyState{display:none!important}
 }
+
+/* ============================================================
+   Inbox conveniences (chat-wa.js): emoji, paste/drop preview, voice note, scroll button, unread divider,
+   in-chat search, pinned/archived rows.
+   ============================================================ */
+.wa-emoji-pop[hidden],.wa-attach-preview[hidden],.wa-rec-bar[hidden],.wa-down[hidden],.wa-find[hidden],.wa-menu[hidden]{display:none!important}
+#ucReplyCard .form-group{position:relative}
+.wa-emoji-btn,.wa-mic-btn{position:absolute;top:6px;width:34px;height:34px;border:0;border-radius:50%;background:transparent;font-size:19px;cursor:pointer;line-height:1;color:var(--wa-sub)}
+.wa-emoji-btn{inset-inline-end:44px}
+.wa-mic-btn{inset-inline-end:8px}
+.wa-emoji-btn:hover,.wa-mic-btn:hover{background:var(--wa-active)}
+.wa-mic-btn.on{background:#e53935;color:#fff}
+#ucReplyCard #manualMessage{padding-inline-end:84px}
+.wa-emoji-pop{position:absolute;bottom:52px;inset-inline-end:0;z-index:40;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;width:min(340px,92vw);max-height:230px;overflow:auto;padding:8px;background:var(--wa-header);border:1px solid var(--wa-line);border-radius:12px;box-shadow:0 10px 30px -8px rgba(0,0,0,.45)}
+.wa-emoji-pop button{border:0;background:transparent;font-size:22px;line-height:1.3;border-radius:8px;cursor:pointer}
+.wa-emoji-pop button:hover{background:var(--wa-active)}
+.wa-attach-preview{display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:8px;border-radius:12px;background:var(--wa-panel);border:1px solid var(--wa-line)}
+.wa-attach-thumb{width:48px;height:48px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--wa-header);flex:0 0 auto}
+.wa-attach-thumb img{width:100%;height:100%;object-fit:cover}
+.wa-attach-info{flex:1;min-width:0;font-size:13px;color:var(--wa-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-rec-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:8px;border-radius:999px;background:var(--wa-panel);border:1px solid var(--wa-line);color:var(--wa-text)}
+.wa-rec-bar span:nth-child(2){flex:1}
+.wa-rec-dot{width:10px;height:10px;border-radius:50%;background:#e53935;animation:waPulse 1s infinite}
+@keyframes waPulse{50%{opacity:.25}}
+#ucThreadPanel.wa-dropping{outline:3px dashed var(--wa-green-2);outline-offset:-6px}
+.wa-down{position:absolute;inset-inline-end:18px;z-index:20;width:42px;height:42px;border:0;border-radius:50%;background:var(--wa-header);color:var(--wa-text);font-size:22px;line-height:1;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.wa-unread-sep{align-self:stretch;text-align:center;margin:10px -7%;padding:5px 0;font-size:12.5px;color:var(--wa-sub);background:rgba(0,168,132,.14)}
+.wa-find{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--wa-header);border-bottom:1px solid var(--wa-line)}
+.wa-find input{flex:1;min-width:0;border:0;border-radius:8px;padding:8px 12px;background:var(--wa-panel);color:var(--wa-text)}
+.wa-find button{border:0;background:transparent;color:var(--wa-sub);font-size:16px;cursor:pointer;padding:6px 8px;border-radius:8px}
+.wa-find button:hover{background:var(--wa-active)}
+.wa-find-count{font-size:12px;color:var(--wa-sub);min-width:34px;text-align:center}
+.wa-find-btn{position:absolute;top:12px;inset-inline-end:14px;z-index:15;border:0;background:transparent;font-size:18px;cursor:pointer;color:var(--wa-sub);width:36px;height:36px;border-radius:50%}
+.wa-find-btn:hover{background:var(--wa-active)}
+.ai-bubble.wa-hit{outline:2px solid rgba(255,193,7,.55)}
+.ai-bubble.wa-hit-on{outline:3px solid #ffc107}
+.wa-menu{position:fixed;z-index:2000;min-width:170px;padding:6px;background:var(--wa-header);border:1px solid var(--wa-line);border-radius:10px;box-shadow:0 10px 30px -8px rgba(0,0,0,.5)}
+.wa-menu button{display:block;width:100%;text-align:start;padding:9px 12px;border:0;background:transparent;color:var(--wa-text);font:inherit;font-size:14px;border-radius:6px;cursor:pointer}
+.wa-menu button:hover{background:var(--wa-active)}
+.ai-chat-item.wa-pinned::before{content:"📌";position:absolute;inset-inline-end:16px;bottom:12px;font-size:12px;opacity:.7}
+.ai-chat-item.wa-pinned .ub{inset-inline-end:36px}
+.ai-chat-item.wa-marked-unread .nm b{font-weight:700}
+.ai-chat-item.wa-marked-unread::after{border-bottom-color:var(--wa-line)}
+.wa-arch-chip{display:block;width:100%;padding:12px 16px;border:0;border-bottom:1px solid var(--wa-line);background:transparent;color:var(--wa-green-2);font:inherit;font-size:14px;text-align:start;cursor:pointer}
+@media (max-width:960px){.wa-emoji-pop{grid-template-columns:repeat(7,1fr)}}
