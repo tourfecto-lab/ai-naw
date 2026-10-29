@@ -1293,7 +1293,7 @@ HTML;
         x.onclick = waClearReply;
         chip.appendChild(body); chip.appendChild(x);
         const card = document.getElementById('ucReplyCard');
-        card.insertBefore(chip, card.querySelector('.form-group'));
+        card.insertBefore(chip, card.querySelector('.wa-bar') || card.querySelector('.form-group'));
         document.getElementById('manualMessage').focus();
     };
     window.waReactMenu = function (id, btn) {
