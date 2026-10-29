@@ -321,6 +321,7 @@ class IntegrationsController extends Controller
         // موقعك + واتساب: أهم ربطين لشركة سياحة، وماكانوش ظاهرين في الصفحة دي خالص
         $siteRows = '';
         $waRows = '';
+        $dmRows = '';
         try {
             $sitesList = $this->db->query('SELECT id, main_url, company_name FROM websites WHERE user_id = ? ORDER BY id LIMIT 20', [$userId]);
         } catch (Throwable $ex) {
@@ -343,6 +344,24 @@ class IntegrationsController extends Controller
             $waState = $wa
                 ? '<span class="pill green">مربوط</span> <span class="p-cell-muted" style="font-size:12px;">' . htmlspecialchars(implode('، ', array_map(fn ($r) => $waLabels[$r['platform']] ?? $r['platform'], $wa)), ENT_QUOTES, 'UTF-8') . '</span>'
                 : '<span class="pill gray">غير مربوط</span> <span class="p-cell-muted" style="font-size:12px;">تذكير الرحلات وطلب التقييم بيروحوا بالإيميل بس</span>';
+            // Messenger + Instagram DMs (connected from the chat settings): state per channel, and "reconnect" when the token died.
+            $dm = [];
+            try {
+                foreach ($this->db->query("SELECT platform, status, external_location_name FROM platform_connections WHERE website_id = ? AND platform IN ('messenger', 'instagram_dm') AND status IN ('connected', 'token_expired') ORDER BY id DESC", [$sid]) as $r) {
+                    $dm[$r['platform']] = $dm[$r['platform']] ?? $r;
+                }
+            } catch (Throwable $ex) {
+                $dm = [];
+            }
+            $dmPills = '';
+            foreach (['messenger' => 'ماسنجر', 'instagram_dm' => 'إنستجرام'] as $pk => $pl) {
+                $r = $dm[$pk] ?? null;
+                $dmPills .= '<span class="pill ' . (!$r ? 'gray' : ($r['status'] === 'connected' ? 'green' : 'red')) . '" style="margin-inline-end:6px;">' . $pl . ': ' . (!$r ? 'غير مربوط' : ($r['status'] === 'connected' ? 'مربوط' : 'محتاج إعادة ربط')) . '</span>';
+            }
+            $dmBroken = (bool) array_filter($dm, static fn ($r) => $r['status'] !== 'connected');
+            $dmRows .= '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--panel-border,#e5e7eb);">'
+                . '<div><div style="font-weight:600;" dir="ltr">' . $u . '</div><div style="margin-top:4px;">' . $dmPills . '</div></div>'
+                . '<a class="p-btn ' . ($dm && !$dmBroken ? 'outline' : 'primary') . ' xs" href="/chat/settings?website_id=' . $sid . '">' . ($dmBroken ? 'إعادة الربط' : ($dm ? 'إعدادات الرسايل' : 'اربط ماسنجر وإنستجرام')) . '</a></div>';
             $waRows .= '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--panel-border,#e5e7eb);">'
                 . '<div><div style="font-weight:600;" dir="ltr">' . $u . '</div><div style="margin-top:2px;">' . $waState . '</div></div>'
                 . '<a class="p-btn ' . ($wa ? 'outline' : 'primary') . ' xs" href="/chat/settings?website_id=' . $sid . '">' . ($wa ? 'إعدادات واتساب واختباره' : 'اربط واتساب شركتك') . '</a></div>';
@@ -351,7 +370,9 @@ class IntegrationsController extends Controller
             . '<div class="p-card"><div class="p-card-head"><h3>🌐 موقعك</h3></div><div class="p-cell-muted" style="font-size:12.5px;">بنتأكد إن موقعك بيفتح وسرعته، وإن كود المنصة متركّب عليه.</div>'
             . ($siteRows ?: '<div style="padding:12px 0;"><a class="p-btn primary xs" href="/websites">ضيف رابط موقعك</a> <a class="p-btn outline xs" href="/website-builder">ابنِ موقع حجز</a></div>') . '</div>'
             . '<div class="p-card"><div class="p-card-head"><h3>💬 واتساب</h3></div><div class="p-cell-muted" style="font-size:12.5px;">رقم واتساب شركتك: الشات الذكي، وتذكير الرحلات، وطلب التقييم.</div>'
-            . ($waRows ?: '<div class="p-cell-muted" style="padding:12px 0;">ضيف موقعك الأول، وبعدها اربط واتساب.</div>') . '</div></div>';
+            . ($waRows ?: '<div class="p-cell-muted" style="padding:12px 0;">ضيف موقعك الأول، وبعدها اربط واتساب.</div>') . '</div></div>'
+            . '<div class="p-grid cols-2" style="margin-bottom:16px;align-items:start;"><div class="p-card"><div class="p-card-head"><h3>💬 ماسنجر وإنستجرام</h3></div><div class="p-cell-muted" style="font-size:12.5px;">رسايل صفحة فيسبوك وحساب إنستجرام في نفس صندوق الرسايل، والذكاء الاصطناعي يرد عليها.</div>'
+            . ($dmRows ?: '<div class="p-cell-muted" style="padding:12px 0;">ضيف موقعك الأول، وبعدها اربط ماسنجر وإنستجرام.</div>') . '</div></div>';
 
         $notice=$_SESSION['ota_connection_notice']??'';unset($_SESSION['ota_connection_notice']);
         $otaNotice=is_string($notice)&&$notice!==''?'<div class="p-card" role="status">'.htmlspecialchars($notice,ENT_QUOTES,'UTF-8').'</div>':'';
