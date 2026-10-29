@@ -8,6 +8,8 @@ return [
     'MetaChatPages' => dirname(__DIR__,2).'/app/Services/Chat/MetaChatPages.php',
     'MetaContactProfile' => dirname(__DIR__,2).'/app/Services/Chat/MetaContactProfile.php',
     'MetaWebhookLog' => dirname(__DIR__,2).'/app/Services/Chat/MetaWebhookLog.php',
+    'MetaDmMedia' => dirname(__DIR__,2).'/app/Services/Chat/MetaDmMedia.php',
+    'OutboundMediaController' => dirname(__DIR__,2).'/app/Controllers/OutboundMediaController.php',
     'PanelCompanyController' => dirname(__DIR__,2).'/app/Controllers/PanelCompanyController.php',
     'PanelCompanyController' => dirname(__DIR__,2).'/app/Controllers/PanelCompanyController.php',
     'GrowthSignals' => dirname(__DIR__,2).'/app/Services/Growth/GrowthSignals.php',

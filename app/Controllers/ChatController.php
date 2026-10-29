@@ -1615,7 +1615,8 @@ HTML;
         document.getElementById('ucReplyCard').style.display = readOnly ? 'none' : '';
         document.getElementById('ucReadOnly').style.display = readOnly ? '' : 'none';
         const wa = c.channel === 'whatsapp' && c.whatsapp && c.whatsapp.cloud;
-        document.getElementById('attachBtn').style.display = wa ? '' : 'none';
+        const dm = c.channel === 'messenger' || c.channel === 'instagram'; // pictures, voice, video and files also work on Messenger / Instagram
+        document.getElementById('attachBtn').style.display = (wa || dm) ? '' : 'none';
         document.getElementById('templateBtn').style.display = wa ? '' : 'none';
         document.getElementById('catalogBtn').style.display = wa ? '' : 'none';
         document.getElementById('interactiveBtn').style.display = wa ? '' : 'none';
@@ -1723,7 +1724,7 @@ HTML;
         const file = input.files && input.files[0];
         input.value = '';
         if (!file || !currentConversation) return;
-        if (file.size > 100 * 1048576) { toast('The file is too large for WhatsApp', 'error'); return; }
+        if (file.size > 100 * 1048576) { toast('The file is too large', 'error'); return; }
         const msgEl = document.getElementById('manualMessage');
         const caption = msgEl.value.trim();
         const fd = new FormData();

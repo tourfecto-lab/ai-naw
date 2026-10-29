@@ -330,6 +330,7 @@ $router->get('/docs/guide', 'DocumentationController', 'guide');
 // ============================================
 $router->get('/terms', 'LegalController', 'terms');
 $router->get('/privacy', 'LegalController', 'privacy');
+$router->get('/media/out/{name}', 'OutboundMediaController', 'show');
 $router->get('/cookies', 'LegalController', 'cookies');
 $router->get('/gdpr', 'LegalController', 'gdpr');
 $router->get('/data-deletion', 'LegalController', 'dataDeletion');

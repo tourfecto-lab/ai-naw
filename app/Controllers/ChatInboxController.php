@@ -444,8 +444,11 @@ class ChatInboxController extends Controller
         }
         $websiteId = (int) $website->getAttribute('id');
         $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if ($conversation && in_array((string) $conversation->getAttribute('channel'), ['messenger', 'instagram'], true)) {
+            return $this->sendMetaMedia($website, $conversation, (string) $conversation->getAttribute('channel'));
+        }
         if (!$conversation || $conversation->getAttribute('channel') !== 'whatsapp') {
-            return $this->error('Files can only be sent in WhatsApp conversations', 422);
+            return $this->error('Files can only be sent in WhatsApp, Messenger and Instagram conversations', 422);
         }
         $f = $_FILES['file'] ?? null;
         if (!is_array($f) || (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
@@ -503,6 +506,64 @@ class ChatInboxController extends Controller
         return $this->success([
             'sent' => $sent, 'message_id' => (int) $id,
             'reason' => $sent ? null : (!empty($r['window']) ? 'outside_24h' : 'provider_rejected'),
+        ], $sent ? 'Sent' : 'Saved but not delivered');
+    }
+
+    /** Messenger / Instagram: a picture, voice note, video or file from the inbox, delivered by a short-lived public URL. */
+    private function sendMetaMedia(Website $website, AiChatConversation $conversation, string $channel): array
+    {
+        $websiteId = (int) $website->getAttribute('id');
+        $f = $_FILES['file'] ?? null;
+        if (!is_array($f) || (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
+            $tooBig = in_array((int) ($f['error'] ?? 0), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
+            return $this->error($tooBig ? 'The file is larger than the server upload limit' : 'Choose a file to send', 422);
+        }
+        $mime = self::detectMime((string) $f['tmp_name'], (string) ($f['name'] ?? ''));
+        if ($mime === 'audio/x-m4a') $mime = 'audio/mp4';
+        $cls = MetaDmMedia::classify($mime, $channel);
+        if ($cls === null) {
+            return $this->error($channel === 'instagram'
+                ? 'Instagram accepts JPG/PNG/GIF images, MP3/M4A/WAV/OGG audio and MP4/MOV video'
+                : 'Messenger accepts images, audio, video and PDF/Word/Excel files', 422);
+        }
+        [$type, $maxMb, $ext] = $cls;
+        if ((int) $f['size'] > $maxMb * 1048576) {
+            return $this->error('This file type is limited to ' . $maxMb . ' MB on ' . ucfirst($channel), 422);
+        }
+        $filename = mb_substr(basename((string) ($f['name'] ?? 'file')), 0, 240);
+        $caption = trim((string) $this->get('caption', ''));
+        $cid = (int) $conversation->getAttribute('id');
+        $left = Database::getInstance()->query(
+            "SELECT TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(MAX(created_at), INTERVAL 24 HOUR)) AS s FROM chat_messages WHERE conversation_id = ? AND website_id = ? AND message_direction = 'incoming'",
+            [$cid, $websiteId]
+        );
+        if ((int) ($left[0]['s'] ?? 0) <= 0) {
+            return $this->success(['sent' => false, 'reason' => 'outside_24h'], 'Not sent');
+        }
+        $platform = $channel === 'instagram'
+            ? (Database::getInstance()->query("SELECT id FROM platform_connections WHERE website_id = ? AND platform = 'instagram_dm' AND status = 'connected' LIMIT 1", [$websiteId]) ? 'instagram_dm' : 'instagram')
+            : 'messenger';
+        $row = Database::getInstance()->query("SELECT access_token FROM platform_connections WHERE website_id = ? AND platform = ? AND status = 'connected' ORDER BY id DESC LIMIT 1", [$websiteId, $platform])[0] ?? null;
+        $token = $row && !empty($row['access_token']) ? (new Encryption())->decrypt((string) $row['access_token']) : '';
+        $name = MetaDmMedia::store((string) $f['tmp_name'], $ext);
+        if ($token === '' || $name === null) {
+            return $this->success(['sent' => false, 'reason' => $token === '' ? 'no_recipient' : 'provider_rejected'], 'Not sent');
+        }
+        $url = MetaDmMedia::url($name);
+        $r = MetaDmMedia::send($token, (string) $conversation->getAttribute('channel_thread_id'), $type, $url, $channel);
+        $sent = $r['ok'];
+        $label = ['image' => '[Image]', 'video' => '[Video]', 'audio' => '[Voice message]', 'file' => '[File] ' . $filename][$type];
+        $text = trim($label . ($caption !== '' && $type !== 'audio' ? ' ' . $caption : ''));
+        $id = $this->insertOutgoing($website, $conversation, $text, $sent, $sent ? $r['id'] : null, [
+            'media_ext' => ['type' => $type === 'file' ? 'file' : $type, 'url' => $url, 'filename' => $filename, 'mime' => $mime],
+        ]);
+        // A caption cannot ride on a Messenger / Instagram attachment: it goes as a text right after.
+        if ($sent && $caption !== '' && $type !== 'audio') {
+            (new ChatManager())->sendMessageForWebsite($websiteId, (string) $conversation->getAttribute('channel_thread_id'), $caption, $channel);
+        }
+        return $this->success([
+            'sent' => $sent, 'message_id' => (int) $id,
+            'reason' => $sent ? null : 'provider_rejected',
         ], $sent ? 'Sent' : 'Saved but not delivered');
     }
 
@@ -1224,7 +1285,7 @@ class ChatInboxController extends Controller
     /** Same check as MetaWebhookController::isMetaCdn, used when the inbox shows a stored attachment URL. */
     private static function isMetaCdnUrl(string $url): bool
     {
-        return MetaWebhookController::isMetaCdn($url);
+        return MetaWebhookController::isMetaCdn($url) || MetaDmMedia::isOurs($url);
     }
 
     private function windowSecondsLeft(int $conversationId, int $websiteId): int
