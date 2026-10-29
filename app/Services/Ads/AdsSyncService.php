@@ -126,6 +126,36 @@ class AdsSyncService
     }
 
     /**
+     * Scheduled run (cron/sync_ads.php): every user's connected Meta / Google / TikTok account, one account at a time.
+     * A connection that already failed MAX_FAILS times in a row is skipped until the owner reconnects.
+     * @return array{accounts:int, synced:int, failed:int, skipped:int}
+     */
+    public function syncAll(): array
+    {
+        $out = ['accounts' => 0, 'synced' => 0, 'failed' => 0, 'skipped' => 0];
+        $rows = $this->db->query(
+            "SELECT user_id, platform, MAX(id) AS id FROM platform_connections
+              WHERE platform IN ('meta_ads','google_ads','tiktok_ads') AND status IN ('connected','error') AND access_token IS NOT NULL
+              GROUP BY user_id, platform ORDER BY user_id, platform"
+        ) ?: [];
+        foreach ($rows as $r) {
+            $out['accounts']++;
+            if (!$this->shouldRetry((int) $r['id'])) {
+                $out['skipped']++;
+                continue;
+            }
+            try {
+                $res = $this->sync((int) $r['user_id'], (string) $r['platform']);
+            } catch (Throwable $e) {
+                $res = ['success' => false];
+            }
+            !empty($res['success']) ? $out['synced']++ : $out['failed']++;
+            usleep(250000); // stay well under the platforms' rate limits
+        }
+        return $out;
+    }
+
+    /**
      * كتابة تقارير الأداء اليومية مع سحب إيرادات الحجوزات المنسوبة في استعلام تجميعي واحد سريع.
      */
     private function writeDaily(int $campaignId, array $daily): void

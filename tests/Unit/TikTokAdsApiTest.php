@@ -209,4 +209,21 @@ final class TikTokAdsApiTest extends TestCase
         $this->assertNull($two['external_adset_id'], 'two ad groups: an automatic budget change would be ambiguous');
         $this->assertSame(20.0, $two['daily_budget']);
     }
+
+    public function testScheduledSyncRunsOverTheConnectionsAndReportsCounts(): void
+    {
+        $r = (new AdsSyncService())->syncAll();
+        $this->assertSame(['accounts', 'synced', 'failed', 'skipped'], array_keys($r));
+        $this->assertSame($r['accounts'], $r['synced'] + $r['failed'] + $r['skipped']);
+    }
+
+    public function testTheScheduledJobFileExists(): void
+    {
+        $schedule = (string) file_get_contents(dirname(__DIR__, 2) . '/cron/schedule.php');
+        preg_match_all("/'file'\s*=>\s*'([a-z0-9_]+\.php)'/i", $schedule, $m);
+        $this->assertNotEmpty($m[1]);
+        foreach ($m[1] as $file) {
+            $this->assertFileExists(dirname(__DIR__, 2) . '/cron/' . $file, "cron/schedule.php points to $file");
+        }
+    }
 }
