@@ -1050,7 +1050,7 @@ JS;
             // مفيش بوابة دفع حاليًا: زرار الرصيد بيظهر بس للي عنده رصيد (الأدمن ضافه يدوي)
             if ($walletBalance === null) {
                 $walletBalance = 0.0;
-                try { if ($this->isAuthenticated() && class_exists('WalletService')) $walletBalance = (new WalletService())->getBalance((int) $this->user['id']); } catch (Throwable $e) {}
+                try { if ($this->isAuthenticated() && class_exists('WalletService')) $walletBalance = (new WalletService())->getBalance((int) $this->user['id']); } catch (Throwable $e) { error_log('[SubscriptionController] wallet balance failed: ' . $e->getMessage()); }
             }
             if ($this->isAuthenticated() && $walletBalance > 0 && ($plan['currency'] ?? '') === 'USD') {
                 foreach (['monthly','yearly'] as $cycle) {

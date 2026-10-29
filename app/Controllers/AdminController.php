@@ -2000,7 +2000,7 @@ class AdminController extends Controller
         }
         if (!$r['available']) return '<div class="p-card"><div class="p-empty">DataForSEO لسه ماتسجلش عليه أي مكالمة.</div></div>';
         $cap = 0.0;
-        try { $cap = (float) ((new DataForSeoClient())->budgetSummary($this->db)['cap'] ?? 0); } catch (Throwable $ex) {}
+        try { $cap = (float) ((new DataForSeoClient())->budgetSummary($this->db)['cap'] ?? 0); } catch (Throwable $ex) { error_log('[AdminController] DataForSEO budget summary failed: ' . $ex->getMessage()); }
         $t = $r['totals'];
         $tile = fn ($label, $value, $sub = '') => '<div class="p-card" style="flex:1;min-width:170px"><small style="color:var(--panel-text-muted)">' . $label . '</small><div style="font-size:24px;font-weight:800;margin-top:4px">' . $value . '</div>' . ($sub ? '<small style="color:var(--panel-text-muted)">' . $sub . '</small>' : '') . '</div>';
         $warn = $cap > 0 && $t['projected'] > $cap ? '<span style="color:#dc2626">بالمعدل ده هتعدّي الميزانية</span>' : '';

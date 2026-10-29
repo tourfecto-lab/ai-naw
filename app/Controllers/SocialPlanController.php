@@ -124,7 +124,7 @@ class SocialPlanController extends Controller
         $default = 'en';
         $market = [];
         if ($site) {
-            try { $default = class_exists('ContentLanguageService') ? (string) ContentLanguageService::forWebsite((int) $site['id'], $owner) : 'en'; } catch (Throwable $e) {}
+            try { $default = class_exists('ContentLanguageService') ? (string) ContentLanguageService::forWebsite((int) $site['id'], $owner) : 'en'; } catch (Throwable $e) { error_log('[SocialPlanController] content language failed: ' . $e->getMessage()); }
             try {
                 foreach ((new SeoMarketService($this->db))->markets((int) $site['id'], $owner) as $m) $market[strtolower(substr((string) $m['language_code'], 0, 2))] = true;
             } catch (Throwable $e) {
@@ -157,7 +157,7 @@ class SocialPlanController extends Controller
             }
         }
         $photos = 0;
-        try { $photos = count((new SocialMonthlyPlanService($this->db))->usableMediaIds($owner, 10)); } catch (Throwable $e) {}
+        try { $photos = count((new SocialMonthlyPlanService($this->db))->usableMediaIds($owner, 10)); } catch (Throwable $e) { error_log('[SocialPlanController] usable media failed: ' . $e->getMessage()); }
         return $this->success([
             'site' => $site ? ['id' => (int) $site['id'], 'url' => $site['url']] : null,
             'accounts' => $audit->latest($owner),

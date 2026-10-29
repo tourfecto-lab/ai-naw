@@ -58,7 +58,7 @@ class SmartSignupController extends Controller
         $cacheKey = 'smart_profile:' . SmartOnboardingService::PROFILE_VERSION . ':' . md5(SmartOnboardingService::host($url));
         $cache = class_exists('Cache') ? new Cache() : null;
         $cached = null;
-        try { $cached = $cache ? $cache->get($cacheKey) : null; } catch (Throwable $e) { }
+        try { $cached = $cache ? $cache->get($cacheKey) : null; } catch (Throwable $e) { error_log('[SmartSignup] cache read failed: ' . $e->getMessage()); }
         if (is_array($cached) && !empty($cached['ok'])) return $this->success($cached + ['url' => $url, 'cached' => true]);
         if ($e = $this->limited('smart_analyze', 10)) return $e;
         // التحليل ممكن ياخد لحد دقيقة ونص (قراية الموقع + الذكاء الاصطناعي + إعادة الكتابة بلغة الموقع)
@@ -66,7 +66,7 @@ class SmartSignupController extends Controller
         try {
             $r = (new SmartOnboardingService())->analyze($url, 0);
             if (class_exists('ActivityLog')) ActivityLog::record('marketing', $r['ok'] ? 'signup.smart_analyzed' : 'signup.smart_failed', ['meta' => ['host' => SmartOnboardingService::host($url)]]);
-            if ($r['ok'] && $cache) { try { $cache->set($cacheKey, $r, 7 * 86400); } catch (Throwable $e) { } }
+            if ($r['ok'] && $cache) { try { $cache->set($cacheKey, $r, 7 * 86400); } catch (Throwable $e) { error_log('[SmartSignup] cache write failed: ' . $e->getMessage()); } }
             if (!$r['ok'] && class_exists('Logger')) Logger::warning('Smart onboarding analyze failed', ['host' => SmartOnboardingService::host($url), 'reason' => $r['reason'] ?? '']);
             return $this->success($r + ['url' => $url]);
         } catch (Throwable $e) {
