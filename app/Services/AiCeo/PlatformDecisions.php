@@ -220,6 +220,29 @@ final class PlatformDecisions
                 [[$sl['crm_pending'] . ' شركة ردت أو مهتمة', $sl['crm_pending'] . ' replied or interested companies']], '/admin/ai-ceo#sales', ['انقلهم للـ CRM', 'Move them to the CRM']);
         }
 
+        // المرحلة 8: المالية والاستراتيجية
+        $fi = $snap['finance'] ?? null;
+        $fiUrl = '/admin/ai-ceo#finance';
+        if ($fi && !$fi['fixed_entered']) {
+            $add('fin_fixed_costs', 'finance', 'low', ['impact' => 3, 'roi' => 4, 'urgency' => 2, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['دخّل المصاريف الثابتة', 'Enter the fixed monthly costs'],
+                ['من غير السيرفر والأدوات والمرتبات والتسويق، الربح بيبان أكبر من الحقيقة.', 'Without server, tools, people and marketing costs, profit looks higher than it is.'],
+                [['مفيش مصاريف ثابتة متسجلة', 'No fixed costs recorded']], $fiUrl, ['دخّل المصاريف', 'Enter costs']);
+        }
+        if ($fi && $fi['last_month'] && $fi['last_month']['profit'] < 0) {
+            $add('fin_losing_money', 'finance', 'low', ['impact' => 5, 'roi' => 4, 'urgency' => 4, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['الشهر اللي فات كان بخسارة', 'Last month ran at a loss'],
+                ['التكاليف أكبر من الإيراد. شوف فرص خفض التكاليف وأكتر سوق مربح.', 'Costs exceeded revenue. Review cost savings and the most profitable markets.'],
+                [[$fi['last_month']['month'] . ': إيراد $' . $n($fi['last_month']['revenue']) . ' · تكاليف $' . $n($fi['last_month']['costs']), $fi['last_month']['month'] . ': revenue $' . $n($fi['last_month']['revenue']) . ' · costs $' . $n($fi['last_month']['costs'])]],
+                $fiUrl, ['افتح المالية', 'Open finance']);
+        }
+        if ($fi && $fi['goals_this_quarter'] === 0) {
+            $add('fin_quarter_goals', 'strategy', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['حط أهداف الربع ده', 'Set this quarter\'s goals'],
+                ['أهداف مربوطة بمؤشرات حقيقية (MRR، عملاء، تسجيلات...) ومهام أسبوعية بتخلي المتابعة أوتوماتيك.', 'Goals tied to real metrics (MRR, customers, sign-ups...) with weekly tasks make progress tracking automatic.'],
+                [['مفيش أهداف لـ ' . $fi['quarter'], 'No goals for ' . $fi['quarter']]], $fiUrl, ['حط الأهداف', 'Set goals']);
+        }
+
         // المرحلة 7: مراقبة المنصة
         $op = $snap['ops'] ?? null;
         $opUrl = '/admin/ai-ceo#ops';

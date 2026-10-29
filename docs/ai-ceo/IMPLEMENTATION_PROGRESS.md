@@ -18,7 +18,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 5 | Tourfecto Brand Growth Engine | **Implemented (partial scope, see below)** — awaiting owner check of the Brand Growth tab |
 | 6 | Customer Success & Revenue Intelligence | **Implemented (partial scope, see below)** — awaiting owner check of the Customer Success tab |
 | 7 | AI Platform Operations & Development Advisor | **Implemented (partial scope, see below)** — awaiting owner check of the Platform & Dev Advisor tab |
-| 8 | Financial & Strategic Intelligence | Not started |
+| 8 | Financial & Strategic Intelligence | **Implemented (partial scope, see below)** — awaiting owner costs entry and check of the Finance & Strategy tab |
 | 9 | Executive Intelligence & Continuous Learning | Not started |
 | 10 | Final Integration & Controlled Activation | Not started |
 
@@ -373,4 +373,59 @@ Until the postal address is set and at least one region's basis is confirmed, **
 - Restoring backups automatically. Restores must be done by hand on an isolated server.
 - Preparing fixes and pull requests automatically. This stays with a developer (or Claude Code) after the owner approves a backlog item.
 
-**Next: Phase 8** — Financial & Strategic Intelligence.
+## Phase 8 — Financial & Strategic Intelligence
+
+**Reused:**
+- `SaasMetricsService`: MRR series, paying customers, churn.
+- `wallet_transactions`: subscription charges, deposits, refunds.
+- `api_usage_logs`.
+- `dataforseo_calls` and `SeoDataCostReport`.
+- `AiCostIntelligence` (Phase 2): routing review, spikes, budget guard.
+- The Phase 1 priority formula, and support settings from Phase 6.
+
+**New:** `app/Services/AiCeo/FinanceStrategy.php`, plus migration `2026_10_29_000011_ai_ceo_finance.sql` (`aiceo_cost_items`, `aiceo_goals`, `aiceo_goal_tasks`).
+
+- **Profit and loss for 6 months:**
+  - **Revenue:** completed subscription charges from wallets, minus refunds. Cash in and MRR are shown next to it.
+  - **Costs:** AI, DataForSEO, and the fixed monthly costs the owner enters (infrastructure, tools, people, marketing, other). The page states that profit is overstated until fixed costs are entered.
+- **Markets:** for each country, paying customers, MRR, ARPU, sign-ups over 90 days, conversion, AI cost over 30 days, and MRR minus AI cost.
+- **Cost-saving opportunities:** from the AI routing review, AI cost spikes, the top AI costs, the DataForSEO projection, and expensive tool subscriptions.
+- **Scenarios for any decision:**
+  - The owner enters one-time cost, monthly cost, new customers per month, ARPU, churn and months.
+  - Three scenarios are compared:
+    - conservative: adoption ×0.5, cost ×1.2, churn ×1.5
+    - balanced
+    - aggressive: adoption ×2, cost ×1.6, churn ×1.2
+  - Each shows customers, MRR, revenue, cost, net, ROI, payback month, assumptions, risks and resources.
+- **Digital Twin:** an estimate model built from the last 30 days (active and paying customers, ARPU, AI and data cost per customer, fixed costs, sign-ups, conversion, support time, and the server capacity the owner enters).
+  - **Levers:** customers ×, API cost change, lost customers %, sign-ups ×, and a new country's cost and customers.
+  - **The directive's five questions** are ready-made: customers double, API cost +50%, lose 10%, new country, sign-ups ×5.
+  - **Output:** MRR, costs, profit and the change from today, capacity used, and resources needed.
+  - Every result is labelled an estimate and lists its assumptions.
+- **Quarterly goals:**
+  - Each goal is tied to a real metric: MRR, paying customers, sign-ups, churn, trial conversion, the Tourfecto SEO score, open incidents, or unanswered support.
+  - The baseline is captured when the goal is created, and progress is measured automatically. For churn, incidents and support, lower is better.
+  - Weekly tasks per goal, with this week's done count.
+- **AI Boardroom (owner only, AI CEO budget, task `ai_ceo_boardroom`, 10 per hour):**
+  - The owner asks a strategic question in Arabic or English.
+  - The answer includes a summary, the CFO/CMO/CTO/COO perspectives, three scenarios (cost, expected return, risks, assumptions, resources), a recommendation, next steps, and data gaps instead of invented numbers.
+  - Answers are saved in memory.
+- **Snapshot section `finance` and decisions:**
+  - `fin_fixed_costs`
+  - `fin_losing_money`
+  - `fin_quarter_goals`
+- **API:**
+  - `GET /api/admin/ai-ceo/finance`
+  - `POST /api/admin/ai-ceo/finance/{scenario|simulate}`: any admin, calculations only.
+  - `POST /api/admin/ai-ceo/finance/{cost|cost-delete|goal|goal-status|task|task-status|capacity|boardroom}`: owner only, audited.
+- **Mission Control:** a new **Finance & Strategy** tab.
+- **Tests:**
+  - `tests/Unit/FinanceStrategyTest.php`
+  - `tests/Integration/FinanceStrategyIntegrationTest.php`: P&L counts only completed charges and active fixed costs; markets; baseline and capacity; goals with tasks and progress; the boardroom with a fake AI and rejection of non-JSON answers.
+
+**Not built in this phase**
+- Partnership discovery as its own feature. Ask the Boardroom for now; real discovery needs a data source.
+- Competitor pricing analysis. That is Phase 9.
+- An AI-written quarterly plan. Use the Boardroom ("draft next quarter's plan") and turn its steps into goals and tasks.
+
+**Next: Phase 9** — Executive Intelligence & Continuous Learning.

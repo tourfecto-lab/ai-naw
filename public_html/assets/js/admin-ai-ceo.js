@@ -10,7 +10,7 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['ops', 'Platform & Dev Advisor'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['ops', 'Platform & Dev Advisor'], ['finance', 'Finance & Strategy'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
     let sales = null, salesError = null, salesLoading = false;
     // نمو علامة Tourfecto (المرحلة 5)
@@ -19,6 +19,8 @@
     let cs = null, csError = null, csLoading = false;
     // مراقبة المنصة ومستشار التطوير (المرحلة 7)
     let ops = null, opsError = null, opsLoading = false, opsIssue = null;
+    // المالية والاستراتيجية والتوأم الرقمي و AI Boardroom (المرحلة 8)
+    let fin = null, finError = null, finLoading = false, finScenario = null, finSim = null, finBoard = null;
     let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -347,6 +349,74 @@
           <div class="br-actions"><button type="button" class="p-btn primary xs" id="opSave">Save</button></div>` : ''}</section>`;
     }
 
+    const scenarioTable = r => `<div class="p-table-scroll"><table class="p-table"><thead><tr><th></th>${Object.keys(r.cases).map(k => `<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>
+      ${[['customers_end', 'Customers at the end', num], ['mrr_end', 'MRR at the end', money], ['revenue', 'Revenue', money], ['cost', 'Cost', money], ['net', 'Net', money], ['roi_pct', 'ROI', v => v === null ? '—' : num(v) + '%'], ['payback_month', 'Payback month', v => v === null ? 'not within period' : v]]
+        .map(([k, l, f]) => `<tr><td>${esc(l)}</td>${Object.values(r.cases).map(c => `<td>${f(c[k])}</td>`).join('')}</tr>`).join('')}
+      <tr><td>Assumptions</td>${Object.values(r.cases).map(c => `<td><small>${c.assumptions.map(esc).join('<br>')}</small></td>`).join('')}</tr><tr><td>Risks</td>${Object.values(r.cases).map(c => `<td><small>${c.risks.map(esc).join('<br>')}</small></td>`).join('')}</tr>
+      <tr><td>Resources</td>${Object.values(r.cases).map(c => `<td><small>${esc(c.resources)}</small></td>`).join('')}</tr></tbody></table></div><p class="br-muted">${esc(r.note)}</p>`;
+    const simView = r => `<div class="br-tiles">${tile(num(r.active_customers), 'Active customers')}${tile(num(r.paying), 'Paying')}${tile(money(r.mrr), 'MRR')}${tile(money(r.costs), 'Costs / month')}${tile(money(r.profit), 'Profit / month', (r.profit_change >= 0 ? '+' : '') + money(r.profit_change) + ' vs today')}${tile(r.capacity_pct === null ? '—' : num(r.capacity_pct) + '%', 'Server capacity used')}</div>
+      <ul class="br-proof">${r.resources.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="br-muted">Estimate, not a fact. Assumptions: ${r.assumptions.map(esc).join('; ')}.</p>`;
+    function boardView(a) {
+      if (!a) return '';
+      const sc = a.scenarios || {};
+      return `<p dir="auto"><b>${esc(a.summary || '')}</b></p>${a.perspectives ? `<dl class="br-facts">${Object.entries(a.perspectives).map(([k, v]) => `<dt>${esc(k.toUpperCase())}</dt><dd dir="auto">${esc(v)}</dd>`).join('')}</dl>` : ''}
+        <div class="p-table-scroll"><table class="p-table"><thead><tr><th></th>${Object.keys(sc).map(k => `<th>${esc(k)}</th>`).join('')}</tr></thead><tbody>${['cost', 'expected_return'].map(f => `<tr><td>${esc(f.replace('_', ' '))}</td>${Object.values(sc).map(c => `<td dir="auto">${esc(c?.[f] || '')}</td>`).join('')}</tr>`).join('')}
+        ${['risks', 'assumptions', 'resources'].map(f => `<tr><td>${esc(f)}</td>${Object.values(sc).map(c => `<td dir="auto"><small>${(c?.[f] || []).map(esc).join('<br>')}</small></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+        ${a.recommendation ? `<p dir="auto"><b>Recommendation:</b> ${esc(a.recommendation)}</p>` : ''}${(a.next_steps || []).length ? `<ol dir="auto">${a.next_steps.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+        ${(a.data_gaps || []).length ? `<p class="br-muted" dir="auto">Missing data: ${a.data_gaps.map(esc).join('; ')}</p>` : ''}`;
+    }
+    function financeTab() {
+      if (finError) return `<section class="br-card"><h3>Finance & Strategy</h3><p class="br-muted">${esc(finError)}</p></section>`;
+      if (!fin) return '<section class="br-card"><h3>Finance & Strategy</h3><p class="br-muted">Loading…</p></section>';
+      const owner = fin.owner, p = fin.pnl, b = fin.baseline, g = fin.goals;
+      const CAT = ['infrastructure', 'tools', 'people', 'marketing', 'other'];
+      return `<section class="br-card"><h3>Profit & loss (6 months)</h3><div class="p-table-scroll"><table class="p-table"><thead><tr><th>Month</th><th>Revenue</th><th>Cash in</th><th>MRR</th><th>AI</th><th>SEO data</th><th>Fixed</th><th>Profit</th><th>Margin</th></tr></thead><tbody>
+          ${p.months.map(m => `<tr><td>${esc(m.month)}${m.partial ? ' <small>(so far)</small>' : ''}</td><td>${money(m.revenue)}</td><td>${money(m.cash_in)}</td><td>${money(m.mrr)}</td><td>${money(m.ai_cost)}</td><td>${money(m.data_cost)}</td><td>${money(m.fixed_cost)}</td><td><b>${money(m.profit)}</b></td><td>${m.margin_pct === null ? '—' : num(m.margin_pct) + '%'}</td></tr>`).join('')}</tbody></table></div>
+        <p class="br-muted">${esc(p.note)}</p>
+        <details class="br-past"${p.fixed_entered ? '' : ' open'}><summary>Fixed monthly costs (${money(p.fixed_monthly)})</summary>
+          ${fin.costs.length ? `<ul class="br-proof">${fin.costs.map(c => `<li>${c.active ? '' : '<s>'}<span dir="auto">${esc(c.name)}</span> · ${esc(c.category)} · ${money(c.monthly_usd)}/month${c.active ? '' : '</s>'}${owner ? ` <button type="button" class="p-btn outline xs" data-cdel="${c.id}">Remove</button>` : ''}</li>`).join('')}</ul>` : '<p class="br-muted">None yet: add the server, tools (e.g. Apify, ElevenLabs), people and marketing.</p>'}
+          ${owner ? `<form id="fiCost" class="br-facts"><label class="br-field">Name<input class="p-select" name="name" required maxlength="120"></label><label class="br-field">Category<select class="p-select" name="category">${CAT.map(c => `<option>${c}</option>`).join('')}</select></label>
+            <label class="br-field">USD per month<input class="p-select" name="monthly_usd" type="number" min="0" step="any" required></label><div class="br-actions"><button class="p-btn primary xs">Add cost</button></div></form>` : ''}</details></section>
+
+        <section class="br-card"><h3>Markets</h3>${fin.markets.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Country</th><th>Paying</th><th>MRR</th><th>ARPU</th><th>Sign-ups (90d)</th><th>Conversion</th><th>AI cost (30d)</th><th>MRR − AI</th></tr></thead><tbody>
+          ${fin.markets.map(m => `<tr><td>${esc(m.country)}</td><td>${num(m.paying)}</td><td>${money(m.mrr)}</td><td>${money(m.arpu)}</td><td>${num(m.signups_90d)}</td><td>${m.conversion_pct === null ? '—' : num(m.conversion_pct) + '%'}</td><td>${money(m.ai_cost_30d)}</td><td><b>${money(m.margin)}</b></td></tr>`).join('')}</tbody></table></div>` : '<p class="br-muted">No paying customers or sign-ups by country yet.</p>'}
+        <h4>Cost-saving opportunities</h4>${fin.savings.length ? `<ul class="br-proof">${fin.savings.map(x => `<li><b>${esc(x.area)}:</b> ${esc(x.text)}</li>`).join('')}</ul>` : '<p class="br-muted">None found in the current data.</p>'}</section>
+
+        <section class="br-card"><h3>Quarterly goals · ${esc(g.quarter)} · this week ${esc(g.week)}</h3>
+        ${g.items.length ? g.items.map(x => `<div class="br-past"><p><b dir="auto">${esc(x.title)}</b> · ${esc(x.metric_label)}: ${x.current === null ? '—' : num(x.current)} → target ${num(x.target)} (start ${x.baseline === null ? '—' : num(x.baseline)}) · <b>${x.progress === null ? '—' : num(x.progress) + '%'}</b> · ${esc(x.status)} · this week ${x.week_done}/${x.week_total} tasks
+            ${owner ? ['achieved', 'missed', 'dropped'].filter(s2 => s2 !== x.status).map(s2 => ` <button type="button" class="p-btn outline xs" data-gstatus="${s2}" data-gid="${x.id}">${s2}</button>`).join('') : ''}</p>
+          <ul class="br-proof">${x.tasks.slice(0, 12).map(t => `<li>${esc(t.week)} · <span dir="auto">${esc(t.title)}</span> · ${owner ? `<select class="p-select" data-tstatus="${t.id}" aria-label="Task status">${['todo', 'doing', 'done', 'skipped'].map(o => `<option${o === t.status ? ' selected' : ''}>${o}</option>`).join('')}</select>` : esc(t.status)}</li>`).join('')}</ul>
+          ${owner ? `<form class="br-actions" data-gtask="${x.id}"><input class="p-select" name="title" placeholder="Task for this week" required maxlength="255" aria-label="Task"><button class="p-btn outline xs">Add task</button></form>` : ''}</div>`).join('') : '<p class="br-muted">No goals yet.</p>'}
+        ${owner ? `<form id="fiGoal" class="br-facts"><label class="br-field">Metric<select class="p-select" name="metric">${Object.entries(fin.metrics).map(([k, v]) => `<option value="${k}">${esc(v)} (now ${fin.current[k] === null || fin.current[k] === undefined ? '—' : num(fin.current[k])})</option>`).join('')}</select></label>
+          <label class="br-field">Target<input class="p-select" name="target" type="number" step="any" required></label><label class="br-field">Title (optional)<input class="p-select" name="title" maxlength="255"></label>
+          <div class="br-actions"><button class="p-btn primary xs">Add goal</button></div></form>` : ''}</section>
+
+        <section class="br-card"><h3>Digital Twin (estimates)</h3><p class="br-muted">A simple model of Tourfecto built from the last 30 days: ${num(b.active_customers)} active customers, ${num(b.paying)} paying, ARPU ${money(b.arpu)}, AI ${money(b.ai_cost_per_customer)} and SEO data ${money(b.data_cost_per_customer)} per customer, fixed ${money(b.fixed_monthly)}/month, ${num(b.signups_month)} sign-ups/month.</p>
+        ${Object.entries(fin.presets).map(([k, v]) => `<details class="br-past"><summary>${esc(v.label)}</summary>${simView(v.result)}</details>`).join('')}
+        <form id="fiSim" class="br-facts"><label class="br-field">Customers ×<input class="p-select" name="customers_mult" type="number" step="any" value="1"></label><label class="br-field">API cost change %<input class="p-select" name="api_cost_change_pct" type="number" step="any" value="0"></label>
+          <label class="br-field">Lose customers %<input class="p-select" name="lose_customers_pct" type="number" step="any" value="0"></label><label class="br-field">Sign-ups ×<input class="p-select" name="signups_mult" type="number" step="any" value="1"></label>
+          <label class="br-field">New country cost / month<input class="p-select" name="new_country_monthly_cost" type="number" step="any" value="0"></label><label class="br-field">New country customers<input class="p-select" name="new_country_customers" type="number" step="any" value="0"></label>
+          <div class="br-actions"><button class="p-btn primary xs">Simulate</button></div></form>${finSim ? simView(finSim) : ''}
+        ${owner ? `<form id="fiCap" class="br-actions"><label class="br-field">Server capacity (active customers it handles)<input class="p-select" name="capacity_customers" type="number" min="1" step="1" value="${fin.settings.capacity_customers ?? ''}"></label><button class="p-btn outline xs">Save</button></form>` : ''}</section>
+
+        <section class="br-card"><h3>Scenarios for a decision</h3><p class="br-muted">Enter a decision's numbers to compare conservative, balanced and aggressive outcomes.</p>
+        <form id="fiScen" class="br-facts"><label class="br-field">One-time cost (USD)<input class="p-select" name="one_time_cost" type="number" min="0" step="any" value="0"></label><label class="br-field">Monthly cost (USD)<input class="p-select" name="monthly_cost" type="number" min="0" step="any" value="0"></label>
+          <label class="br-field">New customers / month<input class="p-select" name="customers_per_month" type="number" min="0" step="any" value="1"></label><label class="br-field">Revenue per customer / month<input class="p-select" name="arpu" type="number" min="0" step="any" value="${b.arpu || 0}"></label>
+          <label class="br-field">Churn % / month<input class="p-select" name="churn_pct" type="number" min="0" step="any" value="${b.churn_pct || 5}"></label><label class="br-field">Months<input class="p-select" name="months" type="number" min="1" max="36" value="12"></label>
+          <div class="br-actions"><button class="p-btn primary xs">Compare</button></div></form>${finScenario ? scenarioTable(finScenario) : ''}</section>
+
+        <section class="br-card"><h3>AI Boardroom</h3><p class="br-muted">Ask a strategic question (Arabic or English). The CFO, CMO, CTO and COO answer from the platform data with three scenarios. Uses the AI CEO budget. Owner only.</p>
+        ${owner ? `<form id="fiBoard"><textarea class="p-select" name="question" rows="3" minlength="10" maxlength="1000" required style="width:100%" dir="auto" placeholder="e.g. Should we focus on the Gulf or Europe next quarter?"></textarea><div class="br-actions"><button class="p-btn primary">Ask the board</button></div></form>` : ''}
+        ${finBoard ? `<h4 dir="auto">${esc(finBoard.title)}</h4>${boardView(finBoard.answer)}` : ''}
+        ${fin.boardroom.length ? `<details class="br-past"><summary>Past board answers (${fin.boardroom.length})</summary>${fin.boardroom.map(x => `<h4 dir="auto">${esc(x.title)} <small class="br-muted">${esc(x.created_at)}</small></h4>${boardView(x.answer)}`).join('')}</details>` : ''}</section>`;
+    }
+
+    async function loadFinance() {
+      finLoading = true;
+      try { fin = await req('/api/admin/ai-ceo/finance'); finError = null; } catch (e) { finError = e.message; } finally { finLoading = false; }
+      render();
+    }
+
     async function loadOps() {
       opsLoading = true;
       try { ops = await req('/api/admin/ai-ceo/ops'); opsError = null; } catch (e) { opsError = e.message; } finally { opsLoading = false; }
@@ -439,6 +509,7 @@
         case 'brand': if (!brand && !brandError && !brandLoading) loadBrand(); return brandTab();
         case 'success': if (!cs && !csError && !csLoading) loadSuccess(); return successTab();
         case 'ops': if (!ops && !opsError && !opsLoading) loadOps(); return opsTab();
+        case 'finance': if (!fin && !finError && !finLoading) loadFinance(); return financeTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();
@@ -470,6 +541,19 @@
       root.querySelectorAll('[data-sapprove]').forEach(b => b.onclick = () => sAct('approve', { ids: [Number(b.dataset.sapprove)] }, 'Approved ✓'));
       root.querySelector('#slReeval')?.addEventListener('click', () => sAct('reevaluate', {}, 'Re-checked ✓'));
       root.querySelector('#slPause')?.addEventListener('click', () => { if (confirm('Pause these sequences? No more emails go to them.')) sAct('pause', { ids: sales.active_noncompliant.map(x => x.id) }, 'Paused ✓'); });
+      const fAct = (action, body, okText) => act(async () => { const r = await req('/api/admin/ai-ceo/finance/' + action, body); await loadFinance(); return r; }, okText);
+      const formNums = f => Object.fromEntries([...new FormData(f).entries()].map(([k, v]) => [k, v === '' ? null : Number(v)]));
+      root.querySelector('#fiCost')?.addEventListener('submit', ev => { ev.preventDefault(); fAct('cost', { item: Object.fromEntries(new FormData(ev.target).entries()) }, 'Saved ✓'); });
+      root.querySelectorAll('[data-cdel]').forEach(b => b.onclick = () => { if (confirm('Remove this cost?')) fAct('cost-delete', { id: Number(b.dataset.cdel) }, 'Removed ✓'); });
+      root.querySelector('#fiGoal')?.addEventListener('submit', ev => { ev.preventDefault(); fAct('goal', { goal: Object.fromEntries(new FormData(ev.target).entries()) }, 'Goal added ✓'); });
+      root.querySelectorAll('[data-gstatus]').forEach(b => b.onclick = () => fAct('goal-status', { id: Number(b.dataset.gid), status: b.dataset.gstatus }, 'Saved ✓'));
+      root.querySelectorAll('[data-gtask]').forEach(f => f.onsubmit = ev => { ev.preventDefault(); fAct('task', { goal_id: Number(f.dataset.gtask), title: new FormData(f).get('title') }, 'Task added ✓'); });
+      root.querySelectorAll('[data-tstatus]').forEach(sel => sel.onchange = () => fAct('task-status', { id: Number(sel.dataset.tstatus), status: sel.value }, 'Saved ✓'));
+      root.querySelector('#fiCap')?.addEventListener('submit', ev => { ev.preventDefault(); fAct('capacity', { capacity_customers: new FormData(ev.target).get('capacity_customers') }, 'Saved ✓'); });
+      root.querySelector('#fiSim')?.addEventListener('submit', ev => { ev.preventDefault(); act(async () => { finSim = (await req('/api/admin/ai-ceo/finance/simulate', { levers: formNums(ev.target) })).result; }); });
+      root.querySelector('#fiScen')?.addEventListener('submit', ev => { ev.preventDefault(); act(async () => { finScenario = (await req('/api/admin/ai-ceo/finance/scenario', { input: formNums(ev.target) })).result; }); });
+      root.querySelector('#fiBoard')?.addEventListener('submit', ev => { ev.preventDefault(); const q = new FormData(ev.target).get('question'); note = { text: 'The board is thinking… up to a minute.' }; render();
+        act(async () => { finBoard = await req('/api/admin/ai-ceo/finance/boardroom', { question: q }); await loadFinance(); }, 'Answer saved to memory ✓'); });
       const oAct = (action, body, okText) => act(async () => { const r = await req('/api/admin/ai-ceo/ops/' + action, body); await loadOps(); return r; }, okText);
       root.querySelector('#opRun')?.addEventListener('click', () => { note = { text: 'Checking the pages… about a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/ops/run', {}); await loadOps(); }, 'Checks done ✓'); });
       root.querySelectorAll('[data-bstatus]').forEach(b => b.onclick = () => { const s = b.dataset.bstatus; const after = s === 'done' ? prompt('Result after the change (optional, e.g. "0 incidents in 14 days"):') : null; if (s === 'done' && after === null) return;
