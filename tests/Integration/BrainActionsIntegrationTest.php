@@ -152,4 +152,12 @@ final class BrainActionsIntegrationTest extends TestCase
         $svc = new BrainActions($this->db, fn () => 'Sorry.', fn (int $websiteId) => null);
         $this->assertSame(1, $svc->preview(self::USER_ID, 'review_drafts')['without_draft']);
     }
+
+    public function testIgnoredReviewsNeedNoReply(): void
+    {
+        $ignored = $this->review(self::USER_ID, 'Old location review', 1);
+        $this->db->query("UPDATE reviews SET reply_status = 'rejected' WHERE id = ?", [$ignored]);
+        $svc = new BrainActions($this->db, fn () => 'Sorry.', fn (int $websiteId) => null);
+        $this->assertSame(0, $svc->preview(self::USER_ID, 'review_drafts')['without_draft']);
+    }
 }

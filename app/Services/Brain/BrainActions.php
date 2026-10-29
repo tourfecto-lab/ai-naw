@@ -88,7 +88,8 @@ class BrainActions
      */
     private function candidates(int $uid, int $limit): array
     {
-        $rows = $this->db->query("SELECT * FROM reviews WHERE user_id = ? AND rating <= 3 AND reply_sent_at IS NULL
+        // اللي صاحب الشركة تجاهله ("اتجوهل") مش محتاج رد
+        $rows = $this->db->query("SELECT * FROM reviews WHERE user_id = ? AND rating <= 3 AND reply_sent_at IS NULL AND COALESCE(reply_status, '') <> 'rejected'
             AND created_at > DATE_SUB(NOW(), INTERVAL " . self::DAYS . " DAY) AND (ai_generated_reply IS NULL OR ai_generated_reply = '')
             ORDER BY rating ASC, created_at DESC LIMIT " . self::POOL, [$uid]) ?: [];
         $out = [];
