@@ -1133,9 +1133,9 @@ HTML;
             const initial = (customer || '?').trim().charAt(0).toUpperCase();
             const active = c.id === activeConvId ? ' active' : '';
             return `
-                <div class="ai-chat-item${active}" data-id="${c.id}" onclick="window.selectConversation(${c.id})">
+                <div class="ai-chat-item${active}" data-id="${c.id}" data-photo="${c.photo_v || 0}" onclick="window.selectConversation(${c.id})">
                     <div class="r1">
-                        <div class="ai-chat-avatar${avatarClass(c.channel)}">${esc(initial)}</div>
+                        <div class="ai-chat-avatar${avatarClass(c.channel)}">${c.photo_v ? '<img class="wa-av-img" alt="" src="/api/ai-chat/websites/' + websiteId + '/conversations/' + c.id + '/photo?v=' + c.photo_v + '">' : esc(initial)}</div>
                         <div class="nm">
                             <b>${esc(customer)} ${c.unread_count > 0 ? '<span class="ub">' + c.unread_count + '</span>' : ''}</b>
                             <small>${CHANNEL_LABEL[c.channel] || esc(c.channel || '-')} · ${esc(c.customer_phone || c.customer_email || '-')}</small>

@@ -501,8 +501,43 @@
             if (!first || first.querySelector('.wa-hav')) return;
             var name = (first.querySelector('h3') ? first.querySelector('h3').firstChild : null);
             var label = name && name.textContent ? name.textContent.trim() : '?';
-            var av = el('span', 'wa-hav', (label.charAt(0) || '?').toUpperCase());
-            av.setAttribute('aria-hidden', 'true');
+            var av = el('button', 'wa-hav', (label.charAt(0) || '?').toUpperCase());
+            av.type = 'button';
+            av.title = 'Contact photo';
+            av.setAttribute('aria-label', 'Change contact photo');
+            var row = document.querySelector('.ai-chat-item.active');
+            function showPhoto(id, v) {
+                av.textContent = '';
+                if (id && v && +v > 0) {
+                    var img = el('img');
+                    img.alt = ''; img.src = '/api/ai-chat/websites/' + websiteId() + '/conversations/' + id + '/photo?v=' + v;
+                    av.appendChild(img);
+                } else {
+                    av.textContent = (label.charAt(0) || '?').toUpperCase();
+                }
+            }
+            if (row) showPhoto(row.getAttribute('data-id'), row.getAttribute('data-photo'));
+            av.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var r = document.querySelector('.ai-chat-item.active');
+                if (!r || !window.Panel) return;
+                var id = r.getAttribute('data-id');
+                var pick = el('input'); pick.type = 'file'; pick.accept = 'image/jpeg,image/png,image/webp';
+                pick.addEventListener('change', function () {
+                    var f = pick.files && pick.files[0];
+                    if (!f) return;
+                    var fd = new FormData(); fd.append('file', f);
+                    Panel.fetchJSON('/api/ai-chat/websites/' + websiteId() + '/conversations/' + id + '/photo', { method: 'POST', body: fd }).then(function (res) {
+                        if (!res || !res.success) { if (Panel.toast) Panel.toast((res && res.error) || 'The photo was not saved', 'error'); return; }
+                        var v = res.data.photo_v;
+                        r.setAttribute('data-photo', v);
+                        var rav = r.querySelector('.ai-chat-avatar');
+                        if (rav) { rav.textContent = ''; var im = el('img', 'wa-av-img'); im.alt = ''; im.src = '/api/ai-chat/websites/' + websiteId() + '/conversations/' + id + '/photo?v=' + v; rav.appendChild(im); }
+                        showPhoto(id, v);
+                    });
+                });
+                pick.click();
+            });
             first.insertBefore(av, first.firstChild);
         }
         new MutationObserver(paint).observe(h, { childList: true });

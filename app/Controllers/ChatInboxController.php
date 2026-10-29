@@ -953,6 +953,85 @@ class ChatInboxController extends Controller
         return $this->success(['ready' => true, 'prefs' => $state]);
     }
 
+    /** GET .../conversations/{conversationId}/photo - the contact photo an agent set (small JPEG). */
+    public function photo(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if (!$conversation) {
+            return $this->error('Conversation not found', 404);
+        }
+        $bytes = ChatContactPhotos::read($websiteId, (int) $conversation->getAttribute('id'));
+        if ($bytes === null) {
+            return $this->error('No photo', 404);
+        }
+        return $this->streamMedia($bytes, 'image/jpeg', '');
+    }
+
+    /** POST .../conversations/{conversationId}/photo - multipart "file": set or replace the contact photo. */
+    public function setPhoto(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if (!$conversation) {
+            return $this->error('Conversation not found', 404);
+        }
+        $f = $_FILES['file'] ?? null;
+        if (!is_array($f) || (int) ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
+            return $this->error('Choose a picture', 422);
+        }
+        $err = ChatContactPhotos::save($websiteId, (int) $conversation->getAttribute('id'), (string) file_get_contents((string) $f['tmp_name']));
+        if ($err !== null) {
+            return $this->error($err, 422);
+        }
+        return $this->success(['photo_v' => ChatContactPhotos::version($websiteId, (int) $conversation->getAttribute('id'))], 'Photo saved');
+    }
+
+    /** POST .../conversations/{conversationId}/photo/remove */
+    public function removePhoto(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if (!$conversation) {
+            return $this->error('Conversation not found', 404);
+        }
+        ChatContactPhotos::remove($websiteId, (int) $conversation->getAttribute('id'));
+        return $this->success(['photo_v' => 0], 'Photo removed');
+    }
+
     /**
      * The customer message the agent is replying to (WhatsApp only): its WhatsApp id for the "context" field and a short
      * snippet kept with our outgoing row so the bubble can show the quote.
@@ -1465,6 +1544,8 @@ class ChatInboxController extends Controller
             'unread_count' => (int) $conversation->getAttribute('unread_count'),
             'assigned_agent_id' => $conversation->getAttribute('assigned_agent_id'),
             'last_message_at' => $conversation->getAttribute('last_message_at'),
+            // Agent-set contact photo (the WhatsApp API never provides one): 0 = none, otherwise a cache-busting version.
+            'photo_v' => ChatContactPhotos::version((int) $conversation->getAttribute('website_id'), (int) $conversation->getAttribute('id')),
         ];
 
         if ($detailed) {
