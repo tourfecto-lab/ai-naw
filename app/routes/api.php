@@ -2047,6 +2047,8 @@ $router->post('/api/admin/ai-ceo/sales/{action}','AiCeoController','salesAction'
 $router->get('/api/admin/ai-ceo/brand','AiCeoController','brand',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/brand/audit','AiCeoController','brandAudit',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/brand/plan','AiCeoController','brandPlan',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/ai-ceo/success','AiCeoController','customerSuccess',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/success/settings','AiCeoController','successSettings',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/settings','BrainAdminController','save',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/market-refresh','BrainAdminController','marketRefresh',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);

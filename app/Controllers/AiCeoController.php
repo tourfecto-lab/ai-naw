@@ -7,6 +7,7 @@ require_once __DIR__ . '/../Services/AiCeo/TourismBusinessDb.php';
 require_once __DIR__ . '/../Services/AiCeo/SalesEngine.php';
 require_once __DIR__ . '/../Services/AiCeo/BrandSiteAudit.php';
 require_once __DIR__ . '/../Services/AiCeo/BrandGrowth.php';
+require_once __DIR__ . '/../Services/AiCeo/CustomerSuccess.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -352,6 +353,34 @@ class AiCeoController extends Controller
             $m = $e->getMessage();
             $msg = str_starts_with($m, 'budget_') ? 'The AI CEO reached its ' . substr($m, 7) . ' AI budget. Raise it in AI Costs.' : ($m === 'invalid_plan' ? 'The AI returned an unusable plan. Try again.' : 'AI is not available right now.');
             return $this->error($msg, 503);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 6: نجاح العملاء والإيرادات
+
+    /** GET /api/admin/ai-ceo/success */
+    public function customerSuccess(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success(['report' => (new CustomerSuccess($this->db))->report(), 'owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO success failed', ['error' => $e->getMessage()]);
+            return $this->error('Customer success data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/success/settings  {support_minutes, support_cost_hour, market_median_price} */
+    public function successSettings(array $params = []): array
+    {
+        if ($e = $this->guard(true)) return $e;
+        try {
+            $s = (new CustomerSuccess($this->db))->saveSettings((array) $this->get('settings', []));
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'success_settings', $s);
+            return $this->success(['settings' => $s]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
         }
     }
 

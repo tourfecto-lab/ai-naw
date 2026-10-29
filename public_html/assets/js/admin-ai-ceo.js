@@ -10,11 +10,13 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
     let sales = null, salesError = null, salesLoading = false;
     // نمو علامة Tourfecto (المرحلة 5)
     let brand = null, brandError = null, brandLoading = false, brandPlan = null;
+    // نجاح العملاء والإيرادات (المرحلة 6)
+    let cs = null, csError = null, csLoading = false;
     let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -246,6 +248,60 @@
         ${brand.plans.length ? `<details class="br-past"><summary>Saved plans (${brand.plans.length})</summary>${brand.plans.map(x => `<h4>${esc(x.title)} <small class="br-muted">${esc(x.created_at)}</small></h4>${planView(x.plan)}`).join('')}</details>` : ''}</section>`;
     }
 
+    const money = v => v === null || v === undefined ? '—' : '$' + num(v);
+    const STEP = { signed_up: 'Signed up', website: 'Added website', connected: 'Connected a service', used: 'Used a service', trial: 'Trial', paying: 'Paying' };
+    const unavailable = '<p class="br-muted">Not available (the data source is missing on this server).</p>';
+    function successTab() {
+      if (csError) return `<section class="br-card"><h3>Customer Success</h3><p class="br-muted">${esc(csError)}</p></section>`;
+      if (!cs) return '<section class="br-card"><h3>Customer Success</h3><p class="br-muted">Loading…</p></section>';
+      const r = cs.report, m = r.metrics, f = r.funnel, p = r.payments, rn = r.renewals, c = r.cancellations, sp = r.support, o = r.opportunities, sv = r.services, fc = r.forecast, owner = cs.owner, st = r.settings;
+      const custLink = x => `<a href="/admin/users/${x.user_id}" dir="auto">${esc(x.company || '#' + x.user_id)}</a>`;
+      return `<section class="br-card"><h3>Revenue & unit economics</h3><div class="br-tiles">${tile(money(m.mrr), 'MRR', m.mrr_prev !== null ? '30 days ago ' + money(m.mrr_prev) : '')}${tile(money(m.arr), 'ARR')}${tile(num(m.paying), 'Paying customers')}${tile(money(m.arpu), 'ARPU')}
+          ${tile(m.logo_churn === null ? '—' : num(m.logo_churn) + '%', 'Churn (30 days)', m.revenue_churn === null ? '' : 'revenue ' + num(m.revenue_churn) + '%')}${tile(m.retention === null ? '—' : num(m.retention) + '%', 'Retention')}${tile(money(m.ltv), 'LTV', m.ltv === null ? 'needs churn history' : '')}${tile(money(m.cac), 'CAC', m.cac === null ? 'enter spend in Leads & Sales' : '')}${tile(m.ltv_cac === null ? '—' : num(m.ltv_cac) + '×', 'LTV : CAC')}${tile(m.trial_conversion === null ? '—' : num(m.trial_conversion) + '%', 'Trial → paid')}</div>
+        ${fc ? `<h4>Revenue forecast (MRR)</h4><div class="p-table-scroll"><table class="p-table"><thead><tr><th>Case</th>${Object.keys(fc.cases.expected).map(h => `<th>${h} months</th>`).join('')}</tr></thead><tbody>${Object.entries(fc.cases).map(([k, v]) => `<tr><td>${esc(k)}</td>${Object.values(v).map(x => `<td>${money(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+          <p class="br-muted">From ${money(fc.mrr_now)} today, churn ${num(fc.assumptions.monthly_churn_pct)}%/month and ${money(fc.assumptions.new_mrr_per_month)} new MRR/month (90-day average). Conservative: ${esc(fc.assumptions.conservative)}; optimistic: ${esc(fc.assumptions.optimistic)}. Confidence: ${esc(fc.confidence)}. ${esc(fc.note)}</p>` : ''}</section>
+
+        <section class="br-card"><h3>Customer journey (sign-ups in the last 90 days)</h3>${f ? `<div class="br-tiles">${Object.entries(f.stages).map(([k, v]) => tile(num(v), STEP[k] || k)).join('')}</div>
+          ${f.biggest_drop ? `<p>Biggest drop: <b>${esc(STEP[f.biggest_drop.from])} → ${esc(STEP[f.biggest_drop.to])}</b>: ${num(f.biggest_drop.lost)} customers (${num(f.biggest_drop.rate)}% continue).</p>` : ''}
+          <details class="br-past"${f.stuck_count ? ' open' : ''}><summary>Onboarding assistant: ${num(f.stuck_count)} customers stuck for 3+ days</summary><p class="br-muted">Suggested messages for the next step. Nothing is sent automatically: copy, review and send them yourself (email or WhatsApp with their consent).</p>
+          ${f.stuck.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Customer</th><th>Signed up</th><th>Next step</th><th>Suggested message</th></tr></thead><tbody>${f.stuck.map(x => `<tr><td>${custLink(x)}<br><small dir="ltr">${esc(x.email || '')}</small></td><td>${esc((x.signed_up || '').slice(0, 10))}</td><td>${esc(x.next_step_label)}</td><td><p dir="rtl" lang="ar">${esc(x.message.ar)}</p><p dir="ltr" class="br-muted">${esc(x.message.en)}</p></td></tr>`).join('')}</tbody></table></div>` : '<p class="br-done">✓ Nobody is stuck.</p>'}</details>` : unavailable}</section>
+
+        <section class="br-card"><h3>Payments, renewals and cancellations</h3>
+        ${p ? `<p>Last 30 days: ${Object.entries(p.by_status).map(([k, v]) => `${esc(k)} ${num(v.count)} (${money(v.amount)})`).join(' · ') || 'no payment attempts'}${p.failure_rate !== null ? ` · failure rate ${num(p.failure_rate)}%` : ''} · stuck over 1 hour ${num(p.stuck_pending)}</p>
+          ${p.past_due.length ? `<p><b>Past due:</b> ${p.past_due.map(x => `${custLink(x)} (${money(x.mrr)})`).join(' · ')}</p>` : ''}` : unavailable}
+        ${rn ? `<p>Renewals in 30 days: ${num(rn.count)} (${money(rn.mrr)} MRR) · <b>${num(rn.cancelling)} set to cancel</b> (${money(rn.mrr_cancelling)})</p>
+          ${rn.items.length ? `<details class="br-past"><summary>Upcoming renewals</summary><ul class="br-proof">${rn.items.map(x => `<li>${custLink(x)} · ${esc(x.plan || '')} · ${money(x.mrr)} · ${esc((x.renews_at || '').slice(0, 10))}${x.cancelling ? ' · ⚠️ cancelling' : ''}</li>`).join('')}</ul></details>` : ''}` : ''}
+        ${c ? `<p>Cancellations in 180 days: ${num(c.total)}</p>${c.total ? `<details class="br-past"><summary>Why customers cancel</summary><ul class="br-proof">${Object.entries(c.reasons).map(([k, v]) => `<li dir="auto">${esc(k)}: ${num(v)}</li>`).join('')}</ul>
+          ${Object.keys(c.themes).length ? `<p class="br-muted">Themes: ${Object.entries(c.themes).map(([k, v]) => `${esc(k.replace('_', ' / '))} ${v}`).join(' · ')}</p>` : ''}</details>` : ''}` : ''}</section>
+
+        <section class="br-card"><h3>Health, upsell and cross-sell</h3>${o ? `<div class="br-tiles">${tile(num(o.health.healthy), 'Healthy')}${tile(num(o.health.watch), 'Watch')}${tile(num(o.health.at_risk), 'At risk')}${tile(money(o.mrr_at_risk), 'MRR at risk')}</div>
+          <p class="br-muted">Health score 0–100 per customer (activity 30, connections 20, usage 20, payment 20, setup 10). Full list in <a href="/admin/customers-health">Customer health</a>.</p>
+          ${o.at_risk.length ? `<details class="br-past" open><summary>Paying customers at risk (${o.at_risk.length})</summary><ul class="br-proof">${o.at_risk.map(x => `<li>${custLink(x)} · ${x.score}/100 · ${money(x.mrr)} · ${(x.reasons || []).map(esc).join('، ')}</li>`).join('')}</ul></details>` : ''}
+          <details class="br-past"><summary>Upsell candidates (${o.upsell.length})</summary>${o.upsell.length ? `<ul class="br-proof">${o.upsell.map(x => `<li>${custLink(x)} · ${esc(x.plan || '')}: ${esc(x.why)}</li>`).join('')}</ul>` : '<p class="br-muted">None right now.</p>'}</details>
+          <details class="br-past"><summary>Cross-sell: help them connect services (${o.cross_sell.length})</summary>${o.cross_sell.length ? `<ul class="br-proof">${o.cross_sell.map(x => `<li>${custLink(x)}: ${esc(x.why)}</li>`).join('')}</ul>` : '<p class="br-muted">None right now.</p>'}</details>
+          ${o.profit ? `<p>Last 30 days: revenue ${money(o.profit.revenue_30d)} − AI cost ${money(o.profit.ai_cost_30d)} = <b>${money(o.profit.margin_30d)}</b>${o.profit.margin_pct !== null ? ` (${num(o.profit.margin_pct)}%)` : ''}${sp && sp.cost_usd !== null ? ` · support cost ${money(sp.cost_usd)}` : ''}</p>` : ''}` : unavailable}</section>
+
+        <section class="br-card"><h3>Services & plans</h3>
+        ${sv ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Service (AI task)</th><th>Uses</th><th>Customers</th><th>Paying adoption</th><th>AI cost</th><th>Cost / customer</th></tr></thead><tbody>${sv.items.slice(0, 25).map(x => `<tr><td dir="ltr">${esc(x.feature)}</td><td>${num(x.calls)}</td><td>${num(x.users)}</td><td>${x.adoption_pct === null ? '—' : num(x.adoption_pct) + '%'}</td><td>${money(x.cost_usd)}</td><td>${money(x.cost_per_user)}</td></tr>`).join('')}</tbody></table></div>` : unavailable}
+        ${o && o.profit && o.profit.by_plan.length ? `<h4>Plans</h4><div class="p-table-scroll"><table class="p-table"><thead><tr><th>Plan</th><th>Customers</th><th>Price / month</th><th>AI cost / customer</th><th>Margin</th></tr></thead><tbody>${o.profit.by_plan.map(x => `<tr><td dir="auto">${esc(x.plan)}</td><td>${num(x.customers)}</td><td>${money(x.price)}</td><td>${money(x.avg_ai_cost)}</td><td>${x.margin_pct === null ? '—' : num(x.margin_pct) + '%'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+        ${r.pricing.length ? `<ul class="br-proof">${r.pricing.map(x => `<li>${esc(x.text)}</li>`).join('')}</ul>` : '<p class="br-muted">No pricing suggestions from the current data.</p>'}
+        <p class="br-muted">Suggestions only: prices, plans and services are never changed automatically.</p></section>
+
+        <section class="br-card"><h3>Support</h3>${sp ? `<p>${num(sp.total)} messages in 90 days · <b>${num(sp.unanswered)} unanswered</b>${sp.oldest_unanswered ? ` (oldest ${esc(sp.oldest_unanswered.slice(0, 10))})` : ''} · ${num(sp.from_paying)} from paying customers · <a href="/admin/contact-messages">Open messages</a></p>
+          ${Object.keys(sp.themes).length ? `<p>Topics: ${Object.entries(sp.themes).map(([k, v]) => `${sp.recurring.includes(k) ? '<b>' : ''}${esc(k.replace('_', ' / '))} ${v}${sp.recurring.includes(k) ? '</b>' : ''}`).join(' · ')}</p><p class="br-muted">Topics with 3+ messages become a development decision in Approvals.</p>` : ''}
+          <p class="br-muted">${esc(sp.cost_note)}${sp.cost_per_customer_usd !== null ? ` Cost per customer: ${money(sp.cost_per_customer_usd)}.` : ''}</p>` : unavailable}
+        ${owner ? `<div class="br-facts"><label class="br-field">Minutes per support message<input class="p-select" type="number" min="0" step="any" id="csMin" value="${st.support_minutes ?? ''}"></label>
+          <label class="br-field">Support cost per hour (USD)<input class="p-select" type="number" min="0" step="any" id="csHour" value="${st.support_cost_hour ?? ''}"></label>
+          <label class="br-field">Market median plan price (USD/month)<input class="p-select" type="number" min="0" step="any" id="csMarket" value="${st.market_median_price ?? ''}"><small>From your competitor research; used for pricing suggestions.</small></label></div>
+          <div class="br-actions"><button type="button" class="p-btn primary xs" id="csSave">Save</button></div>` : ''}</section>`;
+    }
+
+    async function loadSuccess() {
+      csLoading = true;
+      try { cs = await req('/api/admin/ai-ceo/success'); csError = null; } catch (e) { csError = e.message; } finally { csLoading = false; }
+      render();
+    }
+
     async function loadBrand() {
       brandLoading = true;
       try { brand = await req('/api/admin/ai-ceo/brand'); brandError = null; } catch (e) { brandError = e.message; } finally { brandLoading = false; }
@@ -324,6 +380,7 @@
         case 'companies': if (!co && !coError && !coLoading) loadCompanies(); return companiesTab();
         case 'sales': if (!sales && !salesError && !salesLoading) loadSales(); return salesTab();
         case 'brand': if (!brand && !brandError && !brandLoading) loadBrand(); return brandTab();
+        case 'success': if (!cs && !csError && !csLoading) loadSuccess(); return successTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();
@@ -355,6 +412,7 @@
       root.querySelectorAll('[data-sapprove]').forEach(b => b.onclick = () => sAct('approve', { ids: [Number(b.dataset.sapprove)] }, 'Approved ✓'));
       root.querySelector('#slReeval')?.addEventListener('click', () => sAct('reevaluate', {}, 'Re-checked ✓'));
       root.querySelector('#slPause')?.addEventListener('click', () => { if (confirm('Pause these sequences? No more emails go to them.')) sAct('pause', { ids: sales.active_noncompliant.map(x => x.id) }, 'Paused ✓'); });
+      root.querySelector('#csSave')?.addEventListener('click', () => act(async () => { await req('/api/admin/ai-ceo/success/settings', { settings: { support_minutes: root.querySelector('#csMin').value.trim(), support_cost_hour: root.querySelector('#csHour').value.trim(), market_median_price: root.querySelector('#csMarket').value.trim() } }); await loadSuccess(); }, 'Saved ✓'));
       root.querySelector('#bgAudit')?.addEventListener('click', () => { note = { text: 'Auditing the site… this can take a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/brand/audit', {}); await loadBrand(); }, 'Audit done ✓'); });
       root.querySelector('#bgPlan')?.addEventListener('click', () => { const markets = [...root.querySelectorAll('[data-bgm]:checked')].map(x => x.dataset.bgm), month = root.querySelector('#bgMonth').value;
         note = { text: 'Writing the plan… this can take a minute.' }; render(); act(async () => { brandPlan = await req('/api/admin/ai-ceo/brand/plan', { month, markets }); await loadBrand(); }, 'Plan saved to memory ✓'); });

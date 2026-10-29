@@ -16,7 +16,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 3 | Global Tourism Business Intelligence | **Implemented** — see below (awaiting owner check of the Companies tab) |
 | 4 | Autonomous Growth & Sales | **Implemented (partial scope, see below)** — awaiting owner setup and check |
 | 5 | Tourfecto Brand Growth Engine | **Implemented (partial scope, see below)** — awaiting owner check of the Brand Growth tab |
-| 6 | Customer Success & Revenue Intelligence | Not started |
+| 6 | Customer Success & Revenue Intelligence | **Implemented (partial scope, see below)** — awaiting owner check of the Customer Success tab |
 | 7 | AI Platform Operations & Development Advisor | Not started |
 | 8 | Financial & Strategic Intelligence | Not started |
 | 9 | Executive Intelligence & Continuous Learning | Not started |
@@ -285,4 +285,40 @@ Until the postal address is set and at least one region's basis is confirmed, **
 - Search Console and GA4 data for tourfecto.pro (queries, impressions). This needs the Google verification to finish and a connection for the owner's own property.
 - Measuring AI answer engines (ChatGPT, Perplexity, Gemini) mentioning Tourfecto. The platform's AI visibility service could do it, but it costs API credits and needs the owner's approval of a budget.
 
-**Next: Phase 6** — Customer Success & Revenue Intelligence.
+## Phase 6 — Customer Success & Revenue Intelligence
+
+**Reused:** `SaasMetricsService` (MRR, ARR, ARPU, churn, LTV, trial conversion), `CustomerHealthService` (0–100 health score per customer: activity 30, connections 20, usage 20, payment 20, setup 10, with reasons and 30-day profit), `SalesEngine` (CAC), `contact_submissions` (support messages), `payment_transactions`, `subscriptions`, `api_usage_logs`.
+
+**New:** `app/Services/AiCeo/CustomerSuccess.php`
+- **Journey (last 90 days of sign-ups):** signed up → added a website → connected a service → used a service → trial → paying, with the biggest drop.
+- **Onboarding assistant:** customers stuck 3+ days get their next step and a suggested Arabic/English message. Nothing is sent; the owner reviews and sends.
+- **Payments:** attempts by status, failure rate, attempts stuck over 1 hour, and past-due customers.
+- **Renewals:** renewals in 30 days and the ones set to cancel at period end.
+- **Cancellations:** reasons and themes over 180 days, by month.
+- **Support:** messages, unanswered, from paying customers, and topic themes (login, payment, WhatsApp, Facebook/Instagram, Google, SEO, booking, bug, pricing). Topics with 3+ messages become a development decision. Support cost is computed only when the owner enters minutes per message and cost per hour.
+- **Upsell and cross-sell:** healthy heavy users (top quartile of AI actions) and paying customers with no connected service.
+- **Services:** usage, customers, paying adoption and AI cost per service (AI task), excluding the AI CEO's own tasks.
+- **Plans and pricing:** margin per plan after AI cost. Suggestions for low margin (under 50%), unused plans, and plans below half the market median (owner-entered). **Suggestions only; nothing is changed.**
+- **Forecast:** MRR at 3/6/12 months in three cases (conservative: churn ×1.5 and new ×0.5; expected; optimistic: churn ×0.5 and new ×1.5), with the assumptions and the confidence (low under 10 paying customers).
+- **Snapshot section `success` and decisions** (all low risk):
+  - `cs_onboarding_stuck`
+  - `cs_payment_problems`
+  - `cs_renewals_cancelling`
+  - `cs_support_unanswered`
+  - `cs_recurring_complaints`
+  - `cs_upsell_ready`
+- **API:**
+  - `GET /api/admin/ai-ceo/success`
+  - `POST /api/admin/ai-ceo/success/settings` (owner only, audited)
+- **Mission Control:** a new **Customer Success** tab.
+- **Tests:**
+  - `tests/Unit/CustomerSuccessTest.php`
+  - `tests/Integration/CustomerSuccessIntegrationTest.php`: every section loads on the real schema; stuck customer, failed payments, cancelling renewal, unanswered and recurring support topics; settings validation; decisions.
+
+**Not built in this phase**
+- Sending onboarding messages automatically. It needs the owner's approval of the wording and channel, and WhatsApp needs opt-in.
+- Satisfaction surveys (NPS/CSAT). There is no survey data yet; it needs a decision on when and how to ask.
+- Market-based price changes. Prices are never changed automatically; market data is the owner-entered median until competitor pricing is collected (Phase 9).
+- A support ticket system. Support today is the contact form only.
+
+**Next: Phase 7** — AI Platform Operations & Development Advisor.
