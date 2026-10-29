@@ -135,7 +135,7 @@ final class BrandGrowth
             . "- Paid ads are DISABLED: ad items are drafts for the owner to review, with no budget committed.\n- Use the language of each market (English for us and eu; Arabic and English for gcc).\n"
             . "- Prefer topics and landing pages that already bring sign-ups in DATA.\n"
             . "Return ONLY JSON: {\"positioning\": string, \"markets\": [{\"market\": string, \"language\": string, \"posts\": [{\"channel\": string, \"format\": \"image|carousel|video|text\", \"topic\": string, \"hook\": string, \"feature\": string, \"landing_page\": string}], \"articles\": [{\"keyword\": string, \"title\": string, \"outline\": [string]}], \"videos\": [{\"title\": string, \"script_outline\": [string], \"feature\": string}]}], \"ad_drafts\": {\"google\": [{\"market\": string, \"keywords\": [string], \"headlines\": [string], \"landing_page\": string}], \"meta\": [{\"market\": string, \"audience\": string, \"primary_text\": string, \"landing_page\": string}]}, \"kpis\": [string]}\n"
-            . "Per market: 8 posts, 2 articles, 1 video. Keep each text short.\n\nFEATURES:\n" . json_encode($features, JSON_UNESCAPED_UNICODE) . "\n\nDATA (last 30 days):\n" . json_encode($evidence, JSON_UNESCAPED_UNICODE);
+            . "Per market: 8 posts, 2 articles, 1 video. Keep each text short.\n\nFEATURES:\n" . json_encode($features, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\nDATA (last 30 days):\n" . json_encode($evidence, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($this->ai) {
             $raw = call_user_func($this->ai, $prompt);
         } else {
