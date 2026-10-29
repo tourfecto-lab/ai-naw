@@ -27,7 +27,7 @@
     let act = null; // {id, preview?, result?, error?, loading?}
     function actionBox(d) {
       if (!act || act.id !== d.id) return '';
-      if (act.loading) return `<div class="br-act" role="status">${t('بنجهّز…', 'Preparing…')}</div>`;
+      if (act.loading) return `<div class="br-act" role="status">${act.progress ? t(`بنكتب الردود… اتكتب ${num(act.progress.done)} من ${num(act.progress.target)}`, `Drafting replies… ${num(act.progress.done)} of ${num(act.progress.target)} done`) : t('بنجهّز…', 'Preparing…')}</div>`;
       if (act.error) return `<div class="br-act error" role="alert">${esc(act.error)}</div>`;
       const p = act.result || act.preview;
       if (act.result) return `<div class="br-act done" role="status"><b>✓ ${t(`اتكتب ${num(p.drafted)} رد`, `${num(p.drafted)} replies drafted`)}</b>${p.skipped ? ` <span class="br-muted">${t(`(${num(p.skipped)} ماتكتبوش لأن الذكاء الاصطناعي مش متاح دلوقتي)`, `(${num(p.skipped)} skipped: AI unavailable right now)`)}</span>` : ''}
@@ -166,9 +166,20 @@
       }; });
       const cancel = root.querySelector('[data-act-cancel]'); if (cancel) cancel.onclick = () => { act = null; render(); };
       const run = root.querySelector('[data-act-run]'); if (run) run.onclick = async () => {
-        if (busy) return; busy = true; const id = Number(run.dataset.actRun); act = { id, loading: true }; render();
-        try { const r = await req('/api/brain/decisions/' + id + '/action?website_id=' + wid(), { confirm: true, website_id: wid() }); data.decisions = r.decisions; data.results = r.results; act = { id, result: r.result }; }
-        catch (e) { act = { id, error: e.message }; }
+        if (busy) return; busy = true; const id = Number(run.dataset.actRun), target = act.preview?.will_draft || 0;
+        // دفعات صغيرة لحد ما نوصل للعدد اللي اتوافق عليه، أو دفعة ماتكتبش حاجة (الذكاء الاصطناعي مش متاح)
+        const total = { drafted: 0, skipped: 0 }; let last = null;
+        act = { id, loading: true, progress: { done: 0, target } }; render();
+        try {
+          while (total.drafted < target) {
+            const r = await req('/api/brain/decisions/' + id + '/action?website_id=' + wid(), { confirm: true, website_id: wid() });
+            data.decisions = r.decisions; data.results = r.results; last = r.result;
+            total.drafted += last.drafted; total.skipped += last.skipped;
+            if (!last.drafted || !last.without_draft) break;
+            act.progress.done = total.drafted; render();
+          }
+          act = { id, result: { ...last, drafted: total.drafted, skipped: total.skipped } };
+        } catch (e) { act = { id, error: total.drafted ? e.message + ' ' + t(`(اتكتب ${num(total.drafted)} رد قبل المشكلة، ومستنيين موافقتك في صفحة التقييمات)`, `(${num(total.drafted)} replies were drafted before the problem and are waiting on the reviews page)`) : e.message }; }
         finally { busy = false; render(); }
       };
       root.querySelectorAll('[data-set]').forEach(b => { b.onclick = async () => {

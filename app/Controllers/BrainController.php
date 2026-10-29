@@ -85,7 +85,9 @@ class BrainController extends Controller
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if ($e = $this->verifyCsrf()) return $e;
         if (!filter_var($this->get('confirm', false), FILTER_VALIDATE_BOOLEAN)) return $this->error(current_lang() === 'ar' ? 'لازم توافق الأول.' : 'Please confirm first.', 422);
-        if ($e = $this->rateLimitGuard('user', 'brain_action', 6, 3600)) return $e;
+        if ($e = $this->rateLimitGuard('user', 'brain_action', 40, 3600)) return $e;
+        // كل دفعة فيها لحد 6 طلبات ذكاء اصطناعي
+        if (function_exists('set_time_limit')) @set_time_limit(120);
         try {
             [$uid, $wid, $action, $row] = $this->decisionAction((int) ($params['id'] ?? 0));
             $result = (new BrainActions($this->db))->run($uid, $action);

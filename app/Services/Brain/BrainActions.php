@@ -15,6 +15,8 @@ class BrainActions
     /** أقصى عدد مسودات في المرة الواحدة (كل مسودة = طلب أو اتنين ذكاء اصطناعي) */
     public const MAX_DRAFTS = 10;
     public const AI_CALLS_PER_DRAFT = 2;
+    /** كل طلب بيكتب دفعة صغيرة بس، عشان الطلب مايعدّيش مهلة السيرفر؛ الصفحة بتكمّل الدفعات لحد MAX_DRAFTS */
+    public const BATCH = 3;
     private const DAYS = 30;
 
     /** القرار ← التنفيذ اللي جوه الخدمة */
@@ -48,16 +50,17 @@ class BrainActions
             'ai_calls_max' => $will * self::AI_CALLS_PER_DRAFT, 'publishes' => false, 'review_url' => '/reputation/reviews'];
     }
 
-    /** يكتب المسودات ويحطها في طابور الموافقة. مابينشرش حاجة. */
-    public function run(int $uid, string $action): array
+    /** يكتب دفعة مسودات ويحطها في طابور الموافقة. مابينشرش حاجة. */
+    public function run(int $uid, string $action, int $limit = self::BATCH): array
     {
+        $limit = max(1, min(self::MAX_DRAFTS, $limit));
         if ($action !== 'review_drafts') throw new InvalidArgumentException('Unknown action');
         $lock = 'tourfecto:brain-action:' . $uid;
         if ((int) ($this->db->query('SELECT GET_LOCK(?, 0) AS l', [$lock])[0]['l'] ?? 0) !== 1) throw new RuntimeException('busy');
         try {
             $rows = $this->db->query("SELECT * FROM reviews WHERE user_id = ? AND rating <= 3 AND reply_sent_at IS NULL
                 AND created_at > DATE_SUB(NOW(), INTERVAL " . self::DAYS . " DAY) AND (ai_generated_reply IS NULL OR ai_generated_reply = '')
-                ORDER BY rating ASC, created_at DESC LIMIT " . self::MAX_DRAFTS, [$uid]) ?: [];
+                ORDER BY rating ASC, created_at DESC LIMIT " . $limit, [$uid]) ?: [];
             $drafted = 0;
             $skipped = 0;
             foreach ($rows as $r) {
