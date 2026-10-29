@@ -782,6 +782,7 @@ return [
     'TripReminderService' => dirname(__DIR__,2).'/app/Services/TripReminderService.php',
     'UltraMsgAPI' => dirname(__DIR__,2).'/app/Services/Chat/UltraMsgAPI.php',
     'UnifiedInboxService' => dirname(__DIR__,2).'/app/Services/Chat/UnifiedInboxService.php',
+    'ChatConversationPrefs' => dirname(__DIR__,2).'/app/Services/Chat/ChatConversationPrefs.php',
     'UploadManager' => dirname(__DIR__,2).'/app/Services/UploadManager.php',
     'UsageAlertService' => dirname(__DIR__,2).'/app/Services/Subscription/UsageAlertService.php',
     'UsageReservationAdminController' => dirname(__DIR__,2).'/app/Controllers/UsageReservationAdminController.php',

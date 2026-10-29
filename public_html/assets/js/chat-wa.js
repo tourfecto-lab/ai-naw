@@ -226,8 +226,46 @@
     /* ---------- pin / archive / mark unread (kept in this browser only) ---------- */
     var list = $('ucList');
     var KEY = 'tf_wa_list_v1';
-    function prefs() { return store(KEY) || { pin: {}, arch: {}, unread: {} }; }
-    function setPref(kind, id, on) { var p = prefs(); if (on) p[kind][id] = 1; else delete p[kind][id]; store(KEY, p); decorate(); }
+    // When the optional server table exists the marks follow the agent across devices; otherwise they stay in this browser.
+    var server = null, serverTried = false;
+    var FIELD = { pin: 'pinned', arch: 'archived', unread: 'unread' };
+    function websiteId() { return window.Panel && Panel.getCurrentWebsiteId ? Panel.getCurrentWebsiteId() : null; }
+    function loadServerPrefs() {
+        var w = websiteId();
+        if (!w || !window.Panel || !Panel.fetchJSON) return false;
+        serverTried = true;
+        Panel.fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(w) + '/conversation-prefs').then(function (res) {
+            if (!res || !res.success || !res.data || !res.data.ready) return;
+            var s = { pin: {}, arch: {}, unread: {} }, all = res.data.prefs || {};
+            Object.keys(all).forEach(function (id) {
+                if (all[id].pinned) s.pin[id] = 1;
+                if (all[id].archived) s.arch[id] = 1;
+                if (all[id].unread) s.unread[id] = 1;
+            });
+            server = s;
+            decorate();
+        }).catch(function () { /* stay local */ });
+        return true;
+    }
+    function prefs() { return server || store(KEY) || { pin: {}, arch: {}, unread: {} }; }
+    function setPref(kind, id, on) {
+        var p = prefs();
+        if (on) p[kind][id] = 1; else delete p[kind][id];
+        if (server) {
+            var w = websiteId(), body = {};
+            body[FIELD[kind]] = on;
+            if (w && window.Panel && Panel.fetchJSON) {
+                Panel.fetchJSON('/api/ai-chat/websites/' + encodeURIComponent(w) + '/conversations/' + encodeURIComponent(id) + '/prefs', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+                }).then(function (res) {
+                    if (!res || !res.success) { if (on) delete server[kind][id]; else server[kind][id] = 1; decorate(); }
+                }).catch(function () { /* the next load re-reads the server state */ });
+            }
+        } else {
+            store(KEY, p);
+        }
+        decorate();
+    }
     var showArchived = false;
     var menu = el('div', 'wa-menu');
     menu.hidden = true;
@@ -268,6 +306,7 @@
         if (!list || busy) return;
         busy = true;
         if (listObs) listObs.disconnect();
+        if (!serverTried && list.querySelector('.ai-chat-item')) loadServerPrefs();
         var p = prefs();
         var rows = [].slice.call(list.querySelectorAll('.ai-chat-item'));
         var anyArch = false;

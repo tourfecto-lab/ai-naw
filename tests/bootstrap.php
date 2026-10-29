@@ -35,6 +35,16 @@ if (!function_exists('env')) {
     }
 }
 
+// The server has no composer dump-autoload: app/Config/project_classmap.php is what really loads classes there.
+// Mirror it here (after Composer's loader) so a class missing from the map fails the tests, and a stale local vendor/ doesn't.
+spl_autoload_register(static function (string $class): void {
+    static $map = null;
+    $map ??= is_file(TOURFECTO_APP . '/Config/project_classmap.php') ? require TOURFECTO_APP . '/Config/project_classmap.php' : [];
+    if (isset($map[$class]) && is_file($map[$class])) {
+        require_once $map[$class];
+    }
+});
+
 // ============================================
 // 2. تحميل ملفات التكوين
 // ============================================

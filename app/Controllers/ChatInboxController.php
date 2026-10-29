@@ -899,6 +899,61 @@ class ChatInboxController extends Controller
     }
 
     /**
+     * The agent's own pin / archive / unread marks for this website's conversations.
+     * GET /api/ai-chat/websites/{id}/conversation-prefs  ->  { ready, prefs: { "<conversation id>": { pinned, archived, unread } } }
+     * ready=false (migration not applied) tells the browser to keep these choices locally.
+     */
+    public function prefs(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        $ready = ChatConversationPrefs::ready();
+        return $this->success([
+            'ready' => $ready,
+            'prefs' => $ready ? (object) ChatConversationPrefs::forUser((int) $this->user['id'], (int) $website->getAttribute('id')) : (object) [],
+        ]);
+    }
+
+    /**
+     * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/prefs  - body: pinned?, archived?, unread? (booleans).
+     * Personal to the agent, so viewers may use it too.
+     */
+    public function setPrefs(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
+        if (!$conversation) {
+            return $this->error('Conversation not found', 404);
+        }
+        $flags = [];
+        foreach (['pinned', 'archived', 'unread'] as $k) {
+            $v = $this->get($k, null);
+            if ($v !== null && $v !== '') {
+                $flags[$k] = filter_var($v, FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+        $state = ChatConversationPrefs::set((int) $this->user['id'], (int) $conversation->getAttribute('id'), $flags);
+        if ($state === null) {
+            return $this->success(['ready' => false], 'Saved in this browser only');
+        }
+        return $this->success(['ready' => true, 'prefs' => $state]);
+    }
+
+    /**
      * The customer message the agent is replying to (WhatsApp only): its WhatsApp id for the "context" field and a short
      * snippet kept with our outgoing row so the bubble can show the quote.
      * @return array{0:?string,1:?array}
