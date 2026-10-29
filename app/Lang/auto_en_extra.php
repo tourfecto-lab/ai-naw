@@ -5068,4 +5068,13 @@ return [
     'ضغطة' => 'click',
     'أضفها كسلبية' => 'Add as negative',
     'تم التحليل' => 'Analysed',
+    'تابع أداء حملاتك يومًا بيوم، وشوف أنهي إعلان بيجيب نتيجة' => 'Follow your campaign performance day by day and see which ad brings results',
+    'اعرف بتصرف كام وعلى إيه، وقارن الحملات ببعضها' => 'See how much you spend and on what, and compare campaigns side by side',
+    'بحث بالذكاء الاصطناعي عن الأسواق والدول المناسبة لعرضك قبل ما تصرف' => 'AI research on the markets and countries that suit your offer, before you spend',
+    'شوف إعلانات منافسيك وإزاي تتميّز عنهم' => 'See your competitors ads and how to stand out from them',
+    'الذكاء الاصطناعي بيراقب حملاتك ويقترح أو ينفّذ تعديلات في حدود إنت اللي بتحددها' => 'AI watches your campaigns and suggests or applies changes within limits you set',
+    'اسأل عن أداء حسابك أو اطلب تعديل مباشر، وكله بيعدّي على نفس حدود الأمان' => 'Ask about your account performance or request a direct change, all within the same safety limits',
+    'تنبيهات تلقائية لما إنفاق أو تكلفة أو نتيجة حملة تخرج عن الطبيعي' => 'Automatic alerts when a campaign spend, cost or result goes out of the normal range',
+    'اربط حسابات Meta وGoogle وTikTok وتابع حالة كل واحد' => 'Connect your Meta, Google and TikTok accounts and follow the status of each',
+    'أضف زملاءك وحدّد صلاحية كل واحد على موديول الإعلانات' => 'Add your colleagues and set each one permission on the ads module',
 ];

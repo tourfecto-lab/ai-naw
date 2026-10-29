@@ -461,16 +461,16 @@ HTML;
         if (res.data.campaigns.length) {
             tbody.innerHTML = res.data.campaigns.map(c => `
                 <tr>
-                    <td><input type="checkbox" class="campaign-select" value="${c.id}" onchange="updateBulkBar()"></td>
-                    <td>
+                    <td data-label="" class="c-sel"><input type="checkbox" class="campaign-select" value="${c.id}" onchange="updateBulkBar()"></td>
+                    <td data-label="" class="c-name">
                         <b>${esc(cleanName(c.name))}</b>
                         ${c.ai_generated ? '<span class="pill blue xs" style="margin-inline-start:6px;">✨ ذكاء اصطناعي</span>' : ''}
                         ${c.target_audience_brief ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;">🎯 ' + esc(c.target_audience_brief) + '</div>' : ''}
                     </td>
-                    <td>${c.daily_budget ? money(c.daily_budget) + ' ' + esc(c.currency) : '<span class="p-cell-muted" title="No daily budget on the campaign (it may be set on the ad set)">\u2014</span>'}</td>
-                    <td>${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? (c.recent_activity === 'observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Recorded activity, not a live delivery check">Active in last 30 days</div>' : (c.recent_activity === 'not_observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Not a live delivery check">No activity in 30 days</div>' : '')) : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill blue xs" title="Linked to Meta. Delivery is not verified from here.">Meta</span>' : (c.platform === 'google_ads' ? '<span class="pill blue xs">Google</span>' : (c.platform === 'tiktok_ads' ? '<span class="pill blue xs">TikTok</span>' : '<span class="pill blue xs">Linked</span>'))) : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
-                    <td>${money(c.spend)} ${esc(c.currency)}</td>
-                    <td><div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <td data-label="الميزانية اليومية">${c.daily_budget ? money(c.daily_budget) + ' ' + esc(c.currency) : '<span class="p-cell-muted" title="No daily budget on the campaign (it may be set on the ad set)">\u2014</span>'}</td>
+                    <td data-label="الحالة">${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? (c.recent_activity === 'observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Recorded activity, not a live delivery check">Active in last 30 days</div>' : (c.recent_activity === 'not_observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Not a live delivery check">No activity in 30 days</div>' : '')) : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill blue xs" title="Linked to Meta. Delivery is not verified from here.">Meta</span>' : (c.platform === 'google_ads' ? '<span class="pill blue xs">Google</span>' : (c.platform === 'tiktok_ads' ? '<span class="pill blue xs">TikTok</span>' : '<span class="pill blue xs">Linked</span>'))) : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
+                    <td data-label="الإنفاق">${money(c.spend)} ${esc(c.currency)}</td>
+                    <td data-label="" class="c-act"><div style="display:flex;flex-wrap:wrap;gap:6px;">
                         ${!c.external_campaign_id ? '<button class="p-btn primary xs" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">🚀 انشر</button>' : (c.platform === 'meta_ads' && c.status === 'draft' ? '<button class="p-btn outline xs" data-resume="' + (c.external_adset_id ? 'ad' : '1') + '" data-adset-id="' + esc(c.external_adset_id || '') + '" data-meta-id="' + esc(c.external_campaign_id) + '" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">' + (c.external_adset_id ? 'Resume missing PAUSED Ad' : 'Resume paused setup') + '</button>' : '')}
                         <a href="/ads/campaigns/${c.id}" class="p-btn outline xs" style="text-decoration:none;">📋 التفاصيل</a>
                         <button class="p-btn outline xs" onclick="generateCopies(${c.id})">توليد ✨</button>
@@ -6009,7 +6009,31 @@ JS;
                 'team' => ['فريق العمل', '/ads/team'],
             ],
         ];
-        $html = '<style>.ads-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-bottom:18px;padding:2px 0 6px}'
+        $intro = [
+            'reports' => 'تابع أداء حملاتك يومًا بيوم، وشوف أنهي إعلان بيجيب نتيجة',
+            'budget' => 'اعرف بتصرف كام وعلى إيه، وقارن الحملات ببعضها',
+            'market_research' => 'بحث بالذكاء الاصطناعي عن الأسواق والدول المناسبة لعرضك قبل ما تصرف',
+            'competitors' => 'شوف إعلانات منافسيك وإزاي تتميّز عنهم',
+            'autopilot' => 'الذكاء الاصطناعي بيراقب حملاتك ويقترح أو ينفّذ تعديلات في حدود إنت اللي بتحددها',
+            'copilot' => 'اسأل عن أداء حسابك أو اطلب تعديل مباشر، وكله بيعدّي على نفس حدود الأمان',
+            'alerts' => 'تنبيهات تلقائية لما إنفاق أو تكلفة أو نتيجة حملة تخرج عن الطبيعي',
+            'connections' => 'اربط حسابات Meta وGoogle وTikTok وتابع حالة كل واحد',
+            'team' => 'أضف زملاءك وحدّد صلاحية كل واحد على موديول الإعلانات',
+        ][$active] ?? '';
+        $html = '<style>.ads-intro{margin:-6px 0 16px;font-size:13px;line-height:1.7;opacity:.75}'
+            . '@media (max-width:640px){'
+            . 'body:has(.ads-tabs) .p-card-head{flex-direction:column;align-items:flex-start;gap:4px}'
+            . '#dashboardFilters>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}'
+            . '#dashboardFilters .p-select{width:100%;font-size:13px;padding-inline:8px}'
+            . '#campaignsTable thead{display:none}#campaignsTable,#campaignsTable tbody{display:block}'
+            . '#campaignsTable tr{display:block;position:relative;padding:12px 14px;border-bottom:1px solid var(--border-color,rgba(128,128,128,.25))}'
+            . '#campaignsTable td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:3px 0;border:0}'
+            . '#campaignsTable td::before{content:attr(data-label);opacity:.65;font-size:12px;flex:0 0 auto}'
+            . '#campaignsTable td[data-label=""]::before{display:none}'
+            . '#campaignsTable td.c-sel{position:absolute;inset-inline-end:12px;top:12px;padding:0}'
+            . '#campaignsTable td.c-name{display:block;padding-inline-end:28px;font-size:15px}'
+            . '#campaignsTable td.c-act{display:block;padding-top:8px}'
+            . '}</style><style>.ads-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-bottom:18px;padding:2px 0 6px}'
             . '.ads-tabs::-webkit-scrollbar{display:none}.ads-tabs .p-tab{flex:0 0 auto;white-space:nowrap;text-decoration:none}'
             . '.ads-tabs .ads-tab-sep{flex:0 0 1px;align-self:stretch;margin:6px 4px;background:var(--border-color,rgba(128,128,128,.3))}</style>'
             . '<div class="ads-tabs" role="tablist">';
@@ -6022,7 +6046,8 @@ JS;
                 $html .= "<a href=\"{$url}\" class=\"p-tab" . ($on ? ' active' : '') . "\" role=\"tab\"" . ($on ? ' aria-selected="true"' : '') . ">{$label}</a>";
             }
         }
-        return $html . '</div><script>(function(){var a=document.querySelector(".ads-tabs .p-tab.active");if(a&&a.scrollIntoView){a.scrollIntoView({inline:"center",block:"nearest"});}})();</script>';
+        $html .= '</div>' . ($intro !== '' ? '<p class="ads-intro">' . $intro . '</p>' : '');
+        return $html . '<script>(function(){var a=document.querySelector(".ads-tabs .p-tab.active");if(a&&a.scrollIntoView){a.scrollIntoView({inline:"center",block:"nearest"});}})();</script>';
     }
 
     private function firstWebsiteForUser(int $userId): ?array
