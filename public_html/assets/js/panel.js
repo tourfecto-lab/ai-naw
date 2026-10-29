@@ -709,3 +709,14 @@
         if (content) tiltObserver.observe(content, { childList: true, subtree: true });
     });
 })(window);
+
+/* The monthly-analyses chip moves from the top bar to the sidebar footer (same node, so the code that fills it keeps working). */
+(function () {
+    'use strict';
+    function move() {
+        var chip = document.getElementById('panelCreditsWrap');
+        var foot = document.querySelector('.panel-sidebar-footer');
+        if (chip && foot && chip.parentNode !== foot) foot.insertBefore(chip, foot.firstChild);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', move); else move();
+})();
