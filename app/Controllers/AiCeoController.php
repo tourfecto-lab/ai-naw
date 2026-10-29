@@ -3,6 +3,7 @@ require_once __DIR__ . '/../Services/AiCeo/AiCeoStore.php';
 require_once __DIR__ . '/../Services/AiCeo/PlatformSnapshot.php';
 require_once __DIR__ . '/../Services/AiCeo/AiCeoChat.php';
 require_once __DIR__ . '/../Services/AiCeo/AiCostIntelligence.php';
+require_once __DIR__ . '/../Services/AiCeo/TourismBusinessDb.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -141,6 +142,93 @@ class AiCeoController extends Controller
             $saved = $costs->saveBudgets($in);
             (new AiCeoStore($this->db))->log((int) $this->user['id'], 'budgets_changed', $in);
             return $this->success(['budgets' => $saved]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 3: قاعدة شركات السياحة
+
+    /** GET /api/admin/ai-ceo/companies?q=&country=&city=&status=&track=&min_score=&has_email=&converted=&page= */
+    public function companies(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            $db = new TourismBusinessDb($this->db);
+            $f = [];
+            foreach (['q', 'country', 'city', 'status', 'track', 'min_score'] as $k) $f[$k] = (string) $this->get($k, '');
+            $f['has_email'] = filter_var($this->get('has_email', false), FILTER_VALIDATE_BOOLEAN);
+            $f['converted'] = filter_var($this->get('converted', false), FILTER_VALIDATE_BOOLEAN);
+            return $this->success(['results' => $db->search($f, (int) $this->get('page', 1)), 'stats' => $db->stats(), 'owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('Tourism DB search failed', ['error' => $e->getMessage()]);
+            return $this->error('The company database could not load right now.', 503);
+        }
+    }
+
+    /** GET /api/admin/ai-ceo/companies/{id} */
+    public function company(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        try {
+            return $this->success((new TourismBusinessDb($this->db))->profile((int) ($params['id'] ?? 0)));
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 404);
+        }
+    }
+
+    /** GET /api/admin/ai-ceo/companies-duplicates */
+    public function duplicates(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        return $this->success(['groups' => (new TourismBusinessDb($this->db))->duplicates()]);
+    }
+
+    /** POST /api/admin/ai-ceo/companies/{id}/consent  {event, channel, note} — أي أدمن يقدر يسجّل اعتراض أو إيقاف تواصل (حماية) */
+    public function consent(array $params = []): array
+    {
+        if ($e = $this->guard(false)) return $e;
+        try {
+            $id = (int) ($params['id'] ?? 0);
+            $event = (string) $this->get('event');
+            (new TourismBusinessDb($this->db))->recordConsent($id, $event, (string) $this->get('channel', 'all'), (int) $this->user['id'], (string) $this->get('note', ''));
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'company_consent', ['lead_id' => $id, 'event' => $event]);
+            return $this->success([], 'Saved');
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/companies/{id}/erase — طلب حذف (صاحب المنصة بس) */
+    public function erase(array $params = []): array
+    {
+        if ($e = $this->guard(true)) return $e;
+        try {
+            $id = (int) ($params['id'] ?? 0);
+            (new TourismBusinessDb($this->db))->erase($id, (int) $this->user['id'], (string) $this->get('note', ''));
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'company_erased', ['lead_id' => $id]);
+            return $this->success([], 'Erased');
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/companies-merge  {primary_id, duplicate_id, reason} أو {undo: merge_id} — صاحب المنصة بس */
+    public function merge(array $params = []): array
+    {
+        if ($e = $this->guard(true)) return $e;
+        try {
+            $db = new TourismBusinessDb($this->db);
+            $store = new AiCeoStore($this->db);
+            if ($undo = (int) $this->get('undo', 0)) {
+                $db->undoMerge($undo);
+                $store->log((int) $this->user['id'], 'company_merge_undone', ['merge_id' => $undo]);
+                return $this->success(['groups' => $db->duplicates()]);
+            }
+            $id = $db->merge((int) $this->get('primary_id', 0), (int) $this->get('duplicate_id', 0), (int) $this->user['id'], (string) $this->get('reason', 'manual'));
+            $store->log((int) $this->user['id'], 'company_merged', ['merge_id' => $id, 'primary_id' => (int) $this->get('primary_id', 0), 'duplicate_id' => (int) $this->get('duplicate_id', 0)]);
+            return $this->success(['merge_id' => $id, 'groups' => $db->duplicates()]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         }

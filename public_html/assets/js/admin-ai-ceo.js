@@ -10,7 +10,9 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    // قاعدة شركات السياحة (المرحلة 3)
+    let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
     const req = async (url, body) => {
@@ -115,6 +117,64 @@
         <p class="br-muted" style="margin-top:10px">${(c.limits || []).map(esc).join(' ')}</p></section>`;
     }
 
+    function companiesTab() {
+      if (coError) return `<section class="br-card"><h3>Tourism Companies</h3><p class="br-muted">${esc(coError)}</p></section>`;
+      if (!co) return '<section class="br-card"><h3>Tourism Companies</h3><p class="br-muted">Loading the company database…</p></section>';
+      const s = co.stats, r = co.results, f = coFilters, owner = co.owner;
+      const opts = (obj, cur) => '<option value="">All</option>' + Object.entries(obj || {}).map(([k, n]) => `<option value="${esc(k)}" ${cur === k ? 'selected' : ''}>${esc(k)} (${num(n)})</option>`).join('');
+      const rows = r.items.map(x => `<tr data-co="${x.id}" style="cursor:pointer"><td dir="auto"><b>${esc(x.company || '—')}</b><div class="br-muted" dir="ltr">${esc(x.domain || '')}</div></td><td>${esc(x.country || '?')}${x.city ? ' · ' + esc(x.city) : ''}</td>
+        <td>${esc(x.status)}</td><td>${x.score === null ? '—' : num(x.score)}</td><td>${x.services.map(v => esc(v.label)).join(', ') || '—'}</td><td>${x.has_email == 1 ? '✓' : '—'}</td><td>${num(x.messages)}</td><td>${esc((x.created_at || '').slice(0, 10))} · ${esc(x.source || '')}</td></tr>`).join('');
+      const pages = Math.max(1, Math.ceil(r.total / r.per));
+      return `<section class="br-card"><h3>Tourism Companies</h3>
+        <p class="br-muted">Every tourism business discovered or imported (Apify, CSV/JSON), kept with its analysis history, contact history and consent log. Separate from platform customers. Published contact details are <b>not</b> marketing consent.</p>
+        <div class="br-tiles">${tile(num(s.total), 'Companies')}${tile(num(s.with_email), 'With email')}${tile(num(s.analysed), 'Analysed')}${tile(num(s.converted), 'Became customers')}${tile(num(s.do_not_contact), 'Do not contact')}${tile(num(s.reports), 'Saved reports', num(s.suppressed) + ' erased & blocked from re-import')}</div>
+        <form id="coForm" class="ac-form"><input class="p-select" name="q" dir="auto" placeholder="Company, domain or city" value="${esc(f.q || '')}">
+          <select class="p-select" name="country">${opts(s.countries, f.country)}</select><select class="p-select" name="status">${opts(s.statuses, f.status)}</select><select class="p-select" name="track">${opts(s.tracks, f.track)}</select>
+          <input class="p-select" name="min_score" type="number" min="0" max="100" placeholder="Min score" value="${esc(f.min_score || '')}" style="max-width:110px">
+          <label class="br-muted"><input type="checkbox" name="has_email" ${f.has_email ? 'checked' : ''}> has email</label><label class="br-muted"><input type="checkbox" name="converted" ${f.converted ? 'checked' : ''}> became customer</label>
+          <button class="p-btn primary" type="submit">Search</button></form>
+        <p class="br-muted">${num(r.total)} companies · page ${r.page} of ${pages}</p>
+        ${rows ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Company</th><th>Place</th><th>Status</th><th>Lead score</th><th>Likely needs</th><th>Email</th><th>Messages</th><th>Added · source</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="br-muted">No companies match.</p>'}
+        <div class="br-actions">${r.page > 1 ? '<button type="button" class="p-btn xs outline" data-co-page="-1">Previous</button>' : ''}${r.page < pages ? '<button type="button" class="p-btn xs outline" data-co-page="1">Next</button>' : ''}</div></section>
+        ${coProfile ? profileCard(coProfile, owner) : ''}
+        <section class="br-card"><div class="br-head"><div><h3>Possible duplicates</h3><p class="br-muted">Same domain, same phone, or same name in the same city. Merging fills the primary's empty fields and pauses the duplicate; it can be undone.</p></div>
+          <button type="button" class="p-btn xs outline" id="coDupsBtn">${coDups ? 'Refresh' : 'Find duplicates'}</button></div>
+          ${coDups ? (coDups.length ? `<ul class="br-proof">${coDups.map(g => `<li>${esc(g.reason)} <span dir="ltr">${esc(g.key)}</span>: ${g.ids.map(i => `<a href="#companies" data-co="${i}">#${i}</a>`).join(', ')}
+            ${owner ? g.ids.slice(1).map(i => `<button type="button" class="p-btn xs outline" data-merge="${g.ids[0]}:${i}:${esc(g.reason)}">Merge #${i} into #${g.ids[0]}</button>`).join('') : ''}</li>`).join('')}</ul>` : '<p class="br-muted">No duplicates found.</p>') : ''}</section>`;
+    }
+
+    function profileCard(p, owner) {
+      const c = p.company, j = v => v ? `<pre class="br-muted" style="white-space:pre-wrap;max-height:180px;overflow:auto" dir="ltr">${esc(typeof v === 'string' ? v : JSON.stringify(v, null, 1))}</pre>` : '—';
+      return `<section class="br-card" id="coProfile"><div class="br-head"><div><h3 dir="auto">${esc(c.company || '—')} <span class="br-muted">#${c.id}</span></h3>
+        <p class="br-muted">${esc(c.country || '?')} · ${esc(c.city || '')} · ${esc(c.category || '')} · status ${esc(c.status)} · score ${c.score ?? '—'} · source ${esc(c.source)} · added ${esc(c.created_at)}</p></div>
+        <button type="button" class="p-btn xs outline" id="coClose">Close</button></div>
+        <p>${c.website ? `<a href="${esc(c.website)}" target="_blank" rel="noopener" dir="ltr">${esc(c.website)}</a> · ` : ''}${c.email ? '✉ ' + esc(c.email) + ' · ' : ''}${c.phone ? '☎ ' + esc(c.phone) : ''}${c.rating ? ' · ★ ' + esc(c.rating) + ' (' + esc(c.reviews) + ')' : ''}</p>
+        <p><b>Social:</b> ${Object.keys(p.socials).length ? Object.entries(p.socials).map(([k, v]) => typeof v === 'string' && v.startsWith('http') ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(k)}</a>` : esc(k)).join(' · ') : '—'}</p>
+        <p><b>Likely needs:</b> ${p.services.map(v => esc(v.label)).join(', ') || '—'} · <b>Platform customer:</b> ${p.customer ? 'yes (user #' + p.customer.user_id + (p.customer.subscription ? ', ' + esc(p.customer.subscription.status) + (p.customer.subscription.paid ? ', paid' : '') : '') + ')' : 'no'}</p>
+        <details class="br-past"><summary>Opportunities (${p.opportunities.length})</summary>${j(p.opportunities)}</details>
+        <details class="br-past"><summary>Latest analysis</summary>${j(p.audit)}</details>
+        <details class="br-past"><summary>Saved reports (${p.reports.length})</summary>${p.reports.length ? `<ul class="br-proof">${p.reports.map(x => `<li>${esc(x.captured_at)} · ${esc(x.kind)} · score ${x.score ?? '—'}</li>`).join('')}</ul>` : '—'}</details>
+        <details class="br-past"><summary>Contact history (${p.messages.length})</summary>${p.messages.length ? `<ul class="br-proof">${p.messages.map(m => `<li>${esc(m.sent_at)} · step ${esc(m.step)} · ${esc(m.status)} · <span dir="auto">${esc(m.subject)}</span>${m.opened_at ? ' · opened' : ''}${m.clicked_at ? ' · clicked' : ''}</li>`).join('')}</ul>` : '—'}</details>
+        <details class="br-past" open><summary>Consent & objections (${p.consent.length})</summary>${p.consent.length ? `<ul class="br-proof">${p.consent.map(e => `<li>${esc(e.created_at)} · <b>${esc(e.event)}</b> · ${esc(e.channel)} · ${esc(e.source)}${e.note ? ' · ' + esc(e.note) : ''}</li>`).join('')}</ul>` : '<p class="br-muted">No consent recorded. Do not assume consent from published contact details.</p>'}
+          <form id="coConsent" class="ac-form"><select class="p-select" name="event"><option value="objection">Objection</option><option value="do_not_contact">Do not contact</option><option value="unsubscribe">Unsubscribe</option><option value="opt_in">Explicit opt-in</option></select>
+          <select class="p-select" name="channel"><option value="all">All channels</option><option value="email">Email</option><option value="whatsapp">WhatsApp</option><option value="phone">Phone</option></select>
+          <input class="p-select" name="note" dir="auto" placeholder="Note (how it was received)"><button class="p-btn outline" type="submit">Record</button></form></details>
+        ${p.merges.length ? `<details class="br-past"><summary>Merges (${p.merges.length})</summary><ul class="br-proof">${p.merges.map(m => `<li>#${m.duplicate_id} → #${m.primary_id} · ${esc(m.reason)} · ${esc(m.merged_at)}${m.undone_at ? ' · undone' : owner ? ` <button type="button" class="p-btn xs outline" data-undo="${m.id}">Undo</button>` : ''}</li>`).join('')}</ul></details>` : ''}
+        ${owner ? '<div class="br-actions"><button type="button" class="p-btn xs" style="background:var(--panel-danger,#dc2626);color:#fff" id="coErase">Erase on request</button></div>' : ''}</section>`;
+    }
+
+    async function loadCompanies() {
+      const qs = new URLSearchParams(Object.entries(coFilters).filter(([, v]) => v !== '' && v !== false && v !== undefined).map(([k, v]) => [k, v === true ? '1' : String(v)]));
+      coLoading = true;
+      try { co = await req('/api/admin/ai-ceo/companies?' + qs.toString()); coError = null; } catch (e) { coError = e.message; }
+      finally { coLoading = false; }
+      render();
+    }
+    async function openCompany(id) {
+      try { coProfile = await req('/api/admin/ai-ceo/companies/' + id); } catch (e) { note = { text: e.message, error: true }; }
+      render(); root.querySelector('#coProfile')?.scrollIntoView({ behavior: 'smooth' });
+    }
+
     function memory() {
       const rows = (data.memory || []).filter(m => m.kind !== 'chat').map(m => `<li><span class="br-area">${esc(m.kind)}</span> <b dir="auto">${esc(m.title)}</b>${m.body ? `<div class="br-muted" dir="auto">${esc(m.body)}</div>` : ''}<small class="br-muted"> · ${esc(m.created_at)} UTC</small></li>`).join('');
       return `<section class="br-card"><h3>Institutional Memory</h3><p class="br-muted">Decisions, plans and results the AI CEO keeps so it does not repeat mistakes.</p>
@@ -146,6 +206,7 @@
         case 'chat': return chat();
         case 'approvals': return radar(data.decisions || []);
         case 'costs': return costSection();
+        case 'companies': if (!co && !coError && !coLoading) loadCompanies(); return companiesTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();
@@ -170,6 +231,19 @@
         finally { chatBusy = false; render(); root.querySelector('#acMsg')?.focus(); }
       };
       root.querySelectorAll('[data-q]').forEach(b => b.onclick = () => ask(b.dataset.q));
+      root.querySelector('#coForm')?.addEventListener('submit', ev => { ev.preventDefault(); const fd = new FormData(ev.target); coFilters = { page: 1 };
+        for (const [k, v] of fd.entries()) coFilters[k] = k === 'has_email' || k === 'converted' ? true : v; loadCompanies(); });
+      root.querySelectorAll('[data-co-page]').forEach(b => b.onclick = () => { coFilters.page = (co?.results.page || 1) + Number(b.dataset.coPage); loadCompanies(); });
+      root.querySelectorAll('[data-co]').forEach(el => el.onclick = ev => { ev.preventDefault(); openCompany(el.dataset.co); });
+      root.querySelector('#coClose')?.addEventListener('click', () => { coProfile = null; render(); });
+      root.querySelector('#coDupsBtn')?.addEventListener('click', () => act(async () => { coDups = (await req('/api/admin/ai-ceo/companies-duplicates')).groups; }));
+      root.querySelectorAll('[data-merge]').forEach(b => b.onclick = () => { const [pid, did, reason] = b.dataset.merge.split(':'); if (!confirm(`Merge #${did} into #${pid}? The duplicate is paused (not deleted) and this can be undone.`)) return;
+        act(async () => { coDups = (await req('/api/admin/ai-ceo/companies-merge', { primary_id: Number(pid), duplicate_id: Number(did), reason })).groups; await loadCompanies(); }, 'Merged ✓'); });
+      root.querySelectorAll('[data-undo]').forEach(b => b.onclick = () => act(async () => { await req('/api/admin/ai-ceo/companies-merge', { undo: Number(b.dataset.undo) }); if (coProfile) await openCompany(coProfile.company.id); }, 'Merge undone ✓'));
+      root.querySelector('#coConsent')?.addEventListener('submit', ev => { ev.preventDefault(); const fd = new FormData(ev.target);
+        act(async () => { await req('/api/admin/ai-ceo/companies/' + coProfile.company.id + '/consent', Object.fromEntries(fd.entries())); await openCompany(coProfile.company.id); }, 'Recorded ✓'); });
+      root.querySelector('#coErase')?.addEventListener('click', () => { const why = prompt('Erase this company\'s contact and personal data on their request? Only a hash is kept so it is not imported again. Type the request reference to confirm:'); if (!why) return;
+        act(async () => { await req('/api/admin/ai-ceo/companies/' + coProfile.company.id + '/erase', { note: why }); coProfile = null; await loadCompanies(); }, 'Erased ✓'); });
       root.querySelector('#acBudgets')?.addEventListener('click', () => act(async () => {
         const budgets = {}; root.querySelectorAll('[data-budget]').forEach(el => { budgets[el.dataset.budget] = el.value.trim(); });
         await req('/api/admin/ai-ceo/budgets', { budgets }); await loadCosts(); }, 'Budgets saved ✓'));

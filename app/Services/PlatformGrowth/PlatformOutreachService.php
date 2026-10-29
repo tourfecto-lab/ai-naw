@@ -326,6 +326,9 @@ class PlatformOutreachService
     {
         $stats = ['added' => 0, 'updated' => 0, 'skipped' => 0, 'no_email' => 0, 'total' => count($rows)];
         $customers = $this->customerKeys();
+        // شركات اتحذفت بطلبها (AI CEO → قاعدة شركات السياحة): ماتتستوردش تاني
+        $suppress = null;
+        try { $suppress = class_exists('TourismBusinessDb') ? new TourismBusinessDb() : null; } catch (Throwable $e) { $suppress = null; }
         foreach (array_slice($rows, 0, 20000) as $row) {
             if (!is_array($row)) {
                 $stats['skipped']++;
@@ -338,6 +341,10 @@ class PlatformOutreachService
             }
             // معالم ومتاحف وجوامع من TripAdvisor: مش هتشتري أداة تسويق
             if (!empty($lead['extra']['ta']) && class_exists('OutreachNeeds') && !OutreachNeeds::isSeller($lead['extra']['ta'], $lead['category'])) {
+                $stats['skipped']++;
+                continue;
+            }
+            if ($suppress && $suppress->isSuppressed($lead['email'], $lead['domain'], $lead['phone'])) {
                 $stats['skipped']++;
                 continue;
             }
