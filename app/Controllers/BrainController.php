@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../Services/Brain/CompanyBrainService.php';
 require_once __DIR__ . '/../Services/Brain/BrainDecisionStore.php';
 require_once __DIR__ . '/../Services/Brain/SharedIntelligence.php';
+require_once __DIR__ . '/../Services/Brain/BrainActions.php';
 
 /** العقل الاستراتيجي لكل شركة: الفهم + القرارات + النتايج. كل حاجة مقيّدة بحساب المستخدم الحالي. */
 class BrainController extends Controller
@@ -61,6 +62,61 @@ class BrainController extends Controller
             Logger::error('Brain decision update failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
             return $this->error(current_lang() === 'ar' ? 'تعذر حفظ القرار.' : 'Could not save the decision.', 503);
         }
+    }
+
+    /** GET /api/brain/decisions/{id}/action — التنفيذ جوه الخدمة: هيحصل إيه وبيكلّف قد إيه، قبل الموافقة */
+    public function actionPreview(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        try {
+            [$uid, , $action] = $this->decisionAction((int) ($params['id'] ?? 0));
+            return $this->success(['preview' => (new BrainActions($this->db))->preview($uid, $action)]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Brain action preview failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
+            return $this->error(current_lang() === 'ar' ? 'تعذر تجهيز التنفيذ.' : 'Could not prepare this action.', 503);
+        }
+    }
+
+    /** POST /api/brain/decisions/{id}/action  {confirm: true} — بينفّذ بعد موافقة صريحة، والنتيجة بتروح طابور الموافقة في الخدمة */
+    public function actionRun(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($e = $this->verifyCsrf()) return $e;
+        if (!filter_var($this->get('confirm', false), FILTER_VALIDATE_BOOLEAN)) return $this->error(current_lang() === 'ar' ? 'لازم توافق الأول.' : 'Please confirm first.', 422);
+        if ($e = $this->rateLimitGuard('user', 'brain_action', 6, 3600)) return $e;
+        try {
+            [$uid, $wid, $action, $row] = $this->decisionAction((int) ($params['id'] ?? 0));
+            $result = (new BrainActions($this->db))->run($uid, $action);
+            $store = new BrainDecisionStore($this->db);
+            // القرار بقى "شغالين عليه"؛ بيتقفل لما الردود تتنشر فعلًا والرقم ينزل
+            if ($row['status'] === 'proposed' && $result['drafted'] > 0) {
+                $store->setStatus($uid, $wid, (int) $row['id'], 'approved', (new CompanyBrainService($this->db))->snapshot($uid, $wid, false), current_lang() === 'en' ? 'en' : 'ar');
+            }
+            $this->log('Brain service action', ['decision' => $row['decision_key'], 'action' => $action, 'drafted' => $result['drafted'], 'skipped' => $result['skipped']]);
+            return $this->success(['result' => $result, 'decisions' => $store->list($uid, $wid), 'results' => $store->results($uid, $wid)]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (RuntimeException $e) {
+            if ($e->getMessage() === 'busy') return $this->error(current_lang() === 'ar' ? 'فيه تنفيذ شغال دلوقتي. استنى دقيقة.' : 'Another action is running. Please wait a minute.', 409);
+            Logger::error('Brain action failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
+            return $this->error(current_lang() === 'ar' ? 'تعذر التنفيذ.' : 'The action failed.', 503);
+        } catch (Throwable $e) {
+            Logger::error('Brain action failed', ['user_id' => (int) $this->user['id'], 'error' => $e->getMessage()]);
+            return $this->error(current_lang() === 'ar' ? 'تعذر التنفيذ.' : 'The action failed.', 503);
+        }
+    }
+
+    /** @return array{0:int,1:int,2:string,3:array} القرار لازم يكون بتاع المستخدم وموقعه، وليه تنفيذ جوه خدمة */
+    private function decisionAction(int $id): array
+    {
+        [$uid, $wid] = $this->site();
+        $row = $this->db->query('SELECT * FROM brain_decisions WHERE id = ? AND user_id = ? AND website_id = ? LIMIT 1', [$id, $uid, $wid])[0] ?? null;
+        if (!$row) throw new InvalidArgumentException('Decision not found');
+        $action = BrainActions::forDecision((string) $row['decision_key']);
+        if ($action === null) throw new InvalidArgumentException('No in-service action for this decision');
+        return [$uid, $wid, $action, $row];
     }
 
     /** POST /api/brain/autonomy  {on: bool} — التشغيل الذاتي: القرارات اللي مافيهاش صرف بتتحول لمهام وتنبيهات لوحدها */
