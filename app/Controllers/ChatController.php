@@ -308,6 +308,68 @@ class ChatController extends Controller
     }
 
     /**
+     * GET /api/chat/channels-strip - "status" strip at the top of the inbox: the owner's connected pages with their
+     * profile pictures and a ring when a story went out in the last 24h. Read-only, DB only (no call to Meta).
+     */
+    public function channelsStrip(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $uid = (int) ($this->user['id'] ?? 0);
+        $items = [];
+        try {
+            $rows = $this->db->query(
+                "SELECT id, platform, external_location_name AS name FROM platform_connections
+                  WHERE (user_id = ? OR website_id IN (SELECT id FROM websites WHERE user_id = ?))
+                    AND status = 'connected' AND platform IN ('facebook', 'instagram', 'whatsapp_cloud')
+                  ORDER BY id DESC LIMIT 12",
+                [$uid, $uid]
+            ) ?: [];
+            $avatars = [];
+            $stories = [];
+            $ids = array_values(array_filter(array_map(static fn ($r) => (int) $r['id'], $rows)));
+            if ($ids) {
+                $in = implode(',', $ids);
+                try {
+                    foreach ($this->db->query("SELECT platform_connection_id, avatar_url, display_name FROM social_account_profiles WHERE platform_connection_id IN ($in)") ?: [] as $a) {
+                        $avatars[(int) $a['platform_connection_id']] = $a;
+                    }
+                } catch (Throwable $e) {
+                    error_log('[ChatController] channelsStrip avatars: ' . $e->getMessage());
+                }
+                try {
+                    foreach ($this->db->query(
+                        "SELECT DISTINCT t.platform_connection_id AS cid FROM social_post_targets t
+                           JOIN social_posts p ON p.id = t.social_post_id
+                          WHERE t.platform_connection_id IN ($in) AND t.status = 'published' AND p.post_format = 'story'
+                            AND t.published_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)"
+                    ) ?: [] as $st) {
+                        $stories[(int) $st['cid']] = true;
+                    }
+                } catch (Throwable $e) {
+                    // post_format needs the social-pro migration; without it there are simply no stories to show.
+                }
+            }
+            foreach ($rows as $r) {
+                $id = (int) $r['id'];
+                $avatar = (string) ($avatars[$id]['avatar_url'] ?? '');
+                $items[] = [
+                    'id' => $id,
+                    'platform' => (string) $r['platform'],
+                    'name' => (string) (($avatars[$id]['display_name'] ?? '') ?: ($r['name'] ?? '')),
+                    // Only https image URLs are ever rendered.
+                    'avatar_url' => preg_match('#^https://#i', $avatar) ? $avatar : '',
+                    'has_story' => !empty($stories[$id]),
+                ];
+            }
+        } catch (Throwable $e) {
+            error_log('[ChatController] channelsStrip: ' . $e->getMessage());
+        }
+        return $this->success(['items' => $items]);
+    }
+
+    /**
      * الحصول على رسائل في انتظار الموافقة
      * GET /api/chat/pending
      * @param array $params
@@ -880,7 +942,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                 </div>
 
                 <div id="ucThreadPanel" style="display:none;">
-                    <button type="button" class="wa-back" onclick="document.getElementById('ucBody').classList.remove('wa-chat-open')">&#8592; Conversations</button>
+                    <button type="button" class="wa-back" onclick="document.getElementById('ucBody').classList.remove('wa-chat-open');document.body.classList.remove('wa-in-chat')">&#8592; Conversations</button>
                     <div class="p-card" id="convHeader" style="margin-bottom:14px;"></div>
                     <div class="p-card" id="leadPanel" style="margin-bottom:14px;"></div>
                     <div class="p-card" id="convThread" style="max-height:calc(100vh - 420px);min-height:260px;overflow-y:auto;"></div>
@@ -924,6 +986,51 @@ HTML;
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, timeAgo = P.timeAgo;
     const currentUserId = __CURRENT_USER_ID__;
+    // WhatsApp-style shell: filters live inside the list column, and a "status" strip of the connected pages sits on top.
+    document.body.classList.add('wa-app');
+    (function waShell() {
+        const list = document.getElementById('ucList');
+        if (!list) return;
+        const card = list.parentNode;
+        const strip = document.createElement('div');
+        strip.id = 'waStrip';
+        strip.className = 'wa-strip';
+        strip.style.display = 'none';
+        card.insertBefore(strip, list);
+        const search = document.getElementById('ucSearch');
+        const bar = search && search.closest('.p-toolbar');
+        if (bar) card.insertBefore(bar, list);
+
+        function node(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+        function item(href, label, ring, avatar, glyph) {
+            const a = node('a', 'wa-st');
+            a.href = href;
+            const r = node('span', 'wa-ring' + (ring ? ' has-story' : ''));
+            if (avatar && /^https:\/\//i.test(avatar)) {
+                const img = node('img');
+                img.src = avatar; img.alt = ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+                img.onerror = function () { img.remove(); r.appendChild(node('b', '', (label || '?').trim().charAt(0).toUpperCase())); };
+                r.appendChild(img);
+            } else {
+                r.appendChild(node('b', '', glyph || (label || '?').trim().charAt(0).toUpperCase()));
+            }
+            a.appendChild(r);
+            a.appendChild(node('small', '', label));
+            return a;
+        }
+        fetchJSON('/api/chat/channels-strip').then(function (res) {
+            const items = (res && res.success && res.data && res.data.items) || [];
+            if (!items.length) return;
+            strip.appendChild(item('/social', 'My story', false, '', '+'));
+            items.forEach(function (i) {
+                const a = item('/social', i.name || i.platform, i.has_story, i.avatar_url, '');
+                a.classList.add('pf-' + String(i.platform).replace(/[^a-z_]/g, ''));
+                strip.appendChild(a);
+            });
+            strip.style.display = '';
+        }).catch(function () { /* the strip is decoration: the inbox works without it */ });
+    })();
+
     let websiteId = null;
     let currentConversation = null;
     let activeConvId = null;
@@ -964,7 +1071,7 @@ HTML;
     }
 
     function avatarClass(ch) {
-        return (ch === 'whatsapp' || ch === 'email') ? ' ' + ch : '';
+        return ['whatsapp', 'email', 'messenger', 'instagram', 'website_chat', 'webchat'].indexOf(ch) !== -1 ? ' ' + ch : '';
     }
 
     function statusLine(c) {
@@ -1052,7 +1159,7 @@ HTML;
 
         document.getElementById('ucEmptyState').style.display = 'none';
         document.getElementById('ucThreadPanel').style.display = 'block';
-        if (silent !== true) document.getElementById('ucBody').classList.add('wa-chat-open');
+        if (silent !== true) { document.getElementById('ucBody').classList.add('wa-chat-open'); document.body.classList.add('wa-in-chat'); }
         const threadEl = document.getElementById('convThread');
         const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 80;
         if (silent !== true) {
@@ -1848,7 +1955,7 @@ HTML;
         currentConversation = null;
         document.getElementById('ucEmptyState').style.display = 'block';
         document.getElementById('ucThreadPanel').style.display = 'none';
-        document.getElementById('ucBody').classList.remove('wa-chat-open');
+        document.getElementById('ucBody').classList.remove('wa-chat-open'); document.body.classList.remove('wa-in-chat');
         loadList();
     });
 

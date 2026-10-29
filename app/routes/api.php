@@ -396,6 +396,7 @@ $router->post('/api/reputation/webhook', 'ReputationController', 'webhook');
 // ============================================
 $router->get('/api/chat/messages', 'ChatController', 'getMessages', ['AuthMiddleware']);
 $router->get('/api/chat/conversation/{session_id}', 'ChatController', 'getConversation', ['AuthMiddleware']);
+$router->get('/api/chat/channels-strip', 'ChatController', 'channelsStrip', ['AuthMiddleware']);
 $router->get('/api/chat/pending', 'ChatController', 'getPendingApprovals', ['AuthMiddleware']);
 $router->post('/api/chat/approve', 'ChatController', 'approveReply', ['AuthMiddleware']);
 $router->post('/api/chat/send', 'ChatController', 'sendMessage', [

@@ -24,3 +24,60 @@ html body.tab-chat table.p-table th{color:var(--wa-sub);background:var(--wa-head
 html body.tab-chat table.p-table td{border-color:var(--wa-line)}
 html body.tab-chat .panel-content a:not([class]){color:var(--wa-green-2)}
 html:not([data-theme="dark"]) body.tab-chat .panel-content a:not([class]){color:#006e5a}
+
+/* ============================================================
+   Inbox app shell (body.wa-app is set by the inbox script): WhatsApp Web on desktop, the phone app on mobile.
+   ============================================================ */
+html body.wa-app .panel-topbar .subtitle{display:none}
+html body.wa-app .tf-sec-tabs{margin:0 0 10px;padding-bottom:8px}
+html body.wa-app #ucBody.ai-chat-split{grid-template-columns:clamp(340px,32%,460px) minmax(0,1fr);height:calc(100dvh - 160px);min-height:520px;align-items:stretch}
+html body.wa-app .ai-chat-list-card{display:flex;flex-direction:column;min-height:0}
+html body.wa-app .ai-chat-list-card .ai-chat-list{flex:1 1 auto;min-height:0;max-height:none;overflow-y:auto}
+html body.wa-app #ucBody>div:last-child{display:flex;flex-direction:column;min-height:0;height:100%}
+html body.wa-app #ucThreadPanel[style*="block"]{display:flex!important;flex-direction:column;flex:1 1 auto;min-height:0;height:100%}
+html body.wa-app #convThread{flex:1 1 auto;min-height:0!important;max-height:none!important;overflow-y:auto}
+html body.wa-app #leadPanel{flex:0 0 auto;max-height:150px;overflow:auto}
+html body.wa-app #ucReplyCard,html body.wa-app #convHeader{flex:0 0 auto}
+html body.wa-app #ucEmptyState{flex:1 1 auto}
+
+/* search + filters inside the list column */
+html body.wa-app .ai-chat-list-card .p-toolbar{margin:0;padding:8px 12px;gap:6px;background:var(--wa-panel);border-bottom:1px solid var(--wa-line);flex-wrap:wrap}
+html body.wa-app .ai-chat-list-card .p-toolbar #ucSearch{flex:1 1 100%;max-width:none!important;min-width:0!important;border-radius:8px;padding:9px 14px;background:var(--wa-header)}
+html body.wa-app .ai-chat-list-card .p-toolbar .p-select{min-height:32px;padding:4px 26px 4px 12px;border-radius:999px;font-size:12.5px;width:auto;background-color:var(--wa-header)}
+html body.wa-app .ai-chat-list-card .p-toolbar .p-btn{min-height:32px;border-radius:999px;font-size:12.5px}
+
+/* "status" strip: connected pages with their profile pictures, ring when a story is live */
+.wa-strip{display:flex;gap:14px;padding:12px 14px;overflow-x:auto;background:var(--wa-panel);border-bottom:1px solid var(--wa-line);scrollbar-width:none}
+.wa-strip::-webkit-scrollbar{display:none}
+.wa-strip .wa-st{flex:0 0 auto;width:64px;text-align:center;text-decoration:none;color:var(--wa-text)}
+.wa-strip .wa-ring{display:flex;align-items:center;justify-content:center;width:58px;height:58px;margin:0 auto 4px;border-radius:50%;border:2px solid var(--wa-line);padding:2px;overflow:hidden;background:var(--wa-header);box-sizing:border-box}
+.wa-strip .wa-ring.has-story{border-color:#25d366;border-width:3px;padding:2px}
+.wa-strip .wa-ring img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.wa-strip .wa-ring b{font-size:20px;font-weight:600;color:var(--wa-sub)}
+.wa-strip .wa-st:first-child .wa-ring{border-style:dashed}
+.wa-strip small{display:block;font-size:11.5px;color:var(--wa-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-strip .pf-facebook .wa-ring:not(.has-story){border-color:#1877f2}
+.wa-strip .pf-instagram .wa-ring:not(.has-story){border-color:#e1306c}
+.wa-strip .pf-whatsapp_cloud .wa-ring:not(.has-story){border-color:#25d366}
+
+/* channel colours for the avatars in the list (profile pictures are not exposed by the WhatsApp Cloud API) */
+html body.wa-app .ai-chat-avatar.messenger{background:#0084ff;color:#fff}
+html body.wa-app .ai-chat-avatar.instagram{background:linear-gradient(135deg,#f58529,#dd2a7b 55%,#8134af);color:#fff}
+html body.wa-app .ai-chat-avatar.website_chat,html body.wa-app .ai-chat-avatar.webchat{background:#6a7175;color:#fff}
+
+@media (max-width:960px){
+  /* phone app: top bar, chat list, bottom section bar; a chat opens full screen */
+  html body.wa-app .panel-topbar{background:var(--wa-header)}
+  html body.wa-app .tf-sec-tabs{position:fixed;left:0;right:0;bottom:0;z-index:60;margin:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-wrap:nowrap;overflow-x:auto;gap:2px;background:var(--wa-header);border-top:1px solid var(--wa-line);border-bottom:0!important;scrollbar-width:none}
+  html body.wa-app .tf-sec-tabs .p-btn{flex:0 0 auto;background:transparent!important;border:0!important;font-size:12px;padding:8px 12px;border-radius:999px;color:var(--wa-sub)!important;min-height:40px}
+  html body.wa-app .tf-sec-tabs .p-btn.primary{background:rgba(0,168,132,.18)!important;color:var(--wa-green-2)!important;font-weight:600}
+  html body.wa-app .panel-content{padding-bottom:78px}
+  html body.wa-app #ucBody.ai-chat-split{height:auto;min-height:0;border:0;border-radius:0;box-shadow:none;background:transparent}
+  html body.wa-app .ai-chat-list-card .ai-chat-list{min-height:0}
+  html body.wa-app .tf-help-fab{bottom:84px}
+  html body.wa-in-chat .panel-topbar,html body.wa-in-chat .tf-sec-tabs,html body.wa-in-chat .tf-help-fab{display:none!important}
+  html body.wa-in-chat .panel-content{padding:0}
+  html body.wa-in-chat #ucBody.ai-chat-split{position:fixed;inset:0;z-index:70;display:block;height:100dvh;background:var(--wa-bg)}
+  html body.wa-in-chat #ucBody>div:last-child{height:100dvh}
+  html body.wa-in-chat #convThread{padding:14px 10px}
+}
