@@ -138,7 +138,7 @@ HTML;
         $name = htmlspecialchars((string) ($c['business_name'] ?? $site->getAttribute('slug')), ENT_QUOTES, 'UTF-8');
         $who = htmlspecialchars((string) ($this->account['display_name'] ?: $this->account['username']), ENT_QUOTES, 'UTF-8');
         $role = (string) $this->account['role'];
-        $caps = json_encode(['bookings' => SiteManagerService::can($role, 'bookings'), 'leads' => SiteManagerService::can($role, 'leads'), 'reviews' => SiteManagerService::can($role, 'reviews')]);
+        $caps = json_encode(['content' => SiteManagerService::can($role, 'content'), 'bookings' => SiteManagerService::can($role, 'bookings'), 'leads' => SiteManagerService::can($role, 'leads'), 'reviews' => SiteManagerService::can($role, 'reviews')]);
         $roleLabel = ['manager' => 'مدير', 'editor' => 'محرر', 'viewer' => 'مشاهدة فقط'][$role] ?? $role;
         $csrf = htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8');
         header('Content-Type: text/html; charset=utf-8');
@@ -170,8 +170,8 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 async function api(url,opt){opt=opt||{};opt.credentials='same-origin';opt.headers=Object.assign({'Content-Type':'application/json','X-CSRF-Token':csrf},opt.headers||{});
 var r=await fetch(url,opt);if(r.status===401){location.href='/site-admin/login';return{success:false};}return r.json().catch(function(){return{success:false};});}
 var ST={pending:'قيد الانتظار',confirmed:'مؤكد',cancelled:'ملغي',completed:'مكتمل',no_show:'لم يحضر',new:'جديد',contacted:'تم التواصل',closed:'مغلق',approved:'معتمد',rejected:'مرفوض'};
-function tabs(){var t=document.getElementById('tabs');t.innerHTML='';[['bookings','الحجوزات'],['leads','طلبات التواصل'],['reviews','التقييمات'],['analytics','الزيارات']].forEach(function(x){var b=document.createElement('button');b.textContent=x[1];b.className=tab===x[0]?'on':'';b.onclick=function(){tab=x[0];tabs();load();};t.appendChild(b);});}
-async function load(){main.innerHTML='<p class="muted">جاري التحميل...</p>';if(tab==='bookings')return bookings();if(tab==='leads')return leads();if(tab==='analytics')return analytics();return reviews();}
+function tabs(){var t=document.getElementById('tabs');t.innerHTML='';[['bookings','الحجوزات'],['leads','طلبات التواصل'],['reviews','التقييمات'],['analytics','الزيارات']].concat(CAPS.content?[['content','محتوى الموقع']]:[]).forEach(function(x){var b=document.createElement('button');b.textContent=x[1];b.className=tab===x[0]?'on':'';b.onclick=function(){tab=x[0];tabs();load();};t.appendChild(b);});}
+async function load(){main.innerHTML='<p class="muted">جاري التحميل...</p>';if(tab==='bookings')return bookings();if(tab==='leads')return leads();if(tab==='analytics')return analytics();if(tab==='content')return content();return reviews();}
 async function bookings(){var q=(window.__bq||'');var r=await api('/api/site-admin/bookings?q='+encodeURIComponent(q));if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}
 var s=r.data.stats,h='<div class="stats"><div class="card">قيد الانتظار<b>'+s.pending+'</b></div><div class="card">مؤكدة<b>'+s.confirmed+'</b></div><div class="card">الإيراد المؤكد<b dir="ltr">'+esc(s.revenue)+'</b></div></div>';
 h+='<div class="card row"><input id="q" type="search" placeholder="بحث بالاسم / الهاتف / رقم الحجز" value="'+esc(q)+'"><a class="muted" href="/api/site-admin/bookings/export" >تصدير CSV</a></div>';
@@ -183,6 +183,16 @@ var SL={direct:'مباشر',search:'بحث',social:'سوشيال',ads:'إعلا�
 main.innerHTML='<div class="stats"><div class="card">المشاهدات (30 يوم)<b>'+d.views+'</b></div><div class="card">الزوار<b>'+d.visitors+'</b></div><div class="card">طلبات + حجوزات<b>'+(d.leads+d.bookings)+'</b></div></div>'
 +'<div class="card"><div style="display:flex;align-items:flex-end;gap:2px;height:110px">'+d.daily.map(function(x){return '<div title="'+esc(x.day)+': '+x.views+'" style="flex:1;min-width:2px;background:#d4a437;height:'+Math.max(2,Math.round(x.views/mx*100))+'%"></div>';}).join('')+'</div></div>'
 +'<div class="card"><b>مصادر الزيارات</b>'+(d.sources.length?d.sources.map(function(x){return '<div class="row"><span>'+esc(SL[x.source]||x.source)+'</span><b>'+Math.round(x.views/tot*100)+'%</b></div>';}).join(''):'<p class="muted">لا توجد بيانات بعد</p>')+'</div>';}
+async function content(){var r=await api('/api/site-admin/content');if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}var d=r.data;
+function f(id,l,v,t){return '<label class="muted" for="'+id+'">'+l+'</label>'+(t==='ta'?'<textarea id="'+id+'" rows="4" style="width:100%;padding:9px;border-radius:8px;border:1px solid #cbd5e1">'+esc(v)+'</textarea>':'<input id="'+id+'" style="width:100%" value="'+esc(v)+'">');}
+var h='<div class="card">'+f('c_business_name','اسم النشاط',d.business_name)+f('c_tagline','الشعار / العبارة التعريفية',d.tagline)+f('c_hero_headline','عنوان الصفحة الرئيسية',d.hero_headline)+f('c_hero_subtext','النص تحت العنوان',d.hero_subtext,'ta')+f('c_about','من نحن',d.about,'ta')+'</div>'
++'<div class="card"><b>بيانات التواصل</b>'+f('c_whatsapp','واتساب (مع كود الدولة)',d.contact.whatsapp)+f('c_phone','الهاتف',d.contact.phone)+f('c_email','الإيميل',d.contact.email)+f('c_address','العنوان',d.contact.address)+'</div>'
++'<div class="card"><b>الرحلات / الغرف</b><p class="muted">الأسعار بيغيّرها صاحب الحساب الأساسي.</p>'+d.items.map(function(t,i){return '<div style="border-top:1px solid #e2e8f0;padding-top:8px;margin-top:8px"><b>'+esc(t.name)+'</b>'+f('t_d'+i,'وصف قصير',t.short_description,'ta')+f('t_h'+i,'أهم المميزات (سطر لكل ميزة)',(t.highlights||[]).join(String.fromCharCode(10)),'ta')+'</div>';}).join('')+'</div>'
++'<button class="act" id="savec">حفظ التعديلات</button> <span id="savemsg" class="muted"></span>';
+main.innerHTML=h;
+document.getElementById('savec').onclick=async function(){var v=function(id){return document.getElementById(id).value;};
+var body={business_name:v('c_business_name'),tagline:v('c_tagline'),hero_headline:v('c_hero_headline'),hero_subtext:v('c_hero_subtext'),about:v('c_about'),contact:{whatsapp:v('c_whatsapp'),phone:v('c_phone'),email:v('c_email'),address:v('c_address')},items:d.items.map(function(t,i){return {slug:t.slug,short_description:v('t_d'+i),highlights:v('t_h'+i)};})};
+var x=await api('/api/site-admin/content',{method:'PUT',body:JSON.stringify(body)});document.getElementById('savemsg').textContent=x.success?'اتحفظ ✅':(x.error||x.message||'حصل خطأ');};}
 async function leads(){var r=await api('/api/site-admin/leads');if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}
 main.innerHTML=r.data.leads.length?r.data.leads.map(function(l){return '<div class="card"><div class="row"><b>'+esc(l.visitor_name)+'</b><span class="badge">'+esc(ST[l.status]||l.status)+'</span></div><p dir="ltr" style="text-align:right">'+esc(l.phone||'')+(l.email?' - '+esc(l.email):'')+'</p><p>'+esc(l.message||'')+'</p>'+(CAPS.leads?'<select data-id="'+l.id+'"><option value="new">جديد</option><option value="contacted">تم التواصل</option><option value="closed">مغلق</option></select>':'')+'</div>';}).join(''):'<p class="muted">لا توجد طلبات بعد</p>';
 main.querySelectorAll('select[data-id]').forEach(function(s,i){s.value=r.data.leads[i].status;s.onchange=async function(){var x=await api('/api/site-admin/leads/'+s.dataset.id,{method:'PUT',body:JSON.stringify({status:s.value})});if(!x.success)alert(x.error||'حصل خطأ');};});}
@@ -221,6 +231,124 @@ HTML;
         }
         $site = $this->ownedWebsite((int) $this->account['website_id']);
         return $site ? $this->success(SiteAnalytics::report((int) $site->getAttribute('id'), (int) $site->getAttribute('user_id'), (int) $this->get('days', 30))) : $this->error('غير موجود', 404);
+    }
+
+    // ------------------------------------------------------------ content editing (manager role only)
+
+    private static function clean($v, int $max): string
+    {
+        return mb_substr(trim(preg_replace('/\s+/u', ' ', strip_tags((string) $v))), 0, $max);
+    }
+
+    private static function cleanMultiline($v, int $max): string
+    {
+        $lines = array_map(fn ($l) => trim(strip_tags($l)), preg_split('/\R/u', (string) $v));
+        return mb_substr(trim(implode("\n", $lines)), 0, $max);
+    }
+
+    /** GET /api/site-admin/content */
+    public function contentGet(array $params = []): array
+    {
+        if ($e = $this->allowed('content')) {
+            return $e;
+        }
+        $site = $this->ownedWebsite((int) $this->account['website_id']);
+        if (!$site) {
+            return $this->error('غير موجود', 404);
+        }
+        $c = $site->getContent();
+        $itemsKey = ($c['industry'] ?? 'tours') === 'hotel' ? 'rooms' : 'tours';
+        $items = [];
+        foreach ((array) ($c[$itemsKey] ?? []) as $t) {
+            $items[] = ['slug' => (string) ($t['slug'] ?? ''), 'name' => (string) ($t['name'] ?? ''), 'short_description' => (string) ($t['short_description'] ?? ''), 'highlights' => array_values((array) ($t['highlights'] ?? ($t['amenities'] ?? [])))];
+        }
+        $ct = (array) ($c['contact'] ?? []);
+        return $this->success([
+            'business_name' => (string) ($c['business_name'] ?? ''), 'tagline' => (string) ($c['tagline'] ?? ''), 'hero_headline' => (string) ($c['hero_headline'] ?? ''),
+            'hero_subtext' => (string) ($c['hero_subtext'] ?? ''), 'about' => (string) ($c['about'] ?? ''),
+            'contact' => ['whatsapp' => (string) ($ct['whatsapp'] ?? ''), 'phone' => (string) ($ct['phone'] ?? ''), 'email' => (string) ($ct['email'] ?? ''), 'address' => (string) ($ct['address'] ?? '')],
+            'items' => $items,
+        ]);
+    }
+
+    /** PUT /api/site-admin/content - texts and contact details only: never prices, slugs, design or publishing */
+    public function contentSave(array $params = []): array
+    {
+        if (($e = $this->allowed('content')) || ($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('ip', 'site_manager_content', 60, 3600))) {
+            return $e;
+        }
+        $site = $this->ownedWebsite((int) $this->account['website_id']);
+        if (!$site) {
+            return $this->error('غير موجود', 404);
+        }
+        $c = $site->getContent();
+        $in = $this->get('business_name');
+        if ($in !== null) {
+            $name = self::clean($in, 120);
+            if ($name === '') {
+                return $this->error('اسم النشاط مطلوب', 422);
+            }
+            $c['business_name'] = $name;
+        }
+        foreach (['tagline' => 200, 'hero_headline' => 160] as $k => $max) {
+            if ($this->get($k) !== null) {
+                $c[$k] = self::clean($this->get($k), $max);
+            }
+        }
+        foreach (['hero_subtext' => 500, 'about' => 3000] as $k => $max) {
+            if ($this->get($k) !== null) {
+                $c[$k] = self::cleanMultiline($this->get($k), $max);
+            }
+        }
+        $ct = $this->get('contact');
+        if (is_array($ct)) {
+            $c['contact'] = (array) ($c['contact'] ?? []);
+            if (isset($ct['whatsapp'])) {
+                $wa = preg_replace('/[^0-9+]/', '', (string) $ct['whatsapp']);
+                if ($wa !== '' && !preg_match('/^\+?[0-9]{7,16}$/', $wa)) {
+                    return $this->error('رقم الواتساب غير صحيح', 422);
+                }
+                $c['contact']['whatsapp'] = $wa;
+            }
+            if (isset($ct['phone'])) {
+                $c['contact']['phone'] = self::clean($ct['phone'], 40);
+            }
+            if (isset($ct['email'])) {
+                $em = self::clean($ct['email'], 120);
+                if ($em !== '' && !filter_var($em, FILTER_VALIDATE_EMAIL)) {
+                    return $this->error('الإيميل غير صحيح', 422);
+                }
+                $c['contact']['email'] = $em;
+            }
+            if (isset($ct['address'])) {
+                $c['contact']['address'] = self::clean($ct['address'], 200);
+            }
+        }
+        $items = $this->get('items');
+        if (is_array($items)) {
+            $itemsKey = ($c['industry'] ?? 'tours') === 'hotel' ? 'rooms' : 'tours';
+            $bySlug = [];
+            foreach ($items as $it) {
+                if (is_array($it) && isset($it['slug'])) {
+                    $bySlug[(string) $it['slug']] = $it;
+                }
+            }
+            foreach ($c[$itemsKey] ?? [] as $i => $t) {
+                $upd = $bySlug[(string) ($t['slug'] ?? '')] ?? null;
+                if (!$upd) {
+                    continue;
+                }
+                if (isset($upd['short_description'])) {
+                    $c[$itemsKey][$i]['short_description'] = self::clean($upd['short_description'], 400);
+                }
+                if (isset($upd['highlights'])) {
+                    $lines = array_values(array_filter(array_map(fn ($l) => self::clean($l, 120), preg_split('/\R/u', (string) $upd['highlights']))));
+                    $c[$itemsKey][$i][$itemsKey === 'rooms' ? 'amenities' : 'highlights'] = array_slice($lines, 0, 8);
+                }
+            }
+        }
+        $this->saveContent($site, $c);
+        return $this->success([], 'اتحفظ');
     }
 
     public function leadsList(array $params = []): array

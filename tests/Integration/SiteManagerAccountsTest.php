@@ -184,4 +184,64 @@ final class SiteManagerAccountsTest extends TestCase
         $this->assertFalse((bool) ($r['success'] ?? false));
         $this->assertArrayNotHasKey('site_manager', $_SESSION);
     }
+
+    private function savedContent(): array
+    {
+        return json_decode((string) $this->pdo->query('SELECT content_json FROM generated_websites WHERE id = ' . self::SITE)->fetchColumn(), true);
+    }
+
+    private function saveAs(int $accountId, array $payload): array
+    {
+        $_SESSION['site_manager'] = ['id' => $accountId, 'website_id' => self::SITE, 'at' => time()];
+        $_SESSION['csrf_token'] = 'tok-123';
+        $_POST = $payload + ['csrf_token' => 'tok-123'];
+        $_SERVER['CONTENT_TYPE'] = 'application/x-www-form-urlencoded';
+        try {
+            return (new SiteManagerController())->contentSave([]);
+        } finally {
+            $_POST = [];
+            unset($_SESSION['site_manager']);
+        }
+    }
+
+    public function testManagerEditsTextsButNeverPricesAndMarkupIsStripped(): void
+    {
+        $this->pdo->exec("UPDATE generated_websites SET content_json = " . $this->pdo->quote(json_encode([
+            'business_name' => 'Old', 'tours' => [['slug' => 'nile', 'name' => 'Nile', 'price' => '350 EGP', 'short_description' => 'old']],
+        ])) . ' WHERE id = ' . self::SITE);
+        $id = $this->make('content.mgr', 'manager');
+        $r = $this->saveAs($id, [
+            'business_name' => '<b>New Name</b>', 'about' => "line one
+<script>x</script>line two",
+            'contact' => ['whatsapp' => '+20 100 000 0000', 'email' => 'info@example.test'],
+            'items' => [['slug' => 'nile', 'short_description' => 'Fresh <i>text</i>', 'highlights' => "Sunset
+Tea", 'price' => '1 EGP'], ['slug' => 'unknown', 'short_description' => 'x']],
+        ]);
+        $this->assertTrue((bool) ($r['success'] ?? false), json_encode($r));
+        $c = $this->savedContent();
+        $this->assertSame('New Name', $c['business_name']);
+        $this->assertStringNotContainsString('<script', $c['about']);
+        $this->assertSame('+201000000000', $c['contact']['whatsapp']);
+        $this->assertSame('Fresh text', $c['tours'][0]['short_description']);
+        $this->assertSame(['Sunset', 'Tea'], $c['tours'][0]['highlights']);
+        $this->assertSame('350 EGP', $c['tours'][0]['price'], 'prices stay with the account owner');
+        $this->assertCount(1, $c['tours'], 'unknown slugs are ignored, nothing is added');
+    }
+
+    public function testInvalidEmailAndEmptyNameAreRejected(): void
+    {
+        $id = $this->make('content.bad', 'manager');
+        $this->assertFalse((bool) ($this->saveAs($id, ['contact' => ['email' => 'not-an-email']])['success'] ?? false));
+        $this->assertFalse((bool) ($this->saveAs($id, ['business_name' => '   '])['success'] ?? false));
+    }
+
+    public function testEditorAndViewerCannotEditContent(): void
+    {
+        foreach (['editor', 'viewer'] as $role) {
+            $id = $this->make('c.' . $role, $role);
+            $r = $this->saveAs($id, ['business_name' => 'Hacked']);
+            $this->assertFalse((bool) ($r['success'] ?? false), $role);
+        }
+        $this->assertNotSame('Hacked', $this->savedContent()['business_name'] ?? '');
+    }
 }

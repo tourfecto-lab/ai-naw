@@ -218,7 +218,7 @@ class SiteManagerService
         $matrix = [
             'viewer' => ['view'],
             'editor' => ['view', 'leads', 'reviews'],
-            'manager' => ['view', 'leads', 'reviews', 'bookings'],
+            'manager' => ['view', 'leads', 'reviews', 'bookings', 'content'],
         ];
         return in_array($action, $matrix[$role] ?? [], true);
     }

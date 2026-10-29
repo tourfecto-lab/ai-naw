@@ -1300,6 +1300,8 @@ $router->get('/api/site-admin/bookings', 'SiteManagerController', 'bookingsList'
 $router->get('/api/site-admin/bookings/export', 'SiteManagerController', 'bookingsExport');
 $router->put('/api/site-admin/bookings/{bookingId}', 'SiteManagerController', 'bookingAction');
 $router->get('/api/site-admin/analytics', 'SiteManagerController', 'analyticsData');
+$router->get('/api/site-admin/content', 'SiteManagerController', 'contentGet');
+$router->put('/api/site-admin/content', 'SiteManagerController', 'contentSave');
 $router->get('/api/site-admin/leads', 'SiteManagerController', 'leadsList');
 $router->put('/api/site-admin/leads/{leadId}', 'SiteManagerController', 'leadUpdate');
 $router->get('/api/site-admin/reviews', 'SiteManagerController', 'reviewsList');

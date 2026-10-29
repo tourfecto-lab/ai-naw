@@ -839,7 +839,7 @@ JS;
         'minimal' => ['بسيط', 'Minimal', 'هادي وعصري', 'Calm and modern'],
     ];
 
-    private function saveContent(GeneratedWebsite $w, array $c): void
+    protected function saveContent(GeneratedWebsite $w, array $c): void
     {
         $w->setAttribute('content_json', json_encode($c, JSON_UNESCAPED_UNICODE));
         $w->save();
