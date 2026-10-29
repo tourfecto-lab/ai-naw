@@ -479,7 +479,7 @@ abstract class Controller
                 'ai_chat_inbox' => [t('sidebar.ai_chat_inbox'), 'message', '/chat'],
                 'crm' => [t('sidebar.crm'), 'file-text', '/crm'],
                 'ai_chat_leads' => [t('sidebar.ai_chat_leads'), 'target', '/chat/leads'],
-                'ai_chat_settings' => [$L('إعدادات الشات وواتساب', 'Chat & WhatsApp settings'), 'settings', '/chat/settings'],
+                'ai_chat_settings' => [$L('إعدادات الرسايل والقنوات', 'Messaging & channels settings'), 'settings', '/chat/settings'],
             ]],
             // 3 صفحات منافسين كانت متداخلة في القائمة - بقوا مدخل واحد وجواه تبويبات (competitorTabsHtml)
             'competitors' => [$L('المنافسين', 'Competitors'), $L('راقب أسعارهم وعروضهم', 'Watch their prices and offers'), [

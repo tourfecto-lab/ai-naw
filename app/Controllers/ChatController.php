@@ -3372,8 +3372,7 @@ JS;
         {ICON_SPRITE}
         {CHAT_UI_CSS}
         <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">{IC_INBOX}Inbox</a>
-        </div>
+                    </div>
         <div id="fuNoWebsite" class="p-card" style="display:none;">
             <div class="p-empty"><div class="p-empty-icon">🌐</div>Choose a website from the list at the top of the page first.</div>
         </div>
@@ -3382,6 +3381,7 @@ JS;
                 <div class="p-card-head"><h3>⏰ Auto follow-up</h3><span class="p-card-sub">If a customer asked and then disappeared, the system can send them an automatic follow-up based on the steps below</span></div>
                 <div class="form-group">
                     <label class="form-label"><input type="checkbox" id="fuEnabled"> Enable auto follow-up for this website</label>
+                    <p class="p-cell-muted" style="font-size:12.5px;margin:8px 0 0;">⏱ On <b>Messenger</b> and <b>Instagram</b> Meta only delivers automatic messages within 24 hours of the customer's last message, so steps later than that are shortened to the end of that window (or skipped if it already closed). On WhatsApp the same 24-hour rule applies; later follow-ups need an approved template.</p>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Maximum number of follow-ups per customer</label>
@@ -3493,8 +3493,7 @@ JS;
         {ICON_SPRITE}
         {CHAT_UI_CSS}
         <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">{IC_INBOX}Inbox</a>
-            <div style="flex:1;"></div>
+                        <div style="flex:1;"></div>
             <select id="anSince" class="p-select" onchange="load()">
                 <option value="7">Last 7 days</option>
                 <option value="30" selected>Last 30 days</option>
@@ -3511,7 +3510,11 @@ JS;
             <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">
                 <div class="p-card" style="flex:1 1 360px;min-width:280px;">
                     <div class="p-card-head"><h3>{IC_CHART} Conversation distribution</h3></div>
-                    <div style="padding:6px 4px;"><canvas id="anConvChart" height="120"></canvas></div>
+                    <div style="padding:6px 4px;height:240px;position:relative;"><canvas id="anConvChart"></canvas></div>
+                </div>
+                <div class="p-card" style="flex:1 1 360px;min-width:280px;">
+                    <div class="p-card-head"><h3>{IC_CHART} By channel</h3></div>
+                    <div id="anChannels" style="padding:6px 4px;"></div>
                 </div>
                 <div class="p-card an-admin-only" style="flex:1 1 360px;min-width:280px;">
                     <div class="p-card-head"><h3>{IC_SPARKLES} AI provider health</h3></div>
@@ -3569,6 +3572,21 @@ HTML;
         document.getElementById('anNoWebsite').style.display = id ? 'none' : 'block';
         document.getElementById('anBody').style.display = id ? 'block' : 'none';
         return id;
+    }
+
+    const AN_CH = { whatsapp: ['WhatsApp', '#25d366'], messenger: ['Messenger', '#0084ff'], instagram: ['Instagram', '#d300c5'], website_chat: ['Website chat', '#6a7175'], email: ['Email', '#8e6cef'] };
+    async function loadChannels() {
+        const box = document.getElementById('anChannels');
+        const r = await fetchJSON('/api/chat/channel-stats?website_id=' + encodeURIComponent(websiteId()) + '&days=' + encodeURIComponent(document.getElementById('anSince').value));
+        const rows = r && r.success ? (r.data.channels || []) : [];
+        if (!rows.length) { box.innerHTML = '<div class="p-cell-muted">No conversations in this period</div>'; return; }
+        const max = Math.max.apply(null, rows.map(x => x.total)) || 1;
+        box.innerHTML = rows.map(x => {
+            const c = AN_CH[x.channel] || [x.channel, '#6a7175'];
+            const pct = Math.round(x.total / max * 100);
+            return '<div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><b style="color:' + c[1] + '">' + esc(c[0]) + '</b><span class="p-cell-muted">' + x.total + ' conversations · ' + x.ai + ' by AI · ' + x.human + ' by agent</span></div>'
+                + '<div style="height:8px;border-radius:6px;background:rgba(127,127,127,.22);overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + c[1] + ';"></div></div></div>';
+        }).join('');
     }
 
     function statTile(label, value) {
@@ -3738,11 +3756,12 @@ HTML;
                         borderWidth: 2,
                     }],
                 },
-                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#8996AC' } } } },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#8996AC' } } } },
             });
         }
 
         renderHealth(res.data.provider_health);
+        loadChannels();
         renderLearning(res.data.learning_loop);
         renderEscalations(res.data.learning_loop ? res.data.learning_loop.escalation_reasons : {});
 
@@ -3787,8 +3806,7 @@ JS;
         {ICON_SPRITE}
         {CHAT_UI_CSS}
         <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">{IC_INBOX}Inbox</a>
-            <div style="flex:1;"></div>
+                        <div style="flex:1;"></div>
             <button class="p-btn outline xs" onclick="lnScan()">{IC_REFRESH}Rescan gaps</button>
             <select id="lnSince" class="p-select" onchange="load()">
                 <option value="7">Last 7 days</option>
@@ -3977,7 +3995,16 @@ JS;
         {ICON_SPRITE}
         {CHAT_UI_CSS}
         <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">{IC_INBOX}Inbox</a>
+            <input type="search" id="ldSearch" class="p-input" placeholder="Search name or phone" style="max-width:240px;" oninput="ldRender()">
+            <select id="ldChannel" class="p-select" onchange="ldRender()">
+                <option value="">All channels</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="messenger">Messenger</option>
+                <option value="instagram">Instagram</option>
+                <option value="website_chat">Website chat</option>
+                <option value="email">Email</option>
+            </select>
+            <span id="ldCount" class="p-cell-muted" style="font-size:12.5px;"></span>
             <div style="flex:1;"></div>
             <select id="ldStatus" class="p-select" onchange="load()">
                 <option value="">All statuses</option>
@@ -4026,6 +4053,17 @@ HTML;
         return id;
     }
 
+    function chBadge(ch) {
+        const c = LD_CH[ch];
+        return c ? '<span class="pill" style="white-space:nowrap;background:' + c[1] + '22;color:' + c[1] + ';">' + c[0] + '</span>' : esc(ch || '-');
+    }
+    function leadAvatar(l) {
+        const c = (LD_CH[l.channel] || ['', '#6a7175'])[1];
+        const letter = esc(((l.name || l.phone || '?') + '').trim().charAt(0).toUpperCase() || '?');
+        const img = l.photo_v ? '<img alt="" src="/api/ai-chat/websites/' + websiteId() + '/conversations/' + l.conversation_id + '/photo?v=' + l.photo_v + '" style="width:100%;height:100%;object-fit:cover;">' : letter;
+        return '<span style="width:30px;height:30px;flex:0 0 30px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;background:' + c + ';color:#fff;font-size:13px;font-weight:700;">' + img + '</span>';
+    }
+
     window.ldUpdateStatus = async function (leadId, status) {
         const id = websiteId();
         const res = await fetchJSON('/api/ai-chat/websites/' + id + '/leads/' + leadId, {
@@ -4053,9 +4091,21 @@ HTML;
             return;
         }
 
-        const leads = res.data.leads || [];
+        ldAll = res.data.leads || [];
+        ldRender();
+    };
+
+    let ldAll = [];
+    const LD_CH = { whatsapp: ['WhatsApp', '#25d366'], messenger: ['Messenger', '#0084ff'], instagram: ['Instagram', '#d300c5'], website_chat: ['Website', '#6a7175'], email: ['Email', '#8e6cef'] };
+
+    window.ldRender = function () {
+        const tbody = document.querySelector('#leadsTable tbody');
+        const q = (document.getElementById('ldSearch').value || '').trim().toLowerCase();
+        const ch = document.getElementById('ldChannel').value;
+        const leads = ldAll.filter(l => (!ch || l.channel === ch) && (!q || ((l.name || '') + ' ' + (l.phone || '')).toLowerCase().indexOf(q) !== -1));
+        document.getElementById('ldCount').textContent = leads.length + (leads.length === 1 ? ' lead' : ' leads');
         if (!leads.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">No leads yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="p-cell-muted text-center">' + (ldAll.length ? 'No leads match this search' : 'No leads yet') + '</td></tr>';
             return;
         }
 
@@ -4064,8 +4114,8 @@ HTML;
                 STATUS_OPTIONS.map(([v, label]) => `<option value="${v}" ${l.status === v ? 'selected' : ''}>${label}</option>`).join('') + '</select>';
             return `
                 <tr>
-                    <td>${esc(l.name || l.phone || 'Unknown')}</td>
-                    <td>${esc(l.channel || '-')}</td>
+                    <td><span style="display:inline-flex;align-items:center;gap:8px;">${leadAvatar(l)}<b>${esc(l.name || l.phone || 'Unknown')}</b></span></td>
+                    <td>${chBadge(l.channel)}</td>
                     <td>${esc(l.interest || '-')}</td>
                     <td>${esc(l.destination || '-')}</td>
                     <td><span class="pill ${l.lead_score >= 70 ? 'red' : l.lead_score >= 40 ? 'blue' : 'gray'}">${l.lead_score ?? '-'}</span></td>
@@ -4401,6 +4451,21 @@ JS;
             Logger::error('Meta chat pages failed', ['error' => $e->getMessage()]);
             return $this->error('Could not load your Facebook pages', 503);
         }
+    }
+
+    /** GET /api/chat/channel-stats?website_id=N&days=30 - conversations per channel, split AI / agent (the "By channel" card). */
+    public function channelStats(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Not logged in', 401);
+        $wid = (int) $this->get('website_id');
+        if (!$this->ownsChatWebsite($wid)) return $this->error('Website not found', 404);
+        $days = max(1, min(365, (int) $this->get('days', 30)));
+        $rows = $this->db->query(
+            "SELECT channel, COUNT(*) AS total, SUM(ai_status = 'ai') AS ai, SUM(ai_status <> 'ai') AS human
+             FROM ai_conversations WHERE website_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL $days DAY) GROUP BY channel ORDER BY total DESC",
+            [$wid]
+        );
+        return $this->success(['channels' => array_map(static fn ($r) => ['channel' => (string) $r['channel'], 'total' => (int) $r['total'], 'ai' => (int) $r['ai'], 'human' => (int) $r['human']], $rows)]);
     }
 
     /** GET /api/chat/channel-counts?website_id=N - open conversations with unread messages per channel (badges on the inbox tabs). */

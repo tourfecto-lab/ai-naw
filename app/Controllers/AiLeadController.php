@@ -46,8 +46,30 @@ class AiLeadController extends Controller
 
         $leads = $this->leadModel->forWebsite((int) $website->getAttribute('id'), $filters);
 
+        $rows = array_map([$this, 'serialize'], $leads);
+        // The lead row often has no name (the chat knows it): use the conversation's name, its channel and picture.
+        $ids = array_values(array_filter(array_map(static fn ($r) => (int) ($r['conversation_id'] ?? 0), $rows)));
+        $conv = [];
+        if ($ids) {
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            foreach (Database::getInstance()->query("SELECT id, customer_name, channel FROM ai_conversations WHERE website_id = ? AND id IN ($in)", array_merge([(int) $website->getAttribute('id')], $ids)) as $c) {
+                $conv[(int) $c['id']] = $c;
+            }
+        }
+        foreach ($rows as &$r) {
+            $c = $conv[(int) ($r['conversation_id'] ?? 0)] ?? null;
+            if (trim((string) ($r['name'] ?? '')) === '' && $c && trim((string) $c['customer_name']) !== '') {
+                $r['name'] = (string) $c['customer_name'];
+            }
+            if (($r['channel'] ?? '') === '' && $c) {
+                $r['channel'] = (string) $c['channel'];
+            }
+            $r['photo_v'] = $c ? ChatContactPhotos::version((int) $website->getAttribute('id'), (int) $c['id']) : 0;
+        }
+        unset($r);
+
         return $this->success([
-            'leads' => array_map([$this, 'serialize'], $leads),
+            'leads' => $rows,
         ]);
     }
 
