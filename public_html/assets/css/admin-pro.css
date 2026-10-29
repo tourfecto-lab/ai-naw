@@ -466,18 +466,3 @@ button.ai-tag { cursor: pointer; }
 .ap-testacc b { color: var(--panel-text); }
 .ap-testacc.on { background: rgba(234,179,8,.14); }
 .ap-testacc input { margin-top: 2px; }
-
-/* ---- slim top bar for the whole panel: only what is needed while working (notifications, wallet, language, theme, profile).
-        The currency picker and the monthly-analyses chip move to the sidebar footer (panel.js / tf-currency.js); the SEO
-        and e-mail shortcuts are already in the sidebar menu. ---- */
-.panel-topbar{min-height:0}
-.panel-topbar h1{font-size:18px;line-height:1.2;margin:0}
-.panel-topbar .subtitle{display:none}
-.panel-topbar-actions{gap:6px}
-.panel-topbar-actions a.icon-btn[href="/ai/analyze"],
-.panel-topbar-actions a.icon-btn[href*="email"]{display:none!important}
-.panel-topbar-actions .icon-btn,.panel-topbar-actions .ap-icon-btn{width:34px;height:34px;min-width:0;padding:0}
-.panel-topbar-actions .panel-credits{padding:0 10px;height:34px;font-size:12.5px}
-.panel-sidebar-footer{display:flex;flex-direction:column;gap:8px}
-.panel-sidebar-footer .tf-cur,.panel-sidebar-footer .panel-credits{width:100%;justify-content:space-between;box-sizing:border-box}
-.panel-sidebar-footer .tf-cur select{flex:1 1 auto;max-width:none}

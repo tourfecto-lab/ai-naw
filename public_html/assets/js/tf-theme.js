@@ -53,6 +53,6 @@
 /* زر العملة (ملف لوحده عشان صفحات تانية تستخدمه من غير زر الوضع الداكن) */
 (function () {
     if (window.TFCurrencyLoaded || document.querySelector('script[src*="tf-currency.js"]')) return;
-    var s = document.createElement('script'); s.src = '/assets/js/tf-currency.js?v=20261016'; s.defer = true;
+    var s = document.createElement('script'); s.src = '/assets/js/tf-currency.js?v=20261029'; s.defer = true;
     (document.head || document.documentElement).appendChild(s);
 })();
