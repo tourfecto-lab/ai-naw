@@ -197,6 +197,7 @@ $router->get('/review-requests', 'ReviewRequestController', 'index', ['AuthMiddl
 // مركز الأتمتة: أوضاع الخدمات + صندوق الموافقات الموحّد
 $router->get('/automation', 'AutomationController', 'index', ['AuthMiddleware']);
 $router->get('/ai-assistant', 'AiAssistantController', 'index', ['AuthMiddleware']);
+$router->get('/brain', 'BrainController', 'index', ['AuthMiddleware']);
 $router->get('/website-builder', 'WebsiteBuilderController', 'index', ['AuthMiddleware']);
 $router->get('/dashboard/sites/{id}', 'SiteDashboardController', 'index', ['AuthMiddleware']);
 $router->get('/sites/{slug}/sitemap.xml', 'WebsiteBuilderController', 'siteSitemap');
