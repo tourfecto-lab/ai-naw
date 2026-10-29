@@ -1263,6 +1263,7 @@ HTML;
         try {
             $reviews = (new WebsiteReview())->approvedFor($websiteId, null);
         } catch (Throwable $e) {
+        error_log('[WebsiteBuilderController] ignored error: ' . $e->getMessage());
         }
         $images = [];
         foreach ($tours as $t) {
@@ -1288,6 +1289,7 @@ HTML;
                 if (($m['bank'] ?? '') !== '') $pay[] = $T->t('bank_t');
             }
         } catch (Throwable $e) {
+        error_log('[WebsiteBuilderController] ignored error: ' . $e->getMessage());
         }
         // سياسة الإلغاء: بس لو الشركة حاطّاها فعلًا لرحلاتها
         $cancel = null;
@@ -1297,6 +1299,7 @@ HTML;
                 $cancel = ['hours' => (int) $rows[0]['cancellation_hours'], 'refund' => rtrim(rtrim(number_format((float) $rows[0]['refund_percent'], 2, '.', ''), '0'), '.')];
             }
         } catch (Throwable $e) {
+        error_log('[WebsiteBuilderController] ignored error: ' . $e->getMessage());
         }
         $faq = [];
         foreach ((array) ($c['faq'] ?? []) as $f) {

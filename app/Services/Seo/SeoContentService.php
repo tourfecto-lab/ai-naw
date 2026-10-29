@@ -475,6 +475,7 @@ class SeoContentService
                 $hold = " AND NOT EXISTS (SELECT 1 FROM content_calendar cc WHERE cc.seo_item_id = i.id AND cc.publish_date > CURDATE())";
             }
         } catch (Throwable $e) {
+        error_log('[SeoContentService] ignored error: ' . $e->getMessage());
         }
         return $this->db->query(
             "SELECT i.id, i.campaign_id, i.article_id, i.topic, i.title

@@ -54,6 +54,7 @@ class SyncSocialCommentsJob implements QueueJobInterface
                 self::schedule();
             }
         } catch (Throwable $e) {
+        error_log('[SyncSocialCommentsJob] ignored error: ' . $e->getMessage());
         }
     }
 

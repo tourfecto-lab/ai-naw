@@ -39,7 +39,7 @@ class SitemapSubmissionService
     /** بيلاقي خريطة الموقع الحقيقية: من سطر Sitemap في robots.txt، أو الأسماء المعروفة (Yoast وووردبريس). */
     public static function detect(SeoPublicPageReader $reader,string $mainUrl): ?string {
         $base=rtrim($mainUrl,'/');$host=strtolower((string)parse_url($mainUrl,PHP_URL_HOST));$candidates=[];
-        try{$robots=$reader->fetch($base.'/robots.txt');if(!empty($robots['success'])&&($robots['http_status']??0)===200&&preg_match_all('/^\s*Sitemap:\s*(\S+)/mi',(string)($robots['html']??''),$m))foreach($m[1] as $u)if(strtolower((string)parse_url($u,PHP_URL_HOST))===$host)$candidates[]=$u;}catch(Throwable $e){}
+        try{$robots=$reader->fetch($base.'/robots.txt');if(!empty($robots['success'])&&($robots['http_status']??0)===200&&preg_match_all('/^\s*Sitemap:\s*(\S+)/mi',(string)($robots['html']??''),$m))foreach($m[1] as $u)if(strtolower((string)parse_url($u,PHP_URL_HOST))===$host)$candidates[]=$u;}catch(Throwable $e){error_log('[SitemapSubmissionService] ignored error: ' . $e->getMessage());}
         foreach(['/sitemap_index.xml','/sitemap.xml','/wp-sitemap.xml'] as $path)$candidates[]=$base.$path;
         foreach(array_unique($candidates) as $url){
             try{$r=$reader->fetch($url);}catch(Throwable $e){continue;}

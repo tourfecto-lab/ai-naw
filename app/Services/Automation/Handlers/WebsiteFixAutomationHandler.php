@@ -66,6 +66,7 @@ class WebsiteFixAutomationHandler implements AutomationHandler
                 [$generatedWebsiteId, $fix['id'], $column, $oldValue, $fix['suggested_value'], $trigger]
             );
         } catch (Throwable $e) {
+        error_log('[WebsiteFixAutomationHandler] ignored error: ' . $e->getMessage());
         }
         return ['success' => true];
     }

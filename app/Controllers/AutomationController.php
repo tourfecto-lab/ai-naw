@@ -225,6 +225,7 @@ class AutomationController extends Controller
                 $this->db->exec("UPDATE wo_fixes SET status = 'dismissed' WHERE id = ?", [(int) $r['subject_id']]);
             }
         } catch (Throwable $e) {
+        error_log('[AutomationController] ignored error: ' . $e->getMessage());
         }
     }
 

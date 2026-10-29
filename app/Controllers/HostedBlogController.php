@@ -54,6 +54,7 @@ class HostedBlogController extends Controller
         try {
             if ((new WebChatService())->isLive((int) $site['id'])) $chat = WebChatService::snippet((int) $site['id']);
         } catch (Throwable $e) {
+        error_log('[HostedBlogController] ignored error: ' . $e->getMessage());
         }
         header('Content-Type: text/html; charset=utf-8');
         header('X-Content-Type-Options: nosniff');

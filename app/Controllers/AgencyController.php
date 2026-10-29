@@ -300,6 +300,7 @@ JS;
             try {
                 Notification::notify((int) $user->getAttribute('id'), 'agency_invitation', 'Agency invitation', 'وكالة "' . $agencyName . '" عايزة تدير حسابك. وافق أو تجاهل.', '/agency/accept?token=' . rawurlencode($token));
             } catch (Throwable $e) {
+            error_log('[AgencyController] ignored error: ' . $e->getMessage());
             }
         }
         try {

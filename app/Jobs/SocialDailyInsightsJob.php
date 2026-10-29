@@ -38,6 +38,7 @@ class SocialDailyInsightsJob implements QueueJobInterface
                 self::schedule(60);
             }
         } catch (Throwable $e) {
+        error_log('[SocialDailyInsightsJob] ignored error: ' . $e->getMessage());
         }
     }
 

@@ -103,6 +103,7 @@ class WebsiteBuilderService
                 $row = $db->query('SELECT brief_json FROM seo_expert_sites WHERE website_id = ? AND user_id = ? LIMIT 1', [(int) $site['id'], $uid])[0] ?? null;
                 $brief = $row ? (json_decode((string) $row['brief_json'], true) ?: []) : [];
             } catch (Throwable $e) {
+            error_log('[WebsiteBuilderService] ignored error: ' . $e->getMessage());
             }
             $a = [];
             $name = trim((string) ($brief['business_name'] ?? '')) ?: trim((string) $site['company_name']);

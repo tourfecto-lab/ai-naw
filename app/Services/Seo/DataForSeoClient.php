@@ -104,7 +104,7 @@ class DataForSeoClient
             $ledger->settle($id,$cost,$valid?'complete':'provider_error');
             return $valid ? ['available'=>true,'response'=>$response,'cost'=>$cost] : ['available'=>false,'reason'=>'dataforseo_invalid_response'];
         } catch (Throwable $e) {
-            if ($id!==null) { try { $ledger->settle($id,null,'unknown'); } catch (Throwable $ignored) {} }
+            if ($id!==null) { try { $ledger->settle($id,null,'unknown'); } catch (Throwable $ignored) {error_log('[DataForSeoClient] ignored error: ' . $ignored->getMessage());} }
             $known=['seo_budget_busy','seo_monthly_budget_reached','seo_signup_daily_cap_reached'];
             return ['available'=>false,'reason'=>in_array($e->getMessage(),$known,true)?$e->getMessage():'dataforseo_request_failed'];
         }

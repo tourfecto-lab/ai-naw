@@ -35,6 +35,7 @@ class SocialPackagesRenewJob implements QueueJobInterface
                 self::schedule(60);
             }
         } catch (Throwable $e) {
+        error_log('[SocialPackagesRenewJob] ignored error: ' . $e->getMessage());
         }
     }
 

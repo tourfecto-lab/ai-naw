@@ -31,6 +31,7 @@ class ThirdPartyHead
                     return $v;
                 }
             } catch (Throwable $e) {
+            error_log('[ThirdPartyHead] ignored error: ' . $e->getMessage());
             }
         }
         return defined($key) ? trim((string) constant($key)) : '';

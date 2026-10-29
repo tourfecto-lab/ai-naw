@@ -32,6 +32,7 @@ class SmartSignupController extends Controller
                 }
             }
         } catch (Throwable $e) {
+        error_log('[SmartSignupController] ignored error: ' . $e->getMessage());
         }
         return null;
     }

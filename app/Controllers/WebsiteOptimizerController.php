@@ -531,6 +531,7 @@ JS;
                 try {
                     $this->db->query("UPDATE wo_audits SET status = 'failed', completed_at = NOW() WHERE id = ? AND status = 'running'", [(int) $auditId]);
                 } catch (Throwable $ignored) {
+                error_log('[WebsiteOptimizerController] ignored error: ' . $ignored->getMessage());
                 }
             }
             return $this->error($this->tr('wo.error.audit_run_failed'), 500);

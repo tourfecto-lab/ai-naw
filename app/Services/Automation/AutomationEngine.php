@@ -166,6 +166,7 @@ class AutomationEngine
                 $this->db->exec("ALTER TABLE automation_policies ADD COLUMN scope_websites TEXT NULL AFTER graduated_buckets");
             }
         } catch (Throwable $e) {
+        error_log('[AutomationEngine] ignored error: ' . $e->getMessage());
         }
     }
 
@@ -372,6 +373,7 @@ class AutomationEngine
                 );
             }
         } catch (Throwable $e) {
+        error_log('[AutomationEngine] ignored error: ' . $e->getMessage());
         }
     }
 
@@ -556,6 +558,7 @@ class AutomationEngine
                 $this->evaluateGraduation($userId, $feature, $existing['bucket']);
             }
         } catch (Throwable $e) {
+        error_log('[AutomationEngine] ignored error: ' . $e->getMessage());
         }
     }
 
@@ -613,6 +616,7 @@ class AutomationEngine
                 [$userId, $feature, $bucket]
             );
         } catch (Throwable $e) {
+        error_log('[AutomationEngine] ignored error: ' . $e->getMessage());
         }
         $samples = count($rows);
         $good = 0;
@@ -705,6 +709,7 @@ class AutomationEngine
                 [$userId, $feature, $bucket, $source, self::cut($context, 2000), self::cut($draft, 4000), self::cut($final, 4000)]
             );
         } catch (Throwable $e) {
+        error_log('[AutomationEngine] ignored error: ' . $e->getMessage());
         }
     }
 
@@ -897,6 +902,7 @@ class AutomationEngine
             $name = $def ? AutomationCatalog::label($def['name']) : $feature;
             Notification::notify($userId, 'automation_pending', "{$name}: فيه حاجة مستنية موافقتك", 'المنصة جهّزت إجراء جديد ومستنية رأيك قبل ما تنفّذه.', '/automation');
         } catch (Throwable $e) {
+        error_log('[AutomationEngine] ignored error: ' . $e->getMessage());
         }
     }
 

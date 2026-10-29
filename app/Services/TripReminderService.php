@@ -58,6 +58,7 @@ class TripReminderService
         try {
             $row = $this->db->query('SELECT * FROM booking_reminder_settings WHERE user_id = ? LIMIT 1', [$userId])[0] ?? null;
         } catch (Throwable $e) {
+        error_log('[TripReminderService] ignored error: ' . $e->getMessage());
         }
         return [
             'enabled' => (int) ($row['enabled'] ?? 0),
@@ -291,7 +292,7 @@ class TripReminderService
         } catch (Throwable $e) {
             // Keep the claim reserved. A send may have succeeded before a database/network error.
             if(class_exists('Logger'))Logger::warning('Trip reminder requires reconciliation', ['booking_id'=>$id]);
-            try{$this->db->exec("UPDATE bookings SET reminder_status='manual_review' WHERE id=?",[$id]);}catch(Throwable $ignored){}
+            try{$this->db->exec("UPDATE bookings SET reminder_status='manual_review' WHERE id=?",[$id]);}catch(Throwable $ignored){error_log('[TripReminderService] ignored error: ' . $ignored->getMessage());}
             return ['ok'=>false,'channel'=>null,'uncertain'=>true,'error'=>'راجع حالة التسليم قبل إعادة الإرسال'];
         }
     }

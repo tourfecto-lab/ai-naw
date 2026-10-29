@@ -91,6 +91,7 @@ class SocialPlanController extends Controller
                 usort($out['top_posts'], fn ($a, $b) => [$b['bookings'], $b['revenue'], $b['clicks']] <=> [$a['bookings'], $a['revenue'], $a['clicks']]);
                 $out['top_posts'] = array_slice($out['top_posts'], 0, 5);
             } catch (Throwable $e) {
+            error_log('[SocialPlanController] ignored error: ' . $e->getMessage());
             }
         }
         try {
@@ -101,10 +102,12 @@ class SocialPlanController extends Controller
                 if ($r['trip_name'] !== null && $r['trip_name'] !== '' && count($out['lead_trips']) < 4) $out['lead_trips'][] = ['trip' => (string) $r['trip_name'], 'n' => (int) $r['n']];
             }
         } catch (Throwable $e) {
+        error_log('[SocialPlanController] ignored error: ' . $e->getMessage());
         }
         try {
             $out['auto_replies'] = (int) ($this->db->query('SELECT COUNT(*) AS n FROM social_comments WHERE user_id = ? AND auto_handled = 1 AND private_replied_at >= ?', [$owner, $from])[0]['n'] ?? 0);
         } catch (Throwable $e) {
+        error_log('[SocialPlanController] ignored error: ' . $e->getMessage());
         }
         return $out;
     }
@@ -128,6 +131,7 @@ class SocialPlanController extends Controller
             try {
                 foreach ((new SeoMarketService($this->db))->markets((int) $site['id'], $owner) as $m) $market[strtolower(substr((string) $m['language_code'], 0, 2))] = true;
             } catch (Throwable $e) {
+            error_log('[SocialPlanController] ignored error: ' . $e->getMessage());
             }
         }
         $default = isset(SocialMonthlyPlanService::LANGUAGES[substr($default, 0, 2)]) ? substr($default, 0, 2) : 'en';

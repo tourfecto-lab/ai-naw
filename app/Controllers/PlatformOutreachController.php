@@ -404,6 +404,7 @@ class PlatformOutreachController extends Controller
             [$token, $real] = $this->token($params);
             $this->service()->track($token, max(1, min(3, (int) ($params['step'] ?? 1))), 'open', $real);
         } catch (Throwable $e) {
+        error_log('[PlatformOutreachController] ignored error: ' . $e->getMessage());
         }
         header('Content-Type: image/gif');
         header('Cache-Control: no-store');

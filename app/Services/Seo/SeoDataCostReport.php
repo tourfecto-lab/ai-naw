@@ -86,6 +86,7 @@ final class SeoDataCostReport
             try {
                 foreach ($this->db->query('SELECT website_id, COUNT(*) AS n FROM tracked_keywords WHERE website_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') GROUP BY website_id', $ids) as $k) $tracked[(int) $k['website_id']] = (int) $k['n'];
             } catch (Throwable $e) {
+            error_log('[SeoDataCostReport] ignored error: ' . $e->getMessage());
             }
         }
         foreach ($sites as $wid => $s) {
@@ -93,7 +94,7 @@ final class SeoDataCostReport
             $uid = (int) ($info[$wid]['user_id'] ?? 0);
             $quota = null;
             if ($uid && class_exists('PlanUsage')) {
-                try { $q = PlanUsage::quota($uid, 'seo_data'); $quota = ['used' => (int) $q['used'], 'limit' => (int) $q['limit']]; } catch (Throwable $e) {}
+                try { $q = PlanUsage::quota($uid, 'seo_data'); $quota = ['used' => (int) $q['used'], 'limit' => (int) $q['limit']]; } catch (Throwable $e) {error_log('[SeoDataCostReport] ignored error: ' . $e->getMessage());}
             }
             $out['customers'][] = [
                 'website_id' => $wid, 'user_id' => $uid, 'email' => (string) ($info[$wid]['email'] ?? ''), 'url' => (string) ($info[$wid]['url'] ?? ''),

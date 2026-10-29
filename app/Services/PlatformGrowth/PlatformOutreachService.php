@@ -585,6 +585,7 @@ class PlatformOutreachService
                 }
             }
         } catch (Throwable $e) {
+        error_log('[PlatformOutreachService] ignored error: ' . $e->getMessage());
         }
         return $out;
     }
@@ -746,6 +747,7 @@ class PlatformOutreachService
             $s = new SystemSettingsService();
             $key = $s->get('google_maps_api_key', '') ?: $s->get('integration_google_maps_api_key', '');
         } catch (Throwable $e) {
+        error_log('[PlatformOutreachService] ignored error: ' . $e->getMessage());
         }
         if ($key === '' && defined('GOOGLE_MAPS_API_KEY')) {
             $key = (string) GOOGLE_MAPS_API_KEY;
@@ -1259,6 +1261,7 @@ class PlatformOutreachService
                 return $line;
             }
         } catch (Throwable $e) {
+        error_log('[PlatformOutreachService] ignored error: ' . $e->getMessage());
         }
         return '';
     }
@@ -1310,6 +1313,7 @@ class PlatformOutreachService
                     return $line;
                 }
             } catch (Throwable $e) {
+            error_log('[PlatformOutreachService] ignored error: ' . $e->getMessage());
             }
         }
         if ($lead['rating'] !== null && (int) $lead['reviews'] >= 5) {

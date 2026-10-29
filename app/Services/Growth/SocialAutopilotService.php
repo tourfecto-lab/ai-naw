@@ -271,7 +271,7 @@ final class SocialAutopilotService
                     try {
                         Notification::notify($uid, 'social_plan_started', $ar ? 'خطة السوشيال بتتجهز 📅' : 'Your social plan is being prepared 📅',
                             $ar ? 'جهزنالك بوستات الشهر من رحلاتك ومواسمها ومقالاتك وتقييماتك — راجعها واعتمدها بضغطة.' : 'We prepared this month’s posts from your trips, seasons, articles and reviews — review and approve with one click.', '/social-plan');
-                    } catch (Throwable $ignored) {}
+                    } catch (Throwable $ignored) {error_log('[SocialAutopilotService] ignored error: ' . $ignored->getMessage());}
                 }
             } catch (Throwable $e) {
                 Logger::warning('Social plan auto-start skipped', ['website_id' => $wid, 'error' => $e->getMessage()]);

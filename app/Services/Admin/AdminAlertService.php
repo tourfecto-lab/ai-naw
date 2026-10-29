@@ -196,6 +196,7 @@ class AdminAlertService
                 $this->db->query('INSERT INTO notifications (user_id, type, title, body, link) VALUES (?, ?, ?, ?, ?)',
                     [(int) $a['id'], 'admin_alert', $subject, implode(' · ', array_slice($wa, 0, 5)), '/admin/alerts']);
             } catch (Throwable $e) {
+            error_log('[AdminAlertService] ignored error: ' . $e->getMessage());
             }
         }
         $ids = implode(',', array_map(fn ($r) => (int) $r['id'], $rows));

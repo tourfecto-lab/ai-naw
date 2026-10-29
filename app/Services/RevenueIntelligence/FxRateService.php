@@ -128,6 +128,7 @@ class FxRateService
                     }
                 }
             } catch (Throwable $e) {
+            error_log('[FxRateService] ignored error: ' . $e->getMessage());
             }
         }
         // الطبقة 2: أسعار السوق اليومية (user_id=0)، الطبقة 3: أسعار الحساب اليدوية (user_id=N)

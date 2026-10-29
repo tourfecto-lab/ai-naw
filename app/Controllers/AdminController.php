@@ -502,6 +502,7 @@ class AdminController extends Controller
                 $stats['ai_conversations'] = (int) ($this->db->query("SELECT COUNT(*) AS c FROM ai_assistant_conversations")[0]['c'] ?? 0);
                 $stats['ai_messages'] = (int) ($this->db->query("SELECT COUNT(*) AS c FROM ai_assistant_messages")[0]['c'] ?? 0);
             } catch (Exception $e) {
+            error_log('[AdminController] ignored error: ' . $e->getMessage());
             }
 
             try {
@@ -516,6 +517,7 @@ class AdminController extends Controller
                     }
                 }
             } catch (Exception $e) {
+            error_log('[AdminController] ignored error: ' . $e->getMessage());
             }
 
             return $this->success(['stats' => $stats]);
@@ -1291,6 +1293,7 @@ class AdminController extends Controller
                 }
             }
         } catch (Throwable $e) {
+        error_log('[AdminController] ignored error: ' . $e->getMessage());
         }
         return $out;
     }

@@ -179,6 +179,7 @@ class AdminAccess
                 $id = (int) ($r[0]['id'] ?? 0);
             }
         } catch (\Throwable $e) {
+        error_log('[AdminAccess] ignored error: ' . $e->getMessage());
         }
         return self::$primaryOwner = $id;
     }

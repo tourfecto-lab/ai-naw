@@ -60,6 +60,7 @@ final class SeasonSiteTrips
             // يعمل الجدول/العمود لو ناقصين بدل ما كل فتحة للصفحة تسجّل خطأ «Table doesn't exist»
             self::ensureSchema($this->db);
         } catch (Throwable $e) {
+        error_log('[SeasonSiteTrips] ignored error: ' . $e->getMessage());
         }
         try {
             return $this->db->query('SELECT id, website_id, url, name, description, price, image_url, fetched_at FROM season_site_trips WHERE user_id = ? ORDER BY website_id, id LIMIT 200', [$uid]) ?: [];

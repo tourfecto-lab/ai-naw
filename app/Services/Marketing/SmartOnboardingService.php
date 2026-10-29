@@ -149,6 +149,7 @@ class SmartOnboardingService
                 $altSnap = (new WebsiteSnapshotFetcher())->asBrowser()->fetch('https://' . $alt . '/');
                 if (self::readable($altSnap)) $snap = $altSnap;
             } catch (Throwable $e) {
+            error_log('[SmartOnboardingService] ignored error: ' . $e->getMessage());
             }
         }
         $source = 'site';
@@ -184,6 +185,7 @@ class SmartOnboardingService
                     $pageLang = 'ar';
                 }
             } catch (Throwable $e) {
+            error_log('[SmartOnboardingService] ignored error: ' . $e->getMessage());
             }
         }
         $langName = self::LANG_NAMES[$pageLang] ?? '';
@@ -275,7 +277,7 @@ class SmartOnboardingService
         }
 
         $platform = ['key' => 'unknown', 'label' => '', 'evidence' => '', 'publish' => 'copy', 'booking' => []];
-        try { $platform = $this->detectPlatform($url); } catch (Throwable $e) { }
+        try { $platform = $this->detectPlatform($url); } catch (Throwable $e) { error_log('[SmartOnboardingService] ignored error: ' . $e->getMessage()); }
 
         // الوصف طلع بلغة غير لغة الموقع: نعيد كتابة الملف بلغة الموقع ونتأكد من النتيجة
         $written = $description . ' ' . implode(' ', $services) . ' ' . implode(' ', $queries);

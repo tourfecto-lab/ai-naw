@@ -82,6 +82,7 @@ class TrialFollowUpService
                     try {
                         $out['progress'] = $tp->adminProgress((int) $r['id'], (string) $r['trial_ends_at']);
                     } catch (Throwable $e) {
+                    error_log('[TrialFollowUpService] ignored error: ' . $e->getMessage());
                     }
                 }
             }
@@ -102,6 +103,7 @@ class TrialFollowUpService
                 $plans = (new GrowthPlanService())->answersFor(array_merge(array_column($a, 'id'), array_column($e, 'id'), array_column($n, 'id')));
             }
         } catch (Throwable $ex) {
+        error_log('[TrialFollowUpService] ignored error: ' . $ex->getMessage());
         }
         $attach = function (array $x) use ($plans): array {
             $x['plan'] = isset($plans[(int) $x['id']]) ? self::planChips($plans[(int) $x['id']]) : null;

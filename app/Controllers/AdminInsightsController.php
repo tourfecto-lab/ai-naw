@@ -272,6 +272,7 @@ class AdminInsightsController extends Controller
         try {
             $coupons = (new CouponService())->all();
         } catch (Throwable $e) {
+        error_log('[AdminInsightsController] ignored error: ' . $e->getMessage());
         }
         $plans = $this->q('SELECT DISTINCT plan_name FROM subscriptions WHERE plan_name IS NOT NULL');
         return $this->success([
@@ -449,6 +450,7 @@ class AdminInsightsController extends Controller
             try {
                 ActivityLog::record('admin', 'admin.bulk_' . $action, ['user_id' => (int) $this->user['id'], 'subject_type' => 'users', 'subject_id' => 0, 'count' => $n]);
             } catch (Throwable $e) {
+            error_log('[AdminInsightsController] ignored error: ' . $e->getMessage());
             }
         }
         return $this->success(['affected' => $n, 'skipped' => count($ids) - $n], $msg ?? 'تم');
@@ -660,6 +662,7 @@ class AdminInsightsController extends Controller
                 }
             }
         } catch (Throwable $e) {
+        error_log('[AdminInsightsController] ignored error: ' . $e->getMessage());
         }
         $active = [];
         try {
@@ -671,6 +674,7 @@ class AdminInsightsController extends Controller
                 $comp[$i['component']] = $i['severity'] === 'major' ? 'outage' : ($i['severity'] === 'maintenance' ? 'maintenance' : 'degraded');
             }
         } catch (Throwable $e) {
+        error_log('[AdminInsightsController] ignored error: ' . $e->getMessage());
         }
         $worst = in_array('outage', $comp, true) ? 'outage' : (in_array('degraded', $comp, true) ? 'degraded' : (in_array('maintenance', $comp, true) ? 'maintenance' : 'operational'));
         return ['overall' => $worst, 'components' => $comp, 'active_incidents' => $active];
@@ -693,6 +697,7 @@ class AdminInsightsController extends Controller
         try {
             $past = $this->db->query("SELECT * FROM status_incidents WHERE status = 'resolved' AND started_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) ORDER BY started_at DESC LIMIT 20");
         } catch (Throwable $e) {
+        error_log('[AdminInsightsController] ignored error: ' . $e->getMessage());
         }
         $labels = ['operational' => ['شغّال', '#16a34a'], 'degraded' => ['بطء أو مشكلة جزئية', '#d97706'], 'outage' => ['متوقف', '#dc2626'], 'maintenance' => ['صيانة', '#2563eb']];
         $head = ['operational' => 'كل الخدمات شغّالة', 'degraded' => 'فيه مشكلة جزئية بنشتغل عليها', 'outage' => 'فيه عطل بنشتغل عليه دلوقتي', 'maintenance' => 'فيه صيانة جارية'];
@@ -726,6 +731,7 @@ class AdminInsightsController extends Controller
         try {
             $rows = $this->db->query('SELECT * FROM changelog_entries WHERE is_published = 1 ORDER BY published_at DESC LIMIT 100');
         } catch (Throwable $e) {
+        error_log('[AdminInsightsController] ignored error: ' . $e->getMessage());
         }
         $cat = ['new' => ['جديد', '#2563eb'], 'improved' => ['تحسين', '#16a34a'], 'fixed' => ['إصلاح', '#d97706']];
         $e = fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');

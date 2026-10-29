@@ -26,12 +26,14 @@ class MorningBriefService
         try {
             $row = $this->db->query('SELECT * FROM morning_brief_settings WHERE user_id = ? LIMIT 1', [$userId])[0] ?? null;
         } catch (Throwable $e) {
+        error_log('[MorningBriefService] ignored error: ' . $e->getMessage());
         }
         $phone = (string) ($row['phone'] ?? '');
         if ($phone === '') {
             try {
                 $phone = (string) ($this->db->query('SELECT phone FROM users WHERE id = ? LIMIT 1', [$userId])[0]['phone'] ?? '');
             } catch (Throwable $e) {
+            error_log('[MorningBriefService] ignored error: ' . $e->getMessage());
             }
         }
         return [
@@ -142,6 +144,7 @@ class MorningBriefService
         try {
             $currency = (string) ($this->db->query("SELECT currency FROM bookings WHERE user_id = ? GROUP BY currency ORDER BY COUNT(*) DESC LIMIT 1", [$o])[0]['currency'] ?? '');
         } catch (Throwable $e) {
+        error_log('[MorningBriefService] ignored error: ' . $e->getMessage());
         }
         $st['cancelled'] = (int) $this->n("SELECT COUNT(*) v FROM booking_status_history h JOIN bookings b ON b.id = h.booking_id WHERE b.user_id = ? AND h.to_status = 'cancelled' AND h.created_at >= ? AND h.created_at < ?", array_merge([$o], $Y));
         $st['trips_today'] = (int) $this->n("SELECT COUNT(*) v FROM bookings WHERE user_id = ? AND status = 'confirmed' AND start_date = ?", [$o, $r['today']]);
@@ -310,6 +313,7 @@ class MorningBriefService
                         return ['ok' => true, 'channel' => 'whatsapp', 'error' => null];
                     }
                 } catch (Throwable $e) {
+                error_log('[MorningBriefService] ignored error: ' . $e->getMessage());
                 }
             }
             $err = 'الواتساب ماوصلش (مفيش رقم واتساب مربوط)';
@@ -342,6 +346,7 @@ class MorningBriefService
             $this->db->exec('UPDATE morning_brief_settings SET last_sent_on = ?, last_status = ? WHERE user_id = ?',
                 [TripReminderService::localDate(), mb_substr($status, 0, 60), $userId]);
         } catch (Throwable $e) {
+        error_log('[MorningBriefService] ignored error: ' . $e->getMessage());
         }
     }
 

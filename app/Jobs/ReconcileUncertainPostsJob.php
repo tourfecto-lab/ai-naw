@@ -53,6 +53,7 @@ class ReconcileUncertainPostsJob implements QueueJobInterface
                 self::schedule();
             }
         } catch (Throwable $e) {
+        error_log('[ReconcileUncertainPostsJob] ignored error: ' . $e->getMessage());
         }
     }
 

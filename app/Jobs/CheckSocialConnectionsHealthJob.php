@@ -59,6 +59,7 @@ class CheckSocialConnectionsHealthJob implements QueueJobInterface
                     try {
                         $db->query('UPDATE social_connection_health SET fb_user_id = ? WHERE platform_connection_id = ?', [(string) $dbg['user_id'], (int) $r['id']]);
                     } catch (Throwable $e) {
+                    error_log('[CheckSocialConnectionsHealthJob] ignored error: ' . $e->getMessage());
                     }
                 }
             } catch (Throwable $e) {
@@ -160,6 +161,7 @@ class CheckSocialConnectionsHealthJob implements QueueJobInterface
                 self::schedule();
             }
         } catch (Throwable $e) {
+        error_log('[CheckSocialConnectionsHealthJob] ignored error: ' . $e->getMessage());
         }
     }
 

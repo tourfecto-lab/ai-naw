@@ -112,7 +112,7 @@ final class SeasonMarketSignals
         $rivals = [];
         try {
             $rivals = $db->query("SELECT DISTINCT p.product_name, COALESCE(NULLIF(c.competitor_name, ''), c.competitor_domain) AS competitor FROM ci_product_prices p JOIN competitors c ON c.id = p.competitor_id WHERE c.user_id = ? AND p.product_name IS NOT NULL AND p.detected_at >= DATE_SUB(NOW(), INTERVAL 180 DAY) LIMIT 3000", [$uid]) ?: [];
-        } catch (Throwable $e) {}
+        } catch (Throwable $e) {error_log('[SeasonMarketSignals] ignored error: ' . $e->getMessage());}
         return [$kw, $rivals];
     }
 }

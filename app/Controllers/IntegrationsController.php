@@ -338,6 +338,7 @@ class IntegrationsController extends Controller
             try {
                 $wa = $this->db->query("SELECT platform, external_location_name, external_account_id FROM platform_connections WHERE user_id = ? AND website_id = ? AND platform IN ('whatsapp_cloud','ultramsg','whatsapp_qr','whatsapp') AND status = 'connected'", [$userId, $sid]);
             } catch (Throwable $ex) {
+            error_log('[IntegrationsController] ignored error: ' . $ex->getMessage());
             }
             $waState = $wa
                 ? '<span class="pill green">مربوط</span> <span class="p-cell-muted" style="font-size:12px;">' . htmlspecialchars(implode('، ', array_map(fn ($r) => $waLabels[$r['platform']] ?? $r['platform'], $wa)), ENT_QUOTES, 'UTF-8') . '</span>'
@@ -444,6 +445,7 @@ JS;
         try {
             $configured = IntegrationManager::isConfigured($key);
         } catch (Throwable $e) {
+        error_log('[IntegrationsController] ignored error: ' . $e->getMessage());
         }
 
         return $this->success([
@@ -643,6 +645,7 @@ JS;
                 [$key, $ok ? 1 : 0, mb_substr($message, 0, 1000), $ok ? 0 : 1]
             );
         } catch (Throwable $e) {
+        error_log('[IntegrationsController] ignored error: ' . $e->getMessage());
         }
     }
 
@@ -963,6 +966,7 @@ JS;
                 return trim($v);
             }
         } catch (Throwable $e) {
+        error_log('[IntegrationsController] ignored error: ' . $e->getMessage());
         }
         if (defined($envKey) && (string) constant($envKey) !== '') {
             return trim((string) constant($envKey));
@@ -979,12 +983,14 @@ JS;
         try {
             $settings = new SystemSettingsService();
         } catch (Throwable $e) {
+        error_log('[IntegrationsController] ignored error: ' . $e->getMessage());
         }
         foreach ($envKeys as $k) {
             $has = false;
             try {
                 $has = $this->integrationValue($k) !== '';
             } catch (Throwable $e) {
+            error_log('[IntegrationsController] ignored error: ' . $e->getMessage());
             }
             $out[$k] = $has;
         }

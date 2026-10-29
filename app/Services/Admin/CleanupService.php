@@ -293,6 +293,7 @@ class CleanupService
                 }
             }
         } catch (Throwable $e) {
+        error_log('[CleanupService] ignored error: ' . $e->getMessage());
         }
         return $this->summarize($paths, false);
     }
@@ -330,6 +331,7 @@ class CleanupService
                 }
             }
         } catch (Throwable $e) {
+        error_log('[CleanupService] ignored error: ' . $e->getMessage());
         }
         return $this->summarize($paths, false);
     }
@@ -356,6 +358,7 @@ class CleanupService
                         }
                     }
                 } catch (Throwable $e) {
+                error_log('[CleanupService] ignored error: ' . $e->getMessage());
                 }
             }
             return isset($appIndex[$base]);
@@ -396,6 +399,7 @@ class CleanupService
                             }
                         }
                     } catch (Throwable $e) {
+                    error_log('[CleanupService] ignored error: ' . $e->getMessage());
                     }
                     $junk = $php > 0 && $dup / $php >= 0.8;
                 }
@@ -473,6 +477,7 @@ class CleanupService
                 $s += $f->isFile() ? $f->getSize() : 0;
             }
         } catch (Throwable $e) {
+        error_log('[CleanupService] ignored error: ' . $e->getMessage());
         }
         return $s;
     }
@@ -499,6 +504,7 @@ class CleanupService
                 }
             }
         } catch (Throwable $e) {
+        error_log('[CleanupService] ignored error: ' . $e->getMessage());
         }
     }
 
@@ -541,6 +547,7 @@ class CleanupService
         try {
             $db = (int) ($this->db->query('SELECT SUM(DATA_LENGTH + INDEX_LENGTH) AS b FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()')[0]['b'] ?? 0);
         } catch (Throwable $e) {
+        error_log('[CleanupService] ignored error: ' . $e->getMessage());
         }
         return ['free' => $free ?: null, 'total' => $total ?: null, 'db_bytes' => $db];
     }

@@ -45,7 +45,7 @@ final class SeoPlatformProductService
                     $price='';$currency='';
                     // Ranges, alternate prices and AggregateOffer lows are not a confirmed sale price.
                     if(is_array($offers)&&count($offers)===1&&is_array($offers[0])&&in_array($offers[0]['@type']??'Offer',['Offer','https://schema.org/Offer'],true)){
-                        try{$price=self::price($offers[0]['price']??null);}catch(InvalidArgumentException $e){}
+                        try{$price=self::price($offers[0]['price']??null);}catch(InvalidArgumentException $e){error_log('[SeoPlatformProductService] ignored error: ' . $e->getMessage());}
                         $code=$offers[0]['priceCurrency']??'';if(is_string($code)&&preg_match('/^[A-Z]{3}$/D',$code))$currency=$code;
                     }
                     $candidate=['name'=>$name,'description'=>self::text($node['description']??'',3000),'price'=>$price,'currency'=>$currency];

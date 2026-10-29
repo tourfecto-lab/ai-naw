@@ -59,6 +59,7 @@ class RevenueSettingsService
                 return $c;
             }
         } catch (Throwable $e) {
+        error_log('[RevenueSettingsService] ignored error: ' . $e->getMessage());
         }
         return 'USD';
     }

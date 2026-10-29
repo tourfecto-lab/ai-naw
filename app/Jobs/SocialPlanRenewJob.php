@@ -33,6 +33,7 @@ class SocialPlanRenewJob implements QueueJobInterface
                 self::schedule(120);
             }
         } catch (Throwable $e) {
+        error_log('[SocialPlanRenewJob] ignored error: ' . $e->getMessage());
         }
     }
 

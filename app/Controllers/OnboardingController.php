@@ -437,6 +437,7 @@ class OnboardingController extends Controller
                 if (SmartOnboardingService::host((string) $w['main_url']) === $host) { $websiteId = (int) $w['id']; break; }
             }
         } catch (Throwable $e) {
+        error_log('[OnboardingController] ignored error: ' . $e->getMessage());
         }
         try {
             $r = (new SmartOnboardingService())->competitors($url, $list($this->get('queries'), 3, 80), $list($this->get('candidates'), 12, 120), substr((string) $this->get('language', 'en'), 0, 2), $websiteId, array_values(array_filter(array_map(fn ($c) => strtoupper(substr(trim((string) $c), 0, 2)), array_slice(is_array($this->get('countries')) ? $this->get('countries') : [], 0, 5)), fn ($c) => (bool) preg_match('/^[A-Z]{2}$/', $c))));
@@ -1911,6 +1912,7 @@ HTML;
                     [$websiteId]
                 );
             } catch (Throwable $ignored) {
+            error_log('[OnboardingController] ignored error: ' . $ignored->getMessage());
             }
             $rows = $this->db->query(
                 "SELECT id, status, overall_score, completed_at FROM wo_audits WHERE website_id = ? ORDER BY id DESC LIMIT 1",

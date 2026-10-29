@@ -146,6 +146,7 @@ class BookingController extends Controller
                 $this->inventory->setDay($userId, $data['product_id'], $data['start_date'], $cap);
             }
         } catch (Throwable $e) {
+        error_log('[BookingController] ignored error: ' . $e->getMessage());
         }
 
         try {
@@ -550,6 +551,7 @@ class BookingController extends Controller
                 PaymentLinkService::clearClaim((int) $lk['id']);
             }
         } catch (Throwable $e) {
+        error_log('[BookingController] ignored error: ' . $e->getMessage());
         }
         $confirmed = false;
         if ($b['status'] === 'pending') {
@@ -620,6 +622,7 @@ class BookingController extends Controller
             $db->exec('INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by_user_id, reason) VALUES (?, ?, ?, ?, ?)',
                 [(int) $row[0]['id'], 'confirmed', $status, (int) ($this->getUser()['id'] ?? 0), 'من صفحة الحجوزات']);
         } catch (Throwable $e) {
+        error_log('[BookingController] ignored error: ' . $e->getMessage());
         }
         return $this->success([], $status === 'completed' ? 'اتعلّم إن الرحلة خلصت' : 'اتعلّم إن العميل ماحضرش');
     }

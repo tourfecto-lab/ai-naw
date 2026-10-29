@@ -145,6 +145,7 @@ class RevenueAlertChannelService
                 [$status, $error !== null ? mb_substr($error, 0, 500) : null, $userId, $channel, $key]
             );
         } catch (Throwable $e) {
+        error_log('[RevenueAlertChannelService] ignored error: ' . $e->getMessage());
         }
     }
 

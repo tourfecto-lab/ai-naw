@@ -36,6 +36,7 @@ class AdminAccountsController extends Controller
         try {
             $members = (int) (Database::getInstance()->query('SELECT COUNT(*) c FROM users WHERE owner_user_id = ? AND deleted_at IS NULL', [(int) $t['id']])[0]['c'] ?? 0);
         } catch (Throwable $e) {
+        error_log('[AdminAccountsController] ignored error: ' . $e->getMessage());
         }
         return $this->success([
             'account' => [
@@ -113,6 +114,7 @@ class AdminAccountsController extends Controller
             try {
                 $db->exec('DELETE FROM admin_staff WHERE user_id = ?', [(int) $t['id']]); // نزل من الفريق
             } catch (Throwable $e) {
+            error_log('[AdminAccountsController] ignored error: ' . $e->getMessage());
             }
         }
         $this->audit('admin.account_updated', (int) $t['id'], ['fields' => array_keys(array_filter([
@@ -236,6 +238,7 @@ class AdminAccountsController extends Controller
             try {
                 ActivityLog::record('admin', 'admin.user_deleted', ['user_id' => (int) $this->user['id'], 'subject_type' => 'users', 'subject_id' => $id]);
             } catch (Throwable $e) {
+            error_log('[AdminAccountsController] ignored error: ' . $e->getMessage());
             }
         }
         return $this->success(['deleted' => count($ids)], 'الحساب اتحذف' . (count($ids) > 1 ? ' هو و' . (count($ids) - 1) . ' من فريقه' : '') . ' والإيميل بقى متاح للتسجيل من جديد');
@@ -432,6 +435,7 @@ class AdminAccountsController extends Controller
                 [(int) ($this->user['id'] ?? 0), $action, 'users', (string) $targetId, 'success', json_encode($meta, JSON_UNESCAPED_UNICODE), $_SERVER['REMOTE_ADDR'] ?? null]
             );
         } catch (Throwable $e) {
+        error_log('[AdminAccountsController] ignored error: ' . $e->getMessage());
         }
     }
 }

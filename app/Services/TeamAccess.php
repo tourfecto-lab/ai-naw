@@ -59,6 +59,7 @@ class TeamAccess
                 $roles[] = $map[(string) ($w[0]['workspace_role'] ?? '')] ?? 'member';
             }
         } catch (Throwable $e) {
+        error_log('[TeamAccess] ignored error: ' . $e->getMessage());
         }
         try {
             foreach (Database::getInstance()->query(
@@ -69,6 +70,7 @@ class TeamAccess
                 $roles[] = (string) $r['role'];
             }
         } catch (Throwable $e) {
+        error_log('[TeamAccess] ignored error: ' . $e->getMessage());
         }
         foreach (['admin', 'member', 'viewer'] as $best) {
             if (in_array($best, $roles, true)) return $best;
@@ -84,6 +86,7 @@ class TeamAccess
             $w = Database::getInstance()->query('SELECT owner_user_id FROM users WHERE id = ? AND owner_user_id IS NOT NULL LIMIT 1', [$userId]);
             if ($w && (int) $w[0]['owner_user_id'] !== $userId) $out[(int) $w[0]['owner_user_id']] = true;
         } catch (Throwable $e) {
+        error_log('[TeamAccess] ignored error: ' . $e->getMessage());
         }
         try {
             foreach (Database::getInstance()->query(
@@ -94,6 +97,7 @@ class TeamAccess
                 $out[(int) $r['owner_user_id']] = true;
             }
         } catch (Throwable $e) {
+        error_log('[TeamAccess] ignored error: ' . $e->getMessage());
         }
         $roles = [];
         foreach (array_keys($out) as $owner) {
@@ -112,6 +116,7 @@ class TeamAccess
                 if (($r['workspace_role'] ?? '') !== 'viewer') $ids[] = (int) $r['id'];
             }
         } catch (Throwable $e) {
+        error_log('[TeamAccess] ignored error: ' . $e->getMessage());
         }
         try {
             foreach (Database::getInstance()->query(
@@ -122,6 +127,7 @@ class TeamAccess
                 $ids[] = (int) $r['user_id'];
             }
         } catch (Throwable $e) {
+        error_log('[TeamAccess] ignored error: ' . $e->getMessage());
         }
         return array_values(array_unique(array_diff($ids, [$ownerId])));
     }

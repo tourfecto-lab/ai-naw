@@ -35,7 +35,7 @@ class LocalSeoController extends Controller
             if($op==='data'){
                 $row=$this->db->query('SELECT profile_json FROM seo_local_profiles WHERE website_id=? AND user_id=?',[$wid,$uid])[0]??null;
                 $profile=$row?json_decode($row['profile_json'],true):null;$mapsReady=false;
-                if(is_array($profile)){try{LocalRankGridService::gridForProfile($profile);$mapsReady=true;}catch(InvalidArgumentException $e){}}
+                if(is_array($profile)){try{LocalRankGridService::gridForProfile($profile);$mapsReady=true;}catch(InvalidArgumentException $e){error_log('[LocalSeoController] ignored error: ' . $e->getMessage());}}
                 $publicProfile=is_array($profile)?array_intersect_key($profile,array_flip(['name','phone','address','website','directory_profiles','confirmed_at'])):null;
                 return $this->success(['profile'=>$publicProfile,'maps_grid_ready'=>$mapsReady,'runs'=>(new LocalRankGridService($this->db))->history($uid,$wid),'tasks'=>$this->db->query("SELECT source_url,evidence_json,status FROM seo_citation_tasks WHERE website_id=? AND user_id=? AND status='pending' ORDER BY id DESC LIMIT 50",[$wid,$uid])]);
             }

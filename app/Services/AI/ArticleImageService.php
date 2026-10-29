@@ -232,6 +232,7 @@ class ArticleImageService
                 [$userId]
             ));
         } catch (\Throwable $e) {
+        error_log('[ArticleImageService] ignored error: ' . $e->getMessage());
         }
         $out = [];
         foreach ((array) $rows as $r) {

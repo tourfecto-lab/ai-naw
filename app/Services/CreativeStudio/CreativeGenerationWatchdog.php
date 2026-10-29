@@ -43,7 +43,7 @@ class CreativeGenerationWatchdog
                     $meta=json_decode((string)$item->getAttribute('generation_meta'),true)?:[];
                     $feature=$item->getAttribute('type')==='short_video'?'media_video':'media_image';
                     GenerationLifecycle::complete($item,$feature);$out['resumed']++;
-                    if(($meta['source']??'')==='video_editor'&&!empty($meta['overlay']))try{@unlink(PrivateMedia::resolve((string)$meta['overlay']));}catch(Throwable $e){}
+                    if(($meta['source']??'')==='video_editor'&&!empty($meta['overlay']))try{@unlink(PrivateMedia::resolve((string)$meta['overlay']));}catch(Throwable $e){error_log('[CreativeGenerationWatchdog] ignored error: ' . $e->getMessage());}
                 }else{
                     GenerationLifecycle::fail($item,$action==='video_expired'?'CREATIVE_VIDEO_EXPIRED download window elapsed':'CREATIVE_STALLED no progress at stage '.$item->getAttribute('generation_stage'));$out['failed']++;
                 }

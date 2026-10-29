@@ -219,6 +219,7 @@ class HostedBlogService
                 }
             }
         } catch (Throwable $e) {
+        error_log('[HostedBlogService] ignored error: ' . $e->getMessage());
         }
         return $this->get($websiteId);
     }

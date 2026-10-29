@@ -235,6 +235,7 @@ class ConnectionTestController extends Controller
                 $this->db->query("UPDATE platform_connections SET status = 'error', last_error = ? WHERE id = ?", [mb_substr($result['message'], 0, 500), (int) $conn['id']]);
             }
         } catch (Throwable $e) {
+        error_log('[ConnectionTestController] ignored error: ' . $e->getMessage());
         }
     }
 

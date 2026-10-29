@@ -84,6 +84,7 @@ class CeoAdvisorService
             );
             $snapshot['competitor_comparisons'] = $rows;
         } catch (Exception $e) {
+        error_log('[CeoAdvisorService] ignored error: ' . $e->getMessage());
         }
 
         // فرص الكلمات المفتاحية (Phase 6)
@@ -95,6 +96,7 @@ class CeoAdvisorService
                 'total_tracked' => (int) ($total[0]['c'] ?? 0),
             ];
         } catch (Exception $e) {
+        error_log('[CeoAdvisorService] ignored error: ' . $e->getMessage());
         }
 
         // حالة Outreach Pipeline (Phase 10)
@@ -109,6 +111,7 @@ class CeoAdvisorService
                 }
             }
         } catch (Exception $e) {
+        error_log('[CeoAdvisorService] ignored error: ' . $e->getMessage());
         }
 
         // تكلفة AI الشهر ده (Phase 4)
@@ -121,6 +124,7 @@ class CeoAdvisorService
             );
             $snapshot['ai_cost_this_month'] = round((float) ($rows[0]['total'] ?? 0), 4);
         } catch (Exception $e) {
+        error_log('[CeoAdvisorService] ignored error: ' . $e->getMessage());
         }
 
         // الملاحظات/المخاطر/الفرص اليدوية الموجودة بالفعل (ExecutiveExtrasController)
@@ -138,6 +142,7 @@ class CeoAdvisorService
                 [$userId]
             );
         } catch (Exception $e) {
+        error_log('[CeoAdvisorService] ignored error: ' . $e->getMessage());
         }
 
         return $snapshot;

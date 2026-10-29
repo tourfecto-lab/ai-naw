@@ -288,12 +288,14 @@ class PlatformHealthService
                 $last[$r['integration_key']] = $r;
             }
         } catch (Throwable $e) {
+        error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
         }
         foreach ($registry as $key => $meta) {
             $configured = false;
             try {
                 $configured = class_exists('IntegrationManager') && IntegrationManager::isConfigured($key);
             } catch (Throwable $e) {
+            error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
             }
             $chk = $last[$key] ?? null;
             $items[] = [
@@ -336,6 +338,7 @@ class PlatformHealthService
         try {
             $configured = class_exists('Mailer') && (new Mailer())->isConfigured();
         } catch (Throwable $e) {
+        error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
         }
         if (!$configured) {
             $checks[] = $this->c('mail_config', 'إعداد البريد', 'fail', 'البريد مش متظبط - مفيش أي إيميل بيطلع من المنصة',
@@ -395,6 +398,7 @@ class PlatformHealthService
             $checks[] = $this->c('past_due', 'اشتراكات متأخرة الدفع', $pastDue === 0 ? 'ok' : 'warn',
                 $pastDue === 0 ? 'مفيش' : "{$pastDue} اشتراك في فترة السماح", $pastDue ? 'الأدمن ← الدفع والكوبونات: كلّمهم قبل ما الاشتراك يتلغي.' : null);
         } catch (Throwable $e) {
+        error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
         }
         return ['title' => 'المدفوعات', 'checks' => $checks];
     }
@@ -415,6 +419,7 @@ class PlatformHealthService
             $checks[] = $this->c('app_errors', 'أخطاء النظام (آخر ساعة)', $status,
                 $n === 0 ? 'مفيش' : "{$n} خطأ", $status !== 'ok' ? 'الأدمن ← أخطاء النظام: شوف إيه اللي بيتكرر.' : null);
         } catch (Throwable $e) {
+        error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
         }
 
         $failed = 0;
@@ -427,6 +432,7 @@ class PlatformHealthService
             $failed += (int) ($r['f'] ?? 0);
             $sent += (int) ($r['s'] ?? 0);
         } catch (Throwable $e) {
+        error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
         }
         try {
             $r = $this->db->query(
@@ -436,6 +442,7 @@ class PlatformHealthService
             $failed += (int) ($r['f'] ?? 0);
             $sent += (int) ($r['s'] ?? 0);
         } catch (Throwable $e) {
+        error_log('[PlatformHealthService] ignored error: ' . $e->getMessage());
         }
         if ($failed === 0) {
             $checks[] = $this->c('customer_messages', 'رسايل العملاء (تذكير/ملخص الصبح)', 'ok', $sent ? "{$sent} رسالة اتبعتت آخر 24 ساعة" : 'مفيش رسايل آخر 24 ساعة');

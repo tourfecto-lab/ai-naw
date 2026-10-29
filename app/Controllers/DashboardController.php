@@ -49,6 +49,7 @@ class DashboardController extends Controller
                 ];
             }
         } catch (Exception $e) {
+        error_log('[DashboardController] ignored error: ' . $e->getMessage());
         }
 
         // 2) رصيد محفظة منخفض
@@ -64,6 +65,7 @@ class DashboardController extends Controller
                 }
             }
         } catch (Exception $e) {
+        error_log('[DashboardController] ignored error: ' . $e->getMessage());
         }
 
         // 3) مواقع مولّدة لسه مسوّدة (مش منشورة)
@@ -81,6 +83,7 @@ class DashboardController extends Controller
                 }
             }
         } catch (Exception $e) {
+        error_log('[DashboardController] ignored error: ' . $e->getMessage());
         }
 
         // 4) اشتراك قرّب ينتهي
@@ -127,6 +130,7 @@ class DashboardController extends Controller
                 try {
                     $trialOpen = (new PlanExtras())->trialEligible($userId);
                 } catch (Throwable $e) {
+                error_log('[DashboardController] ignored error: ' . $e->getMessage());
                 }
                 $insights[] = $trialOpen ? [
                     'icon' => '🎁', 'priority' => 1,
@@ -139,6 +143,7 @@ class DashboardController extends Controller
                 ];
             }
         } catch (Exception $e) {
+        error_log('[DashboardController] ignored error: ' . $e->getMessage());
         }
 
         // ترتيب حسب الأولوية (1 = الأهم)
@@ -229,6 +234,7 @@ class DashboardController extends Controller
                     $owner = !empty($this->user['owner_user_id']) ? (int) $this->user['owner_user_id'] : (int) $this->user['id'];
                     $trial = ['eligible' => $x->trialEligible($owner), 'days' => (int) ($x->config()['trial_days'] ?? 3)];
                 } catch (Throwable $e) {
+                error_log('[DashboardController] ignored error: ' . $e->getMessage());
                 }
             }
 
@@ -792,6 +798,7 @@ class DashboardController extends Controller
                             [(int) $this->user['id']]
                         )[0]['c'] ?? 0);
                     } catch (Throwable $e) {
+                    error_log('[DashboardController] ignored error: ' . $e->getMessage());
                     }
                 }
                 if ($websiteCount === 0 && $onboarded === 0) {
@@ -1514,6 +1521,7 @@ JS;
             try {
                 $site = $this->db->query("SELECT slug FROM generated_websites WHERE user_id = ? AND status = 'published' ORDER BY id LIMIT 1", [$userId])[0] ?? null;
             } catch (Throwable $e) {
+            error_log('[DashboardController] ignored error: ' . $e->getMessage());
             }
             $siteCount = $q("SELECT COUNT(*) AS c FROM generated_websites WHERE user_id = ?", [$userId]);
             $tours = $q("SELECT COUNT(*) AS c FROM crm_products WHERE user_id = ? AND is_active = 1 AND website_id IS NOT NULL AND tour_slug IS NOT NULL", [$userId]);

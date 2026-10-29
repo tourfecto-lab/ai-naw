@@ -91,6 +91,7 @@ class SchemaUpdater
                 try {
                     $pendingMaps += (int) $this->pdo->query("SELECT COUNT(*) FROM `{$t}` WHERE `{$c}` = " . $this->pdo->quote($from))->fetchColumn();
                 } catch (Throwable $e) {
+                error_log('[SchemaUpdater] ignored error: ' . $e->getMessage());
                 }
             }
         }

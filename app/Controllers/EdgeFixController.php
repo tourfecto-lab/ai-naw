@@ -173,7 +173,7 @@ class EdgeFixController extends Controller
             if (!$zip->close()) throw new RuntimeException('Archive finalization failed.');
             $zip = null;
         } catch (Throwable $e) {
-            if ($zip !== null) { try { $zip->close(); } catch (Throwable $ignored) {} }
+            if ($zip !== null) { try { $zip->close(); } catch (Throwable $ignored) {error_log('[EdgeFixController] ignored error: ' . $ignored->getMessage());} }
             if ($tmp !== false) @unlink($tmp);
             return $this->error('تعذر تجهيز الإضافة الموحدة. تأكد من رفع جميع ملفات التحديث.', 500);
         }

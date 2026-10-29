@@ -93,6 +93,7 @@ class MailLog
             $db->exec('UPDATE mail_log SET body_html = NULL WHERE body_html IS NOT NULL AND created_at < DATE_SUB(NOW(), INTERVAL ' . self::BODY_DAYS . ' DAY)');
             $db->exec('DELETE FROM mail_log WHERE created_at < DATE_SUB(NOW(), INTERVAL ' . self::KEEP_DAYS . ' DAY)');
         } catch (Throwable $e) {
+        error_log('[MailLog] ignored error: ' . $e->getMessage());
         }
     }
 }

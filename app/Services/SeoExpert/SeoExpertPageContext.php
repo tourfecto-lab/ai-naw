@@ -82,7 +82,7 @@ class SeoExpertPageContext extends PageContext
                 $final=parse_url($r['final_url']??$url);
                 if($r['error']!==null||($final['host']??'')!==($origin['host']??''))continue;
                 $checks[$url]=$r['http']===200?'passed':'missing';
-            }catch(Throwable $e){}finally{$this->sitemapRead=false;}
+            }catch(Throwable $e){error_log('[SeoExpertPageContext] ignored error: ' . $e->getMessage());}finally{$this->sitemapRead=false;}
         }
         return $checks;
     }

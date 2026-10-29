@@ -163,6 +163,7 @@ class ExecutiveDashboardService
                 $items[] = ['title' => $r['title'], 'impact' => $r['impact'], 'source' => 'growth_opportunity'];
             }
         } catch (Exception $e) {
+        error_log('[ExecutiveDashboardService] ignored error: ' . $e->getMessage());
         }
 
         try {
@@ -174,6 +175,7 @@ class ExecutiveDashboardService
                 $items[] = ['title' => "استهدف الكلمة \"{$r['keyword']}\"", 'impact' => $r['opportunity_score'] >= 70 ? 'high' : 'medium', 'source' => 'keyword'];
             }
         } catch (Exception $e) {
+        error_log('[ExecutiveDashboardService] ignored error: ' . $e->getMessage());
         }
 
         usort($items, fn ($a, $b) => ($b['impact'] === 'high' ? 1 : 0) <=> ($a['impact'] === 'high' ? 1 : 0));
@@ -196,6 +198,7 @@ class ExecutiveDashboardService
                 $items[] = ['title' => $r['title'], 'severity' => $r['severity'], 'source' => 'seo_finding'];
             }
         } catch (Exception $e) {
+        error_log('[ExecutiveDashboardService] ignored error: ' . $e->getMessage());
         }
 
         try {
@@ -207,6 +210,7 @@ class ExecutiveDashboardService
                 $items[] = ['title' => $r['title'], 'severity' => $r['severity'], 'source' => 'risk_alert'];
             }
         } catch (Exception $e) {
+        error_log('[ExecutiveDashboardService] ignored error: ' . $e->getMessage());
         }
 
         $order = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];

@@ -27,7 +27,7 @@ final class AiInsightsController extends Controller
             AiInsightsSchema::ensureSchema($this->db);
             $markets=(new SeoMarketService($this->db))->markets($wid,$uid);
             $sentiment=['totals'=>[],'by_provider'=>[],'recent'=>[],'pending'=>0];
-            try{$sentiment=(new AiSentimentService($this->db))->summary($uid,$wid,$mid);}catch(InvalidArgumentException $e){}
+            try{$sentiment=(new AiSentimentService($this->db))->summary($uid,$wid,$mid);}catch(InvalidArgumentException $e){error_log('[AiInsightsController] ignored error: ' . $e->getMessage());}
             $out=['markets'=>array_map(fn($m)=>['id'=>(int)$m['id'],'label'=>(string)($m['label']??'')],$markets),
                 'sources'=>(new AiCitationSourcesService($this->db))->forSite($uid,$wid,$mid,$provider),'sentiment'=>$sentiment,
                 'crawlers'=>(new AiCrawlerService($this->db))->summary($uid,$wid),'is_admin'=>$this->isAdmin()];

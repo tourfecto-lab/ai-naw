@@ -97,6 +97,7 @@ class MarketingController extends Controller
             array_unshift($log, ['host' => $r['host'], 'score' => $r['score'], 'lang' => $lang, 'at' => date('Y-m-d H:i:s')]);
             $ss->set('free_checks_recent', json_encode(array_slice($log, 0, 200), JSON_UNESCAPED_UNICODE));
         } catch (Throwable $e) {
+        error_log('[MarketingController] ignored error: ' . $e->getMessage());
         }
         return $this->success($r);
     }
@@ -876,6 +877,7 @@ class MarketingController extends Controller
             try {
                 $email = (string) (new SystemSettingsService())->get('contact_email', '');
             } catch (Throwable $e) {
+            error_log('[MarketingController] ignored error: ' . $e->getMessage());
             }
         }
         $side = '';
@@ -989,6 +991,7 @@ class MarketingController extends Controller
                 return $this->error($this->t(['بعت رسايل كتير - جرّب تاني بعد شوية أو كلمنا على واتساب.', 'Too many messages - please try again later or reach us on WhatsApp.']), 429);
             }
         } catch (Throwable $e) {
+        error_log('[MarketingController] ignored error: ' . $e->getMessage());
         }
 
         $features = MarketingContent::features();
@@ -1036,6 +1039,7 @@ class MarketingController extends Controller
                 $this->db->query('INSERT INTO notifications (user_id, type, title, body, link) VALUES (?, ?, ?, ?, ?)',
                     [(int) $a['id'], 'contact_' . $type, $title, mb_substr($body, 0, 240), '/admin/contact-messages']);
             } catch (Throwable $e) {
+            error_log('[MarketingController] ignored error: ' . $e->getMessage());
             }
         }
         $to = [];
@@ -1044,6 +1048,7 @@ class MarketingController extends Controller
                 $cfg = (string) (new SystemSettingsService())->get('admin_alert_emails', '');
                 $to = array_filter(array_map('trim', explode(',', $cfg)));
             } catch (Throwable $e) {
+            error_log('[MarketingController] ignored error: ' . $e->getMessage());
             }
         }
         if (!$to) {
@@ -1074,6 +1079,7 @@ class MarketingController extends Controller
             try {
                 $custom = trim((string) (new SystemSettingsService())->get('refund_policy_content', ''));
             } catch (Throwable $e) {
+            error_log('[MarketingController] ignored error: ' . $e->getMessage());
             }
         }
         $html = $custom !== '' ? self::sanitizeHtml($custom) : self::defaultRefundHtml(MarketingContent::lang());
@@ -1244,6 +1250,7 @@ HTML;
         try {
             $this->db->exec('UPDATE blog_posts SET views = views + 1 WHERE id = ?', [(int) $p['id']]);
         } catch (Throwable $e) {
+        error_log('[MarketingController] ignored error: ' . $e->getMessage());
         }
         $dir = $p['lang'] === 'ar' ? 'rtl' : 'ltr';
         $date = date('Y-m-d', strtotime((string) $p['published_at']));

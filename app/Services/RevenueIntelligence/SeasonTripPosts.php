@@ -197,6 +197,7 @@ final class SeasonTripPosts
                     return 'https://' . $domain . '/tours/' . rawurlencode($tripSlug);
                 }
             } catch (Throwable $e) {
+            error_log('[SeasonTripPosts] ignored error: ' . $e->getMessage());
             }
         }
         $base = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';

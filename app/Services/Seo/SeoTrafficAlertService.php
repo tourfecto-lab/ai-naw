@@ -103,6 +103,7 @@ class SeoTrafficAlertService
             }
             $cache->set($key, 1, 8 * 86400);
         } catch (Throwable $e) {
+        error_log('[SeoTrafficAlertService] ignored error: ' . $e->getMessage());
         }
         $pct = (int) round(abs($res['change']) * 100);
         $lines = [];
@@ -115,10 +116,12 @@ class SeoTrafficAlertService
         try {
             Notification::notify($uid, 'seo_traffic_drop', 'تنبيه: زيارات جوجل وقعت ' . $pct . '%', $body, '/seo-expert');
         } catch (Throwable $e) {
+        error_log('[SeoTrafficAlertService] ignored error: ' . $e->getMessage());
         }
         try {
             ActivityLog::record('seo', 'seo.traffic_drop', ['user_id' => $uid, 'subject_type' => 'websites', 'subject_id' => $wid, 'meta' => ['change' => $res['change'], 'clicks' => $res['clicks'], 'previous' => $res['previous']]]);
         } catch (Throwable $e) {
+        error_log('[SeoTrafficAlertService] ignored error: ' . $e->getMessage());
         }
     }
 

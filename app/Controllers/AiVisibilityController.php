@@ -42,7 +42,7 @@ final class AiVisibilityController extends Controller
         $trend=[];ksort($weeks);foreach($weeks as $week=>$providers)$trend[]=['week'=>$week,'providers'=>$providers];
         $answers=array_map(fn($a)=>$a+['market_id'=>$marketId],$o['answers']??[]);
         $entity=$o['entities']??null;
-        $brand='';try{$brand=(string)($svc->context($uid,$wid,$marketId)['brand']['name']??'');}catch(Throwable $e){}
+        $brand='';try{$brand=(string)($svc->context($uid,$wid,$marketId)['brand']['name']??'');}catch(Throwable $e){error_log('[AiVisibilityController] ignored error: ' . $e->getMessage());}
         return ['state'=>$o['state']??'not_measured','markets'=>$markets,'questions'=>$questions,'metrics'=>$metrics,'trend'=>$trend,'answers'=>$answers,'tasks'=>$o['tasks']??[],
             'providers'=>$o['providers']??[],'aliases'=>array_values(array_merge([$brand],(array)($entity['aliases']??[]))),'profile_urls'=>array_values((array)($entity['profiles']??[])),'position_basis'=>$o['metrics']['position_basis']??null];
     }

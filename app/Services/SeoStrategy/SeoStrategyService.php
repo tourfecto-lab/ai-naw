@@ -47,6 +47,7 @@ class SeoStrategyService
                 $context['top_findings'] = $findings;
             }
         } catch (Exception $e) {
+        error_log('[SeoStrategyService] ignored error: ' . $e->getMessage());
         }
 
         try {
@@ -55,6 +56,7 @@ class SeoStrategyService
                 [$websiteId, $userId]
             );
         } catch (Exception $e) {
+        error_log('[SeoStrategyService] ignored error: ' . $e->getMessage());
         }
 
         try {
@@ -63,6 +65,7 @@ class SeoStrategyService
                 [$websiteId, $userId]
             );
         } catch (Exception $e) {
+        error_log('[SeoStrategyService] ignored error: ' . $e->getMessage());
         }
 
         // Keyword Gap: competitor keywords client is not ranking for
@@ -80,6 +83,7 @@ class SeoStrategyService
                 }
             }
         } catch (Exception $e) {
+        error_log('[SeoStrategyService] ignored error: ' . $e->getMessage());
         }
 
         return $context;

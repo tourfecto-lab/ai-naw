@@ -200,6 +200,7 @@ class ContentCalendarService
                 }
             }
         } catch (Throwable $e) {
+        error_log('[ContentCalendarService] ignored error: ' . $e->getMessage());
         }
         $done = array_column($this->db->query("SELECT title FROM ai_articles WHERE website_id = ? ORDER BY id DESC LIMIT 40", [$websiteId]), 'title');
         $done = array_merge($done, array_column($this->db->query("SELECT title FROM content_calendar WHERE website_id = ? AND status <> 'skipped' ORDER BY id DESC LIMIT 40", [$websiteId]), 'title'));
