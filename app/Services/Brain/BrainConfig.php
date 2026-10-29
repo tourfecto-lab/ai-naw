@@ -6,11 +6,13 @@
  * - brain_autonomy_allowed:     السماح بالتشغيل الذاتي للشركات (لو اتقفل، مفيش تنفيذ تلقائي حتى لو الشركة فاتحاه).
  * - brain_market_enabled:       جلب بيانات السوق من المصادر الخارجية.
  * - brain_auto_actions_per_day: أقصى عدد قرارات بتتنفّذ تلقائيًا لكل شركة في اليوم.
+ * - aiceo_auto:                 AI CEO في الوضع التلقائي (1) أو وضع الموافقة (0، الافتراضي).
+ * - aiceo_paused:               زرار إيقاف الطوارئ لـ AI CEO: مفيش تنفيذ ولا ذكاء اصطناعي ولا دورة مجدولة.
  * أي خطأ في القراية = القيمة الافتراضية (الإعدادات دي ماتوقفش الصفحة).
  */
 final class BrainConfig
 {
-    public const DEFAULTS = ['brain_enabled' => 1, 'brain_autonomy_allowed' => 1, 'brain_market_enabled' => 1, 'brain_auto_actions_per_day' => 10];
+    public const DEFAULTS = ['brain_enabled' => 1, 'brain_autonomy_allowed' => 1, 'brain_market_enabled' => 1, 'brain_auto_actions_per_day' => 10, 'aiceo_auto' => 0, 'aiceo_paused' => 0];
     private static ?array $cache = null;
 
     public static function all(?Database $db = null): array

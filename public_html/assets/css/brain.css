@@ -68,3 +68,11 @@
 .br-act p { margin: 6px 0 10px; }
 .br-act.done { border-color: var(--panel-success, #16a34a); background: var(--panel-success-light, #ecfdf5); }
 .br-act.error { border-color: var(--panel-danger, #dc2626); background: var(--panel-danger-light, #fef2f2); }
+
+/* AI Mission Control (TOURFECTO AI CEO) */
+.ac-chat { max-height: 360px; overflow: auto; display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.ac-q { align-self: flex-end; max-width: 80%; padding: 8px 12px; border-radius: 12px; background: var(--panel-primary, #2563eb); color: #fff; white-space: pre-wrap; }
+.ac-a { align-self: flex-start; max-width: 90%; padding: 10px 12px; border-radius: 12px; background: var(--panel-card-bg-2, #f8fafc); border: 1px solid var(--panel-border, #e2e8f0); white-space: pre-wrap; line-height: 1.7; }
+.ac-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.ac-form input { flex: 1 1 200px; }
+.ac-mem { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; }

@@ -2004,6 +2004,13 @@ $router->post('/api/brain/sharing','BrainController','sharing',['AuthMiddleware'
 $router->post('/api/brain/autonomy','BrainController','autonomy',['AuthMiddleware']);
 // العقل الاستراتيجي — الإدارة
 $router->get('/api/admin/brain','BrainAdminController','data',['AuthMiddleware','AdminMiddleware']);
+// TOURFECTO AI CEO — AI Mission Control (إدارة شركة Tourfecto نفسها)
+$router->get('/api/admin/ai-ceo','AiCeoController','data',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/decisions/{id}','AiCeoController','decision',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/mode','AiCeoController','mode',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/pause','AiCeoController','pause',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/chat','AiCeoController','chat',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/memory','AiCeoController','memory',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/settings','BrainAdminController','save',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/market-refresh','BrainAdminController','marketRefresh',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);
