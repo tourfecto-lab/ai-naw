@@ -564,6 +564,7 @@ class ChatInboxController extends Controller
         return $this->success([
             'sent' => $sent, 'message_id' => (int) $id,
             'reason' => $sent ? null : 'provider_rejected',
+            'detail' => $sent ? null : $r['error'], // Meta's own reason (no secrets), shown to the agent
         ], $sent ? 'Sent' : 'Saved but not delivered');
     }
 
