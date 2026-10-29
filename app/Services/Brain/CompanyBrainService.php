@@ -3,6 +3,7 @@ require_once __DIR__ . '/../ExecutiveDashboard/ExecutiveDashboardService.php';
 require_once __DIR__ . '/../Growth/GrowthSignalsService.php';
 require_once __DIR__ . '/../BusinessHub/BusinessHubService.php';
 require_once __DIR__ . '/MarketIntelligenceService.php';
+require_once __DIR__ . '/GrowthAdvisor.php';
 
 /**
  * Tourfecto - العقل الاستراتيجي لكل شركة (الفهم)
@@ -104,6 +105,7 @@ final class CompanyBrainService
             'social' => $social === null ? null : ['published_30' => $int($social, 'published_30') ?? 0, 'scheduled' => $int($social, 'scheduled') ?? 0],
             'ads' => $ads === null ? null : ['active' => $int($ads, 'active') ?? 0, 'spend_total' => isset($ads['spend_total']) ? round((float) $ads['spend_total'], 2) : null],
             'market' => $market,
+            'growth_advice' => $this->safe(fn () => (new GrowthAdvisor($this->db))->forCompany($uid)),
             'generated_at' => gmdate('c'),
         ];
     }

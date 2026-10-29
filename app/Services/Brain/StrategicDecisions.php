@@ -160,6 +160,8 @@ final class StrategicDecisions
 
         // 8) السوق: إشارات عامة من مصادر رسمية (MarketIntelligenceService)، كل واحدة بمصدرها وتاريخها
         foreach (self::marketDecisions($s['market'] ?? null) as $d) $add($d);
+        // 9) النمو: متابعة العملاء المحتملين، أسواق جديدة، باقات، وتسعير قدام المنافسين (GrowthAdvisor)
+        foreach (self::growthDecisions($s) as $d) $add($d);
 
         // الأولوية: الأثر × وزن الهدف × وزن التعلّم × وزن نتايج الشركات التانية (لو فيه 5 شركات أو أكتر)
         $goal = self::goalWeights((string) ($u['goal'] ?? ''));
@@ -176,6 +178,62 @@ final class StrategicDecisions
         }
         unset($d);
         usort($out, static fn ($a, $b) => $b['priority'] <=> $a['priority'] ?: strcmp($a['key'], $b['key']));
+        return $out;
+    }
+
+    /** قرارات النمو من بيانات الشركة نفسها. كل قسم بيتخطى لو بياناته null */
+    public static function growthDecisions(array $s): array
+    {
+        $g = $s['growth_advice'] ?? null;
+        if (!$g) return [];
+        $out = [];
+        $overdue = $g['overdue_leads'] ?? null;
+        if ($overdue !== null && $overdue > 0) {
+            $out[] = self::d('follow_up_leads', 'acquisition', $overdue >= 5 ? 3 : 2,
+                ['تابع العملاء المحتملين المتأخرين', 'Follow up the overdue leads'],
+                ['كل عميل محتمل من غير متابعة بيبرد، وغالبًا بيحجز مع اللي رد عليه الأول.', 'Leads go cold without follow-up and usually book with whoever replied first.'],
+                [[$overdue . ' عميل محتمل ميعاد متابعته فات أو ماحدش كلمه من 3 أيام', $overdue . ' leads are past their follow-up date or untouched for 3 days']],
+                '/crm', ['افتح العملاء المحتملين', 'Open leads'], 'growth_advice.overdue_leads', $overdue, 'down');
+        }
+
+        $targets = array_merge((array) ($s['understanding']['markets']['countries'] ?? []), (array) ($s['market']['markets'] ?? []));
+        $dest = (string) ($s['market']['destination'] ?? '');
+        foreach (array_slice((array) ($g['market_mix'] ?? []), 0, 6) as $m) {
+            if ($m['contacts'] < 5 || $m['share'] < 0.15 || in_array($m['country'], $targets, true) || $m['country'] === $dest) continue;
+            $out[] = self::d('new_market_' . $m['country'], 'market', 2,
+                ['سوق بيجيلك منه طلب ومش مستهدفه: ' . $m['country'], 'A market sends you demand but is not targeted: ' . $m['country']],
+                ['ضيفه لأسواقك عشان السيو والإعلانات والمحتوى يتوجهوا له كمان.', 'Add it to your markets so SEO, ads and content target it too.'],
+                [[(int) round($m['share'] * 100) . '% من العملاء المحتملين في آخر 180 يوم (' . $m['contacts'] . ') من ' . $m['country'], (int) round($m['share'] * 100) . '% of leads in the last 180 days (' . $m['contacts'] . ') come from ' . $m['country']]],
+                '/ai/keywords', ['ضيف السوق', 'Add the market'], null, null, null);
+            if (count($out) >= 3) break;
+        }
+
+        foreach ((array) ($g['bundles'] ?? []) as $b) {
+            $price = $b['price'] !== null ? ' (' . $b['price'] . ' ' . $b['currency'] . ')' : '';
+            $out[] = self::d('bundle_' . sprintf('%u', crc32($b['a'] . '|' . $b['b'])), 'acquisition', 2,
+                ['اعمل باقة: "' . $b['a'] . '" + "' . $b['b'] . '"', 'Create a package: "' . $b['a'] . '" + "' . $b['b'] . '"'],
+                ['عملاءك بيحجزوا الرحلتين دول مع بعض؛ باقة بسعر واحد أوضح بتسهّل القرار وبتزوّد قيمة الحجز.', 'Your guests already book these two together; one clear package price makes the decision easier and raises booking value.'],
+                [[$b['customers'] . ' عميل حجزوا الرحلتين خلال 3 أسابيع من بعض في آخر سنة. مجموع السعرين الحالي' . $price, $b['customers'] . ' guests booked both within 3 weeks in the last year. Current combined price' . $price]],
+                '/bookings', ['جهّز الباقة', 'Set up the package'], null, null, null);
+        }
+
+        $rising = [];
+        foreach (($s['growth']['focus_trips'] ?? []) as $t) if (in_array($t['reason'] ?? '', ['rising_demand', 'top_seller'], true)) $rising[(int) $t['id']] = true;
+        foreach ((array) ($g['pricing'] ?? []) as $p) {
+            $ev = [[ 'سعرك ' . $p['my_price'] . ' ' . $p['currency'] . ' ومتوسط المنافسين ' . $p['competitor_median'] . ' (' . ($p['diff_pct'] > 0 ? '+' : '') . $p['diff_pct'] . '%)', 'Your price ' . $p['my_price'] . ' ' . $p['currency'] . ' vs competitor median ' . $p['competitor_median'] . ' (' . ($p['diff_pct'] > 0 ? '+' : '') . $p['diff_pct'] . '%)']];
+            foreach ($p['matches'] as $m) $ev[] = [$m['domain'] . ': ' . $m['name'] . ' — ' . $m['price'] . ' (' . $m['date'] . ')', $m['domain'] . ': ' . $m['name'] . ' — ' . $m['price'] . ' (' . $m['date'] . ')'];
+            if ($p['diff_pct'] >= 20) {
+                $out[] = self::d('price_above_' . $p['product_id'], 'market', 2,
+                    ['"' . $p['product'] . '" أغلى من المنافسين بوضوح', '"' . $p['product'] . '" is clearly priced above competitors'],
+                    ['يا توضّح في صفحة الرحلة اللي بيبرر الفرق (المشمول، حجم المجموعة، المرشد)، يا تراجع السعر.', 'Either show on the trip page what justifies the difference (inclusions, group size, guide) or review the price.'],
+                    $ev, '/seo-content', ['قوّي صفحة الرحلة', 'Strengthen the trip page'], null, null, null);
+            } elseif ($p['diff_pct'] <= -20) {
+                $out[] = self::d(isset($rising[$p['product_id']]) ? 'price_room_' . $p['product_id'] : 'price_below_' . $p['product_id'], isset($rising[$p['product_id']]) ? 'acquisition' : 'market', isset($rising[$p['product_id']]) ? 2 : 1,
+                    ['"' . $p['product'] . '" أرخص من المنافسين' . (isset($rising[$p['product_id']]) ? ' والطلب عليها عالي' : ''), '"' . $p['product'] . '" is cheaper than competitors' . (isset($rising[$p['product_id']]) ? ' and in high demand' : '')],
+                    isset($rising[$p['product_id']]) ? ['عندك مساحة تجرّب زيادة سعر صغيرة (5–10%) وتقيس الحجوزات بعدها.', 'You have room to test a small price increase (5–10%) and measure bookings after.'] : ['اتأكد إن الفرق مقصود؛ لو مش مقصود، فيه مكسب ضايع على كل حجز.', 'Make sure the gap is intentional; if not, you leave money on every booking.'],
+                    $ev, '/bookings', ['راجع السعر', 'Review the price'], null, null, null);
+            }
+        }
         return $out;
     }
 

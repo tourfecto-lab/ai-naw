@@ -6,6 +6,7 @@ return [
     'BrainExecutor' => dirname(__DIR__,2).'/app/Services/Brain/BrainExecutor.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
+    'GrowthAdvisor' => dirname(__DIR__,2).'/app/Services/Brain/GrowthAdvisor.php',
     'MarketIntelligenceService' => dirname(__DIR__,2).'/app/Services/Brain/MarketIntelligenceService.php',
     'SharedIntelligence' => dirname(__DIR__,2).'/app/Services/Brain/SharedIntelligence.php',
     'StrategicDecisions' => dirname(__DIR__,2).'/app/Services/Brain/StrategicDecisions.php',
