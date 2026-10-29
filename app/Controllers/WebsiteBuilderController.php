@@ -1503,7 +1503,7 @@ HTML;
             header('Content-Type: text/html; charset=utf-8');
         }
         return '<!DOCTYPE html><html lang="' . $e($lang) . '" dir="' . $e($dir) . '"><head>' . $head . '</head><body class="' . $e(trim($design['body_class'] . ' wsx wsx-s-' . $T->style() . ' wsx-p-' . $page)) . '">'
-            . $nav . '<main>' . $body . '</main>' . $k['footer'] . $T->floatingWa($k['waHome']) . '</body></html>';
+            . $nav . '<main id="wsx-main" tabindex="-1">' . $body . '</main>' . $k['footer'] . $T->floatingWa($k['waHome']) . '</body></html>';
     }
 
     private function tourCtaBand(TourSiteTheme $T, array $k): string

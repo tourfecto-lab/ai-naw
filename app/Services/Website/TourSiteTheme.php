@@ -21,7 +21,7 @@ class TourSiteTheme
             'included' => 'What is included', 'not_included' => 'Not included', 'book_tour' => 'Book this tour', 'book_sub_form' => 'Choose your date and send your details - we confirm your booking.',
             'book_sub_wa' => 'Send us your date on WhatsApp and we confirm availability.', 'or' => 'or contact us directly', 'more' => 'You may also like', 'all' => 'All tours', 'home' => 'Home',
             'faq' => 'Questions before you book', 'built' => 'Website by Tourfecto', 'wa_home' => 'Hello, I would like to ask about your tours.', 'wa_tour' => 'Hello, I would like to book "%s". Please send me the details.',
-            'n_tours' => '%d tours', 'enquiry' => 'Send an enquiry', 'map' => 'Map', 'menu' => 'Menu'],
+            'n_tours' => '%d tours', 'enquiry' => 'Send an enquiry', 'skip' => 'Skip to content', 'map' => 'Map', 'menu' => 'Menu'],
         'ar' => ['tours' => 'الرحلات', 'why' => 'ليه إحنا', 'reviews' => 'التقييمات', 'contact' => 'تواصل معنا', 'book' => 'احجز الآن', 'book_wa' => 'احجز على واتساب', 'chat_wa' => 'كلّمنا على واتساب',
             'view' => 'تفاصيل الرحلة', 'duration' => 'المدة', 'group' => 'حجم المجموعة', 'price' => 'السعر', 'our_tours' => 'رحلاتنا', 'our_tours_sub' => 'اختار رحلتك، واعرف بالظبط إيه اللي شامل، واحجز مباشرة مع فريقنا.',
             'see_tours' => 'شوف رحلاتنا', 'why_t' => 'ليه المسافرين بيحجزوا معانا', 'direct_t' => 'حجز مباشر مع الفريق المحلي', 'direct_d' => 'من غير وسيط: بتكلّم الناس اللي بينظّموا رحلتك بنفسهم.',
@@ -32,7 +32,7 @@ class TourSiteTheme
             'included' => 'الرحلة شاملة', 'not_included' => 'مش شامل', 'book_tour' => 'احجز الرحلة دي', 'book_sub_form' => 'اختار التاريخ واكتب بياناتك وهنأكد حجزك.',
             'book_sub_wa' => 'ابعتلنا التاريخ على واتساب وهنأكدلك المكان.', 'or' => 'أو كلّمنا مباشرة', 'more' => 'رحلات تانية ممكن تعجبك', 'all' => 'كل الرحلات', 'home' => 'الرئيسية',
             'faq' => 'أسئلة قبل الحجز', 'built' => 'الموقع من Tourfecto', 'wa_home' => 'أهلًا، عايز أسأل عن رحلاتكم.', 'wa_tour' => 'أهلًا، عايز أحجز «%s» - ابعتلي التفاصيل من فضلك.',
-            'n_tours' => '%d رحلة', 'enquiry' => 'ابعت استفسار', 'map' => 'الخريطة', 'menu' => 'القائمة'],
+            'n_tours' => '%d رحلة', 'enquiry' => 'ابعت استفسار', 'skip' => 'تخطي إلى المحتوى', 'map' => 'الخريطة', 'menu' => 'القائمة'],
         'de' => ['tours' => 'Touren', 'why' => 'Warum wir', 'reviews' => 'Bewertungen', 'contact' => 'Kontakt', 'book' => 'Jetzt buchen', 'book_wa' => 'Per WhatsApp buchen', 'chat_wa' => 'WhatsApp-Chat',
             'view' => 'Zur Tour', 'duration' => 'Dauer', 'group' => 'Gruppengröße', 'price' => 'Preis', 'our_tours' => 'Unsere Touren', 'our_tours_sub' => 'Wählen Sie Ihre Tour, sehen Sie genau, was enthalten ist, und buchen Sie direkt beim lokalen Team.',
             'see_tours' => 'Touren ansehen', 'why_t' => 'Warum Reisende bei uns buchen', 'direct_t' => 'Direkt beim lokalen Team buchen', 'direct_d' => 'Kein Vermittler: Sie sprechen mit den Menschen, die Ihre Tour durchführen.',
@@ -43,7 +43,7 @@ class TourSiteTheme
             'included' => 'Inklusive', 'not_included' => 'Nicht inklusive', 'book_tour' => 'Diese Tour buchen', 'book_sub_form' => 'Datum wählen und Daten senden - wir bestätigen Ihre Buchung.',
             'book_sub_wa' => 'Senden Sie uns Ihr Datum per WhatsApp und wir bestätigen die Verfügbarkeit.', 'or' => 'oder direkt Kontakt aufnehmen', 'more' => 'Das könnte Ihnen auch gefallen', 'all' => 'Alle Touren', 'home' => 'Startseite',
             'faq' => 'Fragen vor der Buchung', 'built' => 'Website von Tourfecto', 'wa_home' => 'Hallo, ich habe eine Frage zu Ihren Touren.', 'wa_tour' => 'Hallo, ich möchte „%s“ buchen. Bitte senden Sie mir die Details.',
-            'n_tours' => '%d Touren', 'enquiry' => 'Anfrage senden', 'map' => 'Karte', 'menu' => 'Menü'],
+            'n_tours' => '%d Touren', 'enquiry' => 'Anfrage senden', 'skip' => 'Zum Inhalt springen', 'map' => 'Karte', 'menu' => 'Menü'],
         'fr' => ['tours' => 'Excursions', 'why' => 'Pourquoi nous', 'reviews' => 'Avis', 'contact' => 'Contact', 'book' => 'Réserver', 'book_wa' => 'Réserver sur WhatsApp', 'chat_wa' => 'Discuter sur WhatsApp',
             'view' => 'Voir l’excursion', 'duration' => 'Durée', 'group' => 'Taille du groupe', 'price' => 'Prix', 'our_tours' => 'Nos excursions', 'our_tours_sub' => 'Choisissez votre excursion, voyez ce qui est inclus et réservez directement avec l’équipe locale.',
             'see_tours' => 'Voir nos excursions', 'why_t' => 'Pourquoi les voyageurs réservent chez nous', 'direct_t' => 'Réservation directe avec l’équipe locale', 'direct_d' => 'Sans intermédiaire : vous parlez à ceux qui organisent votre excursion.',
@@ -54,7 +54,7 @@ class TourSiteTheme
             'included' => 'Inclus', 'not_included' => 'Non inclus', 'book_tour' => 'Réserver cette excursion', 'book_sub_form' => 'Choisissez votre date et envoyez vos informations - nous confirmons votre réservation.',
             'book_sub_wa' => 'Envoyez-nous votre date sur WhatsApp et nous confirmons la disponibilité.', 'or' => 'ou contactez-nous directement', 'more' => 'Vous aimerez aussi', 'all' => 'Toutes les excursions', 'home' => 'Accueil',
             'faq' => 'Questions avant de réserver', 'built' => 'Site par Tourfecto', 'wa_home' => 'Bonjour, j’ai une question sur vos excursions.', 'wa_tour' => 'Bonjour, je souhaite réserver « %s ». Merci de m’envoyer les détails.',
-            'n_tours' => '%d excursions', 'enquiry' => 'Envoyer une demande', 'map' => 'Carte', 'menu' => 'Menu'],
+            'n_tours' => '%d excursions', 'enquiry' => 'Envoyer une demande', 'skip' => 'Aller au contenu', 'map' => 'Carte', 'menu' => 'Menu'],
         'it' => ['tours' => 'Escursioni', 'why' => 'Perché noi', 'reviews' => 'Recensioni', 'contact' => 'Contatti', 'book' => 'Prenota', 'book_wa' => 'Prenota su WhatsApp', 'chat_wa' => 'Chatta su WhatsApp',
             'view' => 'Vedi escursione', 'duration' => 'Durata', 'group' => 'Gruppo', 'price' => 'Prezzo', 'our_tours' => 'Le nostre escursioni', 'our_tours_sub' => 'Scegli la tua escursione, guarda cosa è incluso e prenota direttamente con il team locale.',
             'see_tours' => 'Vedi le escursioni', 'why_t' => 'Perché i viaggiatori prenotano con noi', 'direct_t' => 'Prenoti direttamente con il team locale', 'direct_d' => 'Nessun intermediario: parli con chi organizza la tua escursione.',
@@ -65,7 +65,7 @@ class TourSiteTheme
             'included' => 'Incluso', 'not_included' => 'Non incluso', 'book_tour' => 'Prenota questa escursione', 'book_sub_form' => 'Scegli la data e invia i tuoi dati - confermiamo la prenotazione.',
             'book_sub_wa' => 'Inviaci la data su WhatsApp e confermiamo la disponibilità.', 'or' => 'o contattaci direttamente', 'more' => 'Potrebbe piacerti anche', 'all' => 'Tutte le escursioni', 'home' => 'Home',
             'faq' => 'Domande prima di prenotare', 'built' => 'Sito di Tourfecto', 'wa_home' => 'Ciao, vorrei informazioni sulle vostre escursioni.', 'wa_tour' => 'Ciao, vorrei prenotare "%s". Potete inviarmi i dettagli?',
-            'n_tours' => '%d escursioni', 'enquiry' => 'Invia una richiesta', 'map' => 'Mappa', 'menu' => 'Menu'],
+            'n_tours' => '%d escursioni', 'enquiry' => 'Invia una richiesta', 'skip' => 'Vai al contenuto', 'map' => 'Mappa', 'menu' => 'Menu'],
         'es' => ['tours' => 'Tours', 'why' => 'Por qué nosotros', 'reviews' => 'Opiniones', 'contact' => 'Contacto', 'book' => 'Reservar', 'book_wa' => 'Reservar por WhatsApp', 'chat_wa' => 'Chatear por WhatsApp',
             'view' => 'Ver tour', 'duration' => 'Duración', 'group' => 'Grupo', 'price' => 'Precio', 'our_tours' => 'Nuestros tours', 'our_tours_sub' => 'Elige tu tour, mira exactamente qué incluye y reserva directamente con el equipo local.',
             'see_tours' => 'Ver tours', 'why_t' => 'Por qué los viajeros reservan con nosotros', 'direct_t' => 'Reserva directa con el equipo local', 'direct_d' => 'Sin intermediarios: hablas con quienes organizan tu tour.',
@@ -76,7 +76,7 @@ class TourSiteTheme
             'included' => 'Incluye', 'not_included' => 'No incluye', 'book_tour' => 'Reservar este tour', 'book_sub_form' => 'Elige la fecha y envía tus datos - confirmamos tu reserva.',
             'book_sub_wa' => 'Envíanos tu fecha por WhatsApp y confirmamos la disponibilidad.', 'or' => 'o contáctanos directamente', 'more' => 'También te puede gustar', 'all' => 'Todos los tours', 'home' => 'Inicio',
             'faq' => 'Preguntas antes de reservar', 'built' => 'Web de Tourfecto', 'wa_home' => 'Hola, quiero preguntar por sus tours.', 'wa_tour' => 'Hola, quiero reservar "%s". ¿Me envían los detalles?',
-            'n_tours' => '%d tours', 'enquiry' => 'Enviar consulta', 'map' => 'Mapa', 'menu' => 'Menú'],
+            'n_tours' => '%d tours', 'enquiry' => 'Enviar consulta', 'skip' => 'Saltar al contenido', 'map' => 'Mapa', 'menu' => 'Menú'],
     ];
 
 
@@ -254,7 +254,7 @@ class TourSiteTheme
             $l .= '<a href="' . self::e($href) . '"' . ($current !== '' && $href === $current ? ' aria-current="page"' : '') . '>' . self::e($label) . '</a>';
         }
         $ext = str_starts_with($ctaHref, 'http') ? ' target="_blank" rel="noopener"' : '';
-        return '<header class="wsx-nav"><div class="wsx-wrap wsx-nav-in"><a class="wsx-brand" href="' . self::e($home) . '">' . $brand . '<span>' . self::e($name) . '</span></a>'
+        return '<a class="wsx-skip" href="#wsx-main">' . $this->h('skip') . '</a><header class="wsx-nav"><div class="wsx-wrap wsx-nav-in"><a class="wsx-brand" href="' . self::e($home) . '">' . $brand . '<span>' . self::e($name) . '</span></a>'
             . '<nav class="wsx-links" aria-label="' . $this->h('menu') . '">' . $l . '</nav>'
             . ($ctaHref !== '' ? '<a class="wsx-btn wsx-btn-sm wsx-nav-cta" href="' . self::e($ctaHref) . '"' . $ext . '>' . self::e($cta) . '</a>' : '')
             . '<details class="wsx-burger"><summary aria-label="' . $this->h('menu') . '"><span></span><span></span><span></span></summary><div class="wsx-drawer">' . $l

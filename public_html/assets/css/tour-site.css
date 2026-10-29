@@ -358,3 +358,12 @@ html[lang="ar"] .wsx-s-minimal .wsx-h2 { font-weight: 700; }
 .wsx-drawer { position: fixed; top: 70px; inset-inline: 12px; width: auto; max-height: calc(100vh - 90px); overflow: auto; }
 .wsx-faq summary, .wsx-faq p, .wsx-quote blockquote, .wsx-card-body h3, .wsx-card-body p { unicode-bidi: plaintext; }
 .wsx-tour-head p, .wsx-hero p, .wsx-banner p, .wsx-prose p, .wsx-hl li, .wsx-inex li, .wsx-tl p { unicode-bidi: plaintext; }
+
+/* keyboard / screen-reader skip link and comfortable touch targets */
+.wsx-skip { position: absolute; inset-inline-start: 8px; top: -60px; z-index: 100; background: #111; color: #fff; padding: 10px 16px; border-radius: 8px; text-decoration: none; }
+.wsx-skip:focus { top: 8px; }
+.wsx main:focus { outline: none; }
+@media (pointer: coarse) {
+    .wsx-link, .wsx-foot a, .wsx-footer a, .wsx-brand-inv { display: inline-block; min-height: 44px; line-height: 44px; }
+    .wsx-foot li, .wsx-footer li { margin: 0; }
+}
