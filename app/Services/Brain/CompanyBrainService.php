@@ -44,7 +44,7 @@ final class CompanyBrainService
         $growth = $this->safe(fn () => (new GrowthSignalsService($this->db))->forWebsite($uid, $wid, gmdate('Y-m'), 12));
 
         $reviews = $this->first("SELECT COUNT(*) AS total, AVG(rating) AS avg_rating,
-                SUM(rating <= 3 AND reply_sent_at IS NULL) AS unanswered_negative
+                SUM(rating <= 3 AND reply_sent_at IS NULL AND COALESCE(reply_status, '') <> 'rejected') AS unanswered_negative
             FROM reviews WHERE user_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)", [$uid]);
         $chat = $this->first("SELECT COUNT(*) AS messages, SUM(bot_status = 'pending_approval') AS pending_approval
             FROM chat_messages WHERE user_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)", [$uid]);
