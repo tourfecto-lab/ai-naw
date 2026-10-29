@@ -146,6 +146,7 @@
             state: [L('انتهت صلاحية الطلب، جرّب تاني.', 'The request expired, try again.'), 'error'],
             exchange: [L('فيسبوك رفض الربط. اتأكد من إعدادات تطبيق الرسائل.', 'Facebook refused the connection. Check the messaging app settings.'), 'error'],
             pages: [L('تعذر قراءة الصفحات من فيسبوك.', 'Could not read your pages from Facebook.'), 'error'],
+            notconfigured: [L('تطبيق الرسائل لسه ما اتفعّلش على السيرفر (META_MSG_APP_ID / META_MSG_APP_SECRET).', 'The messaging app is not set up on the server yet (META_MSG_APP_ID / META_MSG_APP_SECRET).'), 'error'],
             website: [L('الموقع غير موجود.', 'Website not found.'), 'error']
         }[m[1]];
         if (msg) toast(msg[0], msg[1]);

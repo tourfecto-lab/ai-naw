@@ -17,7 +17,8 @@ class ChatMetaConnectController extends Controller
         $uid = (int) ($this->user['id'] ?? 0);
         $wid = (int) $this->get('website_id');
         if (!MetaMessagingApp::configured()) {
-            return $this->error('The messaging app is not configured yet', 404);
+            header('Location: /chat/settings?meta_msg=notconfigured');
+            exit;
         }
         if ($wid < 1 || empty($this->db->query('SELECT id FROM websites WHERE id = ? AND user_id = ? LIMIT 1', [$wid, $uid]))) {
             return $this->error('Website not found', 404);
