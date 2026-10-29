@@ -2418,7 +2418,9 @@ JS;
             $encryption = new Encryption();
             $accessToken = $encryption->decrypt($conn['access_token']);
 
-            if ($campaign->getAttribute('platform') === 'meta_ads') {
+            if (($conn['platform'] ?? '') === 'tiktok_ads') {
+                $result = (new TikTokAdsAPI($accessToken))->setCampaignStatus((string) $conn['external_account_id'], (string) $campaign->getAttribute('external_campaign_id'), $newStatus === 'active' ? 'ENABLE' : 'DISABLE');
+            } elseif ($campaign->getAttribute('platform') === 'meta_ads') {
                 $api = new MetaAdsAPI($accessToken);
                 $result = $api->updateCampaignStatus((string) $campaign->getAttribute('external_campaign_id'), $newStatus === 'active' ? 'ACTIVE' : 'PAUSED');
             } else {
@@ -2459,7 +2461,9 @@ JS;
             $encryption = new Encryption();
             $accessToken = $encryption->decrypt($conn['access_token']);
 
-            if ($campaign->getAttribute('platform') === 'meta_ads') {
+            if (($conn['platform'] ?? '') === 'tiktok_ads') {
+                $result = (new TikTokAdsAPI($accessToken))->deleteCampaign((string) $conn['external_account_id'], (string) $campaign->getAttribute('external_campaign_id'));
+            } elseif ($campaign->getAttribute('platform') === 'meta_ads') {
                 $api = new MetaAdsAPI($accessToken);
                 $result = $api->deleteCampaign((string) $campaign->getAttribute('external_campaign_id'));
             } else {
@@ -3970,6 +3974,11 @@ JS;
             $customerId = (string) $conn->getAttribute('external_account_id');
             $campaignResourceName = "customers/{$customerId}/campaigns/{$externalId}";
             return $newStatus === 'paused' ? $api->pauseCampaign($customerId, $campaignResourceName) : $api->resumeCampaign($customerId, $campaignResourceName);
+        }
+        if ($platform === 'tiktok_ads') {
+            $api = new TikTokAdsAPI($accessToken);
+            $advertiserId = (string) $conn->getAttribute('external_account_id');
+            return $newStatus === 'paused' ? $api->pauseCampaign($advertiserId, $externalId) : $api->resumeCampaign($advertiserId, $externalId);
         }
         return ['success' => false, 'error' => "منصة غير مدعومة: {$platform}"];
     }

@@ -93,7 +93,7 @@ class AdsSyncService
             }
 
             if ($campaignId > 0) {
-                if ($platform === 'meta_ads') {
+                if ($platform === 'meta_ads' || $platform === 'tiktok_ads') {
                     $this->db->exec(
                         'UPDATE ad_campaigns SET started_at = ?, ended_at = ? WHERE id = ?',
                         [$this->dt($c['started_at'] ?? null), $this->dt($c['ended_at'] ?? null), $campaignId]

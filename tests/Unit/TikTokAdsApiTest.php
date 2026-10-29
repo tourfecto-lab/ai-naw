@@ -167,4 +167,46 @@ final class TikTokAdsApiTest extends TestCase
         $this->assertSame('google_ads', AdsSyncService::platformValue('google_ads'));
         $this->assertContains(AdsSyncService::platformValue('tiktok_ads'), ['tiktok_ads', 'manual'], 'falls back to manual until the ENUM migration is applied');
     }
+
+    public function testPauseResumeDeleteAndBudgetWrites(): void
+    {
+        $this->transport(['/adgroup/update/' => ['code' => 0, 'message' => 'OK', 'data' => []]]);
+        $api = new TikTokAdsAPI('tok');
+        $this->assertTrue($api->pauseCampaign('adv1', 'c1')['success']);
+        $this->assertTrue($api->resumeCampaign('adv1', 'c1')['success']);
+        $this->assertTrue($api->deleteCampaign('adv1', 'c1')['success']);
+        $this->assertSame(['DISABLE', 'ENABLE', 'DELETE'], array_map(fn ($c) => $c[2]['operation_status'], $this->called('/campaign/status/update/')));
+        $this->assertTrue($api->updateAdGroupBudget('adv1', 'g1', 45.5)['success']);
+        $upd = $this->called('/adgroup/update/')[0][2];
+        $this->assertSame(['adv1', 'g1', 'BUDGET_MODE_DAY'], [$upd['advertiser_id'], $upd['adgroup_id'], $upd['budget_mode']]);
+        $this->assertSame(45.5, (float) $upd['budget']);
+    }
+
+    public function testBudgetWriteRefusesAnAmbiguousOrEmptyTarget(): void
+    {
+        $this->transport();
+        $api = new TikTokAdsAPI('tok');
+        $this->assertFalse($api->updateAdGroupBudget('adv1', '', 20)['success']);
+        $this->assertFalse($api->updateAdGroupBudget('adv1', 'g1', 0)['success']);
+        $this->assertSame([], $this->called('/adgroup/update/'));
+    }
+
+    public function testListingOnlyExposesAnAdGroupWhenThereIsExactlyOne(): void
+    {
+        $ok = fn (array $data) => ['code' => 0, 'message' => 'OK', 'data' => $data];
+        $this->transport([
+            '/campaign/get/' => $ok(['list' => [['campaign_id' => 'c1', 'campaign_name' => 'One', 'objective_type' => 'TRAFFIC', 'operation_status' => 'ENABLE'], ['campaign_id' => 'c2', 'campaign_name' => 'Two', 'objective_type' => 'TRAFFIC', 'operation_status' => 'ENABLE']]]),
+            '/advertiser/info/' => $ok(['list' => []]),
+            '/adgroup/get/' => $ok(['list' => [
+                ['adgroup_id' => 'g1', 'campaign_id' => 'c1', 'budget' => 10, 'budget_mode' => 'BUDGET_MODE_DAY'],
+                ['adgroup_id' => 'g2', 'campaign_id' => 'c2', 'budget' => 10, 'budget_mode' => 'BUDGET_MODE_DAY'],
+                ['adgroup_id' => 'g3', 'campaign_id' => 'c2', 'budget' => 10, 'budget_mode' => 'BUDGET_MODE_DAY'],
+            ]]),
+            '/report/integrated/get/' => $ok(['list' => []]),
+        ]);
+        [$one, $two] = (new TikTokAdsAPI('tok'))->listCampaignsWithInsights('adv1')['campaigns'];
+        $this->assertSame('g1', $one['external_adset_id']);
+        $this->assertNull($two['external_adset_id'], 'two ad groups: an automatic budget change would be ambiguous');
+        $this->assertSame(20.0, $two['daily_budget']);
+    }
 }

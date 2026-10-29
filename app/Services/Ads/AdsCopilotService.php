@@ -136,6 +136,10 @@ class AdsCopilotService
                 $customerId = (string) $conn->getAttribute('external_account_id');
                 $resource = "customers/{$customerId}/campaigns/{$externalId}";
                 $result = $newStatus === 'paused' ? $api->pauseCampaign($customerId, $resource) : $api->resumeCampaign($customerId, $resource);
+            } elseif ($platform === 'tiktok_ads') {
+                $api = new TikTokAdsAPI($accessToken);
+                $advertiserId = (string) $conn->getAttribute('external_account_id');
+                $result = $newStatus === 'paused' ? $api->pauseCampaign($advertiserId, $externalId) : $api->resumeCampaign($advertiserId, $externalId);
             } else {
                 return ['success' => false, 'error' => "منصة غير مدعومة: {$platform}"];
             }

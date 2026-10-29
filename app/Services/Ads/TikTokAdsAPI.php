@@ -91,6 +91,30 @@ final class TikTokAdsAPI
         return $this->call('POST', '/campaign/status/update/', ['advertiser_id' => $advertiserId, 'campaign_ids' => [$campaignId], 'operation_status' => $op]);
     }
 
+    public function pauseCampaign(string $advertiserId, string $campaignId): array
+    {
+        return $this->setCampaignStatus($advertiserId, $campaignId, 'DISABLE');
+    }
+
+    public function resumeCampaign(string $advertiserId, string $campaignId): array
+    {
+        return $this->setCampaignStatus($advertiserId, $campaignId, 'ENABLE');
+    }
+
+    public function deleteCampaign(string $advertiserId, string $campaignId): array
+    {
+        return $this->setCampaignStatus($advertiserId, $campaignId, 'DELETE');
+    }
+
+    /** TikTok budgets live on the ad group; the daily budget is in the advertiser's currency. */
+    public function updateAdGroupBudget(string $advertiserId, string $adGroupId, float $dailyBudget): array
+    {
+        if ($adGroupId === '' || $dailyBudget <= 0) {
+            return ['success' => false, 'error' => 'A single ad group and a positive budget are required.'];
+        }
+        return $this->call('POST', '/adgroup/update/', ['advertiser_id' => $advertiserId, 'adgroup_id' => $adGroupId, 'budget_mode' => 'BUDGET_MODE_DAY', 'budget' => $dailyBudget]);
+    }
+
     /** @return array{success: bool, rows?: array, error?: string} spend / clicks / impressions per campaign */
     public function campaignReport(string $advertiserId, string $startDate, string $endDate): array
     {
@@ -116,8 +140,10 @@ final class TikTokAdsAPI
         $currency = ($this->advertisers([$advertiserId])[0]['currency'] ?? '') ?: null;
 
         $budgets = [];
-        $groups = $this->call('GET', '/adgroup/get/', ['advertiser_id' => $advertiserId, 'fields' => json_encode(['campaign_id', 'budget', 'budget_mode']), 'page_size' => 1000]);
+        $groupIds = [];
+        $groups = $this->call('GET', '/adgroup/get/', ['advertiser_id' => $advertiserId, 'fields' => json_encode(['adgroup_id', 'campaign_id', 'budget', 'budget_mode']), 'page_size' => 1000]);
         foreach ((array) ($groups['data']['list'] ?? []) as $g) {
+            $groupIds[(string) ($g['campaign_id'] ?? '')][] = (string) ($g['adgroup_id'] ?? '');
             if (($g['budget_mode'] ?? '') === 'BUDGET_MODE_DAY') {
                 $budgets[(string) ($g['campaign_id'] ?? '')] = ($budgets[(string) ($g['campaign_id'] ?? '')] ?? 0.0) + (float) ($g['budget'] ?? 0);
             }
@@ -152,6 +178,8 @@ final class TikTokAdsAPI
                 'name' => (string) ($c['campaign_name'] ?? $id),
                 'objective' => $objectives[(string) ($c['objective_type'] ?? '')] ?? 'traffic',
                 'daily_budget' => $budgets[$id] ?? 0.0,
+                // Only a campaign with exactly one ad group has an unambiguous budget to change automatically.
+                'external_adset_id' => count($groupIds[$id] ?? []) === 1 ? $groupIds[$id][0] : null,
                 'status' => $status[(string) ($c['operation_status'] ?? '')] ?? 'paused',
                 'impressions' => array_sum(array_column($days, 'impressions')),
                 'clicks' => array_sum(array_column($days, 'clicks')),

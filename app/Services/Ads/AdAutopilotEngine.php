@@ -611,6 +611,22 @@ class AdAutopilotEngine
             return $api->updateCampaignBudget($customerId, $budgetResourceName, $afterBudget);
         }
 
+        if ($platform === 'tiktok_ads') {
+            $api = new TikTokAdsAPI($accessToken);
+            $advertiserId = (string) $conn->getAttribute('external_account_id');
+            if ($rec['action_type'] === 'pause_campaign' || ($rec['action_type'] === 'decrease_budget' && $afterBudget <= 0)) {
+                return $api->pauseCampaign($advertiserId, $externalCampaignId);
+            }
+            if ($rec['action_type'] === 'resume_campaign') {
+                return $api->resumeCampaign($advertiserId, $externalCampaignId);
+            }
+            $adGroupId = (string) $campaign->getAttribute('external_adset_id');
+            if ($adGroupId === '') {
+                return ['success' => false, 'error' => 'TikTok: the budget is only changed automatically on campaigns with a single ad group - sync TikTok first, or change it in TikTok Ads Manager'];
+            }
+            return $api->updateAdGroupBudget($advertiserId, $adGroupId, $afterBudget);
+        }
+
         return ['success' => false, 'error' => "منصة غير مدعومة للتنفيذ التلقائي: {$platform}"];
     }
 
