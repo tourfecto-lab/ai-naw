@@ -79,4 +79,19 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 **What "execute" means in Phase 1**
 Approving a decision turns it into an in-progress task with a link to the existing admin page that carries it out, and records it in memory and the audit log. External actions (emails, WhatsApp, ads, publishing) are **not** executed by the AI CEO yet; they come in later phases, behind approval.
 
+**Test results (2026-10-29)**
+- CI (PR #26):
+  - PHPUnit on MariaDB 10.11: **pass**. This includes the 3 new test files: decisions, chat, and store with isolation.
+  - PHPStan wide: **pass**.
+  - Lint job: fails only on the Creative Studio file noted above.
+- Live on tourfectoai.pro with a customer account:
+  - `/admin/ai-ceo`, `GET /api/admin/ai-ceo` and `POST /api/admin/ai-ceo/chat` → **403**.
+  - The customer brain `/api/brain` → 200 with 9 decisions, **unaffected**.
+- **Not verified yet:** the Mission Control page with real platform data. It needs the owner's admin account, so the owner must open `/admin/ai-ceo` and report. The hourly cron is not installed yet.
+
+**Owner actions after Phase 1**
+1. Open `/admin/ai-ceo`. Check the overview tiles, then ask the six questions in the chat. Any tile showing "—" means that source failed to load; report which one.
+2. Optional: add the hourly cron in aaPanel:
+   `cd /www/wwwroot/tourfectoai.pro && PHP=$(command -v php || ls -d /www/server/php/*/bin/php | sort -V | tail -1) && $PHP cron/ai_ceo_cycle.php`
+
 **Next: Phase 2** — AI Cost & Quality Intelligence. Reuse `AIGovernor` (limits), `AiServiceRouting` and `/admin/ai-routing` (models), `AIUsageStatsService` (cost) and `SemanticCache`. Add per-task quality checks, a separate AI CEO budget, anomaly alerts and the savings dashboard.
