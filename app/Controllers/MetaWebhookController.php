@@ -78,7 +78,7 @@ class MetaWebhookController extends Controller
         foreach ((array) ($payload['entry'] ?? []) as $entry) {
             $accountId = (string) ($entry['id'] ?? '');
             $rows = $accountId === '' ? [] : $db->query(
-                "SELECT c.website_id, w.user_id FROM platform_connections c JOIN websites w ON w.id = c.website_id AND w.user_id = c.user_id
+                "SELECT c.website_id, w.user_id, c.access_token FROM platform_connections c JOIN websites w ON w.id = c.website_id AND w.user_id = c.user_id
                  WHERE c.platform IN (?, ?) AND c.status = 'connected' AND c.external_location_id = ? ORDER BY (c.platform = ?) DESC, c.id DESC LIMIT 1",
                 // Instagram DMs: a connection made through the messaging app ("instagram_dm") wins over the publishing one.
                 [$platform, $platform === 'instagram' ? 'instagram_dm' : $platform, $accountId, 'instagram_dm']
@@ -114,6 +114,9 @@ class MetaWebhookController extends Controller
                         'message' => mb_substr($text, 0, 4000),
                     ] + ($media !== null ? ['media_ext' => $media] : []));
                     $total['messages']++;
+                    if ($chatManager === null) {
+                        self::addProfile($db, $websiteId, $platform, $senderId, (string) ($rows[0]['access_token'] ?? ''));
+                    }
                 } catch (Throwable $e) {
                     Logger::error('Meta webhook message failed', ['website_id' => $websiteId, 'platform' => $platform, 'message' => $e->getMessage()]);
                 }
@@ -151,6 +154,24 @@ class MetaWebhookController extends Controller
         }
         $postback = trim((string) ($event['postback']['title'] ?? ''));
         return [$postback, null];
+    }
+
+    /** Name + picture of the customer for the inbox (best effort, after the message is already saved). */
+    private static function addProfile(Database $db, int $websiteId, string $platform, string $senderId, string $encryptedToken): void
+    {
+        try {
+            $token = $encryptedToken === '' ? '' : (new Encryption())->decrypt($encryptedToken);
+            if ($token === '') {
+                return;
+            }
+            $secrets = array_values(array_filter([
+                class_exists('MetaMessagingApp') ? MetaMessagingApp::secret() : '',
+                MetaOAuthClient::setting('meta_app_secret', 'META_APP_SECRET'),
+            ]));
+            MetaContactProfile::enrich($db, $websiteId, $platform, $senderId, $token, $secrets);
+        } catch (Throwable $e) {
+            Logger::warning('Meta profile skipped', ['error' => mb_substr($e->getMessage(), 0, 160)]);
+        }
     }
 
     /** Only https URLs on Meta's own CDNs are ever kept or shown. */

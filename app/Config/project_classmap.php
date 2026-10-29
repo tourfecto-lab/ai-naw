@@ -6,6 +6,7 @@ return [
     'WhatsAppQrGateway' => dirname(__DIR__,2).'/app/Services/Chat/WhatsAppQrGateway.php',
     'WhatsAppQrController' => dirname(__DIR__,2).'/app/Controllers/WhatsAppQrController.php',
     'MetaChatPages' => dirname(__DIR__,2).'/app/Services/Chat/MetaChatPages.php',
+    'MetaContactProfile' => dirname(__DIR__,2).'/app/Services/Chat/MetaContactProfile.php',
     'GrowthSignals' => dirname(__DIR__,2).'/app/Services/Growth/GrowthSignals.php',
     'GrowthSignalsService' => dirname(__DIR__,2).'/app/Services/Growth/GrowthSignalsService.php',
     'SocialAutopilotService' => dirname(__DIR__,2).'/app/Services/Growth/SocialAutopilotService.php',
