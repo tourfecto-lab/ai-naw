@@ -1998,6 +1998,8 @@ $router->post('/api/ai-visibility/questions','AiVisibilityController','questions
 // العقل الاستراتيجي لكل شركة
 $router->get('/api/brain','BrainController','data',['AuthMiddleware']);
 $router->post('/api/brain/decisions/{id}','BrainController','decision',['AuthMiddleware']);
+$router->get('/api/brain/decisions/{id}/action','BrainController','actionPreview',['AuthMiddleware']);
+$router->post('/api/brain/decisions/{id}/action','BrainController','actionRun',['AuthMiddleware']);
 $router->post('/api/brain/sharing','BrainController','sharing',['AuthMiddleware']);
 $router->post('/api/brain/autonomy','BrainController','autonomy',['AuthMiddleware']);
 // العقل الاستراتيجي — الإدارة

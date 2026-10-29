@@ -2,6 +2,7 @@
 require_once __DIR__ . '/BrainSchema.php';
 require_once __DIR__ . '/StrategicDecisions.php';
 require_once __DIR__ . '/BrainExecutor.php';
+require_once __DIR__ . '/BrainActions.php';
 require_once __DIR__ . '/BrainConfig.php';
 
 /**
@@ -138,7 +139,7 @@ final class BrainDecisionStore
         return array_map(static function (array $r): array {
             $p = json_decode((string) $r['payload_json'], true) ?: [];
             return $p + ['id' => (int) $r['id'], 'status' => $r['status'], 'priority' => (float) $r['priority'], 'baseline' => $r['baseline_value'] !== null ? (float) $r['baseline_value'] : null,
-                'result' => $r['result_value'] !== null ? (float) $r['result_value'] : null, 'outcome' => $r['outcome'], 'proposed_at' => $r['proposed_at'], 'decided_at' => $r['decided_at'], 'done_at' => $r['done_at'], 'measured_at' => $r['measured_at']];
+                'result' => $r['result_value'] !== null ? (float) $r['result_value'] : null, 'outcome' => $r['outcome'], 'service_action' => BrainActions::forDecision((string) $r['decision_key']), 'proposed_at' => $r['proposed_at'], 'decided_at' => $r['decided_at'], 'done_at' => $r['done_at'], 'measured_at' => $r['measured_at']];
         }, $rows);
     }
 

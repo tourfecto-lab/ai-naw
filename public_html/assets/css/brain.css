@@ -61,3 +61,10 @@
 .br-check-row span { display: grid; gap: 2px; }
 .br-check-row small, .br-field small { color: var(--panel-text-muted, #6b7280); font-size: 12.5px; font-weight: 400; }
 .br-field { display: grid; gap: 4px; font-weight: 600; font-size: 13.5px; margin-top: 12px; }
+
+/* التنفيذ جوه الخدمة: معاينة وموافقة */
+.br-act { margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--panel-card-bg-2, #f8fafc); border: 1px solid var(--panel-border, #e2e8f0); font-size: 14px; line-height: 1.7; }
+.br-act ul { margin: 8px 0 10px; padding-inline-start: 20px; }
+.br-act p { margin: 6px 0 10px; }
+.br-act.done { border-color: var(--panel-success, #16a34a); background: var(--panel-success-light, #ecfdf5); }
+.br-act.error { border-color: var(--panel-danger, #dc2626); background: var(--panel-danger-light, #fef2f2); }

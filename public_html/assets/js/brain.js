@@ -22,6 +22,24 @@
     const STATUS = { proposed: ['مقترح', 'Suggested'], approved: ['شغالين عليه', 'In progress'], done: ['اتنفّذ — بنقيس النتيجة', 'Done — measuring'], resolved: ['اتحل', 'Resolved'], dismissed: ['مش دلوقتي', 'Not now'] };
     const OUTCOME = { improved: ['✓ اتحسّن', '✓ Improved'], unchanged: ['ماتغيرش', 'No change'], worse: ['اتراجع', 'Got worse'] };
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US');
+    // التنفيذ جوه الخدمة: معاينة الأول (هيحصل إيه وبيكلّف قد إيه)، وبعدين تنفيذ بموافقة صريحة
+    const ACT_LABEL = { review_drafts: ['✍️ جهّز ردود التقييمات', '✍️ Draft the review replies'] };
+    let act = null; // {id, preview?, result?, error?, loading?}
+    function actionBox(d) {
+      if (!act || act.id !== d.id) return '';
+      if (act.loading) return `<div class="br-act" role="status">${t('بنجهّز…', 'Preparing…')}</div>`;
+      if (act.error) return `<div class="br-act error" role="alert">${esc(act.error)}</div>`;
+      const p = act.result || act.preview;
+      if (act.result) return `<div class="br-act done" role="status"><b>✓ ${t(`اتكتب ${num(p.drafted)} رد`, `${num(p.drafted)} replies drafted`)}</b>${p.skipped ? ` <span class="br-muted">${t(`(${num(p.skipped)} ماتكتبوش لأن الذكاء الاصطناعي مش متاح دلوقتي)`, `(${num(p.skipped)} skipped: AI unavailable right now)`)}</span>` : ''}
+        <p>${t('الردود مستنية موافقتك في صفحة التقييمات. راجع كل رد وعدّله لو حابب، وبعدين انشره. مفيش حاجة اتنشرت لوحدها.', 'The replies are waiting for your approval on the reviews page. Review or edit each one, then publish. Nothing was published.')}</p>
+        <a class="p-btn xs primary" href="${esc(p.review_url)}">${t(`راجع الردود (${num(p.ready_drafts)})`, `Review replies (${num(p.ready_drafts)})`)}</a></div>`;
+      if (!p.will_draft) return `<div class="br-act" role="status"><p>${p.ready_drafts ? t(`فيه ${num(p.ready_drafts)} رد جاهز مستني موافقتك.`, `${num(p.ready_drafts)} replies are ready for your approval.`) : t('مفيش تقييمات سلبية من غير رد في آخر 30 يوم.', 'No unanswered negative reviews in the last 30 days.')}</p>${p.ready_drafts ? `<a class="p-btn xs primary" href="${esc(p.review_url)}">${t('راجع الردود', 'Review replies')}</a>` : ''}</div>`;
+      return `<div class="br-act"><b>${t('قبل ما نبدأ:', 'Before we start:')}</b><ul>
+        <li>${t(`هنكتب ${num(p.will_draft)} رد على أسوأ التقييمات اللي من غير رد (من ${num(p.without_draft)}).`, `We will draft ${num(p.will_draft)} replies for the worst unanswered reviews (of ${num(p.without_draft)}).`)}</li>
+        <li>${t(`التكلفة: لحد ${num(p.ai_calls_max)} طلب ذكاء اصطناعي من حدود حسابك. نشر الرد نفسه بيتحسب من رصيد الردود في باقتك، زي العادي.`, `Cost: up to ${num(p.ai_calls_max)} AI requests from your account limits. Publishing a reply uses your plan's reply credits as usual.`)}</li>
+        <li>${t('مفيش رد هيتنشر لوحده. كل رد هيستنى موافقتك في صفحة التقييمات.', 'No reply is published automatically. Each one waits for your approval on the reviews page.')}</li></ul>
+        <div class="br-actions"><button type="button" class="p-btn xs primary" data-act-run="${d.id}">${t('موافق، اكتب الردود', 'Approve, draft the replies')}</button><button type="button" class="p-btn xs outline" data-act-cancel>${t('إلغاء', 'Cancel')}</button></div></div>`;
+    }
 
     function understanding(s) {
       const u = s.understanding || {}, gaps = [];
@@ -103,7 +121,7 @@
       return `<li class="br-decision ${esc(d.status)}"><div class="br-dhead"><span class="br-area">${esc(t(...area))}</span><span class="br-status">${esc(t(...st))}</span>${d.requires_spend ? `<span class="br-spend">${t('فيه صرف — بموافقتك بس', 'Involves spend — only with your approval')}</span>` : ''}</div>
         <h4 dir="auto">${esc(L(d.title))}</h4><p dir="auto">${esc(L(d.why))}</p>
         ${(d.evidence || []).length ? `<ul class="br-proof">${d.evidence.map(e => `<li dir="auto">${esc(L(e))}</li>`).join('')}</ul>` : ''}${measured}
-        <div class="br-actions"><a class="p-btn xs" href="${esc(d.action_url || '#')}">${esc(L(d.action))}</a>${buttons}</div></li>`;
+        <div class="br-actions">${d.service_action && ['proposed', 'approved'].includes(d.status) ? `<button type="button" class="p-btn xs primary" data-act="${d.id}">${esc(t(...(ACT_LABEL[d.service_action] || ['نفّذ', 'Run'])))}</button>` : ''}<a class="p-btn xs${d.service_action ? ' outline' : ''}" href="${esc(d.action_url || '#')}">${esc(L(d.action))}</a>${buttons}</div>${actionBox(d)}</li>`;
     }
 
     function decisions(list, results) {
@@ -139,6 +157,19 @@
         catch (e) { note = { text: e.message, error: true }; }
         finally { busy = false; }
         render();
+      };
+      root.querySelectorAll('[data-act]').forEach(b => { b.onclick = async () => {
+        if (busy) return; const id = Number(b.dataset.act); act = { id, loading: true }; render();
+        try { act = { id, preview: (await req('/api/brain/decisions/' + id + '/action?website_id=' + wid())).preview }; }
+        catch (e) { act = { id, error: e.message }; }
+        render();
+      }; });
+      const cancel = root.querySelector('[data-act-cancel]'); if (cancel) cancel.onclick = () => { act = null; render(); };
+      const run = root.querySelector('[data-act-run]'); if (run) run.onclick = async () => {
+        if (busy) return; busy = true; const id = Number(run.dataset.actRun); act = { id, loading: true }; render();
+        try { const r = await req('/api/brain/decisions/' + id + '/action?website_id=' + wid(), { confirm: true, website_id: wid() }); data.decisions = r.decisions; data.results = r.results; act = { id, result: r.result }; }
+        catch (e) { act = { id, error: e.message }; }
+        finally { busy = false; render(); }
       };
       root.querySelectorAll('[data-set]').forEach(b => { b.onclick = async () => {
         if (busy) return; busy = true; b.disabled = true;
