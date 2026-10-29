@@ -573,6 +573,17 @@ HTML;
             <div id="pubPixelWrap" style="display:none"><label>${pubTr("Meta Pixel (عشان Meta تجيب ناس بتحجز فعلًا مش بس بتضغط)","Meta Pixel (optional conversion tracking)")}</label>
                 <select id="pubPixel" class="p-select" style="width:100%;margin-bottom:4px">${pixelOptions}</select>
                 ${(d.pixels || []).length ? '' : '<div class="p-cell-muted" style="font-size:12px;margin-bottom:10px">' + pubTr("⚠️ مفيش بيكسل على الحساب - الحملة هتتعمل بهدف زيارات صفحة الهبوط لحد ما تركّبه.","\u26a0\ufe0f No Pixel found on this account. The campaign will use landing page visits until a Pixel is configured.") + '</div>'}</div>
+            <div id="pubFormatWrap"><label>${pubTr("شكل الإعلان","Ad format")}</label>
+                <select id="pubFormat" class="p-select" style="width:100%;margin-bottom:6px">
+                    <option value="image">${pubTr("صورة","Single image")}</option>
+                    <option value="carousel">${pubTr("كاروسيل (2-10 صور)","Carousel (2-10 images)")}</option>
+                    <option value="video">${pubTr("فيديو","Video")}</option>
+                </select>
+                <div id="pubMediaBox" style="display:none;margin-bottom:10px">
+                    <div class="p-cell-muted" id="pubMediaHint" style="font-size:12px;margin-bottom:6px"></div>
+                    <div id="pubMediaGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:6px"></div>
+                    <input type="url" id="pubVideoUrl" class="p-select" dir="ltr" style="display:none;width:100%;margin-top:6px" placeholder="https://.../video.mp4">
+                </div></div>
             <label>${pubTr("الدول المستهدفة (افصل بفاصلة - عربي أو إنجليزي أو كود زي EG, DE)","Target Countries (comma-separated names or ISO codes, e.g. EG, DE)")}</label>
             <input type="text" id="pubCountries" class="p-select" style="width:100%;margin-bottom:10px" value="${esc((d.countries || []).join(', '))}" placeholder="Germany, United Kingdom">
             <label>${pubTr("رابط الوجهة","Destination URL")}</label>
@@ -597,8 +608,38 @@ HTML;
             </div>` : '<div class="p-cell-muted" style="margin-bottom:10px">' + pubTr("✔ هيتنشر بـ ","\u2714 Publishing with ") + '' + d.approved_copies + '' + pubTr(" نسخة معتمدة"," approved copy version(s)") + '</div>'}
             <div class="p-cell-muted" style="font-size:12px">${pubTr("الحملة بتتعمل <b>متوقفة (Paused)</b> - مفيش فلوس هتتصرف لحد ما تفعّلها بنفسك.","The campaign is created <b>Paused</b>. No ad spend occurs until you explicitly activate it.")}</div>`;
         const g = id => document.getElementById(id);
+        const pubPicked = window.__pubPicked = new Set();
+        const loadPubMedia = async () => {
+            const fmt = g('pubFormat').value, box = g('pubMediaBox'), grid = g('pubMediaGrid');
+            pubPicked.clear();
+            g('pubVideoUrl').style.display = fmt === 'video' ? '' : 'none';
+            box.style.display = fmt === 'image' ? 'none' : '';
+            g('pubMediaHint').textContent = fmt === 'video'
+                ? pubTr("اختار فيديو من مكتبة الاستوديو، أو الصق رابط فيديو عام (mp4).", "Pick a video from your Creative Studio library, or paste a public mp4 link.")
+                : pubTr("اختار من 2 إلى 10 صور من مكتبتك - كل صورة هتبقى كارت.", "Pick 2 to 10 images from your library; each becomes a card.");
+            grid.innerHTML = '';
+            if (fmt === 'image') return;
+            const r = await fetchJSON('/api/creative-studio/media?filter=' + (fmt === 'video' ? 'videos' : 'images') + '&limit=24');
+            const items = ((r.data || {}).items || []).filter(i => i.status === 'completed' && (i.thumbnail_path || i.file_path));
+            if (!items.length) { grid.innerHTML = '<div class="p-cell-muted" style="grid-column:1/-1;font-size:12px">' + pubTr("مفيش ملفات في المكتبة لسه.", "Your library is empty.") + '</div>'; return; }
+            items.forEach(i => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.className = 'p-btn outline xs'; b.style.cssText = 'padding:0;height:76px;overflow:hidden;position:relative';
+                const im = document.createElement('img');
+                im.src = i.thumbnail_path || i.file_path; im.alt = ''; im.style.cssText = 'width:100%;height:100%;object-fit:cover';
+                b.appendChild(im);
+                b.onclick = () => {
+                    if (fmt === 'video') { pubPicked.clear(); grid.querySelectorAll('button').forEach(x => x.style.outline = ''); }
+                    if (pubPicked.has(i.id)) { pubPicked.delete(i.id); b.style.outline = ''; }
+                    else if (fmt === 'video' || pubPicked.size < 10) { pubPicked.add(i.id); b.style.outline = '3px solid var(--accent, #4f46e5)'; }
+                };
+                grid.appendChild(b);
+            });
+        };
+        g('pubFormat').addEventListener('change', loadPubMedia);
         const sync = () => {
             const plat = g('pubPlatform').value, obj = g('pubObjective').value;
+            g('pubFormatWrap').style.display = plat === 'meta_ads' && !window.__metaResumePartial ? '' : 'none';
             const acc = (d.accounts || {})[plat] || {};
             g('pubTrackWrap').style.display = plat === 'google_ads' && acc.conversion_tracking === false && ['leads', 'sales', 'calls', 'whatsapp'].includes(obj) ? '' : 'none';
             g('pubPageWrap').style.display = plat === 'meta_ads' ? '' : 'none';
@@ -653,6 +694,18 @@ HTML;
             payload.existing_campaign_id = window.__metaResumeCampaignId;
         }
         if (g('pubPage') && payload.platform === 'meta_ads') payload.page_id = g('pubPage').value;
+        if (payload.platform === 'meta_ads' && g('pubFormat') && g('pubFormat').value !== 'image') {
+            const fmt = g('pubFormat').value, picked = Array.from(window.__pubPicked || []);
+            payload.ad_format = fmt;
+            if (fmt === 'carousel') {
+                if (picked.length < 2) { P.toast(pubTr('اختار صورتين على الأقل للكاروسيل', 'Pick at least 2 images for the carousel'), 'error'); return; }
+                payload.media_item_ids = picked;
+            } else {
+                const link = g('pubVideoUrl').value.trim();
+                if (!picked.length && !link) { P.toast(pubTr('اختار فيديو أو الصق رابطه', 'Pick a video or paste its link'), 'error'); return; }
+                if (picked.length) payload.video_media_item_id = picked[0]; else payload.video_url = link;
+            }
+        }
         if (g('pubPixel') && g('pubPixel').value) payload.pixel_id = g('pubPixel').value;
         if (g('pubPhone') && g('pubPhone').value.trim()) payload.phone = g('pubPhone').value.trim();
         if (g('pubMaxCpc') && g('pubMaxCpc').value) payload.max_cpc = g('pubMaxCpc').value;
@@ -1967,6 +2020,22 @@ JS;
                     }
                 }
 
+                // Video ads: a library video (signed https link Meta can fetch) or a pasted public link.
+                $adVideoUrl = trim((string) $this->get('video_url', ''));
+                $adVideoTrusted = false;
+                $videoItemId = (int) $this->get('video_media_item_id', 0);
+                if ($videoItemId > 0) {
+                    try {
+                        $vItem = (new MediaItem())->find($videoItemId);
+                        if ($vItem && in_array((int) $vItem->getAttribute('user_id'), [$owner, (int) $this->user['id']], true) && (string) $vItem->getAttribute('type') === 'short_video') {
+                            $adVideoUrl = PrivateMedia::publishUrl($vItem, 3600);
+                            $adVideoTrusted = true;
+                        }
+                    } catch (Throwable $e) {
+                        $adVideoUrl = '';
+                    }
+                }
+
                 $objectiveKey = (string) $campaignPayload['objective'];
                 $pixelId = trim((string) $this->get('pixel_id', ''));
                 if ($pixelId === '' && in_array($objectiveKey, ['leads', 'sales'], true)) {
@@ -1986,6 +2055,9 @@ JS;
                     'pixel_id' => $pixelId,
                     'phone' => $phone,
                     'image_urls' => $imageUrls,
+                    'format' => (string) $this->get('ad_format', 'image'),
+                    'video_url' => $adVideoUrl,
+                    'video_trusted' => $adVideoTrusted,
                     'default_countries' => $countries,
                     'existing_campaign_id' => $resumePartial ? $linkedMetaCampaign : '',
                     'existing_adset_id' => $resumeAdOnly ? $storedAdset : '',
@@ -2205,13 +2277,22 @@ JS;
             $ids[] = (int) $this->get('media_item_id', 0);
         }
         $urls = [];
-        foreach (array_slice(array_unique(array_filter($ids)), 0, 5) as $mediaId) {
+        foreach (array_slice(array_unique(array_filter($ids)), 0, 10) as $mediaId) {
             $m = $this->db->query(
                 "SELECT file_path FROM media_items WHERE id = ? AND user_id IN (?, ?) AND status = 'completed' AND type <> 'short_video' LIMIT 1",
                 [$mediaId, $ownerId, (int) $this->user['id']]
             );
             if ($m) {
-                $urls[] = rtrim(defined('APP_URL') ? APP_URL : '', '/') . $m[0]['file_path'];
+                $url = rtrim(defined('APP_URL') ? APP_URL : '', '/') . $m[0]['file_path'];
+                try {
+                    $item = (new MediaItem())->find($mediaId);
+                    if ($item) {
+                        $url = PrivateMedia::publishUrl($item, 3600);
+                    }
+                } catch (Throwable $e) {
+                    // not a private library file: the plain public path above is used
+                }
+                $urls[] = $url;
             }
         }
         return $urls;

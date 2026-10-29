@@ -348,6 +348,8 @@ class MetaAdsAPI
      * - pixel_id: بيكسل الحساب (لحملات Leads/Sales الحقيقية)
      * - phone: رقم التليفون بصيغة دولية (لإعلانات المكالمات)
      * - image_urls: أكتر من صورة - كل نسخة إعلان بتاخد صورة مختلفة
+     * - format: image (الافتراضي) | carousel (2-10 صور، كارت لكل صورة) | video (فيديو من رابط https عام)
+     * - video_url: رابط الفيديو لو format=video (Meta بتسحبه بنفسها)
      * - interests: اهتمامات محلولة جاهزة [{id,name}] (لو مش موجودة بتتحل من audience.interests)
      */
     public function createCampaign(string $adAccountId, string $pageId, array $campaign, array $audience, array $copies, string $destinationUrl, ?string $imageUrl = null, array $options = []): array
@@ -360,6 +362,11 @@ class MetaAdsAPI
         // Validate content before performing ANY Meta write (no orphaned campaigns).
         if (!$copies || !array_filter($copies, static fn ($copy) => is_array($copy) && trim((string) ($copy['headline'] ?? '')) !== '' && trim((string) ($copy['primary_text'] ?? '')) !== '')) {
             return ['success' => false, 'step' => 'preflight', 'error' => 'An approved ad headline and primary text are required before creating Meta objects.'];
+        }
+
+        $format = self::adFormat($options);
+        if ($format === 'video' && !self::validVideoUrl((string) ($options['video_url'] ?? ''), !empty($options['video_trusted']))) {
+            return ['success' => false, 'step' => 'preflight', 'error' => 'A public https video link (mp4 / mov) is required for a video ad.'];
         }
 
         $targeting = $this->buildTargeting($audience, $options);
@@ -487,22 +494,49 @@ class MetaAdsAPI
         $imageUrls = array_values(array_filter(array_merge((array) ($options['image_urls'] ?? []), $imageUrl ? [$imageUrl] : [])));
         $imageUrls = array_values(array_unique($imageUrls));
         $imageHashes = [];
-        foreach (array_slice($imageUrls, 0, 5) as $url) {
+        foreach (array_slice($imageUrls, 0, $format === 'carousel' ? 10 : 5) as $url) {
             $imageHashes[] = ['url' => $url, 'hash' => $this->uploadAdImage($adAccountId, $url)];
+        }
+
+        // WhatsApp / call destinations cannot use cards; a carousel needs at least two usable images.
+        if ($format === 'carousel' && (in_array($usedPlan['cta'] ?? null, ['WHATSAPP_MESSAGE', 'CALL_NOW'], true) || count(array_filter($imageHashes, static fn ($i) => !empty($i['hash']))) < 2)) {
+            $warnings[] = 'الكاروسيل محتاج صورتين على الأقل ووجهة موقع، فاتنشر إعلان بصورة واحدة بدلًا منه.';
+            $format = 'image';
+        }
+        $videoId = '';
+        $videoThumb = '';
+        if ($format === 'video') {
+            $up = $this->uploadAdVideo($adAccountId, (string) $options['video_url'], (string) ($campaign['name'] ?? 'Video'));
+            if (empty($up['id'])) {
+                return ['success' => false, 'step' => 'video', 'external_campaign_id' => $campaignId, 'external_adset_id' => $adSetId, 'error' => 'Video upload failed: ' . ($up['error'] ?? 'Unknown Meta error')];
+            }
+            $videoId = $up['id'];
+            $ready = $this->waitForVideo($videoId);
+            if (!$ready['ready']) {
+                return ['success' => false, 'step' => 'video', 'external_campaign_id' => $campaignId, 'external_adset_id' => $adSetId, 'uncertain' => true, 'error' => 'Meta is still processing the video (' . $videoId . '). Wait a minute and use "Resume paused setup".'];
+            }
+            $videoThumb = $ready['picture'] !== '' ? $ready['picture'] : (string) ($imageHashes[0]['url'] ?? '');
         }
 
         $adIds = [];
         $lastError = '';
         $lastCreativeId = '';
         // Recovery must be a single write attempt, never up to five variants.
-        $attemptCopies = $existingAdsetId !== '' ? array_slice($copies, 0, 1) : array_slice($copies, 0, 5);
+        // A carousel is one ad whose cards borrow the headlines of every approved copy.
+        $attemptCopies = ($existingAdsetId !== '' || $format === 'carousel') ? array_slice($copies, 0, 1) : array_slice($copies, 0, 5);
         foreach (array_values($attemptCopies) as $i => $copy) {
             $image = !empty($imageHashes) ? $imageHashes[$i % count($imageHashes)] : null;
-            $linkData = $this->linkData($copy, $destinationUrl, $usedPlan, $options, $image);
+            if ($format === 'carousel') {
+                $spec = ['page_id' => $pageId, 'link_data' => $this->carouselLinkData($copies, $destinationUrl, $imageHashes, $usedPlan, $options)];
+            } elseif ($format === 'video') {
+                $spec = ['page_id' => $pageId, 'video_data' => $this->videoData($copy, $destinationUrl, $videoId, $videoThumb, $usedPlan, $options)];
+            } else {
+                $spec = ['page_id' => $pageId, 'link_data' => $this->linkData($copy, $destinationUrl, $usedPlan, $options, $image)];
+            }
 
             $creativeResult = $this->post("{$adAccountId}/adcreatives", [
                 'name' => $campaign['name'] . ' - ' . ($copy['variant_label'] ?? chr(65 + $i)),
-                'object_story_spec' => json_encode(['page_id' => $pageId, 'link_data' => $linkData], JSON_UNESCAPED_UNICODE),
+                'object_story_spec' => json_encode($spec, JSON_UNESCAPED_UNICODE),
                 // UTM تلقائي على كل ضغطة - نفس أسماء الحملة/الإعلان تظهر في Google Analytics
                 'url_tags' => 'utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}',
             ]);
@@ -640,7 +674,24 @@ class MetaAdsAPI
         return $fields;
     }
 
-    private function linkData(array $copy, string $destinationUrl, array $plan, array $options, ?array $image): array
+    /** @return string 'image' | 'carousel' | 'video' */
+    public static function adFormat(array $options): string
+    {
+        $f = strtolower((string) ($options['format'] ?? 'image'));
+        return in_array($f, ['carousel', 'video'], true) ? $f : 'image';
+    }
+
+    /** Meta fetches the file itself, so it must be a public https link to a video file. */
+    public static function validVideoUrl(string $url, bool $trusted = false): bool
+    {
+        if ($trusted) {
+            return (bool) preg_match('#^https://[^\s/]+/[^\s]+$#i', $url);
+        }
+        return (bool) preg_match('#^https://[^\s/]+/[^\s]*\.(mp4|mov)(\?[^\s]*)?$#i', $url);
+    }
+
+    /** @return array{0: array, 1: string} call-to-action and link for the objective plan */
+    private function ctaAndLink(array $copy, string $destinationUrl, array $plan, array $options): array
     {
         $cta = ['type' => $this->mapCta((string) ($copy['call_to_action'] ?? '')), 'value' => ['link' => $destinationUrl]];
         $link = $destinationUrl;
@@ -651,6 +702,82 @@ class MetaAdsAPI
             $phone = preg_replace('/[^0-9+]/', '', (string) ($options['phone'] ?? ''));
             $cta = ['type' => 'CALL_NOW', 'value' => ['link' => 'tel:' . $phone]];
         }
+        return [$cta, $link];
+    }
+
+    /** One card per image (2-10); card headlines rotate through the approved copies. */
+    public function carouselLinkData(array $copies, string $destinationUrl, array $images, array $plan, array $options): array
+    {
+        $first = $copies[0] ?? [];
+        [$cta] = $this->ctaAndLink($first, $destinationUrl, $plan, $options);
+        $cards = [];
+        foreach (array_values(array_filter($images, static fn ($i) => !empty($i['hash']))) as $n => $img) {
+            $c = $copies[$n % max(1, count($copies))] ?? $first;
+            $cards[] = [
+                'link' => $destinationUrl,
+                'name' => mb_substr((string) ($c['headline'] ?? ''), 0, 40),
+                'description' => mb_substr((string) ($c['description'] ?? ''), 0, 30),
+                'image_hash' => $img['hash'],
+                'call_to_action' => $cta,
+            ];
+        }
+        return [
+            'link' => $destinationUrl,
+            'message' => (string) ($first['primary_text'] ?? ''),
+            'child_attachments' => array_slice($cards, 0, 10),
+            'multi_share_optimized' => true,
+            'multi_share_end_card' => false,
+        ];
+    }
+
+    public function videoData(array $copy, string $destinationUrl, string $videoId, string $thumbUrl, array $plan, array $options): array
+    {
+        [$cta] = $this->ctaAndLink($copy, $destinationUrl, $plan, $options);
+        $data = [
+            'video_id' => $videoId,
+            'title' => (string) ($copy['headline'] ?? ''),
+            'message' => (string) ($copy['primary_text'] ?? ''),
+            'link_description' => (string) ($copy['description'] ?? ''),
+            'call_to_action' => $cta,
+        ];
+        if ($thumbUrl !== '') {
+            $data['image_url'] = $thumbUrl;
+        }
+        return $data;
+    }
+
+    /** @return array{id?: string, error?: string} */
+    public function uploadAdVideo(string $adAccountId, string $videoUrl, string $name): array
+    {
+        $r = $this->post("{$adAccountId}/advideos", ['file_url' => $videoUrl, 'name' => mb_substr($name, 0, 100)]);
+        $id = (string) ($r['data']['id'] ?? '');
+        return ($r['success'] && $id !== '') ? ['id' => $id] : ['error' => (string) ($r['error'] ?? 'No video id returned')];
+    }
+
+    /** Meta processes the video asynchronously; an ad creative can only use it once it is ready. */
+    public function waitForVideo(string $videoId, int $maxSeconds = 40): array
+    {
+        $deadline = time() + $maxSeconds;
+        do {
+            $r = $this->get($videoId, ['fields' => 'status,picture']);
+            $state = strtolower((string) ($r['data']['status']['video_status'] ?? ''));
+            if ($r['success'] && $state === 'ready') {
+                return ['ready' => true, 'picture' => (string) ($r['data']['picture'] ?? '')];
+            }
+            if ($state === 'error') {
+                return ['ready' => false, 'picture' => ''];
+            }
+            if (self::$testTransport) {
+                break;
+            }
+            sleep(4);
+        } while (time() < $deadline);
+        return ['ready' => false, 'picture' => ''];
+    }
+
+    private function linkData(array $copy, string $destinationUrl, array $plan, array $options, ?array $image): array
+    {
+        [$cta, $link] = $this->ctaAndLink($copy, $destinationUrl, $plan, $options);
 
         $linkData = [
             'link' => $link,
