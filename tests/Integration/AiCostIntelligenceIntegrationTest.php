@@ -23,6 +23,7 @@ final class AiCostIntelligenceIntegrationTest extends TestCase
             if (!class_exists('Database')) require_once $app . '/Core/Database.php';
             $this->db = Database::getInstance();
             BrainSchema::ensure($this->db);
+            $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (999850, 'aiceo-cost@tourfecto.test', 'x', 'AI CEO Cost Test', NOW()) ON DUPLICATE KEY UPDATE email = email");
         } catch (Throwable $e) {
             $this->markTestSkipped('DB غير متاحة: ' . $e->getMessage());
         }
@@ -43,7 +44,7 @@ final class AiCostIntelligenceIntegrationTest extends TestCase
 
     private function log(string $feature, float $cost): void
     {
-        $this->db->query("INSERT INTO api_usage_logs (user_id, api_type, feature, model, endpoint, status_code, tokens_used, cost_in_usd, duration_ms) VALUES (NULL, 'gemini', ?, 'test-model', 'phpunit-aiceo', 200, 100, ?, 50)", [$feature, $cost]);
+        $this->db->query("INSERT INTO api_usage_logs (user_id, api_type, feature, model, endpoint, status_code, tokens_used, cost_in_usd, duration_ms) VALUES (999850, 'gemini', ?, 'test-model', 'phpunit-aiceo', 200, 100, ?, 50)", [$feature, $cost]);
     }
 
     public function testAiCeoBudgetIsSeparateFromCustomersAndStopsAtTheLimit(): void

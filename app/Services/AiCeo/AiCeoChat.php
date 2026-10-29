@@ -18,8 +18,12 @@ final class AiCeoChat
     /** @var callable|null fn(string $question): ?string — إجابة محفوظة لنفس السؤال على نفس الأرقام (مفيش داعي نسأل تاني) */
     private $cache;
 
-    public function __construct(?callable $ai = null, ?callable $budgetGuard = null, ?callable $cache = null)
+    /** صاحب المنصة اللي بيسأل: بيتبعت مع طلب الذكاء الاصطناعي عشان يتسجل في api_usage_logs (عمود user_id مش بيقبل فاضي في بعض القواعد) */
+    private ?int $userId;
+
+    public function __construct(?callable $ai = null, ?callable $budgetGuard = null, ?callable $cache = null, ?int $userId = null)
     {
+        $this->userId = $userId;
         $this->ai = $ai;
         $this->budgetGuard = $budgetGuard;
         $this->cache = $cache;
@@ -68,7 +72,7 @@ final class AiCeoChat
             if ($this->ai) {
                 $text = call_user_func($this->ai, $prompt);
             } else {
-                $r = (new AIOrchestrator())->generateContent($prompt, ['task' => 'ai_ceo_chat', 'maxOutputTokens' => 700, 'temperature' => 0.3]);
+                $r = (new AIOrchestrator())->generateContent($prompt, ['task' => 'ai_ceo_chat', 'user_id' => $this->userId, 'maxOutputTokens' => 700, 'temperature' => 0.3]);
                 $text = !empty($r['success']) ? trim((string) ($r['data'] ?? '')) : null;
             }
         } catch (Throwable $e) {

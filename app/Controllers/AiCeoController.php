@@ -107,7 +107,7 @@ class AiCeoController extends Controller
                 $since = max((string) ($snap['generated_at'] ?? ''), gmdate('Y-m-d H:i:s', time() - 1800));
                 return $this->db->query("SELECT body FROM aiceo_memory WHERE kind = 'chat' AND title = ? AND created_at >= ? AND body IS NOT NULL ORDER BY id DESC LIMIT 1", [mb_substr($question, 0, 255), $since])[0]['body'] ?? null;
             };
-            $r = (new AiCeoChat(null, fn () => $costs->aiCeoBlocked(), $cache))->answer($q, $snap, $store->list(), $store->settings());
+            $r = (new AiCeoChat(null, fn () => $costs->aiCeoBlocked(), $cache, (int) $this->user['id']))->answer($q, $snap, $store->list(), $store->settings());
             // الإجابات اللي مقدرش يجاوبها (مفيش ذكاء اصطناعي/الميزانية خلصت) مابتتحفظش، عشان ماتتعادش من الكاش
             if ($r['source'] !== 'none') $store->remember('chat', $q, $r['answer'], null, (int) $this->user['id']);
             $store->log((int) $this->user['id'], 'chat', ['intent' => $r['intent'], 'source' => $r['source']]);
