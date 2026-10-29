@@ -3894,6 +3894,7 @@ HTML;
             $this->tr('admin.nav.general') => [
                 'overview' => [$this->tr('admin.nav.overview'), 'bar-chart-2', '/admin'],
                 'platform' => [$this->tr('admin.nav.platform_overview'), 'compass', '/admin/platform'],
+                'ai-ceo' => ['AI Mission Control', 'brain', '/admin/ai-ceo'],
                 'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
                 'metrics' => ['أرقام SaaS', 'trending-up', '/admin/metrics'],
                 'health' => ['صحة المنصة', 'activity', '/admin/health'],

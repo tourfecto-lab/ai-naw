@@ -419,6 +419,7 @@ $router->get('/admin/creative-studio', 'CreativeAdminController', 'index', ['Aut
 
 $router->get('/admin/ai-routing', 'AiRoutingAdminController', 'index', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/brain', 'BrainAdminController', 'index', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/admin/ai-ceo', 'AiCeoController', 'index', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/meta-review', 'MetaReviewController', 'index', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/growth', 'PlatformOutreachController', 'index', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/plans-studio', 'PlansStudioController', 'adminPage', ['AuthMiddleware','AdminMiddleware']);
