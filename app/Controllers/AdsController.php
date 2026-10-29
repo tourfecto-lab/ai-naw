@@ -166,7 +166,7 @@ class AdsController extends Controller
                     <div class="p-card">
                         <div class="p-card-head"><h3>🔗 رابط UTM جديد</h3></div>
                         <input type="text" id="utmDest" class="p-select" style="width:100%;margin-bottom:6px;" placeholder="رابط الوجهة (صفحة الهبوط)">
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;">
                             <input type="text" id="utmSource" class="p-select" placeholder="utm_source (مثال: google)" value="google">
                             <input type="text" id="utmMedium" class="p-select" placeholder="utm_medium (مثال: cpc)" value="cpc">
                         </div>
@@ -4820,7 +4820,7 @@ JS;
             <canvas id="campaignTrendChart" height="90"></canvas>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;" id="campaignTwoCol">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-bottom:16px;" id="campaignTwoCol">
             <div class="p-card">
                 <div class="p-card-head"><h3>🎯 الاستهداف والجمهور</h3></div>
                 <div id="campaignAudienceBox"><div class="p-loading-row">جارِ التحميل...</div></div>
@@ -4864,7 +4864,7 @@ JS;
         <div class="p-card" style="margin-bottom:16px;">
             <div class="p-card-head"><h3>🔗 روابط UTM</h3></div>
             <input type="text" id="utmDest" class="p-select" style="width:100%;margin-bottom:6px;" placeholder="رابط الوجهة (صفحة الهبوط)">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;">
                 <input type="text" id="utmSource" class="p-select" placeholder="utm_source" value="google">
                 <input type="text" id="utmMedium" class="p-select" placeholder="utm_medium" value="cpc">
             </div>
@@ -5651,7 +5651,7 @@ JS;
             <select id="apMode" class="p-select" style="width:100%;margin-bottom:12px;">
                 ${Object.entries(modeLabels).map(([k, l]) => `<option value="${k}" ${s.optimization_mode === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}
             </select>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:12px;">
                 <div><label>أقصى ميزانية يومية إجمالية</label><input type="number" id="apMaxDaily" class="p-select" style="width:100%;" value="${s.max_daily_budget ?? ''}"></div>
                 <div><label>أقصى تكلفة اكتساب (CPA) مقبولة</label><input type="number" id="apMaxCpa" class="p-select" style="width:100%;" value="${s.max_allowed_cpa ?? ''}"></div>
                 <div><label>أقل ROAS مقبول</label><input type="number" id="apMinRoas" class="p-select" style="width:100%;" value="${s.min_required_roas ?? ''}"></div>
@@ -6024,6 +6024,7 @@ JS;
             . '@media (max-width:640px){'
             . 'body:has(.ads-tabs) .p-card-head{flex-direction:column;align-items:flex-start;gap:4px}'
             . '#dashboardFilters>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}'
+            . '#campaignTwoCol{grid-template-columns:minmax(0,1fr)!important}'
             . '#dashboardKpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}#dashboardKpis .ads-kpi-main{grid-column:span 1!important}'
             . '#dashboardFilters .p-select{width:100%;font-size:13px;padding-inline:8px}'
             . '#campaignsTable thead{display:none}#campaignsTable,#campaignsTable tbody{display:block}'
