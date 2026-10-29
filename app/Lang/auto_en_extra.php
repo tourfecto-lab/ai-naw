@@ -5254,4 +5254,5 @@ return [
     'التقييم ده متسجل بالفعل' => 'This rating is already recorded',
     'شكرًا! هنستفيد من تقييمك في الصور الجاية' => 'Thank you! We will use your rating in the next images',
     'استعادة نفس الفيديو بدون طلب توليد جديد' => 'Restore the same video without a new generation request',
+    'ملف الاستوديو جاهز للإعلان - اكتب الميزانية وأنشئ المسودة، وبعدها دوس انشر' => 'Your Studio file is ready for the ad - enter the budget and create the draft, then press Publish',
 ];

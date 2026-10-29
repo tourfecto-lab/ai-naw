@@ -38,6 +38,23 @@ class AdsController extends Controller
         return "\n(function(){var d={$data};setTimeout(function(){if(typeof window.openAiWizard!=='function')return;window.openAiWizard();var g=document.getElementById('aiGoalDescription');if(g)g.value=d.goal;var o=document.getElementById('aiObjective');if(o&&[].some.call(o.options,function(x){return x.value==='leads';}))o.value='leads';var lp=document.getElementById('lpUrl');if(lp&&d.url)lp.value=d.url;},400);})();";
     }
 
+    /** "Use in an ad" from the Creative Studio library: open the manual campaign form prefilled and remember the file for the publish dialog. */
+    private function mediaPrefillScript(int $mediaId): string
+    {
+        if ($mediaId < 1) return '';
+        try {
+            $uid = (int) ($this->user['id'] ?? 0);
+            $m = $this->db->query("SELECT id, type, prompt FROM media_items WHERE id = ? AND user_id = ? AND status = 'completed' AND deleted_at IS NULL LIMIT 1", [$mediaId, $uid])[0] ?? null;
+            if (!$m) return '';
+            $site = $this->db->query('SELECT main_url FROM websites WHERE user_id = ? ORDER BY id ASC LIMIT 1', [$uid])[0]['main_url'] ?? '';
+        } catch (Throwable $e) {
+            return '';
+        }
+        $name = mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $m['prompt'])), 0, 60);
+        $data = json_encode(['id' => (int) $m['id'], 'type' => (string) $m['type'], 'name' => $name !== '' ? $name : 'Studio ad', 'url' => (string) $site], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        return "\n(function(){var d={$data};window.__adsPreMedia={id:d.id,type:d.type};setTimeout(function(){var m=document.getElementById('newCampaignModal');if(!m)return;var n=document.getElementById('campaignName'),o=document.getElementById('campaignObjective'),u=document.getElementById('campaignLanding');if(n)n.value=d.name;if(o)o.value='traffic';if(u&&d.url)u.value=d.url;m.classList.add('open');if(window.Panel&&window.Panel.toast)window.Panel.toast('ملف الاستوديو جاهز للإعلان - اكتب الميزانية وأنشئ المسودة، وبعدها دوس انشر','success');},900);})();";
+    }
+
     public function index(array $params = []): array
     {
         $objectiveOptionsHtml = '';
@@ -712,12 +729,13 @@ HTML;
             const fmt = g('pubFormat').value, box = g('pubMediaBox'), grid = g('pubMediaGrid');
             pubPicked.clear();
             g('pubVideoUrl').style.display = fmt === 'video' ? '' : 'none';
-            box.style.display = fmt === 'image' ? 'none' : '';
+            box.style.display = '';
             g('pubMediaHint').textContent = fmt === 'video'
                 ? pubTr("اختار فيديو من مكتبة الاستوديو، أو الصق رابط فيديو عام (mp4).", "Pick a video from your Creative Studio library, or paste a public mp4 link.")
-                : pubTr("اختار من 2 إلى 10 صور من مكتبتك - كل صورة هتبقى كارت.", "Pick 2 to 10 images from your library; each becomes a card.");
+                : (fmt === 'image'
+                    ? pubTr("اختياري: اختار صورة من مكتبتك، ولو سبتها فاضية هنستخدم الصورة الرئيسية لصفحة الوجهة.", "Optional: pick an image from your library; if you leave it empty the landing page main image is used.")
+                    : pubTr("اختار من 2 إلى 10 صور من مكتبتك - كل صورة هتبقى كارت.", "Pick 2 to 10 images from your library; each becomes a card."));
             grid.innerHTML = '';
-            if (fmt === 'image') return;
             const r = await fetchJSON('/api/creative-studio/media?filter=' + (fmt === 'video' ? 'videos' : 'images') + '&limit=24');
             const items = ((r.data || {}).items || []).filter(i => i.status === 'completed' && (i.thumbnail_path || i.file_path));
             if (!items.length) { grid.innerHTML = '<div class="p-cell-muted" style="grid-column:1/-1;font-size:12px">' + pubTr("مفيش ملفات في المكتبة لسه.", "Your library is empty.") + '</div>'; return; }
@@ -728,14 +746,19 @@ HTML;
                 im.src = i.thumbnail_path || i.file_path; im.alt = ''; im.style.cssText = 'width:100%;height:100%;object-fit:cover';
                 b.appendChild(im);
                 b.onclick = () => {
-                    if (fmt === 'video') { pubPicked.clear(); grid.querySelectorAll('button').forEach(x => x.style.outline = ''); }
+                    if (fmt !== 'carousel') { const was = pubPicked.has(i.id); pubPicked.clear(); grid.querySelectorAll('button').forEach(x => x.style.outline = ''); if (was) return; }
                     if (pubPicked.has(i.id)) { pubPicked.delete(i.id); b.style.outline = ''; }
-                    else if (fmt === 'video' || pubPicked.size < 10) { pubPicked.add(i.id); b.style.outline = '3px solid var(--accent, #4f46e5)'; }
+                    else if (fmt !== 'carousel' || pubPicked.size < 10) { pubPicked.add(i.id); b.style.outline = '3px solid var(--accent, #4f46e5)'; }
                 };
                 grid.appendChild(b);
+                // Arrived from Studio ("Use in an ad"): that file is already selected.
+                const pre = window.__adsPreMedia;
+                if (pre && pre.id === i.id && ((pre.type === 'short_video') === (fmt === 'video')) && fmt !== 'carousel') b.click();
             });
         };
         g('pubFormat').addEventListener('change', loadPubMedia);
+        if (window.__adsPreMedia && !window.__metaResumePartial) g('pubFormat').value = window.__adsPreMedia.type === 'short_video' ? 'video' : 'image';
+        loadPubMedia();
         const sync = () => {
             const plat = g('pubPlatform').value, obj = g('pubObjective').value;
             const tt = plat === 'tiktok_ads';
@@ -797,6 +820,9 @@ HTML;
             payload.existing_campaign_id = window.__metaResumeCampaignId;
         }
         if (g('pubPage') && payload.platform === 'meta_ads') payload.page_id = g('pubPage').value;
+        if (payload.platform === 'meta_ads' && g('pubFormat') && g('pubFormat').value === 'image' && window.__pubPicked && window.__pubPicked.size) {
+            payload.media_item_ids = Array.from(window.__pubPicked);
+        }
         if ((payload.platform === 'meta_ads' || payload.platform === 'tiktok_ads') && g('pubFormat') && g('pubFormat').value !== 'image') {
             const fmt = g('pubFormat').value, picked = Array.from(window.__pubPicked || []);
             payload.ad_format = fmt;
@@ -1244,6 +1270,7 @@ HTML;
 JS;
 
         $script .= $this->boostPrefillScript((int) ($_GET['from_post'] ?? 0));
+        $script .= $this->mediaPrefillScript((int) ($_GET['from_media'] ?? 0));
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderPanelPage('ads', 'إدارة الإعلانات', 'حملاتك الإعلانية عبر كل المنصات المربوطة', $body, $script);
         exit;
