@@ -5194,11 +5194,11 @@ JS;
 
         $rows = $this->db->query(
             "SELECT platform, status, external_account_id, last_error, last_synced_at, token_expires_at
-             FROM platform_connections WHERE user_id = ? AND platform IN ('meta_ads','google_ads')",
+             FROM platform_connections WHERE user_id = ? AND platform IN ('meta_ads','google_ads','tiktok_ads')",
             [$access['owner_id']]
         );
 
-        $byPlatform = ['meta_ads' => null, 'google_ads' => null];
+        $byPlatform = ['meta_ads' => null, 'google_ads' => null, 'tiktok_ads' => null];
         foreach ($rows as $r) {
             // لو فيه أكتر من صف لنفس المنصة (نادر) ناخد الأحدث حسب last_synced_at
             if ($byPlatform[$r['platform']] === null || ($r['last_synced_at'] ?? '') > ($byPlatform[$r['platform']]['last_synced_at'] ?? '')) {
@@ -5213,6 +5213,7 @@ JS;
         return $this->success([
             'meta_ads' => ['configured' => $metaConfigured, 'connection' => $byPlatform['meta_ads']],
             'google_ads' => ['configured' => $googleConfigured, 'connection' => $byPlatform['google_ads']],
+            'tiktok_ads' => ['configured' => TikTokAdsController::isConfigured(), 'connection' => $byPlatform['tiktok_ads']],
         ]);
     }
 
@@ -5258,6 +5259,11 @@ JS;
         <div class="p-card">
             <div class="p-card-head"><h3>Meta Ads (Facebook / Instagram)</h3></div>
             <div id="ccMetaAds"><div class="p-loading-row">جارِ التحميل...</div></div>
+        </div>
+
+        <div class="p-card" id="ccTikTokCard" style="margin-top:16px;display:none;">
+            <div class="p-card-head"><h3>TikTok Ads</h3></div>
+            <div id="ccTikTok"><div class="p-loading-row">جارِ التحميل...</div></div>
         </div>
 
         <div class="p-card" style="margin-top:16px;">
@@ -5328,6 +5334,18 @@ JS;
         loadStatus();
     };
 
+    window.ccSyncTikTok = async function () {
+        P.toast('جارِ المزامنة...', 'success');
+        const res = await fetchJSON('/api/ads/tiktok/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (res.success) P.toast('تمت المزامنة: ' + res.data.synced + ' حملة', 'success'); else P.toast(res.error || 'تعذرت المزامنة', 'error');
+        loadStatus();
+    };
+    window.ccDisconnectTikTok = async function () {
+        if (!confirm('متأكد من فصل ربط TikTok Ads؟')) return;
+        await fetchJSON('/api/ads/tiktok/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        loadStatus();
+    };
+
     window.ccLoadBusinessAssets = async function () {
         const box = document.getElementById('ccBusinessAssets');
         box.textContent = 'Loading authorized Meta business assets...';
@@ -5357,6 +5375,11 @@ JS;
         if (!res.success) return;
         renderProvider('ccGoogleAds', res.data.google_ads, '/ads/connect/google', 'ccSyncGoogle', 'ccDisconnectGoogle');
         renderProvider('ccMetaAds', res.data.meta_ads, '/ads/connect/meta', 'ccSyncMeta', 'ccDisconnectMeta');
+        // TikTok stays hidden until the platform admin has added the TikTok for Business app keys.
+        if (res.data.tiktok_ads && res.data.tiktok_ads.configured) {
+            document.getElementById('ccTikTokCard').style.display = '';
+            renderProvider('ccTikTok', res.data.tiktok_ads, '/ads/connect/tiktok', 'ccSyncTikTok', 'ccDisconnectTikTok');
+        }
     }
 
     loadStatus();

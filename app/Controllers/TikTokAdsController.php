@@ -23,6 +23,11 @@ class TikTokAdsController extends Controller
         return $v !== '' ? $v : rtrim(defined('APP_URL') ? (string) APP_URL : '', '/') . '/ads/connect/tiktok/callback';
     }
 
+    public static function isConfigured(): bool
+    {
+        return self::configured();
+    }
+
     private static function configured(): bool
     {
         return self::appId() !== '' && self::secret() !== '';
