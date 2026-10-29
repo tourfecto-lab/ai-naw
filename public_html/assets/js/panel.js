@@ -799,3 +799,74 @@
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
+
+/*
+ * Floating helpers (install app / WhatsApp help): each gets a small "x" that hides it for good in this browser, and the install
+ * button also lives in the top bar - shown only while the browser offers the install, gone once the app is installed.
+ */
+(function () {
+    'use strict';
+    var root = document.documentElement;
+    var ar = /^ar/i.test(root.lang || '');
+    function get(k) { try { return localStorage.getItem(k) === '1'; } catch (e) { return false; } }
+    function put(k) { try { localStorage.setItem(k, '1'); } catch (e) { /* private mode */ } }
+
+    var HIDE = [['.tf-help-fab', 'tf_hide_help_fab', 'tf-no-help'], ['.pwa-install-fab', 'tf_hide_install_fab', 'tf-no-install-fab']];
+    HIDE.forEach(function (h) { if (get(h[1])) root.classList.add(h[2]); });
+
+    function addClose() {
+        HIDE.forEach(function (h) {
+            var el = document.querySelector(h[0]);
+            if (!el || el.querySelector('.tf-fab-x')) return;
+            var x = document.createElement('span');
+            x.className = 'tf-fab-x';
+            x.setAttribute('role', 'button');
+            x.setAttribute('tabindex', '0');
+            x.setAttribute('aria-label', ar ? 'إخفاء' : 'Hide');
+            x.title = ar ? 'إخفاء' : 'Hide';
+            x.textContent = '×';
+            function hide(e) { e.preventDefault(); e.stopPropagation(); put(h[1]); root.classList.add(h[2]); }
+            x.addEventListener('click', hide);
+            x.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') hide(e); });
+            el.appendChild(x);
+        });
+    }
+
+    var standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    var hdr = null, deferred = null;
+    function addHeaderInstall() {
+        if (standalone) return;
+        var bar = document.querySelector('.panel-topbar-actions');
+        if (!bar || document.getElementById('pwaInstallHdr')) return;
+        hdr = document.createElement('button');
+        hdr.id = 'pwaInstallHdr';
+        hdr.type = 'button';
+        hdr.className = 'icon-btn';
+        hdr.style.display = 'none';
+        hdr.title = ar ? 'تثبيت التطبيق' : 'Install the app';
+        hdr.setAttribute('aria-label', hdr.title);
+        hdr.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        hdr.addEventListener('click', function () {
+            if (!deferred) { hdr.style.display = 'none'; return; }
+            var p = deferred;
+            deferred = null;
+            hdr.style.display = 'none';
+            var fab = document.getElementById('pwaInstallBtn');
+            if (fab) fab.style.display = 'none';
+            try { p.prompt(); } catch (e) { /* already used by the floating button */ }
+        });
+        bar.insertBefore(hdr, bar.firstChild);
+        if (deferred) hdr.style.display = '';
+    }
+    window.addEventListener('beforeinstallprompt', function (e) {
+        deferred = e;
+        if (hdr) hdr.style.display = '';
+    });
+    window.addEventListener('appinstalled', function () {
+        deferred = null;
+        if (hdr) hdr.style.display = 'none';
+    });
+
+    function init() { addClose(); addHeaderInstall(); setTimeout(addClose, 1500); }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
