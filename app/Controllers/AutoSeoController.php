@@ -134,7 +134,12 @@ class AutoSeoController extends Controller
             <!-- تبويب الربط والتنفيذ -->
             <div class="aseo-panel active" data-panel="connect" style="padding:16px 20px 20px;">
                 <div class="p-card" style="margin:0;">
-                    <div class="aseo-steps">
+                    <div id="aseoHubManaged" style="display:none;">
+                        <h3 style="margin:0 0 4px;">موقعك متدار من مركز السيو</h3>
+                        <p class="p-cell-muted" style="font-size:12.5px;margin:0 0 10px;">الطيار الآلي في مركز السيو هو اللي بيفحص موقعك ويطبّق التحسينات كل أسبوع، فخطوات الربط هنا مش محتاجها</p>
+                        <a class="p-btn primary" href="/seo-expert">افتح مركز السيو</a>
+                    </div>
+                    <div class="aseo-steps" id="aseoSteps">
                         <div class="aseo-step">
                             <div class="aseo-step-num">1</div>
                             <div style="flex:1;">
@@ -322,6 +327,9 @@ class AutoSeoController extends Controller
         const connected = !!(site && site.is_connected == 1);
         const mode = site.auto_pilot_mode || 'off';
         const hub = d.seo_hub === 'active' ? 'active' : (d.seo_hub ? 'set' : null);
+        // تشغيل Auto SEO هنا كمان كان هيتعارض مع الطيار الآلي بتاع المركز، فبنخفي خطوات الربط
+        document.getElementById('aseoSteps').style.display = hub === 'active' ? 'none' : '';
+        document.getElementById('aseoHubManaged').style.display = hub === 'active' ? '' : 'none';
 
         const issuesHtml = (d.top_issues && d.top_issues.length)
             ? d.top_issues.map(i => `<li><span class="dot ${esc(i.severity)}"></span><span>${esc(i.title)}</span></li>`).join('')
