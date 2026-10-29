@@ -705,3 +705,49 @@
     if (list) new MutationObserver(skin).observe(list, { childList: true, attributes: true, subtree: true, attributeFilter: ['class'] });
     window.addEventListener('tourfecto:website-changed', skin);
 })();
+
+/*
+ * Instagram DMs take AAC / M4A / WAV / MP4 audio but not Ogg, while the voice recorder produces Ogg Opus (what WhatsApp and
+ * Messenger need). On an Instagram conversation the note is decoded and re-encoded as a small 16-bit mono WAV just before it is
+ * sent; if the browser cannot do that, the original goes out unchanged.
+ */
+(function () {
+    'use strict';
+    var AC = window.AudioContext || window.webkitAudioContext;
+    var orig = window.sendAttachment;
+    if (typeof orig !== 'function' || !AC) return;
+
+    function wavFromBuffer(buf) {
+        var n = buf.length, rate = buf.sampleRate, ch = buf.numberOfChannels, mono = new Float32Array(n);
+        for (var c = 0; c < ch; c++) {
+            var d = buf.getChannelData(c);
+            for (var i = 0; i < n; i++) mono[i] += d[i] / ch;
+        }
+        var out = new DataView(new ArrayBuffer(44 + n * 2));
+        function str(o, s) { for (var k = 0; k < s.length; k++) out.setUint8(o + k, s.charCodeAt(k)); }
+        str(0, 'RIFF'); out.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+        out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+        out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true);
+        str(36, 'data'); out.setUint32(40, n * 2, true);
+        for (var j = 0; j < n; j++) {
+            var s = Math.max(-1, Math.min(1, mono[j]));
+            out.setInt16(44 + j * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        }
+        return new File([out.buffer], 'voice-note.wav', { type: 'audio/wav' });
+    }
+    function oggToWav(file) {
+        var ctx = new AC({ sampleRate: 24000 }); // decoding at 24 kHz also resamples: a 1-minute note stays under 3 MB
+        return file.arrayBuffer()
+            .then(function (ab) { return ctx.decodeAudioData(ab); })
+            .then(function (buf) { ctx.close(); return wavFromBuffer(buf); }, function (e) { ctx.close(); throw e; });
+    }
+
+    window.sendAttachment = async function (input) {
+        var f = input && input.files && input.files[0];
+        var split = document.querySelector('.ai-chat-split');
+        if (f && /\.ogg$/i.test(f.name || '') && split && split.getAttribute('data-ch') === 'instagram') {
+            try { input = { files: [await oggToWav(f)], value: '' }; } catch (e) { /* send the original */ }
+        }
+        return orig.call(this, input);
+    };
+})();
