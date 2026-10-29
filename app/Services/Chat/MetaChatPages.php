@@ -53,7 +53,8 @@ final class MetaChatPages
         if (!$page) throw new InvalidArgumentException('Page not found. Sign in with Facebook again.');
         $token = (new Encryption())->decrypt((string) $page['access_token']);
         if ($token === '') throw new InvalidArgumentException('Page access expired. Sign in with Facebook again.');
-        $api = new MetaSocialAPI($token);
+        // A page token from the messaging app is signed (appsecret_proof) with THAT app's secret, not the main app's.
+        $api = new MetaSocialAPI($token, null, null, $page['platform'] === 'messenger_page' ? MetaMessagingApp::secret() : null);
         if (!$enabled) {
             $api->unsubscribeMessaging((string) $page['external_location_id'], $token);
             $this->db->query("UPDATE platform_connections SET status = 'disconnected', updated_at = NOW() WHERE website_id = ? AND platform = 'messenger' AND external_location_id = ?", [$wid, $page['external_location_id']]);
@@ -63,7 +64,7 @@ final class MetaChatPages
         $sub = $api->subscribeMessaging((string) $page['external_location_id'], $token);
         if (empty($sub['success'])) {
             Logger::warning('Meta chat subscribe failed', ['website_id' => $wid, 'error' => mb_substr((string) ($sub['error'] ?? ''), 0, 200)]);
-            throw new RuntimeException('Facebook did not allow message access for this page. Sign in with Facebook again and approve "Manage and access Page conversations".');
+            throw new RuntimeException('Facebook did not allow message access for this page. Sign in with Facebook again and approve "Manage and access Page conversations". (' . mb_substr(is_array($sub['error'] ?? null) ? (string) ($sub['error']['message'] ?? '') : (string) ($sub['error'] ?? ''), 0, 140) . ')');
         }
         // صفحة واحدة بترد على رسايل الموقع: نوقف أي صفحة تانية كانت شغالة
         $this->db->query("UPDATE platform_connections SET status = 'disconnected', updated_at = NOW() WHERE website_id = ? AND platform = 'messenger' AND external_location_id <> ?", [$wid, $page['external_location_id']]);
