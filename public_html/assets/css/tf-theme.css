@@ -360,3 +360,15 @@ html[data-theme="dark"] body.ap-theme [style*="background: #16a34a" i] { backgro
 
 /* Contrast, part 6: critical pills (competitor intelligence) used white on the light dark-mode red. */
 html[data-theme="dark"] body.ap-theme .pill.critical { background: #C92A1F; color: #fff; }
+
+/* Contrast, part 7 (light theme), from the same audit: green text on light-green / white (3.1-3.4:1), the red danger
+   button (4.0:1), blue emphasis (3.7:1) and class-less links on the grey page background (4.1:1). */
+html:not([data-theme="dark"]) body.ap-theme .pill.green,
+html:not([data-theme="dark"]) body.ap-theme .pill.status-active,
+html:not([data-theme="dark"]) body.ap-theme .stat-icon,
+html:not([data-theme="dark"]) body.ap-theme button.on,
+html:not([data-theme="dark"]) body.ap-theme .am-linked-lbl { color: #047857; }
+html:not([data-theme="dark"]) body.ap-theme .p-btn.danger,
+html:not([data-theme="dark"]) body.ap-theme .pill.red { color: #B42318; }
+html:not([data-theme="dark"]) body.ap-theme em.blue { color: #1D4ED8; }
+:where(html:not([data-theme="dark"]) body.ap-theme) a:not([class]) { color: #0B5FA5; }
