@@ -71,7 +71,7 @@ class AutoReplyEngine
                     if ($decision['error'] === null) {
                         return $decision['reply']; // قد تكون null عمدًا
                     }
-                } catch (Exception $engineError) {
+                } catch (Throwable $engineError) {
                     Logger::warning('AIConversationEngine failed, falling back to legacy reply path', [
                         'error' => $engineError->getMessage(),
                     ]);
@@ -104,7 +104,7 @@ class AutoReplyEngine
             // 5. استخدام ردود احتياطية
             return $this->getFallbackReply($processed['intent']);
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             Logger::error('Auto Reply Generation Error', [
                 'message' => $e->getMessage()
             ]);
@@ -185,10 +185,18 @@ class AutoReplyEngine
     private function postProcessReply(string $reply, array $processed): string
     {
         $reply = trim($reply);
-        $reply = preg_replace('/\s+/', ' ', $reply);
+        // Keep line breaks (lists, paragraphs); only squeeze runs of spaces/tabs and long blank gaps.
+        $reply = preg_replace('/[ \t]+/u', ' ', $reply);
+        $reply = preg_replace('/\n{3,}/', "\n\n", $reply);
 
-        if (!preg_match('/[.!?…]$/', $reply)) {
+        // Add a full stop only after a letter/digit: not after ؟ ! … ، or an emoji.
+        if (preg_match('/[\p{L}\p{N}]$/u', $reply)) {
             $reply .= '.';
+        }
+
+        // The stock closing phrases are Arabic; never append them to a reply in another language.
+        if (!preg_match('/\p{Arabic}/u', $reply)) {
+            return $reply;
         }
 
         $sentiment = $processed['sentiment']['label'] ?? 'neutral';

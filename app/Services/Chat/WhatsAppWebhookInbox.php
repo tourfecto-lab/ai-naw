@@ -84,7 +84,9 @@ class WhatsAppWebhookInbox
                     $db->query("UPDATE whatsapp_webhook_inbox SET state='completed',last_error=NULL,payload_enc=NULL,updated_at=NOW() WHERE id=?",[$eventId]);
                     return;
                 }
-                $known = $db->query("SELECT id FROM chat_messages WHERE website_id=? AND user_id=? AND platform='whatsapp' AND message_direction='incoming' AND platform_message_id=? LIMIT 1", [(int)$r['website_id'],(int)$r['user_id'],$payload['platform_message_id']])[0] ?? null;
+                $wamid = (string)($payload['platform_message_id'] ?? '');
+                if ($wamid === '') throw new InvalidArgumentException('WhatsApp message event has no message id');
+                $known = $db->query("SELECT id FROM chat_messages WHERE website_id=? AND user_id=? AND platform='whatsapp' AND message_direction='incoming' AND platform_message_id=? LIMIT 1", [(int)$r['website_id'],(int)$r['user_id'],$wamid])[0] ?? null;
                 if ($known) {
                     // A worker may have died after saving/sending. Do not regenerate or resend an uncertain reply.
                     $db->query("UPDATE whatsapp_webhook_inbox SET state='uncertain',last_error='Message is stored; inspect inbox before retrying any reply',updated_at=NOW() WHERE id=?", [$eventId]);

@@ -874,6 +874,7 @@ class WhatsAppCloudController extends Controller
                 [$key, gmdate('Y-m-d H:i:s')]
             );
         } catch (Throwable $e) {
+            error_log('[WhatsAppCloudController] markPlatform failed: ' . $e->getMessage());
         }
     }
 
