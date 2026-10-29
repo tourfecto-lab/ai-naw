@@ -1238,7 +1238,10 @@ HTML;
         // بيتحفظوا من غير ما يأثروا على العرض الفعلي).
         $design = $this->siteDesignAttrs($website);
 
-        if ($industry === 'hotel') {
+        if ($industry === 'hotel' && $this->hotelUsesSiteKit($c)) {
+            // الرئيسية بنفس القالب الاحترافي (هيرو + غرف مميزة + مميزات + خطوات الحجز + أسئلة + دعوة للحجز) بدل صفحة الأقسام القديمة
+            $page = $this->renderHotelSitePage('home', $slug, $c, $website, $seoTitle, $seoDescription);
+        } elseif ($industry === 'hotel') {
             $page = $this->renderHotelHome($slug, $c, $seoTitle, $seoDescription, $canonicalUrl, $ogImage, $design['theme'], $design['body_class'], (int) $website->getAttribute('id'));
         } else {
             $page = $this->renderTourSitePage('home', $slug, $c, $website, $seoTitle, $seoDescription);
@@ -1280,7 +1283,7 @@ HTML;
     }
 
     /** صفحة داخلية لفندق: الغرف بتتعامل كعناصر القالب، وروابط البطاقات بتروح لصفحة الغرفة */
-    private function renderHotelSitePage(string $page, string $slug, array $c, GeneratedWebsite $website): string
+    private function renderHotelSitePage(string $page, string $slug, array $c, GeneratedWebsite $website, string $seoTitle = '', string $seoDescription = ''): string
     {
         $rooms = [];
         foreach ((array) ($c['rooms'] ?? []) as $r) {
@@ -1293,7 +1296,7 @@ HTML;
         }
         $c['tours'] = $rooms;
         $c['_hotel'] = true;
-        $html = $this->renderTourSitePage($page, $slug, $c, $website);
+        $html = $this->renderTourSitePage($page, $slug, $c, $website, $seoTitle, $seoDescription);
         return preg_replace('~(href=")(/sites/[^"/]+(?:/[a-z]{2})?)/tours/~', '$1$2/rooms/', $html) ?? $html;
     }
 

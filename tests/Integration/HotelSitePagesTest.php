@@ -97,4 +97,14 @@ final class HotelSitePagesTest extends TestCase
             $this->assertStringContainsString('href="' . $href . '"', $html);
         }
     }
+
+    public function testHotelHomeUsesTheKitWithRoomsAndKeepsLegacyForOtherLanguages(): void
+    {
+        $c = $this->controller();
+        $html = $this->call($c, 'renderHotelSitePage', 'home', 'demo', $this->content('en'), $this->site($this->content('en')), 'Nile Royal Hotel', 'Calm stay');
+        $this->assertStringContainsString('wsx-hero', $html);
+        $this->assertStringContainsString('Popular rooms', $html);
+        $this->assertStringContainsString('href="/sites/demo/rooms/nile-view"', $html);
+        $this->assertStringContainsString('See our rooms', $html);
+    }
 }
