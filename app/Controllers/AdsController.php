@@ -4442,9 +4442,9 @@ JS;
 
         <div class="p-card" style="margin-bottom:16px;">
             <div class="p-card-head"><h3>👥 إدارة الفريق</h3><span class="p-card-sub">أضف زملاء عندهم حساب Tourfecto بالفعل، وحدّد صلاحياتهم على موديول الإعلانات بتاعك</span></div>
-            <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-bottom:14px;">
-                <input type="email" id="newMemberEmail" class="p-select" placeholder="إيميل العضو (لازم يكون مسجّل في Tourfecto)">
-                <select id="newMemberRole" class="p-select">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+                <input type="email" id="newMemberEmail" class="p-select" style="flex:2 1 220px;min-width:0" placeholder="إيميل العضو (لازم يكون مسجّل في Tourfecto)">
+                <select id="newMemberRole" class="p-select" style="flex:1 1 160px;min-width:0">
                     <option value="viewer">Viewer - عرض فقط</option>
                     <option value="manager">Manager - إدارة الحملات</option>
                     <option value="admin">Admin - كل الصلاحيات</option>
