@@ -131,7 +131,48 @@ final class MetaMessagingApp
                 'ig_username' => mb_substr((string) ($p['instagram_business_account']['username'] ?? ''), 0, 100),
             ];
         }
+        // Pages owned by a business portfolio are not in /me/accounts; Facebook Login for Business lists the ones the
+        // user picked as "granular scopes" of the token, so read those pages one by one.
+        $have = array_column($out, 'id');
+        foreach (self::grantedPageIds($userToken, $get) as $pid) {
+            if (in_array($pid, $have, true)) {
+                continue;
+            }
+            $p = self::graph("https://graph.facebook.com/$v/" . rawurlencode($pid) . '?' . http_build_query([
+                'fields' => 'id,name,access_token,instagram_business_account{id,username}', 'access_token' => $userToken,
+            ]), $get);
+            if (empty($p['id']) || empty($p['access_token'])) {
+                continue;
+            }
+            $out[] = [
+                'id' => (string) $p['id'],
+                'name' => mb_substr((string) ($p['name'] ?? ''), 0, 200),
+                'token' => (string) $p['access_token'],
+                'ig_id' => (string) ($p['instagram_business_account']['id'] ?? ''),
+                'ig_username' => mb_substr((string) ($p['instagram_business_account']['username'] ?? ''), 0, 100),
+            ];
+        }
         return ['success' => true, 'pages' => $out];
+    }
+
+    /** @return string[] ids of the Pages the user chose in the login dialog (pages_messaging target ids) */
+    private static function grantedPageIds(string $userToken, ?callable $get): array
+    {
+        $v = MetaOAuthClient::apiVersion();
+        $d = self::graph("https://graph.facebook.com/$v/debug_token?" . http_build_query([
+            'input_token' => $userToken, 'access_token' => self::appId() . '|' . self::secret(),
+        ]), $get);
+        $ids = [];
+        foreach ((array) ($d['data']['granular_scopes'] ?? []) as $g) {
+            if (in_array((string) ($g['scope'] ?? ''), ['pages_messaging', 'pages_show_list', 'pages_manage_metadata'], true)) {
+                foreach ((array) ($g['target_ids'] ?? []) as $id) {
+                    if (preg_match('/^\d{5,25}$/', (string) $id)) {
+                        $ids[(string) $id] = true;
+                    }
+                }
+            }
+        }
+        return array_keys($ids);
     }
 
     /** @return array decoded JSON (or ['error'=>['message'=>...]]) */

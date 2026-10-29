@@ -62,7 +62,9 @@ class ChatMetaConnectController extends Controller
                 Logger::warning('Meta messaging pages failed', ['website_id' => $wid, 'error' => mb_substr((string) ($pages['error'] ?? ''), 0, 200)]);
                 $back('pages');
             }
-            self::savePages($this->db, $uid, $wid, $pages['pages']);
+            if ($pages['pages']) {
+                self::savePages($this->db, $uid, $wid, $pages['pages']); // an empty answer never wipes pages connected before
+            }
         } catch (Throwable $e) {
             Logger::error('Meta messaging callback crashed', ['website_id' => $wid, 'error' => $e->getMessage(), 'at' => basename($e->getFile()) . ':' . $e->getLine()]);
             // The connecting user is the site owner: a short class + message (no secrets) helps them report the cause.

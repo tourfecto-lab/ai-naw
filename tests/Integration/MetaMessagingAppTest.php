@@ -104,6 +104,26 @@ final class MetaMessagingAppTest extends TestCase
         $this->assertSame('', $p['pages'][1]['ig_id']);
     }
 
+    public function testBusinessOwnedPagesComeFromTheTokensGranularScopes(): void
+    {
+        $get = function (string $url): array {
+            if (strpos($url, 'debug_token') !== false) {
+                return [200, json_encode(['data' => ['granular_scopes' => [
+                    ['scope' => 'pages_messaging', 'target_ids' => ['647362815136492']],
+                    ['scope' => 'instagram_basic', 'target_ids' => ['17841475954414841']],
+                    ['scope' => 'pages_show_list', 'target_ids' => ['647362815136492', 'not-an-id']],
+                ]]])];
+            }
+            if (strpos($url, '/647362815136492?') !== false) {
+                return [200, json_encode(['id' => '647362815136492', 'name' => 'tourfecto', 'access_token' => 'PTB', 'instagram_business_account' => ['id' => '17841475954414841', 'username' => 'tourfecto']])];
+            }
+            return [200, json_encode(['data' => []])]; // /me/accounts is empty for business-owned pages
+        };
+        $p = MetaMessagingApp::pages('USER', $get);
+        $this->assertTrue($p['success']);
+        $this->assertSame([['id' => '647362815136492', 'name' => 'tourfecto', 'token' => 'PTB', 'ig_id' => '17841475954414841', 'ig_username' => 'tourfecto']], $p['pages']);
+    }
+
     public function testFacebookErrorsAreReportedNotThrown(): void
     {
         $bad = static fn (string $u): array => [400, json_encode(['error' => ['message' => 'Invalid code']])];
