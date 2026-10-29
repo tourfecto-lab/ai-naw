@@ -313,3 +313,9 @@ body.ap-theme .af-btn { margin-inline-end: 6px; }
     body.ap-theme .panel-topbar select { min-height: 44px; }
     body.ap-theme .p-card-sub a, body.ap-theme a.p-card-sub { display: inline-block; padding: 12px 6px; }
 }
+
+/* Contrast (WCAG AA 4.5:1): white text on the light dark-mode accent / red measured 3.07 / 2.54. Darker fills, same hue. */
+body.ap-theme .tf-next-pill,
+body.ap-theme .onboarding-wizard-cta { background: #3F4DDB; color: #fff; }
+body.ap-theme .tf-next-pill { font-size: 11px; }
+body.ap-theme .panel-notif-badge { background: #C92A1F; color: #fff; }
