@@ -140,6 +140,13 @@ class ChatInboxController extends Controller
 
         $db = Database::getInstance();
         $websiteId = (int) $website->getAttribute('id');
+        // Messenger / Instagram conversations that still show a bare id or no picture get their profile on open (best effort).
+        $channel = (string) $conversation->getAttribute('channel');
+        if (in_array($channel, ['messenger', 'instagram'], true) && (int) $this->get('before', 0) === 0
+            && (trim((string) $conversation->getAttribute('customer_name')) === '' || ChatContactPhotos::version($websiteId, (int) $conversation->getAttribute('id')) === 0)) {
+            MetaContactProfile::enrichForWebsite($db, $websiteId, $channel, (string) $conversation->getAttribute('channel_thread_id'));
+            $conversation = $this->authorizedConversation((int) $conversation->getAttribute('id'), $websiteId) ?: $conversation;
+        }
         // Newest 200 messages, shown oldest-first (ASC + LIMIT used to hide new messages in long conversations).
         // ?before=<message id> returns the 200 messages before that one, so the inbox can load earlier history.
         $before = max(0, (int) $this->get('before', 0));

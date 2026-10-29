@@ -78,11 +78,16 @@ final class MetaContactProfile
             }
             $cid = (int) $row['id'];
             $needName = trim((string) ($row['customer_name'] ?? '')) === '';
-            $needPhoto = ChatContactPhotos::read($websiteId, $cid) === null;
+            $none = ChatContactPhotos::path($websiteId, $cid) . '.none'; // "asked Meta, there is nothing to show" - ask again after a day
+            $asked = is_file($none) && (time() - (int) @filemtime($none)) < 86400;
+            $needPhoto = ChatContactPhotos::read($websiteId, $cid) === null && !$asked;
             if (!$needName && !$needPhoto) {
                 return;
             }
             $p = self::fetch($platform, $id, $token, $secrets, $get);
+            if ($p === null || ($p['pic'] === '' && $needPhoto)) {
+                self::markAsked($none);
+            }
             if ($p === null) {
                 return;
             }
@@ -97,6 +102,38 @@ final class MetaContactProfile
             }
         } catch (Throwable $e) {
             Logger::warning('Meta contact profile failed', ['website_id' => $websiteId, 'platform' => $platform, 'error' => mb_substr($e->getMessage(), 0, 160)]);
+        }
+    }
+
+    private static function markAsked(string $file): void
+    {
+        $dir = dirname($file);
+        if (is_dir($dir) || @mkdir($dir, 0750, true) || is_dir($dir)) {
+            @touch($file);
+        }
+    }
+
+    /**
+     * Same as enrich() for a conversation that is already in the inbox (opened before this feature existed, or whose first
+     * lookup failed): finds the website's page / Instagram connection and its token.
+     */
+    public static function enrichForWebsite(Database $db, int $websiteId, string $platform, string $id): void
+    {
+        try {
+            $types = $platform === 'instagram' ? ['instagram_dm', 'instagram'] : ['messenger'];
+            $in = implode(',', array_fill(0, count($types), '?'));
+            $row = $db->query("SELECT access_token FROM platform_connections WHERE website_id = ? AND platform IN ($in) AND status = 'connected' ORDER BY (platform = ?) DESC, id DESC LIMIT 1", array_merge([$websiteId], $types, [$types[0]]))[0] ?? null;
+            $token = $row && !empty($row['access_token']) ? (new Encryption())->decrypt((string) $row['access_token']) : '';
+            if ($token === '') {
+                return;
+            }
+            $secrets = array_values(array_filter([
+                class_exists('MetaMessagingApp') ? MetaMessagingApp::secret() : '',
+                MetaOAuthClient::setting('meta_app_secret', 'META_APP_SECRET'),
+            ]));
+            self::enrich($db, $websiteId, $platform, $id, $token, $secrets);
+        } catch (Throwable $e) {
+            Logger::warning('Meta contact profile (backfill) failed', ['error' => mb_substr($e->getMessage(), 0, 160)]);
         }
     }
 
