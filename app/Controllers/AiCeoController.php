@@ -9,6 +9,7 @@ require_once __DIR__ . '/../Services/AiCeo/BrandSiteAudit.php';
 require_once __DIR__ . '/../Services/AiCeo/BrandGrowth.php';
 require_once __DIR__ . '/../Services/AiCeo/CustomerSuccess.php';
 require_once __DIR__ . '/../Services/AiCeo/OpsAdvisor.php';
+require_once __DIR__ . '/../Services/AiCeo/FinanceStrategy.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -456,6 +457,90 @@ class AiCeoController extends Controller
             return $this->error($e->getMessage(), 422);
         } catch (RuntimeException $e) {
             return $this->error($e->getMessage() === 'github_not_enabled' ? 'GitHub issues are off. Turn them on in settings and set GITHUB_ISSUES_TOKEN and GITHUB_ISSUES_REPO in .env.' : 'GitHub did not accept the issue.', 409);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 8: الإدارة المالية والاستراتيجية
+
+    /** GET /api/admin/ai-ceo/finance */
+    public function finance(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            $f = new FinanceStrategy($this->db);
+            [$snap] = $this->snapshot(false);
+            $current = FinanceStrategy::metricValues($snap);
+            $base = $f->baseline();
+            $presets = [];
+            foreach (FinanceStrategy::presets() as $k => $p) $presets[$k] = ['label' => $p['label'], 'levers' => $p['levers'], 'result' => FinanceStrategy::simulate($base, $p['levers'])];
+            $board = $this->db->query("SELECT id, title, body, created_at FROM aiceo_memory WHERE kind = 'plan' AND title LIKE 'Boardroom:%' ORDER BY id DESC LIMIT 5") ?: [];
+            return $this->success(['pnl' => $f->pnl(6), 'costs' => $f->costItems(), 'markets' => $f->markets(), 'savings' => $f->savings(), 'baseline' => $base, 'presets' => $presets,
+                'goals' => $f->goals($current), 'current' => $current, 'metrics' => FinanceStrategy::METRICS, 'settings' => $f->settings(),
+                'boardroom' => array_map(static fn ($b) => ['id' => (int) $b['id'], 'title' => $b['title'], 'created_at' => $b['created_at'], 'answer' => json_decode((string) $b['body'], true)], $board), 'owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO finance failed', ['error' => $e->getMessage()]);
+            return $this->error('Finance data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/finance/{action}  scenario | simulate (أي أدمن، حسابات بس) · cost | cost-delete | goal | goal-status | task | task-status | capacity | boardroom (صاحب المنصة) */
+    public function financeAction(array $params = []): array
+    {
+        $action = (string) ($params['action'] ?? '');
+        if ($e = $this->guard(!in_array($action, ['scenario', 'simulate'], true))) return $e;
+        $f = new FinanceStrategy($this->db);
+        $store = new AiCeoStore($this->db);
+        $uid = (int) $this->user['id'];
+        try {
+            switch ($action) {
+                case 'scenario': return $this->success(['result' => FinanceStrategy::scenarios((array) $this->get('input', []))]);
+                case 'simulate': return $this->success(['result' => FinanceStrategy::simulate($f->baseline(), (array) $this->get('levers', []))]);
+                case 'cost':
+                    $id = $f->saveCostItem((array) $this->get('item', []));
+                    $store->log($uid, 'finance_cost_saved', ['id' => $id]);
+                    return $this->success(['id' => $id]);
+                case 'cost-delete':
+                    $f->deleteCostItem((int) $this->get('id', 0));
+                    $store->log($uid, 'finance_cost_deleted', ['id' => (int) $this->get('id', 0)]);
+                    return $this->success([]);
+                case 'goal':
+                    [$snap] = $this->snapshot(false);
+                    $id = $f->addGoal((array) $this->get('goal', []), FinanceStrategy::metricValues($snap), $uid);
+                    $store->log($uid, 'goal_added', ['id' => $id]);
+                    return $this->success(['id' => $id]);
+                case 'goal-status':
+                    $f->setGoalStatus((int) $this->get('id', 0), (string) $this->get('status', ''));
+                    $store->log($uid, 'goal_status', ['id' => (int) $this->get('id', 0), 'status' => (string) $this->get('status', '')]);
+                    return $this->success([]);
+                case 'task':
+                    $id = $f->addTask((int) $this->get('goal_id', 0), (string) $this->get('title', ''), $this->get('week') ? (string) $this->get('week') : null);
+                    return $this->success(['id' => $id]);
+                case 'task-status':
+                    $f->setTaskStatus((int) $this->get('id', 0), (string) $this->get('status', ''));
+                    return $this->success([]);
+                case 'capacity':
+                    $f->saveCapacity($this->get('capacity_customers', ''));
+                    $store->log($uid, 'finance_capacity', ['value' => (string) $this->get('capacity_customers', '')]);
+                    return $this->success([]);
+                case 'boardroom':
+                    if ($store->settings()['paused']) return $this->error('The AI CEO is on emergency stop.', 409);
+                    if ($e = $this->rateLimitGuard('user', 'ai_ceo_boardroom', 10, 3600)) return $e;
+                    if (function_exists('set_time_limit')) @set_time_limit(180);
+                    [$snap] = $this->snapshot(false);
+                    $ctx = ['snapshot' => array_intersect_key($snap, array_flip(['revenue', 'signups', 'trials', 'customers', 'ai_cost', 'sales', 'brand', 'success', 'ops'])), 'pnl' => $f->pnl(3)['months'],
+                        'markets' => array_slice($f->markets(), 0, 10), 'baseline' => $f->baseline()];
+                    $out = $f->boardroom($uid, (string) $this->get('question', ''), $ctx, new AiCostIntelligence($this->db));
+                    $store->remember('plan', $out['title'], json_encode($out['answer'], JSON_UNESCAPED_UNICODE), null, $uid);
+                    $store->log($uid, 'boardroom', ['title' => $out['title']]);
+                    return $this->success($out);
+            }
+            return $this->error('Unknown action', 404);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (RuntimeException $e) {
+            $m = $e->getMessage();
+            return $this->error(str_starts_with($m, 'budget_') ? 'The AI CEO reached its ' . substr($m, 7) . ' AI budget. Raise it in AI Costs.' : ($m === 'invalid_plan' ? 'The AI returned an unusable answer. Try again.' : 'AI is not available right now.'), 503);
         }
     }
 

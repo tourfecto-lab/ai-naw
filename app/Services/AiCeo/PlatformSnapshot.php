@@ -5,6 +5,7 @@ require_once __DIR__ . '/BrandSiteAudit.php';
 require_once __DIR__ . '/BrandGrowth.php';
 require_once __DIR__ . '/CustomerSuccess.php';
 require_once __DIR__ . '/OpsAdvisor.php';
+require_once __DIR__ . '/FinanceStrategy.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -46,6 +47,7 @@ final class PlatformSnapshot
             'brand' => $this->section('brand', fn () => $this->brand()),
             'success' => $this->section('success', fn () => $this->success()),
             'ops' => $this->section('ops', fn () => (new OpsAdvisor($this->db))->summary()),
+            'finance' => $this->section('finance', fn () => $this->finance()),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
     }
@@ -124,6 +126,17 @@ final class PlatformSnapshot
         $r = (new AiCostIntelligence($this->db))->report();
         return $out + ['projected_month_usd' => $r['totals']['projected_month'], 'platform_budget' => $r['platform_budget'], 'aiceo' => $r['aiceo'],
             'anomalies' => array_slice($r['anomalies'], 0, 5), 'routing_review' => array_slice($r['routing_review'], 0, 5)];
+    }
+
+    /** المرحلة 8: آخر شهر كامل، والمصاريف الثابتة، وأهداف الربع */
+    private function finance(): array
+    {
+        $f = new FinanceStrategy($this->db);
+        $p = $f->pnl(2);
+        $last = $p['months'][0] ?? null;
+        $goals = $this->db->query("SELECT COUNT(*) AS n FROM aiceo_goals WHERE status = 'active' AND quarter = ?", [FinanceStrategy::quarter()])[0]['n'] ?? 0;
+        return ['last_month' => $last ? ['month' => $last['month'], 'revenue' => $last['revenue'], 'costs' => $last['costs'], 'profit' => $last['profit']] : null,
+            'fixed_entered' => $p['fixed_entered'], 'fixed_monthly' => $p['fixed_monthly'], 'goals_this_quarter' => (int) $goals, 'quarter' => FinanceStrategy::quarter()];
     }
 
     /** المرحلة 6: العملاء الواقفين في الإعداد، والدفع، والتجديدات، والدعم، وفرص الترقية */
