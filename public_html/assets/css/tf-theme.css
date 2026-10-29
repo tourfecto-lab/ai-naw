@@ -319,3 +319,11 @@ body.ap-theme .tf-next-pill,
 body.ap-theme .onboarding-wizard-cta { background: #3F4DDB; color: #fff; }
 body.ap-theme .tf-next-pill { font-size: 11px; }
 body.ap-theme .panel-notif-badge { background: #C92A1F; color: #fff; }
+
+/* Contrast, part 2 (dark theme): form labels inherited #343A40 on the navy card (1.55:1, effectively invisible), and
+   white text on the light accent fill (3.07:1) for primary buttons and the active SEO hub tab. */
+body.ap-theme .form-label { color: var(--panel-text); }
+html[data-theme="dark"] body.ap-theme .p-btn.primary,
+html[data-theme="dark"] body.ap-theme .p-btn:not(.primary):not(.outline):not(.danger):not(.success):not(.ghost),
+html[data-theme="dark"] body.ap-theme .seo-hub-tab.on { background: #3F4DDB; color: #fff; }
+html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #3441C2; }
