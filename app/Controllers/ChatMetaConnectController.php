@@ -36,7 +36,7 @@ class ChatMetaConnectController extends Controller
         }
         $uid = (int) ($this->user['id'] ?? 0);
         $back = static function (string $result): void {
-            header('Location: /chat/settings?meta_msg=' . ($result === 'server' || strncmp($result, 'server&', 7) === 0 ? $result : rawurlencode($result)));
+            header('Location: /chat/settings?meta_msg=' . (strpbrk($result, '&') !== false || $result === 'server' ? $result : rawurlencode($result)));
             exit;
         };
         if ($this->get('error')) {
@@ -70,7 +70,7 @@ class ChatMetaConnectController extends Controller
             // The connecting user is the site owner: a short class + message (no secrets) helps them report the cause.
             $back('server&detail=' . rawurlencode(mb_substr(get_class($e) . ': ' . $e->getMessage() . ' @' . basename($e->getFile()) . ':' . $e->getLine(), 0, 160)));
         }
-        $back($pages['pages'] ? 'connected' : 'nopages');
+        $back($pages['pages'] ? 'connected' : 'nopages&detail=' . rawurlencode((string) ($pages['trace'] ?? '')));
     }
 
     /**

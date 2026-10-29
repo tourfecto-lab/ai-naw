@@ -141,7 +141,7 @@
         if (!m) return;
         var msg = {
             connected: [L('اتربطت صفحاتك عبر تطبيق الرسائل. اختار الصفحة اللي الشات بوت يرد عليها.', 'Your pages are connected through the messaging app. Choose the page the bot answers.'), 'success'],
-            nopages: [L('ما لقيناش صفحات على الحساب ده.', 'No pages were found on this account.'), 'error'],
+            nopages: [L('ما لقيناش صفحات على الحساب ده.', 'No pages were found on this account.') + (/[?&]detail=([^&]*)/.test(location.search) ? ' (' + decodeURIComponent(/[?&]detail=([^&]*)/.exec(location.search)[1]) + ')' : ''), 'error'],
             denied: [L('رفضت الموافقة على فيسبوك.', 'Facebook permission was declined.'), 'error'],
             state: [L('انتهت صلاحية الطلب، جرّب تاني.', 'The request expired, try again.'), 'error'],
             exchange: [L('فيسبوك رفض الربط. اتأكد من إعدادات تطبيق الرسائل.', 'Facebook refused the connection. Check the messaging app settings.'), 'error'],

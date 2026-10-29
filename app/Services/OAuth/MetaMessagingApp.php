@@ -134,7 +134,10 @@ final class MetaMessagingApp
         // Pages owned by a business portfolio are not in /me/accounts; Facebook Login for Business lists the ones the
         // user picked as "granular scopes" of the token, so read those pages one by one.
         $have = array_column($out, 'id');
-        foreach (self::grantedPageIds($userToken, $get) as $pid) {
+        $trace = 'accounts=' . count($out);
+        $granted = self::grantedPageIds($userToken, $get);
+        $trace .= ' granted=' . count($granted);
+        foreach ($granted as $pid) {
             if (in_array($pid, $have, true)) {
                 continue;
             }
@@ -142,6 +145,7 @@ final class MetaMessagingApp
                 'fields' => 'id,name,access_token,instagram_business_account{id,username}', 'access_token' => $userToken,
             ]), $get);
             if (empty($p['id']) || empty($p['access_token'])) {
+                $trace .= ' fetch_failed=' . mb_substr((string) ($p['error']['message'] ?? 'no token'), 0, 80);
                 continue;
             }
             $out[] = [
@@ -152,7 +156,7 @@ final class MetaMessagingApp
                 'ig_username' => mb_substr((string) ($p['instagram_business_account']['username'] ?? ''), 0, 100),
             ];
         }
-        return ['success' => true, 'pages' => $out];
+        return ['success' => true, 'pages' => $out, 'trace' => $trace];
     }
 
     /** @return string[] ids of the Pages the user chose in the login dialog (pages_messaging target ids) */
