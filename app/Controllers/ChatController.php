@@ -732,6 +732,61 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             .tpl-preview { white-space:pre-wrap; font-size:13px; padding:10px; border-radius:8px; background:var(--panel-sidebar-bg-hover); margin:8px 0; }
             @media (max-width: 960px) { .ai-chat-split { grid-template-columns: 1fr; } .ai-chat-list { max-height: 320px; } }
             @media (max-width: 560px) { .q-row { grid-template-columns: 1fr 64px 90px; } .q-row .q-del { grid-column:3; } }
+            /* ===== WhatsApp-style inbox (colours/shape follow the official app; markup and JS are unchanged) ===== */
+            .ai-chat-split{--wa-bg:#efeae2;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e9edef;--wa-in:#fff;--wa-out:#d9fdd3;--wa-text:#111b21;--wa-sub:#667781;--wa-accent:#00a884;--wa-active:#f0f2f5;--wa-tick:#53bdeb;--wa-pill:#fff;--wa-shadow:0 1px .5px rgba(11,20,26,.13)}
+            html[data-theme="dark"] .ai-chat-split{--wa-bg:#0b141a;--wa-panel:#111b21;--wa-header:#202c33;--wa-line:#222d34;--wa-in:#202c33;--wa-out:#005c4b;--wa-text:#e9edef;--wa-sub:#8696a0;--wa-accent:#00a884;--wa-active:#2a3942;--wa-tick:#53bdeb;--wa-pill:#182229;--wa-shadow:0 1px .5px rgba(11,20,26,.4)}
+            .ai-chat-split{gap:0;border:1px solid var(--wa-line);border-radius:12px;overflow:hidden;background:var(--wa-panel);align-items:stretch;min-height:540px;box-shadow:0 6px 24px -12px rgba(11,20,26,.35)}
+            .ai-chat-split .ai-chat-list-card{border:0;border-radius:0;background:var(--wa-panel);border-inline-end:1px solid var(--wa-line);box-shadow:none}
+            .ai-chat-split .ai-chat-list-card .p-card-head{background:var(--wa-header);margin:0;padding:14px 16px;border-bottom:1px solid var(--wa-line)}
+            .ai-chat-split .ai-chat-list-card .p-card-head h3{color:var(--wa-text);font-size:16px;font-weight:600}
+            .ai-chat-split .ai-chat-list-card .p-card-sub{color:var(--wa-sub)}
+            .ai-chat-split .ai-chat-list{max-height:calc(100vh - 290px);min-height:420px}
+            .ai-chat-split .ai-chat-item{padding:0 16px;min-height:72px;display:flex;align-items:center;border-bottom:0;background:transparent;box-shadow:none;position:relative}
+            .ai-chat-split .ai-chat-item::after{content:"";position:absolute;inset-inline-start:77px;inset-inline-end:0;bottom:0;border-bottom:1px solid var(--wa-line)}
+            .ai-chat-split .ai-chat-item:hover{background:var(--wa-header)}
+            .ai-chat-split .ai-chat-item.active{background:var(--wa-active);box-shadow:none}
+            .ai-chat-split .ai-chat-item .r1{width:100%;gap:14px;padding:11px 0}
+            .ai-chat-split .ai-chat-avatar{width:49px;height:49px;font-size:19px;font-weight:600;background:#6a7175;color:#fff}
+            .ai-chat-split .ai-chat-avatar.whatsapp{background:#00a884;color:#fff}
+            .ai-chat-split .ai-chat-avatar.email{background:#8b7cf6;color:#fff}
+            .ai-chat-split .ai-chat-item .nm b{font-size:16.5px;font-weight:400;color:var(--wa-text)}
+            .ai-chat-split .ai-chat-item .nm small{font-size:14px;color:var(--wa-sub)}
+            .ai-chat-split .ai-chat-item .tm{font-size:12px;color:var(--wa-sub)}
+            .ai-chat-split .ai-chat-item .ub{background:#25d366;color:#0b141a;min-width:20px;height:20px;border-radius:10px;font-size:12px;font-weight:600}
+            .ai-chat-split .ai-chat-item .ch{color:var(--wa-sub)}
+            
+            #ucThreadPanel{display:flex;flex-direction:column;height:100%}
+            #ucEmptyState{border:0;border-radius:0;height:100%;display:flex;align-items:center;justify-content:center;background:var(--wa-header);box-shadow:none;border-bottom:6px solid var(--wa-accent)}
+            #ucEmptyState .p-empty{color:var(--wa-sub)}
+            #convHeader{border:0;border-radius:0;margin:0!important;background:var(--wa-header);padding:10px 16px;border-bottom:1px solid var(--wa-line);box-shadow:none;color:var(--wa-text)}
+            #leadPanel{border:0;border-radius:0;margin:0!important;background:var(--wa-panel);border-bottom:1px solid var(--wa-line);box-shadow:none}
+            #convThread{flex:1;border:0;border-radius:0;box-shadow:none;margin:0!important;padding:18px 7%;background-color:var(--wa-bg);background-image:radial-gradient(rgba(134,150,160,.10) 1.2px,transparent 1.4px),radial-gradient(rgba(134,150,160,.07) 1px,transparent 1.2px);background-size:26px 26px,40px 40px;background-position:0 0,13px 13px}
+            .ai-chat-split .ai-chat-bubbles{gap:2px}
+            .ai-chat-split .ai-bubble{max-width:65%;padding:6px 9px 7px;border-radius:8px;font-size:14.2px;line-height:1.45;color:var(--wa-text);box-shadow:var(--wa-shadow);position:relative;border:0;margin-top:8px}
+            .ai-chat-split .ai-bubble.in{background:var(--wa-in);border-start-start-radius:0}
+            .ai-chat-split .ai-bubble.out{background:var(--wa-out);color:var(--wa-text);border-start-end-radius:0}
+            .ai-chat-split .ai-bubble.in + .ai-bubble.in,.ai-chat-split .ai-bubble.out + .ai-bubble.out{margin-top:2px;border-radius:8px}
+            .ai-chat-split .ai-bubble.in::before,.ai-chat-split .ai-bubble.out::before{content:"";position:absolute;top:0;width:8px;height:13px;background:inherit}
+            .ai-chat-split .ai-bubble.in::before{inset-inline-start:-8px;clip-path:polygon(100% 0,100% 100%,0 0)}
+            .ai-chat-split .ai-bubble.out::before{inset-inline-end:-8px;clip-path:polygon(0 0,0 100%,100% 0)}
+            [dir="rtl"] .ai-chat-split .ai-bubble.in::before{clip-path:polygon(0 0,0 100%,100% 0)}
+            [dir="rtl"] .ai-chat-split .ai-bubble.out::before{clip-path:polygon(100% 0,100% 100%,0 0)}
+            .ai-chat-split .ai-bubble.in + .ai-bubble.in::before,.ai-chat-split .ai-bubble.out + .ai-bubble.out::before{display:none}
+            .ai-chat-split .ai-bubble .bt{font-size:11px;color:var(--wa-sub);opacity:1;margin-top:2px;text-align:end}
+            .ai-chat-split .ai-bubble .ai-tag,.ai-chat-split .ai-bubble .who{color:var(--wa-accent);opacity:1;font-weight:600;font-size:12px}
+            .ai-chat-split .ai-bubble.out .ai-tick.read,.ai-chat-split .ai-bubble.in .ai-tick.read{color:var(--wa-tick)}
+            .ai-chat-split .ai-day-sep{background:var(--wa-pill);color:var(--wa-sub);box-shadow:var(--wa-shadow);border-radius:8px;padding:5px 12px;font-size:12.5px;margin:12px 0 6px}
+            #ucReplyCard{border:0;border-radius:0;margin:0!important;background:var(--wa-header);padding:10px 16px 12px;box-shadow:none;border-top:1px solid var(--wa-line)}
+            #ucReplyCard .p-card-head{padding:0 0 8px;margin:0;border:0}
+            #ucReplyCard .p-card-head h3{color:var(--wa-sub);font-size:12.5px;font-weight:500}
+            #ucReplyCard #manualMessage{background:var(--wa-panel);color:var(--wa-text);border:0;border-radius:22px;padding:11px 18px;min-height:44px;resize:none;box-shadow:none;font-size:15px}
+            #ucReplyCard #manualMessage:focus{outline:none;box-shadow:0 0 0 2px rgba(0,168,132,.35)}
+            #ucReplyCard .form-group{margin-bottom:8px}
+            #ucReplyCard #sendManualBtn{background:var(--wa-accent);color:#fff;border:0;border-radius:22px;padding:10px 22px;font-weight:600}
+            #ucReplyCard #sendManualBtn:hover{filter:brightness(1.08)}
+            #ucReplyCard .p-btn.outline{background:transparent;border-color:transparent;color:var(--wa-sub)}
+            #ucReplyCard .p-btn.outline:hover{background:var(--wa-active);color:var(--wa-text)}
+            @media (max-width:960px){.ai-chat-split{min-height:0;border-radius:10px}.ai-chat-split .ai-chat-list{max-height:340px;min-height:0}.ai-chat-split .ai-chat-list-card{border-inline-end:0;border-bottom:1px solid var(--wa-line)}.ai-chat-split .ai-bubble{max-width:82%}#convThread{padding:14px 10px}}
         </style>
 
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
