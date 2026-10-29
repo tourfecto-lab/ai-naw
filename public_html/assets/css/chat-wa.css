@@ -221,7 +221,8 @@ html:not([data-theme="dark"]) .wa-opts span{background:rgba(0,0,0,.05);color:#00
   html body.wa-app #leadPanel{display:none}
   html body.wa-app #convHeader.wa-head-open+#leadPanel{display:block}
   html body.wa-app #ucReplyCard{padding:8px 14px 10px}
-  html body.wa-app #ucReplyCard .p-card-head{display:none}
+  html body.wa-app #ucReplyCard .p-card-head{padding:0 0 6px!important;justify-content:flex-start!important;gap:6px}
+  html body.wa-app #ucReplyCard .p-card-head h3{display:none}
   html body.wa-app #ucReplyCard .form-group{margin-bottom:6px}
   html body.wa-app #ucReplyCard #manualMessage{min-height:44px;max-height:120px}
   html body.wa-app #ucReplyCard>div:last-child{align-items:center}
