@@ -13,7 +13,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 |---|---|---|
 | 1 | AI Executive Foundation | **COMPLETED** (verified by the owner on tourfectoai.pro, 2026-10-29) |
 | 2 | AI Cost & Quality Intelligence | **Implemented** — see below (awaiting owner check of the cost section) |
-| 3 | Global Tourism Business Intelligence | Not started |
+| 3 | Global Tourism Business Intelligence | **Implemented** — see below (awaiting owner check of the Companies tab) |
 | 4 | Autonomous Growth & Sales | Not started |
 | 5 | Tourfecto Brand Growth Engine | Not started |
 | 6 | Customer Success & Revenue Intelligence | Not started |
@@ -149,4 +149,44 @@ Approving a decision turns it into an in-progress task with a link to the existi
 - There are no automatic per-task quality scores yet. Quality is protected by keeping model changes behind approval and a sample test. A per-task quality test harness would need paid calls, so it is deferred and needs the owner's approval to spend.
 - Batch processing and "do not re-analyse unchanged data" already exist inside individual services (for example the SEO cycles and the market TTLs). No new generic layer was added, because it would duplicate them.
 
-**Next: Phase 3** — Global Tourism Business Intelligence. Reuse `PlatformOutreachService` and `platform_leads` (the Apify import, 637 companies).
+**Owner action pending:** set a monthly platform AI budget in AI Costs.
+
+## Phase 3 — Global Tourism Business Intelligence
+
+**Reused (not rebuilt):** `platform_leads` and `PlatformOutreachService`. They already provide:
+- import from Apify, URL, JSON or CSV;
+- dedup on import by email and domain, and filling only missing fields on re-import;
+- skipping existing customers;
+- site analysis (`OutreachAudit` → `data_json.audit`, `needs_json`, `track`, `score` = lead score);
+- the message history (`platform_lead_messages`);
+- unsubscribe links;
+- `signed_up` matching.
+
+**New (additive)**
+- Migration `2026_10_29_000007_tourism_business_intelligence.sql` adds:
+  - `tbi_reports`: analysis history.
+  - `tbi_consent_events`: opt_in, objection, unsubscribe, do_not_contact and erasure, per channel.
+  - `tbi_suppression`: SHA-256 hashes of erased email, domain and phone.
+  - `tbi_merges`: reversible merges.
+- `app/Services/AiCeo/TourismBusinessDb.php`:
+  - search, filters and segments, and stats;
+  - a full profile: socials, likely services, opportunities, latest analysis, saved reports, contact history, consent log, merges, and whether the company became a customer (read-only match on users and websites);
+  - `captureReports()` copies each new analysis into history, so the previous one is never overwritten;
+  - `recordConsent()`: any objection or do-not-contact sets `status = 'unsubscribed'`, which the existing sender already stops on;
+  - `backfillUnsubscribes()`;
+  - `erase()` wipes contact data, notes and raw data, and keeps only hashes;
+  - `isSuppressed()`;
+  - `duplicates()` matches on the same domain, the same phone, or the same name in the same city;
+  - `merge()` and `undoMerge()`.
+- `PlatformOutreachService::importRows` skips suppressed companies. This is a guarded two-line hook, and nothing else in that service changed.
+- API (admin): `GET /api/admin/ai-ceo/companies`, `/companies/{id}`, `/companies-duplicates`. POST `/companies/{id}/consent` is for any admin, because it is protective. POST `/companies/{id}/erase` and `/companies-merge` (including undo) are owner only. Everything is audited.
+- Cron: `cron/ai_ceo_cycle.php` also runs `captureReports()` and `backfillUnsubscribes()` every hour.
+- Mission Control has a new **Tourism Companies** tab: stats, filters, results, a profile panel with consent recording and erase, and duplicates with merge.
+- Tests: `tests/Integration/TourismBusinessDbIntegrationTest.php`. It covers search, the report history, objection stopping contact, erasure blocking re-import, merge and undo, and no writes to users.
+
+**Compliance notes**
+- Published contact details are **not** treated as marketing consent. Explicit consent is recorded only as an `opt_in` event.
+- Use only the Apify accounts the owner is licensed to use. Multiple accounts must not be used to bypass provider limits. The platform's Apify token is configured in platform outreach.
+- The lawful basis per market (US CAN-SPAM, EU GDPR/ePrivacy, Gulf) is enforced in Phase 4 before any campaign.
+
+**Next: Phase 4** — Autonomous Growth & Sales.

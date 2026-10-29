@@ -13,6 +13,7 @@ return [
     'PlatformSnapshot' => dirname(__DIR__,2).'/app/Services/AiCeo/PlatformSnapshot.php',
     'PlatformDecisions' => dirname(__DIR__,2).'/app/Services/AiCeo/PlatformDecisions.php',
     'AiCostIntelligence' => dirname(__DIR__,2).'/app/Services/AiCeo/AiCostIntelligence.php',
+    'TourismBusinessDb' => dirname(__DIR__,2).'/app/Services/AiCeo/TourismBusinessDb.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
     'GrowthAdvisor' => dirname(__DIR__,2).'/app/Services/Brain/GrowthAdvisor.php',
