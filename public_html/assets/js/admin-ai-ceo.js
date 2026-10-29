@@ -10,7 +10,7 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['executive', 'Business Health & Reports'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['ops', 'Platform & Dev Advisor'], ['finance', 'Finance & Strategy'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['executive', 'Business Health & Reports'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['finance', 'Finance & Strategy'], ['ops', 'Platform & Dev Advisor'], ['costs', 'AI Costs'], ['setup', 'Setup & Integrations'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
     let sales = null, salesError = null, salesLoading = false;
     // نمو علامة Tourfecto (المرحلة 5)
@@ -23,6 +23,8 @@
     let fin = null, finError = null, finLoading = false, finScenario = null, finSim = null, finBoard = null;
     // مؤشر صحة الشركة والتقارير والتعلم والمنافسين (المرحلة 9)
     let ex = null, exError = null, exLoading = false;
+    // التجهيز والتفعيل التدريجي (المرحلة 10)
+    let su = null, suError = null, suLoading = false;
     let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -460,6 +462,32 @@
           <p class="br-muted">To judge a new idea before building it, use Finance & Strategy → Scenarios, or ask the AI Boardroom.</p></section>`;
     }
 
+    function setupTab() {
+      if (suError) return `<section class="br-card"><h3>Setup & Integrations</h3><p class="br-muted">${esc(suError)}</p></section>`;
+      if (!su) return '<section class="br-card"><h3>Setup & Integrations</h3><p class="br-muted">Loading…</p></section>';
+      const st = su.stage, it = su.integrations, c = su.costs;
+      const stages = ['Observe', 'Data complete', 'Limited auto', 'Growth'];
+      return `<section class="br-card"><h3>Controlled activation</h3>
+        <div class="br-tiles">${stages.map((l, i) => tile(i < st.stage ? '✓' : (i === st.stage ? '●' : '○'), `Stage ${i}: ${l}`, i === st.stage ? 'current' : '')).join('')}</div>
+        <p><b>${esc(st.label)}.</b> ${esc(st.advice)}</p><p class="br-muted">Mode: <b>${esc(su.settings.mode)}</b>${su.settings.paused ? ' · <b>emergency stop is on</b>' : ''}</p>
+        <div class="p-table-scroll"><table class="p-table"><thead><tr><th></th><th>Stage</th><th>Item</th><th>How</th></tr></thead><tbody>
+          ${su.checklist.map(x => `<tr><td>${x.ok ? '✓' : '✗'}</td><td>${x.stage}</td><td>${esc(x.label)}</td><td><small>${esc(x.how)}</small> ${x.ok ? '' : `<a href="#${esc(x.tab)}" data-tab="${esc(x.tab)}">Open</a>`}</td></tr>`).join('')}</tbody></table></div></section>
+
+        <section class="br-card"><h3>What runs automatically</h3><ul class="br-proof">${su.automation.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+          ${c ? `<p>AI CEO spend: today ${money(c.aiceo?.day)} · this month ${money(c.aiceo?.month)} (limits ${money(c.aiceo?.day_limit)}/day, ${money(c.aiceo?.month_limit)}/month) · whole platform this month ${money(c.platform_month)}, projected ${money(c.projected_month)}</p>` : ''}</section>
+
+        <section class="br-card"><h3>Integrations</h3><p class="br-muted">Only "configured / not configured" is shown; no secret is ever displayed.</p>
+          ${it.registry.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Integration</th><th>Importance</th><th>Configured</th><th>Last check</th></tr></thead><tbody>${it.registry.map(i => `<tr><td>${esc(i.label)}</td><td>${esc(i.importance)}</td><td>${i.configured ? '✓' : '✗'}</td><td>${i.ok === null ? '—' : (i.ok ? '✓' : '✗')} <small>${esc(i.message || '')} ${esc(i.checked_at || '')}</small></td></tr>`).join('')}</tbody></table></div>` : ''}
+          <h4>Needed by the AI CEO</h4><ul class="br-proof">${it.ai_ceo.map(i => `<li>${i.configured ? '✓' : '✗'} <b>${esc(i.label)}</b>: ${esc(i.needs)}</li>`).join('')}</ul>
+          <h4>Waiting for platform reviews</h4><ul class="br-proof">${it.pending_reviews.map(x => `<li>${esc(x)}</li>`).join('')}</ul></section>`;
+    }
+
+    async function loadSetup() {
+      suLoading = true;
+      try { su = await req('/api/admin/ai-ceo/activation'); suError = null; } catch (e) { suError = e.message; } finally { suLoading = false; }
+      render();
+    }
+
     async function loadExecutive() {
       exLoading = true;
       try { ex = await req('/api/admin/ai-ceo/executive'); exError = null; } catch (e) { exError = e.message; } finally { exLoading = false; }
@@ -566,6 +594,7 @@
         case 'ops': if (!ops && !opsError && !opsLoading) loadOps(); return opsTab();
         case 'finance': if (!fin && !finError && !finLoading) loadFinance(); return financeTab();
         case 'executive': if (!ex && !exError && !exLoading) loadExecutive(); return executiveTab();
+        case 'setup': if (!su && !suError && !suLoading) loadSetup(); return setupTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();

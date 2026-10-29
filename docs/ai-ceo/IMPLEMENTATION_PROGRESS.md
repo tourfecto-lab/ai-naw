@@ -20,7 +20,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 7 | AI Platform Operations & Development Advisor | **Implemented (partial scope, see below)** — awaiting owner check of the Platform & Dev Advisor tab |
 | 8 | Financial & Strategic Intelligence | **Implemented (partial scope, see below)** — awaiting owner costs entry and check of the Finance & Strategy tab |
 | 9 | Executive Intelligence & Continuous Learning | **Implemented (partial scope, see below)** — awaiting owner check of the Business Health & Reports tab |
-| 10 | Final Integration & Controlled Activation | Not started |
+| 10 | Final Integration & Controlled Activation | **Implemented** — acceptance tests pass; activation is staged and controlled by the owner (see below) |
 
 ## Phase 1 — AI Executive Foundation
 
@@ -481,4 +481,71 @@ Until the postal address is set and at least one region's basis is confirmed, **
 - Why customers prefer competitors. This needs exit surveys or interviews; today only cancellation reasons exist (Phase 6).
 - Social media and web mentions of Tourfecto (reputation beyond Google reviews). This needs a listening tool or API.
 
-**Next: Phase 10** — Final Integration & Controlled Activation.
+## Phase 10 — Final Integration & Controlled Activation
+
+**New**
+- `app/Services/AiCeo/AiCeoActivation.php` provides three things:
+  - a 12-item readiness checklist in stages: cron, emergency stop, page checks, fixed costs, platform AI budget, backups, quarter goals, Tourfecto site in the platform, site audit, competitors, postal address, lawful basis;
+  - the current **activation stage**, computed (0 observe → 1 data complete → 2 limited auto → 3 growth), with advice and the next missing items;
+  - integration status from the existing integrations registry, plus what the AI CEO needs (GitHub issues token, backup key, DataForSEO, Apify) and the pending Meta/Google reviews. It shows only whether each one is configured; no secret is displayed.
+- `GET /api/admin/ai-ceo/activation` and a new **Setup & Integrations** tab. It also states exactly what runs automatically and what never does, and shows AI CEO spend against its limits.
+- Mission Control tabs reordered to follow the directive's dashboard order.
+- `docs/ai-ceo/OWNER_GUIDE_AR.md`: a simple owner guide in Egyptian Arabic.
+- `docs/ai-ceo/ACTIVATION_PLAN_AR.md`: the staged activation plan, the keys and approvals needed, and the shared-database warning.
+
+**Acceptance tests**
+- `tests/Unit/AiCeoAcceptanceTest.php` (static checks):
+  - every AI CEO route (30) has Auth and Admin middleware, and its handler exists;
+  - every GET checks permission, and every POST goes through `guard` (CSRF + rate limit);
+  - owner-only actions use `guard(true)`, and AI actions pass the AI CEO budget guard;
+  - AI CEO services never send email or WhatsApp. Network calls go only to the platform domain, GitHub, or `SafeHttp`;
+  - activation stages.
+- `tests/Integration/AiCeoEndToEndIntegrationTest.php` runs the full cycle on the real schema:
+  - a failing provider makes only its section null while the rest loads, and data quality flags it;
+  - in approval mode nothing executes; the emergency stop blocks auto mode; auto mode approves only low-risk decisions;
+  - a page going down opens an incident and the `ops_pages_down` decision;
+  - daily and weekly reports are written and the health score is saved;
+  - the readiness checklist and stage work;
+  - every step is audited;
+  - the snapshot stays under 20 seconds.
+- **Existing phase tests cover:** approval/auto/stop (`AiCeoStoreIntegrationTest`), budgets (`AiCostIntelligence*`), the companies database, consent, erasure and merge (`TourismBusinessDb*`), the outreach gate (no unauthorised sending, `SalesEngine*`, `SalesComplianceTest`), brand/content (`BrandGrowth*`), customer success, ops, finance, the digital twin, the health score and executive reports.
+
+**Directive dashboard → Mission Control tabs**
+
+| Directive section | Where |
+|---|---|
+| Executive Overview, AI Mission Control, Automation Settings | Overview (+ mode / emergency stop on every tab), Setup & Integrations |
+| AI CEO Chat | AI CEO Chat |
+| Strategic Radar, Approvals | Approvals & Tasks |
+| Business Health Score, Reports & Insights, Competitive Intelligence | Business Health & Reports |
+| Tourism Business Database | Tourism Companies |
+| Leads & Sales, Email & WhatsApp | Leads & Sales (gate, approvals, sequences; sending stays in the existing outreach service) |
+| Marketing Campaigns, Content & Social Media, SEO / AEO / GEO | Brand Growth |
+| Customer Success, Subscriptions & Revenue | Customer Success |
+| Financial Intelligence, AI Boardroom, Digital Twin | Finance & Strategy |
+| Development Advisor, Platform Health | Platform & Dev Advisor |
+| AI Cost Optimization | AI Costs |
+| Integrations | Setup & Integrations |
+| Audit Logs | Audit Log |
+
+**Conflicts with the other Claude sessions:** none. They work on the website builder, site-admin and Creative Studio. The shared files (`app/routes/api.php`, `app/Config/project_classmap.php`) received additive lines only, and every rebase was clean. `app/Jobs/GenerateVideoJob.php` was not touched; its lint warning still fails the CI lint job.
+
+**Operating cost**
+- The hourly cron uses no AI.
+- AI is used only on the owner's buttons (chat outside the known intents, monthly content plan, boardroom), capped by the AI CEO budget (default $1/day, $20/month).
+- The page checks make about 25 HTTP requests per hour to the platform itself.
+- The site audit makes up to about 45 requests a week.
+- The competitor checks make one request per competitor per day.
+- Actual spend appears in AI Costs and Setup & Integrations.
+
+**Final status**
+All 10 phases are implemented, tested in CI and merged. **The system is not "fully complete"** until the owner finishes these items:
+1. Verify the new tabs on the admin account (the customer account was verified to receive 403).
+2. Enter the owner inputs in the activation checklist.
+3. Decide the lawful basis per region with a lawyer before any outreach.
+4. Add the GitHub/backup keys if those features are wanted.
+5. Raise the DataForSEO cap.
+6. Separate the dev database from production.
+7. Have the other session fix the `GenerateVideoJob.php` lint warning.
+
+Logged-in end-to-end tests of customer flows need a staging database and test accounts. Paid ads, automatic sending and automatic publishing remain off by design.

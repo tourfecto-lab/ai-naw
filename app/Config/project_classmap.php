@@ -22,6 +22,7 @@ return [
     'OpsAdvisor' => dirname(__DIR__,2).'/app/Services/AiCeo/OpsAdvisor.php',
     'FinanceStrategy' => dirname(__DIR__,2).'/app/Services/AiCeo/FinanceStrategy.php',
     'ExecutiveIntel' => dirname(__DIR__,2).'/app/Services/AiCeo/ExecutiveIntel.php',
+    'AiCeoActivation' => dirname(__DIR__,2).'/app/Services/AiCeo/AiCeoActivation.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
     'GrowthAdvisor' => dirname(__DIR__,2).'/app/Services/Brain/GrowthAdvisor.php',
