@@ -63,8 +63,9 @@ final class BrainDecisionStore
             // مصدر البيانات مش متاح دلوقتي: مانحكمش إن المشكلة اتحلت
             if ($gone && $row['metric_key'] && $after === null) continue;
             $before = $row['baseline_value'] !== null ? (float) $row['baseline_value'] : null;
-            // لو السبب اختفى من غير مقياس، يبقى المشكلة اتحلت
-            $outcome = StrategicDecisions::outcome($before, $after, (string) $row['metric_direction']) ?? ($gone ? 'improved' : null);
+            // سبب من غير مقياس اختفى: في بيانات الشركة (زي ملف ناقص اتكمّل) يبقى اتحل فعلًا؛
+            // في السوق (إجازة عدّت، تحذير بقى قديم) ده مرور وقت مش نتيجة، فمابيتحسبش نجاح ولا فشل
+            $outcome = StrategicDecisions::outcome($before, $after, (string) $row['metric_direction']) ?? ($gone && $row['area'] === 'data' ? 'improved' : null);
             $this->db->query('UPDATE brain_decisions SET status = ?, result_value = ?, outcome = ?, measured_at = ? WHERE id = ? AND user_id = ?',
                 [$gone ? 'resolved' : 'done', $after, $outcome, $now, (int) $row['id'], $uid]);
         }

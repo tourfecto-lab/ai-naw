@@ -148,7 +148,9 @@ final class StrategicDecisions
                 [['0 منافس متابَع', '0 tracked competitors']],
                 '/competitor-intelligence', ['ضيف منافس', 'Add a competitor'], 'competitors.tracked', 0, 'up'));
         }
-        if (!empty($u['profile_confirmed']) && empty($u['markets']['countries'])) {
+        // الأسواق ممكن تكون مكتوبة في نص الجمهور (ذكاء السوق بيقراها)؛ القرار للي مالهوش أسواق خالص
+        $marketsKnown = !empty($u['markets']['countries']) || (isset($s['market']['markets_default']) && $s['market']['markets_default'] === false);
+        if (!empty($u['profile_confirmed']) && !$marketsKnown) {
             $add(self::d('define_markets', 'market', 2,
                 ['حدد الدول اللي عايز تبيع لها', 'Choose the countries you want to sell to'],
                 ['السيو والإعلانات والمحتوى بيتوجهوا حسب السوق؛ من غيره كل خدمة بتخمّن.', 'SEO, ads and content target a market; without it every service guesses.'],
@@ -199,18 +201,24 @@ final class StrategicDecisions
         }
 
         $lead = max(14, (int) ($m['lead_time_days'] ?? 45));
-        $byMarket = [];
+        // الإجازة لازم تكون بعد مهلة الحجز بشوية: نبدأ الترويج دلوقتي عشان نلحق اللي بيحجزوا بدري.
+        // نفس الإجازة في كذا سوق (زي الكريسماس) = قرار واحد بكل الأسواق
+        $windows = [];
         foreach (($m['holidays'] ?? []) as $h) {
             $days = (int) $h['days_away'];
-            // الإجازة لازم تكون بعد مهلة الحجز بشوية: نبدأ الترويج دلوقتي عشان نلحق اللي بيحجزوا بدري
-            if ($days < $lead || $days > $lead + 30 || isset($byMarket[$h['country']])) continue;
-            $byMarket[$h['country']] = true;
-            $out[] = self::d('holiday_' . $h['country'] . '_' . str_replace('-', '', (string) $h['date']), 'social', 2,
-                ['إجازة في ' . $n($h['country'], 0) . ' بعد ' . $days . ' يوم: ابدأ الترويج دلوقتي', 'A holiday in ' . $n($h['country'], 1) . ' in ' . $days . ' days: start promoting now'],
-                ['عملاءك بيحجزوا قبل الرحلة بحوالي ' . $lead . ' يوم، فده وقت البوستات والعروض الموجهة للسوق ده.', 'Your guests book about ' . $lead . ' days ahead, so now is the time for posts and offers aimed at this market.'],
-                [[(string) $h['name'] . ' — ' . (string) $h['date'], (string) $h['name'] . ' — ' . (string) $h['date']], ['المصدر: Nager.Date (الإجازات الرسمية)', 'Source: Nager.Date public holidays']],
-                '/social#plan', ['جهّز بوستات للسوق ده', 'Prepare posts for this market'], null, null, null);
-            if (count($byMarket) >= 2) break;
+            if ($days < $lead || $days > $lead + 30) continue;
+            $k = $h['date'] . '|' . $h['name'];
+            $windows[$k] ??= ['date' => (string) $h['date'], 'name' => (string) $h['name'], 'days' => $days, 'countries' => []];
+            $windows[$k]['countries'][] = (string) $h['country'];
+        }
+        foreach (array_slice(array_values($windows), 0, 2) as $w) {
+            $ar = implode(' و', array_map(static fn ($c) => $n($c, 0), array_unique($w['countries'])));
+            $en = implode(' and ', array_map(static fn ($c) => $n($c, 1), array_unique($w['countries'])));
+            $out[] = self::d('holiday_' . str_replace('-', '', $w['date']), 'social', 2,
+                [$w['name'] . ' في ' . $ar . ' بعد ' . $w['days'] . ' يوم: ابدأ الترويج دلوقتي', $w['name'] . ' in ' . $en . ' in ' . $w['days'] . ' days: start promoting now'],
+                ['عملاءك بيحجزوا قبل الرحلة بحوالي ' . $lead . ' يوم، فده وقت البوستات والعروض الموجهة للأسواق دي.', 'Your guests book about ' . $lead . ' days ahead, so now is the time for posts and offers aimed at these markets.'],
+                [[$w['name'] . ' — ' . $w['date'], $w['name'] . ' — ' . $w['date']], ['المصدر: Nager.Date (الإجازات الرسمية)', 'Source: Nager.Date public holidays']],
+                '/social#plan', ['جهّز بوستات للأسواق دي', 'Prepare posts for these markets'], null, null, null);
         }
 
         // العملة: وجهة أوروبية بتسعّر باليورو → يهمنا اليورو قدام الدولار والإسترليني (المسافر الأمريكي والبريطاني).

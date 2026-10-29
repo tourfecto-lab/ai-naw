@@ -28,14 +28,15 @@
       if (!u.profile_confirmed) gaps.push(t('ملف الشركة مش متأكد', 'Company profile not confirmed'));
       if (u.profile_confirmed && !u.goal) gaps.push(t('الهدف', 'Goal'));
       if (u.profile_confirmed && !u.audience) gaps.push(t('الجمهور', 'Audience'));
-      if (!(u.markets?.countries || []).length) gaps.push(t('الدول المستهدفة', 'Target countries'));
+      const marketsKnown = (u.markets?.countries || []).length || (s.market && s.market.markets_default === false);
+      if (!marketsKnown) gaps.push(t('الدول المستهدفة', 'Target countries'));
       if (!s.competitors?.tracked) gaps.push(t('المنافسين', 'Competitors'));
       const row = (k, v) => `<div class="br-fact"><span>${esc(k)}</span><p dir="auto">${v ? esc(String(v).slice(0, 220)) : `<em>${t('مش معروف لسه', 'Not known yet')}</em>`}</p></div>`;
-      const known = [u.business_name || s.website?.name, u.services, u.audience, u.goal, (u.markets?.countries || []).length, s.competitors?.tracked].filter(Boolean).length;
+      const known = [u.business_name || s.website?.name, u.services, u.audience, u.goal, marketsKnown, s.competitors?.tracked].filter(Boolean).length;
       return `<section class="br-card"><div class="br-head"><div><h2>${t('العقل فاهم عن شركتك إيه', 'What the brain knows about your business')}</h2>
         <p class="br-muted">${t('كل حاجة هنا من بيانات حسابك الحقيقية. اللي ناقص بيخلّي القرارات أضعف.', 'Everything here comes from your real account data. Gaps make decisions weaker.')}</p></div>
         <div class="br-meter" role="img" aria-label="${known}/6"><b>${known}/6</b><span>${t('اكتمال الفهم', 'Understanding')}</span></div></div>
-        <div class="br-facts">${row(t('الشركة', 'Company'), u.business_name || s.website?.name)}${row(t('الخدمات والوجهات', 'Services & destinations'), u.services)}${row(t('الجمهور', 'Audience'), u.audience)}${row(t('الهدف', 'Goal'), u.goal)}${row(t('الأسواق', 'Markets'), (u.markets?.countries || []).join('، '))}${row(t('المنافسين المتابَعين', 'Tracked competitors'), s.competitors?.tracked ?? null)}</div>
+        <div class="br-facts">${row(t('الشركة', 'Company'), u.business_name || s.website?.name)}${row(t('الخدمات والوجهات', 'Services & destinations'), u.services)}${row(t('الجمهور', 'Audience'), u.audience)}${row(t('الهدف', 'Goal'), u.goal)}${row(t('الأسواق', 'Markets'), (u.markets?.countries || []).length ? u.markets.countries.join('، ') : (s.market && s.market.markets_default === false ? s.market.markets.map(cn).join('، ') : ''))}${row(t('المنافسين المتابَعين', 'Tracked competitors'), s.competitors?.tracked ?? null)}</div>
         ${gaps.length ? `<p class="br-gaps">${t('ناقص: ', 'Missing: ')}${gaps.map(g => `<span>${esc(g)}</span>`).join('')} <a href="/business-hub">${t('كمّل بيانات الشركة', 'Complete company details')}</a></p>` : ''}</section>`;
     }
 
