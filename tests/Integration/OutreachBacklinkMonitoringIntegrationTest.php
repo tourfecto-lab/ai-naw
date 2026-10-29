@@ -138,7 +138,7 @@ final class OutreachBacklinkMonitoringIntegrationTest extends TestCase
                     ON DUPLICATE KEY UPDATE email = email");
         $pdo->exec("INSERT INTO websites (id, user_id, main_url, company_name, industry, target_language, target_country)
                     VALUES (" . self::WEBSITE_ID . ", " . self::USER_ID . ", 'https://backlink-owntest.com', 'Backlink Test Travel', 'tourism', 'ar', 'SA')
-                    ON DUPLICATE KEY UPDATE main_url = VALUES(main_url)");
+                    ON DUPLICATE KEY UPDATE main_url = VALUES(main_url), user_id = VALUES(user_id)");
     }
 
     private function cleanup(): void
