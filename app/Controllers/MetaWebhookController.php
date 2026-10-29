@@ -42,6 +42,7 @@ class MetaWebhookController extends Controller
         $raw = (string) file_get_contents('php://input');
         $sig = (string) ($_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '');
         if (!self::signatureValid($raw, $sig)) {
+            MetaWebhookLog::add(['result' => 'bad_signature', 'bytes' => strlen($raw), 'has_sig' => $sig !== '']);
             return $this->error('Invalid signature', 401);
         }
         $payload = json_decode($raw, true);
@@ -85,9 +86,13 @@ class MetaWebhookController extends Controller
             );
             if (!$rows) {
                 $total['unknown']++;
+                MetaWebhookLog::add(['result' => 'no_connection', 'object' => (string) ($payload['object'] ?? ''), 'account' => $accountId]);
                 continue;
             }
             $websiteId = (int) $rows[0]['website_id'];
+            if (empty($entry['messaging'])) {
+                MetaWebhookLog::add(['result' => 'no_messaging', 'object' => $platform, 'account' => $accountId, 'keys' => implode(',', array_keys($entry))]);
+            }
             foreach ((array) ($entry['messaging'] ?? []) as $event) {
                 $message = (array) ($event['message'] ?? []);
                 $senderId = (string) ($event['sender']['id'] ?? '');
@@ -99,10 +104,12 @@ class MetaWebhookController extends Controller
                 // رسايلنا إحنا (echo) أو من غير نص: مفيش حاجة نرد عليها
                 if (!empty($message['is_echo']) || $senderId === '' || $senderId === $accountId || $text === '') {
                     $total['skipped']++;
+                    MetaWebhookLog::add(['result' => 'skipped', 'object' => $platform, 'account' => $accountId, 'echo' => !empty($message['is_echo']), 'has_text' => $text !== '', 'keys' => implode(',', array_keys($event))]);
                     continue;
                 }
                 if (!self::isNew($db, $platform, (string) ($message['mid'] ?? ''), $websiteId)) {
                     $total['skipped']++;
+                    MetaWebhookLog::add(['result' => 'duplicate', 'object' => $platform, 'account' => $accountId]);
                     continue;
                 }
                 try {
@@ -114,11 +121,13 @@ class MetaWebhookController extends Controller
                         'message' => mb_substr($text, 0, 4000),
                     ] + ($media !== null ? ['media_ext' => $media] : []));
                     $total['messages']++;
+                    MetaWebhookLog::add(['result' => 'processed', 'object' => $platform, 'account' => $accountId, 'website' => $websiteId]);
                     if ($chatManager === null) {
                         self::addProfile($db, $websiteId, $platform, $senderId, (string) ($rows[0]['access_token'] ?? ''));
                     }
                 } catch (Throwable $e) {
                     Logger::error('Meta webhook message failed', ['website_id' => $websiteId, 'platform' => $platform, 'message' => $e->getMessage()]);
+                    MetaWebhookLog::add(['result' => 'error', 'object' => $platform, 'account' => $accountId, 'error' => $e->getMessage()]);
                 }
             }
         }

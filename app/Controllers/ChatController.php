@@ -4402,6 +4402,15 @@ JS;
         }
     }
 
+    /** GET /api/chat/meta-pages/events?website_id=N - what Meta last posted to the shared webhook and what we did with it (no message text). */
+    public function metaWebhookEvents(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Not logged in', 401);
+        $wid = (int) $this->get('website_id');
+        if (!$this->ownsChatWebsite($wid)) return $this->error('Website not found', 404);
+        return $this->success(['events' => array_slice(MetaWebhookLog::recent(), 0, 20)]);
+    }
+
     /** POST /api/chat/meta-pages/messaging {website_id, connection_id, enabled} */
     public function metaPageMessaging(array $params = []): array
     {
