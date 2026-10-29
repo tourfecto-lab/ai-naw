@@ -920,7 +920,7 @@ JS;
      * (meta_description/canonical/open_graph) على أي موقع تاني - دلوقتي
      * مواقع الـWebsite Builder نفسها ماعادتش ناقصاها.
      */
-    private function siteHeadHtml(string $title, string $themeKey = 'gold', ?string $description = null, ?string $canonicalUrl = null, ?string $ogImage = null, string $jsonLd = ''): string
+    private function siteHeadHtml(string $title, string $themeKey = 'gold', ?string $description = null, ?string $canonicalUrl = null, ?string $ogImage = null, string $jsonLd = '', bool $noindex = false): string
     {
         $theme = self::THEMES[$themeKey] ?? self::THEMES['gold'];
         $accent = $theme['accent'];
@@ -938,10 +938,20 @@ JS;
             $ogTags = "\n    <meta property=\"og:title\" content=\"{$ogTitle}\">\n    <meta property=\"og:description\" content=\"{$ogDesc}\">\n    <meta property=\"og:type\" content=\"website\">{$ogUrlTag}{$ogImageTag}";
         }
 
+        $twitter = "
+    <meta name=\"twitter:card\" content=\"" . ($ogImage ? 'summary_large_image' : 'summary') . "\">"
+            . ($ogImage ? "
+    <meta name=\"twitter:image\" content=\"" . $esc($ogImage) . "\">" : '');
+        $robots = $noindex ? "
+    <meta name=\"robots\" content=\"noindex,nofollow\">" : '';
+        $chrome = "
+    <meta name=\"theme-color\" content=\"" . $esc($accent) . "\">
+    <link rel=\"icon\" href=\"/favicon.ico\">";
+
         return <<<HTML
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{$title}</title>{$metaDescription}{$canonicalTag}{$ogTags}
+    <title>{$title}</title>{$metaDescription}{$canonicalTag}{$ogTags}{$twitter}{$robots}{$chrome}
     {$jsonLd}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1927,7 +1937,9 @@ HTML;
         $capacity = $esc($room['capacity'] ?? '');
         $size = $esc($room['size'] ?? '');
         $design = $this->siteDesignAttrs($website);
-        $head = $this->siteHeadHtml("{$roomName} | {$businessName}", $design['theme']);
+        $roomMetaDesc = trim((string) ($room['short_description'] ?? '')) !== '' ? mb_substr(trim((string) $room['short_description']), 0, 300) : null;
+        $roomImage = !empty($room['image_url']) && preg_match('#^https?://#', (string) $room['image_url']) ? (string) $room['image_url'] : null;
+        $head = $this->siteHeadHtml("{$roomName} | {$businessName}", $design['theme'], $roomMetaDesc, $this->publicSiteUrl($slug, $website) . '/rooms/' . rawurlencode($roomSlug), $roomImage);
         $reviewsHtml = $this->siteReviewsSectionHtml((int) $website->getAttribute('id'), $slug, $roomSlug);
         $heroImageHtml = !empty($room['image_url'])
             ? '<div class="ws-tour-hero-img" style="background-image:url(\'' . $esc($room['image_url']) . '\');"></div>'
@@ -2414,7 +2426,7 @@ HTML;
 
         $businessName = $esc($c['business_name'] ?? '');
         $design = $this->siteDesignAttrs($website);
-        $head = $this->siteHeadHtml("{$this->siteUi('تأكيد الحجز')} | {$businessName}", $design['theme']);
+        $head = $this->siteHeadHtml("{$this->siteUi('تأكيد الحجز')} | {$businessName}", $design['theme'], null, null, null, '', true);
 
         header('Content-Type: text/html; charset=utf-8');
         echo <<<HTML
