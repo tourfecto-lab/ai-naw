@@ -162,3 +162,79 @@
     })();
     if (/[?&]meta=connected/.test(location.search)) toast(L('اتربطت صفحاتك من فيسبوك. اختار الصفحة اللي الشات بوت يرد عليها.', 'Your Facebook pages are connected. Choose the page the bot should answer.'), 'success');
 })();
+
+/*
+ * In-page navigation for the (long) settings page: one chip per section, each with a status dot where the section is a
+ * channel (green = connected / replying), smooth scroll, and the chip of the section in view is highlighted.
+ */
+(function () {
+    'use strict';
+    var main = document.getElementById('mainContent');
+    if (!main || !document.getElementById('settingsFormCard')) return;
+    var ar = /^ar/i.test(document.documentElement.lang || '');
+    var SECTIONS = [
+        ['waCloudCard', ar ? 'واتساب الرسمي' : 'WhatsApp', true],
+        ['waQrCard', ar ? 'واتساب برقمك' : 'WhatsApp (QR)', true],
+        ['metaChatCard', ar ? 'ماسنجر وإنستجرام' : 'Messenger & Instagram', true],
+        ['ultramsgCard', 'UltraMsg', true],
+        ['settingsFormCard', ar ? 'إعدادات البوت' : 'Bot settings', false]
+    ];
+    var nav = document.createElement('nav');
+    nav.className = 'tf-set-nav';
+    nav.setAttribute('aria-label', ar ? 'أقسام الإعدادات' : 'Settings sections');
+    nav.style.cssText = 'position:sticky;top:0;z-index:30;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 14px;padding:8px 0;background:var(--wa-page,var(--panel-bg,#0b141a));';
+    var chips = {};
+    SECTIONS.forEach(function (s) {
+        var a = document.createElement('a');
+        a.href = '#' + s[0];
+        a.className = 'p-btn outline xs';
+        a.style.display = 'none';
+        a.innerHTML = (s[2] ? '<i class="tf-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#8696a0;margin-inline-end:6px"></i>' : '') + '<span></span>';
+        a.lastChild.textContent = s[1];
+        a.addEventListener('click', function (e) {
+            var el = document.getElementById(s[0]);
+            if (!el) return;
+            e.preventDefault();
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        nav.appendChild(a);
+        chips[s[0]] = a;
+    });
+    var kb = document.createElement('a');
+    kb.href = '/chat/knowledge-base';
+    kb.className = 'p-btn outline xs';
+    kb.style.marginInlineStart = 'auto';
+    kb.textContent = '📚 ' + (ar ? 'معلومات المساعد' : 'Assistant knowledge');
+    nav.appendChild(kb);
+
+    function refresh() {
+        SECTIONS.forEach(function (s) {
+            var el = document.getElementById(s[0]);
+            var chip = chips[s[0]];
+            var shown = !!el && el.style.display !== 'none' && el.offsetParent !== null;
+            chip.style.display = shown ? '' : 'none';
+            var dot = chip.querySelector('.tf-dot');
+            if (shown && dot) {
+                var t = el.innerText || '';
+                var on = /Connected|Replying to messages|بيرد على الرسايل|مربوط/.test(t);
+                dot.style.background = on ? '#25d366' : '#8696a0';
+            }
+        });
+    }
+    var first = main.firstElementChild;
+    main.insertBefore(nav, first);
+    refresh();
+    // the cards fill in after their data loads
+    [600, 1500, 3500].forEach(function (ms) { setTimeout(refresh, ms); });
+    new MutationObserver(function () { clearTimeout(refresh.t); refresh.t = setTimeout(refresh, 200); }).observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+
+    if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                var chip = chips[en.target.id];
+                if (chip) chip.classList.toggle('primary', en.isIntersecting), chip.classList.toggle('outline', !en.isIntersecting);
+            });
+        }, { rootMargin: '-20% 0px -60% 0px' });
+        SECTIONS.forEach(function (s) { var el = document.getElementById(s[0]); if (el) io.observe(el); });
+    }
+})();
