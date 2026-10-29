@@ -1,0 +1,187 @@
+<?php
+
+use PHPUnit\Framework\TestCase;
+
+/** Per-site manager logins: hashing, lockout, role limits, strict isolation to one website. */
+final class SiteManagerAccountsTest extends TestCase
+{
+    private const OWNER = 999960;
+    private const OTHER_OWNER = 999961;
+    private const SITE = 999960;
+    private const OTHER_SITE = 999961;
+
+    private PDO $pdo;
+    private SiteManagerService $svc;
+
+    protected function setUp(): void
+    {
+        $this->pdo = Database::getInstance()->getConnection();
+        $this->svc = new SiteManagerService();
+        $this->cleanup();
+        foreach ([[self::OWNER, self::SITE, 'mgr-a'], [self::OTHER_OWNER, self::OTHER_SITE, 'mgr-b']] as [$uid, $sid, $slug]) {
+            $this->pdo->exec("INSERT INTO users (id, email, password, company_name, created_at) VALUES ($uid, 'mgr$uid@tourfecto.test', 'x', 'T', NOW()) ON DUPLICATE KEY UPDATE email = email");
+            $this->pdo->exec("INSERT INTO generated_websites (id, user_id, slug, status, content_json, created_at) VALUES ($sid, $uid, '$slug', 'published', '{}', NOW()) ON DUPLICATE KEY UPDATE user_id = $uid");
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        $this->cleanup();
+    }
+
+    private function cleanup(): void
+    {
+        $this->pdo->exec('DELETE FROM site_manager_accounts WHERE website_id IN (' . self::SITE . ',' . self::OTHER_SITE . ')');
+        $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+        try {
+            $this->pdo->exec('DELETE FROM generated_websites WHERE id IN (' . self::SITE . ',' . self::OTHER_SITE . ')');
+            $this->pdo->exec('DELETE FROM users WHERE id IN (' . self::OWNER . ',' . self::OTHER_OWNER . ')');
+        } finally {
+            $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+        }
+    }
+
+    private function make(string $user = 'client.nile', string $role = 'manager', string $pw = 'Strong-pass-77'): int
+    {
+        $r = $this->svc->create(self::OWNER, self::SITE, $user, 'Client', $role, $pw);
+        $this->assertTrue($r['ok'], (string) ($r['error'] ?? ''));
+        return $r['id'];
+    }
+
+    public function testPasswordIsStoredHashedNeverPlain(): void
+    {
+        $this->make();
+        $hash = (string) $this->pdo->query("SELECT password_hash FROM site_manager_accounts WHERE username = 'client.nile'")->fetchColumn();
+        $this->assertNotSame('Strong-pass-77', $hash);
+        $this->assertTrue(password_verify('Strong-pass-77', $hash));
+    }
+
+    public function testWeakPasswordsAndBadUsernamesAreRejected(): void
+    {
+        foreach (['short1', 'onlyletterslong', '1234567890123'] as $pw) {
+            $this->assertFalse($this->svc->create(self::OWNER, self::SITE, 'weak.user', '', 'viewer', $pw)['ok'], $pw);
+        }
+        $this->assertFalse($this->svc->create(self::OWNER, self::SITE, 'Bad Name!', '', 'viewer', 'Strong-pass-77')['ok']);
+        $this->assertFalse($this->svc->create(self::OWNER, self::SITE, 'role.test', '', 'superadmin', 'Strong-pass-77')['ok']);
+    }
+
+    public function testOnlyTheSiteOwnerCanCreateAccountsForTheSite(): void
+    {
+        $r = $this->svc->create(self::OTHER_OWNER, self::SITE, 'intruder.one', '', 'manager', 'Strong-pass-77');
+        $this->assertFalse($r['ok']);
+        $this->assertSame([], $this->svc->listFor(self::OTHER_OWNER, self::SITE));
+    }
+
+    public function testLoginWorksAndWrongPasswordGivesTheSameMessageAsUnknownUser(): void
+    {
+        $this->make();
+        $ok = $this->svc->authenticate('Client.Nile', 'Strong-pass-77', '203.0.113.5');
+        $this->assertTrue($ok['ok']);
+        $this->assertSame(self::SITE, (int) $ok['account']['website_id']);
+        $this->assertArrayNotHasKey('password_hash', $ok['account']);
+        $wrong = $this->svc->authenticate('client.nile', 'nope-nope-1', '');
+        $unknown = $this->svc->authenticate('nobody.here', 'nope-nope-1', '');
+        $this->assertSame($wrong['error'], $unknown['error'], 'usernames must not be probeable');
+    }
+
+    public function testAccountLocksAfterRepeatedFailures(): void
+    {
+        $this->make();
+        for ($i = 0; $i < SiteManagerService::MAX_FAILED; $i++) {
+            $this->svc->authenticate('client.nile', 'wrong-pass-9', '');
+        }
+        $locked = $this->svc->authenticate('client.nile', 'Strong-pass-77', '');
+        $this->assertFalse($locked['ok'], 'even the right password is refused while locked');
+    }
+
+    public function testSwitchedOffAccountCannotLoginOrKeepASession(): void
+    {
+        $id = $this->make();
+        $account = $this->svc->authenticate('client.nile', 'Strong-pass-77', '')['account'];
+        $this->assertNotNull($this->svc->activeAccount($id, self::SITE));
+        $this->svc->update(self::OWNER, self::SITE, $id, ['is_active' => 0]);
+        $this->assertFalse($this->svc->authenticate('client.nile', 'Strong-pass-77', '')['ok']);
+        $this->assertNull($this->svc->activeAccount($id, self::SITE), 'an open session loses access on the next request');
+        $this->assertSame(self::SITE, (int) $account['website_id']);
+    }
+
+    public function testSessionIsPinnedToItsOwnSite(): void
+    {
+        $id = $this->make();
+        $this->assertNull($this->svc->activeAccount($id, self::OTHER_SITE), 'a session cannot be pointed at another site');
+    }
+
+    public function testResetPasswordUnlocksAndInvalidatesTheOldOne(): void
+    {
+        $id = $this->make();
+        for ($i = 0; $i < SiteManagerService::MAX_FAILED; $i++) {
+            $this->svc->authenticate('client.nile', 'wrong-pass-9', '');
+        }
+        $this->assertTrue($this->svc->update(self::OWNER, self::SITE, $id, ['password' => 'Another-pass-88'])['ok']);
+        $this->assertFalse($this->svc->authenticate('client.nile', 'Strong-pass-77', '')['ok']);
+        $this->assertTrue($this->svc->authenticate('client.nile', 'Another-pass-88', '')['ok']);
+    }
+
+    public function testOtherOwnersCannotEditOrDeleteTheAccount(): void
+    {
+        $id = $this->make();
+        $this->assertFalse($this->svc->update(self::OTHER_OWNER, self::SITE, $id, ['role' => 'viewer'])['ok']);
+        $this->assertFalse($this->svc->delete(self::OTHER_OWNER, self::SITE, $id));
+        $this->assertTrue($this->svc->delete(self::OWNER, self::SITE, $id));
+    }
+
+    public function testRoleMatrix(): void
+    {
+        $this->assertTrue(SiteManagerService::can('manager', 'bookings'));
+        $this->assertFalse(SiteManagerService::can('editor', 'bookings'));
+        $this->assertTrue(SiteManagerService::can('editor', 'leads'));
+        $this->assertTrue(SiteManagerService::can('viewer', 'view'));
+        $this->assertFalse(SiteManagerService::can('viewer', 'leads'));
+        $this->assertFalse(SiteManagerService::can('unknown', 'view'));
+    }
+
+    public function testGeneratedPasswordsPassThePolicy(): void
+    {
+        for ($i = 0; $i < 20; $i++) {
+            $this->assertSame([], SiteManagerService::passwordProblems(SiteManagerService::generatePassword(), 'x'));
+        }
+    }
+
+    private function controllerFor(int $accountId): SiteManagerController
+    {
+        $_SESSION['site_manager'] = ['id' => $accountId, 'website_id' => self::SITE, 'at' => time()];
+        unset($_SESSION['user']);
+        return new SiteManagerController();
+    }
+
+    public function testManagerSessionNeverBecomesATourfectoUserSession(): void
+    {
+        $id = $this->make();
+        $this->controllerFor($id);
+        $this->assertArrayNotHasKey('user', $_SESSION, 'no other part of the platform may accept a site-manager login');
+        unset($_SESSION['site_manager']);
+    }
+
+    public function testViewerCannotConfirmBookingsAndAnonymousIsRefused(): void
+    {
+        $id = $this->make('viewer.only', 'viewer');
+        $c = $this->controllerFor($id);
+        $r = $c->bookingAction(['bookingId' => 1]);
+        $this->assertSame(403, $r['status'] ?? $r['code'] ?? 403);
+        $this->assertFalse((bool) ($r['success'] ?? false));
+        $this->assertTrue((bool) ($c->bookingsList([])['success'] ?? false), 'read access works');
+
+        unset($_SESSION['site_manager']);
+        $anon = (new SiteManagerController())->bookingsList([]);
+        $this->assertFalse((bool) ($anon['success'] ?? false));
+    }
+
+    public function testSwitchedOffAccountSessionIsDroppedByTheController(): void
+    {
+        $id = $this->make();
+        $this->svc->update(self::OWNER, self::SITE, $id, ['is_active' => 0]);
+        $r = $this->controllerFor($id)->bookingsList([]);
+        $this->assertFalse((bool) ($r['success'] ?? false));
+        $this->assertArrayNotHasKey('site_manager', $_SESSION);
+    }
+}

@@ -1288,6 +1288,20 @@ $router->get('/api/site-dashboard/{id}/leads', 'SiteDashboardController', 'leads
 $router->get('/api/site-dashboard/{id}/bookings', 'SiteDashboardController', 'bookings', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/bookings/export', 'SiteDashboardController', 'exportBookings', ['AuthMiddleware']);
 $router->put('/api/site-dashboard/{id}/bookings/{bookingId}', 'SiteDashboardController', 'updateBooking', ['AuthMiddleware']);
+$router->get('/api/site-dashboard/{id}/managers', 'SiteDashboardController', 'managers', ['AuthMiddleware']);
+$router->post('/api/site-dashboard/{id}/managers', 'SiteDashboardController', 'createManager', ['AuthMiddleware']);
+$router->put('/api/site-dashboard/{id}/managers/{managerId}', 'SiteDashboardController', 'updateManager', ['AuthMiddleware']);
+$router->delete('/api/site-dashboard/{id}/managers/{managerId}', 'SiteDashboardController', 'deleteManager', ['AuthMiddleware']);
+// مدير الموقع (SiteManagerController بيتحقق من جلسته بنفسه، مش من AuthMiddleware)
+$router->post('/api/site-admin/login', 'SiteManagerController', 'login');
+$router->post('/api/site-admin/logout', 'SiteManagerController', 'logout');
+$router->get('/api/site-admin/bookings', 'SiteManagerController', 'bookingsList');
+$router->get('/api/site-admin/bookings/export', 'SiteManagerController', 'bookingsExport');
+$router->put('/api/site-admin/bookings/{bookingId}', 'SiteManagerController', 'bookingAction');
+$router->get('/api/site-admin/leads', 'SiteManagerController', 'leadsList');
+$router->put('/api/site-admin/leads/{leadId}', 'SiteManagerController', 'leadUpdate');
+$router->get('/api/site-admin/reviews', 'SiteManagerController', 'reviewsList');
+$router->put('/api/site-admin/reviews/{reviewId}', 'SiteManagerController', 'reviewUpdate');
 $router->put('/api/site-dashboard/{id}/leads/{leadId}', 'SiteDashboardController', 'updateLead', ['AuthMiddleware']);
 
 // CRM - Leads/Contacts

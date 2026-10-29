@@ -746,6 +746,8 @@ return [
     'Session' => dirname(__DIR__,2).'/app/Services/Security/CSRFProtection.php',
     'SettingsController' => dirname(__DIR__,2).'/app/Controllers/SettingsController.php',
     'SiteDashboardController' => dirname(__DIR__,2).'/app/Controllers/SiteDashboardController.php',
+    'SiteManagerController' => dirname(__DIR__,2).'/app/Controllers/SiteManagerController.php',
+    'SiteManagerService' => dirname(__DIR__,2).'/app/Services/Website/SiteManagerService.php',
     'SiteInterfaceLanguage' => dirname(__DIR__,2).'/app/Services/Website/SiteInterfaceLanguage.php',
     'SiteLogoUploadHandler' => dirname(__DIR__,2).'/app/Services/SiteLogoUploadHandler.php',
     'SitemapMonitor' => dirname(__DIR__,2).'/app/Services/CompetitorIntelligence/SitemapMonitor.php',

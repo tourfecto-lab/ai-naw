@@ -49,6 +49,7 @@ class SiteDashboardController extends Controller
             <button class="p-tab" onclick="sdSwitchTab('design')" id="sdTabDesignBtn">🎨 التصميم</button>
             <button class="p-tab" onclick="sdSwitchTab('seo')" id="sdTabSeoBtn">🔍 SEO والدومين</button>
             <button class="p-tab" onclick="sdSwitchTab('bookings')" id="sdTabBookingsBtn">🧾 الحجوزات <span id="sdBookingsCount" class="p-badge-dot" style="display:none;"></span></button>
+            <button class="p-tab" onclick="sdSwitchTab('team')" id="sdTabTeamBtn">👥 فريق الموقع</button>
             <button class="p-tab" onclick="sdSwitchTab('reviews')" id="sdTabReviewsBtn">⭐ التقييمات</button>
             <button class="p-tab" onclick="sdSwitchTab('leads')" id="sdTabLeadsBtn">📩 طلبات التواصل <span id="sdLeadsCount" class="p-badge-dot" style="display:none;"></span></button>
         </div>
@@ -96,6 +97,26 @@ class SiteDashboardController extends Controller
             <div id="sdBookingsList" class="p-list">جاري التحميل...</div>
         </div>
 
+        <div id="sdTabTeam" style="display:none;">
+            <div class="p-card" style="margin-bottom:12px;">
+                <h4 style="margin:0 0 6px;">إنشاء دخول لمدير الموقع</h4>
+                <p style="margin:0 0 10px;">اعمل يوزر وباسورد لعميلك أو موظف، يدخل بيهم على <bdi dir="ltr" id="sdAdminUrl"></bdi> ويشوف لوحة الموقع ده بس من غير حساب Tourfecto.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">
+                    <div><label for="sdTmUser" class="form-label">اسم المستخدم</label><input id="sdTmUser" class="form-control" dir="ltr" autocomplete="off" placeholder="client.nile"></div>
+                    <div><label for="sdTmName" class="form-label">الاسم</label><input id="sdTmName" class="form-control" autocomplete="off"></div>
+                    <div><label for="sdTmRole" class="form-label">الصلاحية</label>
+                        <select id="sdTmRole" class="form-control"><option value="manager">مدير (حجوزات + تواصل + تقييمات)</option><option value="editor">محرر (تواصل + تقييمات)</option><option value="viewer">مشاهدة فقط</option></select></div>
+                    <div><label for="sdTmPass" class="form-label">كلمة السر</label><input id="sdTmPass" class="form-control" dir="ltr" autocomplete="new-password"></div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="p-btn outline" type="button" onclick="sdTmGenerate()">ولّد كلمة سر قوية</button>
+                    <button class="p-btn primary" type="button" onclick="sdTmCreate()">إنشاء الحساب</button>
+                </div>
+                <p style="margin-top:8px;font-size:13px;">كلمة السر بتظهر هنا مرة واحدة بس - انسخها وابعتها للشخص. تقدر تغيّرها أو توقف الحساب في أي وقت.</p>
+            </div>
+            <div id="sdTeamList" class="p-list">جاري التحميل...</div>
+        </div>
+
         <div id="sdTabReviews" style="display:none;">
             <div id="sdReviewsList" class="p-list">جاري التحميل...</div>
         </div>
@@ -118,6 +139,7 @@ HTML;
         });
         if (tab === 'design' && window.SdStudio) SdStudio.open();
         if (tab === 'reviews') sdLoadReviews();
+        if (tab === 'team') sdLoadTeam();
         if (tab === 'bookings') sdLoadBookings();
         if (tab === 'leads') sdLoadLeads();
     };
@@ -291,6 +313,66 @@ HTML;
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }),
         });
         if (!res.success) toast(res.error || 'حصل خطأ', 'error'); else { toast('تم', 'success'); sdFetchBookings(); }
+    };
+
+    const roleLabel = { manager: 'مدير', editor: 'محرر', viewer: 'مشاهدة فقط' };
+    document.getElementById('sdAdminUrl').textContent = location.origin + '/site-admin/login';
+    window.sdTmGenerate = function () {
+        const a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = new Uint32Array(14);
+        crypto.getRandomValues(r);
+        document.getElementById('sdTmPass').value = Array.from(r, n => a[n % a.length]).join('') + '7' + String(Math.floor(Math.random() * 9) + 1);
+    };
+    async function sdLoadTeam() {
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers`);
+        const list = document.getElementById('sdTeamList');
+        if (!res.success) { list.innerHTML = '<p>تعذّر التحميل</p>'; return; }
+        if (!res.data.managers.length) { list.innerHTML = '<p>لا توجد حسابات بعد</p>'; return; }
+        list.innerHTML = res.data.managers.map(m => `
+            <div class="p-card" style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <strong dir="ltr">\${esc(m.username)}</strong>
+                    <span class="p-badge \${m.is_active == 1 ? '' : 'gold'}">\${m.is_active == 1 ? 'شغّال' : 'موقوف'}</span>
+                </div>
+                <p>\${esc(m.display_name || '')} · آخر دخول: \${esc(m.last_login_at || 'لم يدخل بعد')}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <select onchange="sdTmUpdate(\${m.id}, { role: this.value })">
+                        \${['manager', 'editor', 'viewer'].map(r => `<option value="\${r}" \${m.role === r ? 'selected' : ''}>\${roleLabel[r]}</option>`).join('')}
+                    </select>
+                    <button class="p-btn outline xs" onclick="sdTmUpdate(\${m.id}, { is_active: \${m.is_active == 1 ? 0 : 1} })">\${m.is_active == 1 ? 'إيقاف' : 'تشغيل'}</button>
+                    <button class="p-btn outline xs" onclick="sdTmResetPass(\${m.id})">كلمة سر جديدة</button>
+                    <button class="p-btn outline xs" onclick="sdTmDelete(\${m.id})">حذف</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    window.sdTmCreate = async function () {
+        const body = { username: document.getElementById('sdTmUser').value, display_name: document.getElementById('sdTmName').value, role: document.getElementById('sdTmRole').value, password: document.getElementById('sdTmPass').value };
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.success) { toast(res.error || res.message || 'حصل خطأ', 'error'); return; }
+        alert('تم إنشاء الحساب\u000a\u000aالرابط: ' + location.origin + '/site-admin/login\u000aاسم المستخدم: ' + body.username + '\u000aكلمة السر: ' + body.password + '\u000a\u000aانسخهم دلوقتي - كلمة السر مش هتظهر تاني.');
+        ['sdTmUser', 'sdTmName', 'sdTmPass'].forEach(i => document.getElementById(i).value = '');
+        sdLoadTeam();
+    };
+    window.sdTmUpdate = async function (id, changes) {
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers/\${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
+        if (!res.success) toast(res.error || res.message || 'حصل خطأ', 'error');
+        sdLoadTeam();
+    };
+    window.sdTmResetPass = async function (id) {
+        if (!confirm('تغيير كلمة السر؟ هتتولّد كلمة جديدة وتظهر لك مرة واحدة.')) return;
+        sdTmGenerate();
+        const pw = document.getElementById('sdTmPass').value;
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers/\${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+        if (!res.success) { toast(res.error || res.message || 'حصل خطأ', 'error'); return; }
+        alert('كلمة السر الجديدة: ' + pw + '\u000a\u000aانسخها دلوقتي - مش هتظهر تاني.');
+        document.getElementById('sdTmPass').value = '';
+        sdLoadTeam();
+    };
+    window.sdTmDelete = async function (id) {
+        if (!confirm('حذف الحساب ده نهائيًا؟')) return;
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers/\${id}`, { method: 'DELETE' });
+        if (!res.success) toast(res.error || res.message || 'حصل خطأ', 'error');
+        sdLoadTeam();
     };
 
     sdLoadOverview();
@@ -622,6 +704,79 @@ JS;
         return $this->success([], 'تم التحديث');
     }
 
+
+    // ================================================================ دخول مدير الموقع (فريق الموقع)
+
+    /** GET /api/site-dashboard/{id}/managers */
+    public function managers(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        return $this->success(['managers' => (new SiteManagerService())->listFor((int) $this->user['id'], (int) $website->getAttribute('id'))]);
+    }
+
+    /** POST /api/site-dashboard/{id}/managers */
+    public function createManager(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('user', 'site_manager_admin', 30, 3600))) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $r = (new SiteManagerService())->create((int) $this->user['id'], (int) $website->getAttribute('id'), (string) $this->get('username', ''), (string) $this->get('display_name', ''), (string) $this->get('role', 'viewer'), (string) $this->get('password', ''));
+        return $r['ok'] ? $this->success(['id' => $r['id']], 'تم إنشاء الحساب') : $this->error($r['error'], 422);
+    }
+
+    /** PUT /api/site-dashboard/{id}/managers/{managerId}  body: role | is_active | password */
+    public function updateManager(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('user', 'site_manager_admin', 30, 3600))) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $changes = [];
+        foreach (['role', 'is_active', 'password'] as $k) {
+            if ($this->get($k) !== null) {
+                $changes[$k] = $this->get($k);
+            }
+        }
+        $r = (new SiteManagerService())->update((int) $this->user['id'], (int) $website->getAttribute('id'), (int) ($params['managerId'] ?? 0), $changes);
+        return $r['ok'] ? $this->success([], 'تم التحديث') : $this->error($r['error'], 422);
+    }
+
+    /** DELETE /api/site-dashboard/{id}/managers/{managerId} */
+    public function deleteManager(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        return (new SiteManagerService())->delete((int) $this->user['id'], (int) $website->getAttribute('id'), (int) ($params['managerId'] ?? 0))
+            ? $this->success([], 'تم الحذف') : $this->error('الحساب مش موجود', 404);
+    }
+
     // ================================================================ استوديو التصميم
 
     private const STYLE_LABELS = [
@@ -756,7 +911,7 @@ JS;
         return $this->success([], 'اتشالت');
     }
 
-    private function ownedWebsite(int $id): ?GeneratedWebsite
+    protected function ownedWebsite(int $id): ?GeneratedWebsite
     {
         if (!$id) {
             return null;
