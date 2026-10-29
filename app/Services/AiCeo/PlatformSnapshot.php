@@ -3,6 +3,7 @@ require_once __DIR__ . '/AiCostIntelligence.php';
 require_once __DIR__ . '/SalesEngine.php';
 require_once __DIR__ . '/BrandSiteAudit.php';
 require_once __DIR__ . '/BrandGrowth.php';
+require_once __DIR__ . '/CustomerSuccess.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -42,6 +43,7 @@ final class PlatformSnapshot
             'outreach' => $this->section('outreach', fn () => $this->outreach()),
             'sales' => $this->section('sales', fn () => $this->sales()),
             'brand' => $this->section('brand', fn () => $this->brand()),
+            'success' => $this->section('success', fn () => $this->success()),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
     }
@@ -120,6 +122,21 @@ final class PlatformSnapshot
         $r = (new AiCostIntelligence($this->db))->report();
         return $out + ['projected_month_usd' => $r['totals']['projected_month'], 'platform_budget' => $r['platform_budget'], 'aiceo' => $r['aiceo'],
             'anomalies' => array_slice($r['anomalies'], 0, 5), 'routing_review' => array_slice($r['routing_review'], 0, 5)];
+    }
+
+    /** المرحلة 6: العملاء الواقفين في الإعداد، والدفع، والتجديدات، والدعم، وفرص الترقية */
+    private function success(): array
+    {
+        $cs = new CustomerSuccess($this->db);
+        $f = $cs->funnel(90);
+        $p = $cs->payments(30);
+        $r = $cs->renewals(30);
+        $s = $cs->support(90);
+        $o = $cs->opportunities();
+        return ['stuck_onboarding' => $f['stuck_count'] ?? null, 'biggest_drop' => $f['biggest_drop'] ?? null, 'payments_failed' => $p['by_status']['failed']['count'] ?? 0,
+            'payments_stuck' => $p['stuck_pending'] ?? 0, 'renewals_cancelling' => $r['cancelling'] ?? 0, 'mrr_cancelling' => $r['mrr_cancelling'] ?? 0,
+            'support_unanswered' => $s['unanswered'] ?? 0, 'support_oldest' => $s['oldest_unanswered'] ?? null, 'recurring_themes' => $s['recurring'] ?? [],
+            'upsell' => count($o['upsell'] ?? []), 'cross_sell' => count($o['cross_sell'] ?? [])];
     }
 
     /** المرحلة 5: آخر فحص لموقع Tourfecto، والتسجيلات منين، وحضور Tourfecto في خدماتها */

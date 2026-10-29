@@ -220,6 +220,48 @@ final class PlatformDecisions
                 [[$sl['crm_pending'] . ' شركة ردت أو مهتمة', $sl['crm_pending'] . ' replied or interested companies']], '/admin/ai-ceo#sales', ['انقلهم للـ CRM', 'Move them to the CRM']);
         }
 
+        // المرحلة 6: نجاح العملاء
+        $cs = $snap['success'] ?? null;
+        $csUrl = '/admin/ai-ceo#success';
+        if ($cs && ($cs['stuck_onboarding'] ?? 0) > 0) {
+            $d = $cs['biggest_drop'];
+            $add('cs_onboarding_stuck', 'customers', 'low', ['impact' => 4, 'roi' => 5, 'urgency' => 3, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['عملاء جداد واقفين في الإعداد', 'New customers stuck in onboarding'],
+                ['عملاء سجلوا من أكتر من 3 أيام ولسه ماكملوش خطوة مهمة. رسالة قصيرة بالخطوة الجاية بتفرق في التحويل للدفع.', 'Customers who signed up over 3 days ago have not finished a key step. A short message with the next step helps conversion.'],
+                [[$cs['stuck_onboarding'] . ' عميل واقف' . ($d ? ' · أكبر وقعة: ' . $d['from'] . ' ← ' . $d['to'] . ' (' . $d['lost'] . ')' : ''), $cs['stuck_onboarding'] . ' customers stuck' . ($d ? ' · biggest drop: ' . $d['from'] . ' → ' . $d['to'] . ' (' . $d['lost'] . ')' : '')]],
+                $csUrl, ['شوف الرسائل المقترحة', 'See suggested messages']);
+        }
+        if ($cs && ($cs['payments_failed'] > 0 || $cs['payments_stuck'] > 0)) {
+            $add('cs_payment_problems', 'revenue', 'low', ['impact' => 5, 'roi' => 5, 'urgency' => 5, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['مشاكل في الدفع', 'Payment problems'],
+                ['عمليات دفع فشلت أو واقفة: كل واحدة ممكن تكون اشتراك ضايع.', 'Failed or stuck payments: each may be a lost subscription.'],
+                [[$cs['payments_failed'] . ' فشلت · ' . $cs['payments_stuck'] . ' واقفة (آخر 30 يوم)', $cs['payments_failed'] . ' failed · ' . $cs['payments_stuck'] . ' stuck (30 days)']], $csUrl, ['راجع المدفوعات', 'Review payments']);
+        }
+        if ($cs && $cs['renewals_cancelling'] > 0) {
+            $add('cs_renewals_cancelling', 'revenue', 'low', ['impact' => 5, 'roi' => 4, 'urgency' => 4, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['عملاء طالبين إلغاء في التجديد الجاي', 'Customers set to cancel at renewal'],
+                ['لسه فيه وقت تكلمهم وتعرف السبب قبل ما الاشتراك يخلص.', 'There is still time to talk to them and learn why before the subscription ends.'],
+                [[$cs['renewals_cancelling'] . ' عميل · $' . $n($cs['mrr_cancelling']) . ' شهريًا', $cs['renewals_cancelling'] . ' customers · $' . $n($cs['mrr_cancelling']) . ' MRR']], $csUrl, ['شوف التجديدات', 'See renewals']);
+        }
+        if ($cs && $cs['support_unanswered'] > 0) {
+            $add('cs_support_unanswered', 'customers', 'low', ['impact' => 3, 'roi' => 3, 'urgency' => 4, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['رسائل دعم مستنية رد', 'Support messages waiting for a reply'],
+                ['رسائل من صفحة التواصل حالتها لسه جديدة.', 'Messages from the contact page are still marked new.'],
+                [[$cs['support_unanswered'] . ' رسالة · أقدم واحدة ' . ($cs['support_oldest'] ?? '—'), $cs['support_unanswered'] . ' messages · oldest ' . ($cs['support_oldest'] ?? '—')]], '/admin/contact-messages', ['افتح الرسائل', 'Open messages']);
+        }
+        if ($cs && $cs['recurring_themes']) {
+            $add('cs_recurring_complaints', 'product', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 3, 'risk' => 1, 'cost' => 2, 'effort' => 3],
+                ['شكاوى متكررة محتاجة مهمة تطوير', 'Recurring complaints that need a development task'],
+                ['نفس الموضوع اتكرر 3 مرات أو أكتر في رسائل الدعم آخر 90 يوم.', 'The same topic came up 3 or more times in support messages in 90 days.'],
+                [[implode('، ', $cs['recurring_themes']), implode(', ', $cs['recurring_themes'])]], $csUrl, ['شوف المواضيع', 'See themes']);
+        }
+        if ($cs && $cs['upsell'] > 0) {
+            $add('cs_upsell_ready', 'revenue', 'low', ['impact' => 3, 'roi' => 4, 'urgency' => 2, 'confidence' => 3, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['عملاء جاهزين لترقية', 'Customers ready for an upgrade'],
+                ['عملاء صحتهم كويسة واستخدامهم عالي: عرض باقة أعلى أو رصيد إضافي مناسب لهم.', 'Healthy, heavy users: a higher plan or extra credits fits them.'],
+                [[$cs['upsell'] . ' عميل', $cs['upsell'] . ' customers']], $csUrl, ['شوف الفرص', 'See opportunities']);
+        }
+
         // المرحلة 5: موقع Tourfecto نفسه
         $br = $snap['brand'] ?? null;
         if ($br && $br['audit_at'] === null) {
