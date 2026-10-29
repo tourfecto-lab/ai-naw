@@ -5008,4 +5008,5 @@ return [
     'لا توجد بيانات أداء مسجّلة لهذه الفترة. جرّب فترة أطول، أو افتح <a href="/ads">نظرة عامة</a> واضغط «مزامنة الحملات الآن» لسحب أحدث الأرقام من Meta.' => 'No performance data was recorded for this period. Try a longer period, or open the <a href="/ads">overview</a> and press "Sync campaigns now" to pull the latest numbers from Meta.',
     'مبيعات وحجوزات مدفوعة على الموقع' => 'Paid sales and bookings on the website',
     'محادثات واتساب مباشرة' => 'Direct WhatsApp conversations',
+    'المسودة بالدولار، وعند النشر بتتحول تلقائيًا لعملة حساب الإعلانات (جنيه مثلًا) وتقدر تعدّلها قبل ما تنشر.' => 'The draft is in US dollars. When you publish, it is converted automatically to your ad account currency and you can adjust it before publishing.',
 ];

@@ -229,7 +229,8 @@ class AdsController extends Controller
 
                         <label>الميزانية اليومية المتوقعة (USD) - اختياري</label>
                         <input type="number" id="aiDailyBudget" class="p-select" style="width:100%;margin-bottom:6px;" min="1" step="0.5">
-                        <div class="p-cell-muted" style="font-size:11.5px;margin-bottom:16px;">سيب الحقل ده فاضي لو عايز الذكاء الاصطناعي يقترحلك رقم مناسب</div>
+                        <div class="p-cell-muted" style="font-size:11.5px;margin-bottom:6px;">سيب الحقل ده فاضي لو عايز الذكاء الاصطناعي يقترحلك رقم مناسب</div>
+                        <div class="p-cell-muted" style="font-size:11.5px;margin-bottom:16px;">المسودة بالدولار، وعند النشر بتتحول تلقائيًا لعملة حساب الإعلانات (جنيه مثلًا) وتقدر تعدّلها قبل ما تنشر.</div>
 
                         <button class="p-btn primary btn-block" id="aiGenerateBtn" onclick="generateAiBrief()">توليد الحملة بالذكاء الاصطناعي ✨</button>
                         <div class="p-cell-muted" style="font-size:11px;text-align:center;margin-top:8px;">هيتم خصم سعر التوليد من رصيد محفظتك عند نجاح التوليد بس</div>
@@ -4485,7 +4486,7 @@ JS;
         <div class="p-card" style="margin-bottom:16px;">
             <div class="p-card-head">
                 <h3>📈 اتجاه الأداء اليومي</h3>
-                <select id="trendDays" class="p-select" style="width:auto;" onchange="loadTrendChart()">
+                <select id="trendDays" class="p-select" style="width:auto;" onchange="loadTrendChart(event)">
                     <option value="7">آخر 7 أيام</option>
                     <option value="30" selected>آخر 30 يوم</option>
                     <option value="90">آخر 90 يوم</option>
@@ -4523,9 +4524,17 @@ JS;
         : P.fetchJSON;
     let trendChartInstance = null;
 
-    window.loadTrendChart = async function () {
-        const days = document.getElementById('trendDays').value;
+    let trendUserPicked = false;
+    window.loadTrendChart = async function (ev) {
+        if (ev && ev.isTrusted) trendUserPicked = true;
+        const sel = document.getElementById('trendDays');
+        const days = sel.value;
         const res = await fetchJSON('/api/ads/reports/trend?days=' + days);
+        // Nothing recorded in the default window: widen it (30, then 90 days) instead of showing an empty chart.
+        if ((!res.success || !res.data.length) && !trendUserPicked) {
+            const next = Array.from(sel.options).map(o => o.value).find(v => Number(v) > Number(days));
+            if (next) { sel.value = next; return window.loadTrendChart(); }
+        }
         const emptyBox = document.getElementById('trendChartEmpty');
         const canvas = document.getElementById('trendChart');
 
@@ -4620,7 +4629,7 @@ JS;
         <div class="p-card">
             <div class="p-card-head">
                 <h3>⚖️ مقارنة الحملات</h3>
-                <select id="cmpPeriod" class="p-select" style="width:auto;" onchange="loadComparisonChart()">
+                <select id="cmpPeriod" class="p-select" style="width:auto;" onchange="loadComparisonChart(event)">
                     <option value="weekly" selected>آخر 7 أيام</option>
                     <option value="monthly">آخر 30 يوم</option>
                 </select>
@@ -4653,9 +4662,13 @@ JS;
         box.innerHTML = kpi('الإنفاق (آخر 30 يوم)', d.spend) + kpi('استخدام الميزانية', d.budget_utilization_pct !== null ? d.budget_utilization_pct + '%' : null) + kpi('Active campaigns', d.active_campaigns) + kpi('Paused campaigns', d.paused_campaigns);
     }
 
-    window.loadComparisonChart = async function () {
-        const period = document.getElementById('cmpPeriod').value;
+    let cmpUserPicked = false;
+    window.loadComparisonChart = async function (ev) {
+        if (ev && ev.isTrusted) cmpUserPicked = true;
+        const cmpSel = document.getElementById('cmpPeriod');
+        const period = cmpSel.value;
         const res = await fetchJSON('/api/ads/reports/comparison?period=' + period);
+        if ((!res.success || !res.data.length) && period === 'weekly' && !cmpUserPicked) { cmpSel.value = 'monthly'; return window.loadComparisonChart(); }
         const emptyBox = document.getElementById('comparisonEmpty');
         const canvas = document.getElementById('comparisonChart');
 
