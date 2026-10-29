@@ -336,3 +336,15 @@ html body.tab-chat.ch-instagram .p-input:focus,html body.tab-chat.ch-instagram .
 
 .wa-ch-tabs .wa-ch-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;text-align:center;background:#e53935;color:#fff;font-weight:700}
 .wa-ch-tabs button[aria-selected="true"] .wa-ch-n{background:#fff;color:#14100a}
+
+/* phone: section tabs and the settings nav become one scrolling row; table cells keep their words together */
+@media (max-width:640px){
+  html body.tab-chat:not(.wa-app) .tf-sec-tabs{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;margin-inline:-12px!important;padding-inline:12px!important;-webkit-overflow-scrolling:touch}
+  html body.tab-chat:not(.wa-app) .tf-sec-tabs::-webkit-scrollbar{display:none}
+  html body.tab-chat:not(.wa-app) .tf-sec-tabs .p-btn{flex:0 0 auto;white-space:nowrap}
+  html body.tab-chat .tf-set-nav{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
+  html body.tab-chat .tf-set-nav .p-btn{flex:0 0 auto;white-space:nowrap}
+  html body.tab-chat #leadsTable td{white-space:nowrap}
+  html body.tab-chat .p-toolbar{flex-wrap:wrap}
+  html body.tab-chat .p-toolbar .p-input,html body.tab-chat .p-toolbar .p-select{flex:1 1 140px;max-width:none!important}
+}
