@@ -91,3 +91,8 @@ html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
   html body.wa-app .ai-chat-list-card .p-toolbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   html body.wa-app .ai-chat-list-card .p-toolbar #ucSearch{flex:0 0 100%}
 }
+@media (max-width:960px){
+  html body.wa-app #ucBody.ai-chat-split{grid-template-columns:minmax(0,1fr)}
+  html body.wa-app .panel-content{padding-left:0;padding-right:0}
+  html body.wa-app .panel-content>.p-toolbar,html body.wa-app .panel-content>.p-card{margin-left:12px;margin-right:12px}
+}
