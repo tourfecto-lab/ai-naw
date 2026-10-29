@@ -926,7 +926,8 @@ if ($requestMethod === 'HEAD') {
 }
 
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
-$path = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+// "//admin/x" لازم تتقري مسار مش دومين: parse_url بيعتبر "admin" هوست ويرجع "/x"
+$path = parse_url(preg_replace('#^/{2,}#', '/', $requestUri), PHP_URL_PATH) ?: '/';
 
 // إزالة سلاش زائد في النهاية (عدا الجذر نفسه)
 if ($path !== '/' && substr($path, -1) === '/') {
