@@ -901,6 +901,10 @@ require_once APP_PATH . '/routes/api.php';
 // 9. تحديد الطلب الحالي (Method + Path)
 // ============================================
 $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+// HEAD (link checkers, Meta's validators, uptime monitors) must answer like GET; the web server drops the body.
+if ($requestMethod === 'HEAD') {
+    $requestMethod = 'GET';
+}
 
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH) ?: '/';
