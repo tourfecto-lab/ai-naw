@@ -728,7 +728,7 @@ if (session_status() === PHP_SESSION_NONE) {
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-header('Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(self)');
+header('Permissions-Policy: geolocation=(), microphone=(self), camera=(), payment=(self)');
 // CSP متوازن: بيمنع تحميل سكربتات/إطارات من مصادر خارجية غير موثوقة
 // (defense-in-depth ضد XSS)، لكن سايبين 'unsafe-inline' مفعّلة لأن
 // الموقع فيه كمية كبيرة من <script>/<style> جوه الصفحات نفسها (heredoc)
