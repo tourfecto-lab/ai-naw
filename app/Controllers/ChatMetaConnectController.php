@@ -83,8 +83,8 @@ class ChatMetaConnectController extends Controller
         $n = 0;
         foreach ($pages as $p) {
             $db->query(
-                "INSERT INTO platform_connections (website_id, user_id, platform, access_token, external_account_id, external_location_id, external_location_name, status, meta_json, connected_at, created_at)
-                 VALUES (?, ?, 'messenger_page', ?, ?, ?, ?, 'connected', ?, NOW(), NOW())",
+                "INSERT INTO platform_connections (website_id, user_id, platform, access_token, external_account_id, external_location_id, external_location_name, status, meta_json, connected_at)
+                 VALUES (?, ?, 'messenger_page', ?, ?, ?, ?, 'connected', ?, NOW())",
                 [$wid, $uid, $enc->encrypt($p['token']), $p['ig_id'] !== '' ? $p['ig_id'] : null, $p['id'], $p['name'],
                     json_encode(['ig_id' => $p['ig_id'], 'ig_username' => $p['ig_username'], 'source' => 'messaging_app'], JSON_UNESCAPED_UNICODE)]
             );
