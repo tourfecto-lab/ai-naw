@@ -51,6 +51,25 @@ $say('Token scopes', $scopes ? implode(', ', array_map(static fn ($s) => preg_re
 $say('business.manage scope', in_array('https://www.googleapis.com/auth/business.manage', $scopes, true) ? 'yes' : 'NO - replies need this scope');
 
 $api = new GoogleBusinessAPI($token, $conn->getAttribute('external_account_id'), $conn->getAttribute('external_location_id'));
+$loc = $api->getLocation();
+$say('Connected Google location', !empty($loc['success']) ? (string) ($loc['location']['name'] ?? '?') : 'could not read (' . mb_substr((string) ($loc['error'] ?? ''), 0, 120) . ')');
+$say('Website in the platform', (string) ($db->query('SELECT company_name FROM websites WHERE id = ?', [(int) $review['website_id']])[0]['company_name'] ?? '?'));
+
+// كل أرقام التقييمات على الموقع المربوط (لحد 1000)
+$googleIds = [];
+$page = null;
+for ($i = 0; $i < 20; $i++) {
+    $r = $api->getReviews(['limit' => 50, 'page_token' => $page]);
+    if (empty($r['success'])) break;
+    foreach ($r['reviews'] ?? [] as $g) if (!empty($g['id'])) $googleIds[(string) $g['id']] = true;
+    $page = $r['next_page_token'] ?? null;
+    if (!$page) break;
+}
+$say('Reviews on Google', count($googleIds) . ($page ? '+ (stopped at 1000)' : ''));
+$neg = $db->query("SELECT external_review_id FROM reviews WHERE website_id = ? AND source_platform = 'google_business' AND rating <= 3 AND reply_sent_at IS NULL", [(int) $review['website_id']]) ?: [];
+$onGoogle = count(array_filter($neg, static fn ($x) => isset($googleIds[(string) $x['external_review_id']])));
+$say('Unanswered negatives here', count($neg) . ' in the platform · ' . $onGoogle . ' still on Google · ' . (count($neg) - $onGoogle) . ' not on Google');
+
 $found = null;
 $page = null;
 for ($i = 0; $i < 5 && $found === null; $i++) {

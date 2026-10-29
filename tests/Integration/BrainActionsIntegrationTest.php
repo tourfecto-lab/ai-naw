@@ -128,4 +128,28 @@ final class BrainActionsIntegrationTest extends TestCase
         $this->assertSame(2, $second['drafted']);
         $this->assertSame(0, $second['without_draft']);
     }
+
+    public function testReviewsThatAreNoLongerOnGoogleAreSkipped(): void
+    {
+        $on = $this->review(self::USER_ID, 'Late pickup', 1);
+        $gone = $this->review(self::USER_ID, 'Old location review', 1);
+        $onExt = (string) $this->db->query('SELECT external_review_id FROM reviews WHERE id = ?', [$on])[0]['external_review_id'];
+        $svc = new BrainActions($this->db, fn () => 'Sorry about the pickup.', fn (int $websiteId) => [$onExt]);
+
+        $p = $svc->preview(self::USER_ID, 'review_drafts');
+        $this->assertSame(1, $p['without_draft']);
+        $this->assertSame(1, $p['not_on_google']);
+
+        $r = $svc->run(self::USER_ID, 'review_drafts', 10);
+        $this->assertSame(1, $r['drafted']);
+        $this->assertSame('pending', $this->row($on)['reply_status']);
+        $this->assertSame('', (string) $this->row($gone)['ai_generated_reply'], 'مفيش مسودة لتقييم مش على جوجل');
+    }
+
+    public function testUnknownGoogleListDoesNotHideReviews(): void
+    {
+        $this->review(self::USER_ID, 'Late pickup', 1);
+        $svc = new BrainActions($this->db, fn () => 'Sorry.', fn (int $websiteId) => null);
+        $this->assertSame(1, $svc->preview(self::USER_ID, 'review_drafts')['without_draft']);
+    }
 }
