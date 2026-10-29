@@ -322,5 +322,8 @@ html[data-theme="dark"] .ai-chat-split[data-ch="instagram"]{--wa-bg:#000;--wa-pa
 .ai-chat-split[data-ch="instagram"] .ai-chat-item.active{background:var(--wa-active)}
 
 /* the skin follows through to the colours the inbox shell reads from the accent */
-.ai-chat-split[data-ch="messenger"] .wa-send,.ai-chat-split[data-ch="instagram"] .wa-send{background:var(--wa-accent)}
+html body .ai-chat-split[data-ch="messenger"] #ucReplyCard #sendManualBtn{background:#0084ff}
+html body .ai-chat-split[data-ch="instagram"] #ucReplyCard #sendManualBtn{background:linear-gradient(135deg,#7638fa,#d300c5 60%,#ff0069)}
+.ai-chat-split[data-ch="messenger"] .ai-chat-item .ub,.ai-chat-split[data-ch="instagram"] .ai-chat-item .ub{background:var(--wa-accent);color:#fff}
+.ai-chat-split[data-ch="messenger"] .wa-level i,.ai-chat-split[data-ch="instagram"] .wa-level i{background:var(--wa-accent)}
 @media (max-width:640px){.wa-ch-tabs{padding:6px 10px 0}}
