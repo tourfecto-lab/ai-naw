@@ -1220,6 +1220,11 @@ HTML;
             echo $this->renderTourSitePage($page, $slug, $c, $website);
             exit;
         }
+        // الفنادق: الصفحات الداخلية (غرف / من نحن / أسئلة / معرض / تقييمات / سياسات / تواصل) بنفس الشكل الاحترافي لموقع الرحلات (عربي وإنجليزي)
+        if ($industry === 'hotel' && $page !== 'home' && $this->hotelUsesSiteKit($c)) {
+            echo $this->renderHotelSitePage($page, $slug, $c, $website);
+            exit;
+        }
 
         // Phase 5 (Auto-Apply): بنمرر seo_title/seo_description الفعليين من
         // الموديل (اللي دلوقتي ممكن يتحدّثوا تلقائيًا من الـWebsite Optimizer)
@@ -1266,6 +1271,32 @@ HTML;
         return $base . '/sites/' . rawurlencode($slug) . ($this->translationLanguage!==''?'/'.$this->translationLanguage:'');
     }
 
+    /** الفندق يستخدم قالب الصفحات المتعددة بس لو لغة الموقع عربي/إنجليزي (كلمات الغرف متوفرة فيهم) */
+    private function hotelUsesSiteKit(array $c): bool
+    {
+        [$lang] = $this->siteLangAttrs($c);
+        $l = strtolower(substr($this->translationLanguage !== '' ? $this->translationLanguage : (string) $lang, 0, 2));
+        return in_array($l, TourSiteTheme::HOTEL_LANGS, true);
+    }
+
+    /** صفحة داخلية لفندق: الغرف بتتعامل كعناصر القالب، وروابط البطاقات بتروح لصفحة الغرفة */
+    private function renderHotelSitePage(string $page, string $slug, array $c, GeneratedWebsite $website): string
+    {
+        $rooms = [];
+        foreach ((array) ($c['rooms'] ?? []) as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $r['highlights'] = (array) ($r['highlights'] ?? ($r['amenities'] ?? []));
+            $r['includes'] = (array) ($r['includes'] ?? []);
+            $rooms[] = $r;
+        }
+        $c['tours'] = $rooms;
+        $c['_hotel'] = true;
+        $html = $this->renderTourSitePage($page, $slug, $c, $website);
+        return preg_replace('~(href=")(/sites/[^"/]+(?:/[a-z]{2})?)/tours/~', '$1$2/rooms/', $html) ?? $html;
+    }
+
     /** صفحات موقع الرحلات المتاحة (كل واحدة ليها رابط: /sites/{slug}/{page}) */
     public const TOUR_PAGES = ['tours', 'about', 'contact', 'faq', 'reviews', 'gallery', 'terms', 'privacy', 'cancellation-policy'];
 
@@ -1274,6 +1305,7 @@ HTML;
     {
         $T = new TourSiteTheme($this->translationLanguage !== '' ? $this->translationLanguage : $lang, $dir);
         $T->setStyle(TourSiteTheme::pickStyle($c, $slug));
+        $T->setHotel(!empty($c['_hotel']));
         $tours = array_values(array_filter((array) ($c['tours'] ?? []), 'is_array'));
         $contact = (array) ($c['contact'] ?? []);
         $wa = TourSiteTheme::waNumber($contact);
@@ -1429,7 +1461,7 @@ HTML;
                 foreach ($tours as $i => $t) $cards .= $this->tourCardHtml($T, $base, $t, $i);
                 $body = $T->banner($T->t('pg_tours'), $T->t('our_tours_sub'), $heroImg)
                     . '<section class="wsx-sec"><div class="wsx-wrap"><div class="wsx-filter" role="search"><input type="search" id="wsxQ" placeholder="' . $T->h('search') . '" aria-label="' . $T->h('search') . '">'
-                    . '<div class="wsx-seg" id="wsxD">' . implode('', array_map(fn ($kk) => '<button type="button" data-d="' . $kk[0] . '"' . ($kk[0] === '' ? ' class="on"' : '') . '>' . $T->h($kk[1]) . '</button>', [['', 'all_d'], ['half', 'half'], ['full', 'full'], ['multi', 'multi']])) . '</div>'
+                    . '<div class="wsx-seg" id="wsxD"' . (!empty($c['_hotel']) ? ' style="display:none"' : '') . '>' . implode('', array_map(fn ($kk) => '<button type="button" data-d="' . $kk[0] . '"' . ($kk[0] === '' ? ' class="on"' : '') . '>' . $T->h($kk[1]) . '</button>', [['', 'all_d'], ['half', 'half'], ['full', 'full'], ['multi', 'multi']])) . '</div>'
                     . '<select id="wsxS" aria-label="' . $T->h('sort') . '"><option value="">' . $T->h('sort_def') . '</option><option value="low">' . $T->h('sort_low') . '</option><option value="high">' . $T->h('sort_high') . '</option></select></div>'
                     . '<div class="wsx-grid" id="wsxGrid">' . $cards . '</div><p class="wsx-empty" id="wsxNone" hidden>' . $T->h('no_results') . '</p></div></section>'
                     . $this->tourCtaBand($T, $k)
@@ -1551,6 +1583,18 @@ HTML;
 
     private function renderHotelHome(string $slug, array $c, string $seoTitle = '', string $seoDescription = '', string $canonicalUrl = '', string $ogImage = '', string $themeKey = 'gold', string $bodyClass = '', int $websiteId = 0): string
     {
+        // روابط الصفحات الداخلية (غرف / من نحن / أسئلة / تقييمات / تواصل / الشروط / الخصوصية) في الفوتر - عربي وإنجليزي
+        $hotelPageLinks = '';
+        if ($this->hotelUsesSiteKit($c)) {
+            [$hl, $hd] = $this->siteLangAttrs($c);
+            $HT = new TourSiteTheme($this->translationLanguage !== '' ? $this->translationLanguage : $hl, $hd);
+            $HT->setHotel(true);
+            $hb = '/sites/' . rawurlencode($slug) . ($this->translationLanguage !== '' ? '/' . rawurlencode($this->translationLanguage) : '');
+            foreach (['tours' => 'pg_tours', 'about' => 'pg_about', 'reviews' => 'pg_reviews', 'faq' => 'pg_faq', 'contact' => 'pg_contact', 'cancellation-policy' => 'pg_cancel', 'terms' => 'pg_terms', 'privacy' => 'pg_privacy'] as $pg => $key) {
+                $hotelPageLinks .= '<a href="' . htmlspecialchars($hb . '/' . $pg, ENT_QUOTES, 'UTF-8') . '" style="margin:0 10px;color:inherit;opacity:.85">' . $HT->h($key) . '</a>';
+            }
+            $hotelPageLinks = '<nav aria-label="' . $HT->h('menu') . '" style="padding:14px 0;text-align:center">' . $hotelPageLinks . '</nav>';
+        }
         $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
 
@@ -1666,7 +1710,7 @@ HTML;
         <a href="{$whatsappLink}" target="_blank" class="ws-btn">{$this->siteUi('تواصل عبر واتساب')}</a>
     </section>
 
-    <footer class="ws-footer">© {$businessName} - {$this->siteUi('صُمم بواسطة')} Tourfecto</footer>
+    <footer class="ws-footer">{$hotelPageLinks}© {$businessName} - {$this->siteUi('صُمم بواسطة')} Tourfecto</footer>
 </body>
 </html>
 HTML;

@@ -149,6 +149,41 @@ class TourSiteTheme
         return $fit[crc32($slug) % min(3, count($fit))];
     }
 
+    /** كلمات الفنادق (غرفة بدل رحلة) للعربي والإنجليزي؛ باقي اللغات بتفضل على الصفحة الواحدة القديمة للفنادق */
+    public const HOTEL_LANGS = ['ar', 'en'];
+    private const HOTEL = [
+        'en' => [
+            'tours' => 'Rooms', 'view' => 'View room', 'our_tours' => 'Our rooms', 'our_tours_sub' => 'Choose your room, see exactly what is included and book directly with the hotel.',
+            'see_tours' => 'See our rooms', 'direct_d' => 'No middleman: you deal with the people who run your stay.', 'clear_d' => 'Every room lists what is included.',
+            'how1' => 'Choose your room', 'how1d' => 'Compare rooms, size and price.', 'how3' => 'Enjoy your stay', 'how3d' => 'We confirm your booking and welcome you on arrival.',
+            'book_tour' => 'Book this room', 'more' => 'Other rooms you may like', 'all' => 'All rooms', 'wa_home' => 'Hello, I would like to ask about your rooms.',
+            'n_tours' => '%d rooms', 'pg_tours' => 'All rooms', 'search' => 'Search rooms…', 'no_results' => 'No rooms match your search.', 'cta_t' => 'Ready for your stay?',
+            'top' => 'Popular rooms', 'see_all' => 'See all rooms', 'gallery_sub' => 'Moments from our hotel.', 'about_sub' => 'Who we are and how we welcome our guests.',
+            'how_book_q' => 'How do I book a room?', 'how_book_a' => 'Open the room you like and book online, or send us your dates on WhatsApp. We confirm your booking by message.',
+            'cancel_a' => 'Free cancellation up to %d hours before check-in. After that, %s%% of the price is refunded.',
+            'cancel_contact' => 'Please contact us about cancellation for your stay - the conditions depend on the room and dates.', 'tours_n' => 'Rooms',
+            'highlights' => 'Room highlights', 'included' => 'Included in your stay', 'pickup_t' => 'Airport / station transfer', 'pickup_d' => 'Ask us about transfers to and from the hotel.',
+        ],
+        'ar' => [
+            'tours' => 'الغرف', 'view' => 'تفاصيل الغرفة', 'our_tours' => 'غرفنا', 'our_tours_sub' => 'اختار غرفتك، واعرف بالظبط إيه اللي شامل، واحجز مباشرة مع الفندق.',
+            'see_tours' => 'شوف غرفنا', 'direct_d' => 'من غير وسيط: بتتعامل مع الناس اللي بيديروا إقامتك بنفسهم.', 'clear_d' => 'كل غرفة مكتوب فيها إيه اللي شامل.',
+            'how1' => 'اختار غرفتك', 'how1d' => 'قارن بين الغرف والمساحة والسعر.', 'how3' => 'استمتع بإقامتك', 'how3d' => 'بنأكد حجزك ونستقبلك عند الوصول.',
+            'book_tour' => 'احجز الغرفة دي', 'more' => 'غرف تانية ممكن تعجبك', 'all' => 'كل الغرف', 'wa_home' => 'أهلًا، عايز أسأل عن غرفكم.',
+            'n_tours' => '%d غرفة', 'pg_tours' => 'كل الغرف', 'search' => 'دوّر على غرفة…', 'no_results' => 'مفيش غرف مطابقة للبحث.', 'cta_t' => 'جاهز لإقامتك الجاية؟',
+            'top' => 'أشهر الغرف', 'see_all' => 'كل الغرف', 'gallery_sub' => 'لقطات من فندقنا.', 'about_sub' => 'إحنا مين وإزاي بنستقبل ضيوفنا.',
+            'how_book_q' => 'أحجز غرفة إزاي؟', 'how_book_a' => 'افتح الغرفة اللي عاجباك واحجز أونلاين، أو ابعتلنا التواريخ على واتساب، وهنأكد حجزك برسالة.',
+            'cancel_a' => 'الإلغاء مجاني لحد %d ساعة قبل الوصول. بعد كده بيترد %s%% من السعر.',
+            'cancel_contact' => 'كلّمنا بخصوص الإلغاء لإقامتك - الشروط بتختلف حسب الغرفة والتاريخ.', 'tours_n' => 'غرفة',
+            'highlights' => 'أبرز مميزات الغرفة', 'included' => 'الإقامة شاملة', 'pickup_t' => 'توصيل من وإلى المطار / المحطة', 'pickup_d' => 'اسألنا عن خدمة التوصيل من وإلى الفندق.',
+        ],
+    ];
+    private bool $hotel = false;
+
+    public function setHotel(bool $hotel): void
+    {
+        $this->hotel = $hotel && in_array($this->lang, self::HOTEL_LANGS, true);
+    }
+
     private string $style = 'classic';
 
     public function setStyle(string $style): void
@@ -185,7 +220,7 @@ class TourSiteTheme
 
     public function t(string $key, ...$args): string
     {
-        $s = self::T[$this->lang][$key] ?? self::T2[$this->lang][$key] ?? self::T['en'][$key] ?? self::T2['en'][$key] ?? $key;
+        $s = ($this->hotel ? (self::HOTEL[$this->lang][$key] ?? null) : null) ?? self::T[$this->lang][$key] ?? self::T2[$this->lang][$key] ?? self::T['en'][$key] ?? self::T2['en'][$key] ?? $key;
         return $args ? sprintf($s, ...$args) : $s;
     }
 
