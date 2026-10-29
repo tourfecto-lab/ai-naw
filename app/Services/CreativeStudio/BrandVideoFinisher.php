@@ -17,13 +17,7 @@ class BrandVideoFinisher
         if ($width < 64 || $height < 64 || $logoPath === null || $logoPath === '' || !function_exists('imagecreatetruecolor')) {
             return null;
         }
-        $file = (defined('ROOT_PATH') ? ROOT_PATH : '') . '/public_html' . $logoPath;
-        $realBase = realpath((defined('ROOT_PATH') ? ROOT_PATH : '') . '/public_html');
-        $real = is_file($file) ? realpath($file) : false;
-        if (!$real || !$realBase || strpos($real, $realBase . DIRECTORY_SEPARATOR) !== 0) {
-            return null; // never read outside the public folder
-        }
-        $logo = @imagecreatefromstring((string) @file_get_contents($real));
+        $logo = self::loadLogo($logoPath);
         if (!$logo) {
             return null;
         }
@@ -53,6 +47,67 @@ class BrandVideoFinisher
         imagecopyresampled($img, $logo, $x + $pad, $y + $pad, 0, 0, $tw, $th, $lw, $lh);
         imagedestroy($logo);
 
+        ob_start();
+        imagepng($img);
+        $png = (string) ob_get_clean();
+        imagedestroy($img);
+        return $png !== '' ? $png : null;
+    }
+
+    /** @return \GdImage|resource|null the logo bitmap; never reads outside public_html */
+    private static function loadLogo(string $logoPath)
+    {
+        $file = (defined('ROOT_PATH') ? ROOT_PATH : '') . '/public_html' . $logoPath;
+        $realBase = realpath((defined('ROOT_PATH') ? ROOT_PATH : '') . '/public_html');
+        $real = is_file($file) ? realpath($file) : false;
+        if (!$real || !$realBase || strpos($real, $realBase . DIRECTORY_SEPARATOR) !== 0) {
+            return null;
+        }
+        $logo = @imagecreatefromstring((string) @file_get_contents($real));
+        return $logo ?: null;
+    }
+
+    /** Brand colour (#rrggbb) from the palette, falling back to a deep navy. */
+    public static function brandColor(array $palette): array
+    {
+        foreach (['primary', 'main', 'brand', 'accent'] as $k) {
+            $v = $palette[$k] ?? null;
+            if (is_string($v) && preg_match('/^#?([0-9a-f]{6})$/i', trim($v), $m)) {
+                return [hexdec(substr($m[1], 0, 2)), hexdec(substr($m[1], 2, 2)), hexdec(substr($m[1], 4, 2))];
+            }
+        }
+        return [20, 40, 75];
+    }
+
+    /**
+     * Closing frame: the logo centred on the brand colour (logo only: GD cannot shape Arabic text, so no wording is drawn).
+     * @return string|null PNG bytes
+     */
+    public static function endCardPng(int $width, int $height, ?string $logoPath, array $palette = []): ?string
+    {
+        if ($width < 64 || $height < 64 || $logoPath === null || $logoPath === '' || !function_exists('imagecreatetruecolor')) {
+            return null;
+        }
+        $logo = self::loadLogo($logoPath);
+        if (!$logo) {
+            return null;
+        }
+        $lw = imagesx($logo);
+        $lh = imagesy($logo);
+        [$r, $g, $b] = self::brandColor($palette);
+        $img = imagecreatetruecolor($width, $height);
+        imagefill($img, 0, 0, imagecolorallocate($img, $r, $g, $b));
+        $box = $width * 0.6;
+        $scale = min($box / $lw, ($height * 0.26) / $lh);
+        $tw = max(8, (int) round($lw * $scale));
+        $th = max(8, (int) round($lh * $scale));
+        $pad = max(12, (int) round($th * 0.22));
+        $bx = (int) round(($width - $tw) / 2) - $pad;
+        $by = (int) round(($height - $th) / 2) - $pad;
+        imagealphablending($img, true);
+        self::roundedRect($img, $bx, $by, $bx + $tw + 2 * $pad, $by + $th + 2 * $pad, (int) round(($th + 2 * $pad) * 0.2), imagecolorallocate($img, 255, 255, 255));
+        imagecopyresampled($img, $logo, $bx + $pad, $by + $pad, 0, 0, $tw, $th, $lw, $lh);
+        imagedestroy($logo);
         ob_start();
         imagepng($img);
         $png = (string) ob_get_clean();
@@ -103,12 +158,14 @@ class BrandVideoFinisher
             if ($png === null) {
                 return null;
             }
+            $card = self::endCardPng((int) $probe['width'], (int) $probe['height'], $logo, BrandPromptBuilder::palette($brand));
             return VideoEditing::enqueue(
                 (int) $item->getAttribute('user_id'),
                 $id,
                 $png,
                 ['start' => 0, 'end' => min(8, round((float) $probe['duration'], 2)), 'mute' => false],
-                'brandfin_' . $id . '_' . substr(hash('sha256', $id . '|' . $logo), 0, 16)
+                'brandfin_' . $id . '_' . substr(hash('sha256', $id . '|' . $logo), 0, 16),
+                $card
             );
         } catch (Throwable $e) {
             Logger::warning('Branded copy skipped', ['media_item_id' => (int) $item->getAttribute('id'), 'reason' => mb_substr($e->getMessage(), 0, 160)]);

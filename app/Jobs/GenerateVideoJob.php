@@ -4,7 +4,10 @@ class GenerateVideoJob implements QueueJobInterface
     private const MAX_POLL_ATTEMPTS=40;
     private $clientFactory;
     private $fallbackFactory;
+    private $qualityGate;
     public function __construct(?callable $clientFactory=null,?callable $fallbackFactory=null){$this->clientFactory=$clientFactory;$this->fallbackFactory=$fallbackFactory;}
+    /** Test hook: replaces the frame check. */
+    public function withQualityGate(VideoQualityGate $gate): self{$this->qualityGate=$gate;return $this;}
     public function handle(array $payload): void
     {
         $id=(int)($payload['media_item_id']??0);if($id<1||!GenerationLifecycle::lock($id))return;
@@ -30,7 +33,7 @@ class GenerateVideoJob implements QueueJobInterface
                 $item->setAttribute('provider_ref',$r['operation_name']);$item->setAttribute('provider','veo');
                 if(empty($r['video_data'])&&empty($r['video_uri'])){GenerationLifecycle::stage($item,'generating');$this->requeue($item);return;}
                 // Synchronous provider (Gemini Omni): the clip came back with the start answer, finish in this run.
-                GenerationLifecycle::stage($item,'processing');
+                GenerationLifecycle::stage($item,'processing');$syncDone=true;
                 $r=['success'=>true,'done'=>true,'video_uri'=>(string)($r['video_uri']??''),'video_data'=>$r['video_data']??null];
             }else{
                 $attempt=(int)$item->getAttribute('poll_attempts');if($attempt>=self::MAX_POLL_ATTEMPTS && $item->getAttribute('generation_stage')!=='download_failed')throw new RuntimeException('Video polling deadline exceeded');
@@ -42,6 +45,7 @@ class GenerateVideoJob implements QueueJobInterface
             $providerCompleted=true;
             $download=!empty($r['video_data'])?['success'=>true,'data'=>(string)$r['video_data']]:$client->downloadVideo((string)($r['video_uri']??''));if(empty($download['success']))throw new RuntimeException((string)($download['error']??'Video download failed'));
             $path=GeneratedMediaFiles::write($id,(string)($download['data']??''),'mp4');$item->setAttribute('file_path',$path);
+            if(!empty($syncDone))$path=$this->qualityCheck($item,$client,$path,$prompt,$ratio,$secs);
             $meta=json_decode((string)$item->getAttribute('generation_meta'),true)?:[];$size=VideoEditing::nominalSize((string)$item->getAttribute('aspect_ratio'),(string)($meta['options']['resolution']??'720p'));
             $item->setAttribute('width',$size['width']);$item->setAttribute('height',$size['height']);
             try{$poster=VideoEditing::poster(PrivateMedia::resolve($path),$id);if($poster)$item->setAttribute('thumbnail_path',$poster);}catch(Throwable $e){Logger::warning('Video poster unavailable',['media_item_id'=>$id]);}
@@ -54,6 +58,28 @@ class GenerateVideoJob implements QueueJobInterface
                 if($tries<=3)$this->requeue($item);
             } elseif(isset($item)&&$item->getAttribute('status')!=='completed')GenerationLifecycle::fail($item,$e->getMessage());else throw $e;
         }finally{GenerationLifecycle::unlock($id);}
+    }
+    /** Reviews two frames of a freshly generated clip; a clearly broken one (text / logos, deformed people, melted objects) is regenerated once at the platform's cost with a corrective prompt. */
+    private function qualityCheck(MediaItem $item,$client,string $path,string $prompt,string $ratio,int $secs): string
+    {
+        try{
+            if(!$this->qualityGate&&(!CreativeQualityGate::enabled()||!VideoEditing::available()))return $path;
+            $gate=$this->qualityGate?:new VideoQualityGate();$id=(int)$item->getAttribute('id');
+            $review=$gate->review(PrivateMedia::resolve($path),(string)$item->getAttribute('prompt'),(float)$secs,(int)$item->getAttribute('user_id'));
+            if(!$review['checked'])return $path;
+            $meta=json_decode((string)$item->getAttribute('generation_meta'),true)?:[];$meta['qa']=['score'=>$review['score'],'issues'=>$review['issues'],'retried'=>false];
+            if($review['reject']){
+                $r=$client->startGeneration($prompt.' '.CreativeQualityGate::correction($review),$ratio,$secs,$this->providerSettings($item));
+                $bytes=!empty($r['video_data'])?(string)$r['video_data']:(!empty($r['video_uri'])?(string)(($client->downloadVideo((string)$r['video_uri']))['data']??''):'');
+                if(!empty($r['success'])&&$bytes!==''){
+                    $new=GeneratedMediaFiles::write($id,$bytes,'mp4');
+                    try{@unlink(PrivateMedia::resolve($path));}catch(Throwable $e){}
+                    $path=$new;$item->setAttribute('file_path',$path);$meta['qa']['retried']=true;
+                }
+            }
+            $item->setAttribute('generation_meta',json_encode($meta));
+        }catch(Throwable $e){Logger::warning('Video QA skipped',['media_item_id'=>(int)$item->getAttribute('id'),'reason'=>mb_substr($e->getMessage(),0,160)]);}
+        return $path;
     }
     private function providerSettings(MediaItem $item): array
     {

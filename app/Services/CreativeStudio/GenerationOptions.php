@@ -24,6 +24,8 @@ class GenerationOptions
         $ref=$input['reference_id']??0;if(!is_scalar($ref)||!ctype_digit((string)$ref)||strlen((string)$ref)>10)throw new InvalidArgumentException('Invalid reference');$out['reference_id']=(int)$ref;
         $resolution=$input['resolution']??'720p';if(!is_string($resolution)||!in_array($resolution,['720p','1080p','4k'],true)||(!$video&&$resolution!=='720p'))throw new InvalidArgumentException('Invalid resolution');$out['resolution']=$resolution;
         $scene=$input['scene']??'custom';if(!is_string($scene)||!in_array($scene,['custom','arrival','room','experience','destination'],true))throw new InvalidArgumentException('Invalid scene');$out['scene']=$scene;
+        // نسخة الفيديو بشعار الشركة (مجانية): بتتعمل تلقائيًا إلا لو العميل قفلها
+        if($video){$bo=$input['brand_overlay']??'1';if(!in_array($bo,['1','0',1,0,true,false],true))throw new InvalidArgumentException('Invalid brand_overlay');$out['brand_overlay']=in_array($bo,['1',1,true],true);}
         return $out;
     }
     public static function direction(array $o,bool $video=false): string

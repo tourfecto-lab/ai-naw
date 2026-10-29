@@ -505,6 +505,30 @@ final class CreativeStudioModuleIntegrationTest extends TestCase
         $this->assertSame(['startGeneration'], array_column($fake->calls, 'method'), 'no polling and no download call');
     }
 
+    public function testVideoJobRegeneratesOnceWhenTheFrameCheckRejectsTheClip(): void
+    {
+        $id = $this->insertMediaItem(['user_id' => 999600, 'type' => 'short_video', 'prompt' => 'A calm beach', 'aspect_ratio' => '9:16', 'duration_seconds' => 8, 'status' => 'generating']);
+        $mp4 = "   ftypmp42    mp42isom   free";
+        $fake = new CreativeStudioFakeVeo(['success' => true, 'operation_name' => 'omni:qa', 'video_data' => $mp4]);
+        $verdicts = [2, 2, 9, 9];
+        $im = imagecreatetruecolor(64, 64);
+        ob_start();
+        imagepng($im);
+        $frame = (string) ob_get_clean();
+        $gate = new VideoQualityGate(fn () => $frame, new CreativeQualityGate(function () use (&$verdicts) {
+            return ['success' => true, 'data' => json_encode(['score' => array_shift($verdicts) ?? 9, 'issues' => ['garbled text'], 'fix' => 'no text'])];
+        }));
+        $job = (new GenerateVideoJob(fn () => $fake))->withQualityGate($gate);
+        $job->handle(['media_item_id' => $id, 'final_prompt' => 'A calm beach']);
+
+        $row = self::$pdo->query('SELECT * FROM media_items WHERE id = ' . $id)->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame('completed', $row['status']);
+        $this->assertSame(['startGeneration', 'startGeneration'], array_column($fake->calls, 'method'), 'exactly one corrective retry');
+        $this->assertStringContainsString('Corrective re-render', (string) $fake->calls[1]['prompt']);
+        $meta = json_decode((string) $row['generation_meta'], true);
+        $this->assertTrue($meta['qa']['retried']);
+    }
+
     public function testVideoJobSwitchesToOmniWhenTheStoredVeoModelIsRetired(): void
     {
         $id = $this->insertMediaItem(['user_id' => 999600, 'type' => 'short_video', 'prompt' => 'V', 'aspect_ratio' => '9:16', 'duration_seconds' => 8, 'status' => 'generating']);

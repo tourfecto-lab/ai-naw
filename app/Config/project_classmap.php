@@ -236,6 +236,7 @@ return [
     'BrandLearningService' => dirname(__DIR__,2).'/app/Services/CreativeStudio/BrandLearningService.php',
     'BrandProfile' => dirname(__DIR__,2).'/app/Models/BrandProfile.php',
     'BrandVideoFinisher' => dirname(__DIR__,2).'/app/Services/CreativeStudio/BrandVideoFinisher.php',
+    'VideoQualityGate' => dirname(__DIR__,2).'/app/Services/CreativeStudio/VideoQualityGate.php',
     'BrandPromptBuilder' => dirname(__DIR__,2).'/app/Services/CreativeStudio/BrandPromptBuilder.php',
     'BrowserSessionService' => dirname(__DIR__,2).'/app/Services/Auth/BrowserSessionService.php',
     'Business' => dirname(__DIR__,2).'/app/Models/Business.php',

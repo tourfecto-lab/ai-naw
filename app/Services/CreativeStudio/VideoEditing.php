@@ -2,6 +2,7 @@
 /** Bounded FFmpeg jobs with argv execution, validated local files and raster brand overlays. */
 class VideoEditing
 {
+    public const END_CARD_SECONDS=1.5;
     public static function binary(string $name): string
     {
         $value=function_exists('env')?env($name==='ffmpeg'?'MEDIA_FFMPEG_BIN':'MEDIA_FFPROBE_BIN'):null;return is_string($value)&&$value!==''?$value:'/usr/bin/'.$name;
@@ -42,16 +43,25 @@ class VideoEditing
         if(!is_numeric($start)||!is_numeric($end)||!in_array($mute,[true,false,0,1,'0','1'],true))throw new InvalidArgumentException('Invalid editing options');$start=(float)$start;$end=(float)$end;
         if(!is_finite($start)||!is_finite($end)||$start<0||$end>$duration+.05||$end-$start<.5||$end-$start>30)throw new InvalidArgumentException('Invalid trim');return ['start'=>$start,'end'=>$end,'mute'=>(bool)$mute];
     }
-    public static function enqueue(int $userId,int $sourceId,string $overlay,array $input,string $key): MediaItem
+    public static function enqueue(int $userId,int $sourceId,string $overlay,array $input,string $key,?string $endCard=null): MediaItem
     {
-        if(!self::available()||!preg_match('/^[a-zA-Z0-9_-]{16,80}$/D',$key))throw new InvalidArgumentException('Video editing unavailable');$row=PrivateMedia::owned($userId,$sourceId);if($row['type']!=='short_video'||$row['status']!=='completed')throw new InvalidArgumentException('Video unavailable');$probe=self::probe(PrivateMedia::resolve((string)$row['file_path']));$settings=self::settings($input,$probe['duration']);if(strlen($overlay)>ReferenceMedia::MAX_BYTES)throw new InvalidArgumentException('Overlay too large');$image=GeneratedMediaFiles::image(base64_encode($overlay));if($image['extension']!=='png'||$image['width']>1280||$image['height']>1280)throw new InvalidArgumentException('Invalid overlay');
+        if(!self::available()||!preg_match('/^[a-zA-Z0-9_-]{16,80}$/D',$key))throw new InvalidArgumentException('Video editing unavailable');if($endCard!==null){$ec=GeneratedMediaFiles::image(base64_encode($endCard));if($ec['extension']!=='png'||$ec['width']>1280||$ec['height']>1280)throw new InvalidArgumentException('Invalid end card');}$row=PrivateMedia::owned($userId,$sourceId);if($row['type']!=='short_video'||$row['status']!=='completed')throw new InvalidArgumentException('Video unavailable');$probe=self::probe(PrivateMedia::resolve((string)$row['file_path']));$settings=self::settings($input,$probe['duration']);if(strlen($overlay)>ReferenceMedia::MAX_BYTES)throw new InvalidArgumentException('Overlay too large');$image=GeneratedMediaFiles::image(base64_encode($overlay));if($image['extension']!=='png'||$image['width']>1280||$image['height']>1280)throw new InvalidArgumentException('Invalid overlay');
         $gd=@imagecreatefromstring($image['data']);if(!$gd)throw new InvalidArgumentException('Invalid overlay');imagealphablending($gd,false);imagesavealpha($gd,true);ob_start();imagepng($gd);$clean=ob_get_clean();imagedestroy($gd);if(!is_string($clean))throw new RuntimeException('Overlay read failed');$overlayPath=null;
-        try{return Database::getInstance()->transaction(function()use($userId,$sourceId,$row,$probe,$settings,$key,$clean,&$overlayPath){
+        try{return Database::getInstance()->transaction(function()use($userId,$sourceId,$row,$probe,$settings,$key,$clean,$endCard,&$overlayPath){
             $pdo=Database::getInstance()->getConnection();$lock=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$s=$pdo->prepare('SELECT id FROM users WHERE id=?'.$lock);$s->execute([$userId]);if(!$s->fetchColumn())throw new RuntimeException('Owner unavailable');$s=$pdo->prepare('SELECT * FROM media_items WHERE user_id=? AND request_key=?');$s->execute([$userId,$key]);$prior=$s->fetch(PDO::FETCH_ASSOC);if($prior)return new MediaItem($prior);
             $s=$pdo->prepare("SELECT COUNT(*) FROM media_items WHERE user_id=? AND status='generating' AND (generation_stage IS NULL OR generation_stage<>'download_failed')");$s->execute([$userId]);if((int)$s->fetchColumn()>=2)throw new InvalidArgumentException('Active job limit reached');$queue=Container::getInstance()->make(QueueManager::class);if(!$queue->isReady())throw new RuntimeException('Editing queue unavailable');
             $meta=['source'=>'video_editor','parent_id'=>$sourceId,'edit'=>$settings,'billing'=>['source'=>'edit','amount'=>0,'currency'=>'USD','settled'=>true]];$item=new MediaItem(['user_id'=>$userId,'type'=>'short_video','prompt'=>'Edited video — #'.$sourceId,'aspect_ratio'=>$row['aspect_ratio'],'duration_seconds'=>(int)ceil($settings['end']-$settings['start']),'width'=>$probe['width'],'height'=>$probe['height'],'status'=>'generating','generation_stage'=>'queued','usage_charged'=>1,'request_key'=>$key,'generation_meta'=>json_encode($meta,JSON_THROW_ON_ERROR)]);GenerationLifecycle::save($item);
-            $overlayPath=GeneratedMediaFiles::write((int)$item->getAttribute('id'),$clean,'png');$meta['overlay']=$overlayPath;$item->setAttribute('generation_meta',json_encode($meta,JSON_THROW_ON_ERROR));$job=$queue->push(RenderCreativeVideoJob::class,['media_item_id'=>(int)$item->getAttribute('id')],'media');if(!$job)throw new RuntimeException('Editing queue rejected');$item->setAttribute('job_id',(int)$job);GenerationLifecycle::save($item);return $item;
+            $overlayPath=GeneratedMediaFiles::write((int)$item->getAttribute('id'),$clean,'png');$meta['overlay']=$overlayPath;if($endCard!==null)$meta['endcard']=GeneratedMediaFiles::write((int)$item->getAttribute('id'),$endCard,'png');$item->setAttribute('generation_meta',json_encode($meta,JSON_THROW_ON_ERROR));$job=$queue->push(RenderCreativeVideoJob::class,['media_item_id'=>(int)$item->getAttribute('id')],'media');if(!$job)throw new RuntimeException('Editing queue rejected');$item->setAttribute('job_id',(int)$job);GenerationLifecycle::save($item);return $item;
         });}catch(Throwable $e){if($overlayPath)try{@unlink(PrivateMedia::resolve($overlayPath));}catch(Throwable $ignored){error_log('[VideoEditing] ignored error: ' . $ignored->getMessage());}throw $e;}
+    }
+    /** Filter graph for the branded copy: logo overlay on the clip, then a short brand end card (input 2) after it. Pure string builder so it can be unit-tested. */
+    public static function endCardFilter(int $width,int $height,float $clipSeconds,bool $audio): string
+    {
+        $size=$width.':'.$height;$d=rtrim(rtrim(number_format($clipSeconds,3,'.',''),'0'),'.');
+        $v='[0:v]scale='.$size.'[base];[1:v]scale='.$size.'[mark];[base][mark]overlay=0:0:format=auto,trim=duration='.$d.',setpts=PTS-STARTPTS,fps=30,format=yuv420p,setsar=1[vm];'
+          .'[2:v]scale='.$size.',fps=30,format=yuv420p,setsar=1,fade=t=in:st=0:d=0.3[ve];';
+        if(!$audio)return $v.'[vm][ve]concat=n=2:v=1:a=0[v]';
+        return $v.'[0:a]aresample=44100,apad,atrim=duration='.$d.',asetpts=PTS-STARTPTS[a0];anullsrc=r=44100:cl=stereo,atrim=duration='.self::END_CARD_SECONDS.'[a1];[vm][a0][ve][a1]concat=n=2:v=1:a=1[v][a]';
     }
     public static function hasAudio(string $file): bool
     {
