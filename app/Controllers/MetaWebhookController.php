@@ -109,8 +109,17 @@ class MetaWebhookController extends Controller
                 if ($text === '') {
                     [$text, $media] = self::describeAttachment($message, $event);
                 }
-                // رسايلنا إحنا (echo) أو من غير نص: مفيش حاجة نرد عليها
-                if (!empty($message['is_echo']) || $senderId === '' || $senderId === $accountId || $text === '') {
+                // A reply sent from outside the platform (Page inbox, Business Suite, Instagram app) arrives as an echo:
+                // keep it in the thread and pause the AI. Echoes of our own sends are recognised and dropped.
+                if (!empty($message['is_echo'])) {
+                    $customer = (string) ($event['recipient']['id'] ?? '');
+                    $res = $customer === '' ? 'empty' : MetaDmEcho::store($websiteId, (int) $rows[0]['user_id'], $platform, $customer, $message);
+                    $total['skipped']++;
+                    MetaWebhookLog::add(['result' => 'echo_' . $res, 'object' => $platform, 'account' => $accountId]);
+                    continue;
+                }
+                // من غير نص: مفيش حاجة نرد عليها
+                if ($senderId === '' || $senderId === $accountId || $text === '') {
                     $total['skipped']++;
                     MetaWebhookLog::add(['result' => 'skipped', 'object' => $platform, 'account' => $accountId, 'echo' => !empty($message['is_echo']), 'has_text' => $text !== '', 'keys' => implode(',', array_keys($event))]);
                     continue;

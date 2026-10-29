@@ -103,7 +103,7 @@ class UnifiedInboxService
                 $userId,
                 'ai_chat_new_conversation',
                 'New AI Chat conversation',
-                'New ' . $channel . ' conversation from ' . ($customerInfo['name'] ?: ($customerInfo['phone'] ?? 'a customer')),
+                'New ' . $channel . ' conversation from ' . (($customerInfo['name'] ?? null) ?: ($customerInfo['phone'] ?? 'a customer')),
                 '/ai-chat/conversations/' . $conversation->getAttribute('id')
             );
         } catch (Exception $e) {

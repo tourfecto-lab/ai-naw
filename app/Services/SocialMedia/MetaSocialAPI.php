@@ -994,7 +994,7 @@ class MetaSocialAPI
      */
     public function subscribeMessaging(string $pageId, string $pageAccessToken): array
     {
-        return $this->post($pageId . '/subscribed_apps', ['subscribed_fields' => 'messages,messaging_postbacks'], $pageAccessToken);
+        return $this->post($pageId . '/subscribed_apps', ['subscribed_fields' => 'messages,messaging_postbacks,message_echoes'], $pageAccessToken);
     }
 
     /** إلغاء اشتراك الصفحة: رسائلها مش هتوصل للمنصة تاني */
