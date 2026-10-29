@@ -1,0 +1,49 @@
+/* Tourfecto - العقل الاستراتيجي */
+#brainRoot { display: grid; gap: 16px; }
+.br-card { background: var(--panel-card-bg, #fff); border: 1px solid var(--panel-border, #e5e7eb); border-radius: 14px; padding: 20px; }
+.br-card h2 { margin: 0 0 6px; font-size: 20px; }
+.br-card h3 { margin: 0 0 6px; font-size: 17px; }
+.br-muted { margin: 0; color: var(--panel-text-muted, #6b7280); font-size: 13.5px; line-height: 1.75; }
+.br-head { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; margin-bottom: 14px; }
+.br-head > div:first-child { flex: 1 1 320px; }
+.br-meter, .br-results { display: grid; justify-items: center; padding: 10px 16px; border-radius: 12px; background: var(--panel-card-bg-2, #f3f4f6); min-width: 120px; }
+.br-meter b, .br-results b { font-size: 24px; }
+.br-meter span, .br-results span { font-size: 12.5px; font-weight: 600; }
+.br-results small { font-size: 12px; color: var(--panel-text-muted, #6b7280); }
+.br-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.br-fact { padding: 10px 12px; border-radius: 10px; background: var(--panel-card-bg-2, #f9fafb); }
+.br-fact span { display: block; font-size: 12px; font-weight: 700; color: var(--panel-text-muted, #6b7280); margin-bottom: 4px; }
+.br-fact p { margin: 0; font-size: 14px; line-height: 1.7; }
+.br-fact em { color: var(--panel-warning, #b45309); font-style: normal; }
+.br-gaps { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13.5px; }
+.br-gaps span { padding: 2px 10px; border-radius: 999px; background: var(--panel-warning-light, #fffbeb); }
+.br-gaps a { font-weight: 700; color: var(--panel-primary, #2563eb); text-decoration: none; }
+.br-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
+.br-tile { padding: 12px 14px; border-radius: 12px; background: var(--panel-card-bg-2, #f9fafb); display: grid; gap: 2px; }
+.br-tile b { font-size: 20px; }
+.br-tile span { font-size: 13px; font-weight: 600; }
+.br-tile small { font-size: 12px; color: var(--panel-text-muted, #6b7280); }
+.br-evidence { margin-top: 12px; font-size: 13px; }
+.br-evidence summary, .br-past summary { cursor: pointer; font-weight: 700; }
+.br-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.br-past { margin-top: 14px; }
+.br-past .br-list { margin-top: 10px; }
+.br-decision { border: 1px solid var(--panel-border, #e5e7eb); border-radius: 12px; padding: 14px 16px; }
+.br-decision.approved { border: 2px solid var(--panel-primary, #2563eb); }
+.br-decision.dismissed, .br-decision.resolved { opacity: .8; }
+.br-decision h4 { margin: 6px 0 4px; font-size: 15.5px; }
+.br-decision > p { margin: 0; font-size: 14px; line-height: 1.75; color: var(--panel-text-muted, #6b7280); }
+.br-dhead { display: flex; gap: 6px; flex-wrap: wrap; }
+.br-area, .br-status, .br-spend { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--panel-card-bg-2, #f3f4f6); }
+.br-status { background: var(--panel-info-light, #eff6ff); }
+.br-spend { background: var(--panel-warning-light, #fffbeb); }
+.br-proof { margin: 8px 0 0; padding-inline-start: 18px; font-size: 13px; }
+.br-outcome { margin: 8px 0 0; font-weight: 700; font-size: 13.5px; }
+.br-outcome.improved { color: var(--panel-success, #16a34a); }
+.br-outcome.worse { color: var(--panel-danger, #dc2626); }
+.br-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.br-done { margin: 0; color: var(--panel-success, #16a34a); font-weight: 700; }
+.br-note { margin: 0; padding: 12px 16px; border-radius: 10px; background: var(--panel-success-light, #ecfdf5); }
+.br-note.error { background: var(--panel-danger-light, #fef2f2); }
+.br-site { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+@media (max-width: 640px) { .br-card { padding: 14px; } .br-actions .p-btn { flex: 1 1 auto; text-align: center; } }

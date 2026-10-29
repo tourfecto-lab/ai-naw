@@ -446,6 +446,8 @@ abstract class Controller
         // (sectionTabsHtml) - نفس الروابط ونفس الـ feature flags، مفيش صفحة اتشالت.
         $home = [
             'overview' => [t('sidebar.overview'), 'bar-chart-2', '/dashboard'],
+            // العقل الاستراتيجي: صورة الشركة كلها وقراراتها المرتبة ونتيجة كل قرار
+            'brain' => [$L('العقل الاستراتيجي', 'Strategic brain'), 'zap', '/brain'],
             'ai_assistant' => [t('sidebar.ai_assistant'), 'sparkles', '/ai-assistant'],
             'automation' => [$L('مركز الأتمتة', 'Automation Center'), 'zap', '/automation'],
         ];
@@ -709,6 +711,7 @@ abstract class Controller
                 ['/chat/settings', $L('⚙️ الإعدادات والربط', '⚙️ Settings'), 'ai_chat_settings'],
             ],
             'results' => [
+                ['/brain', $L('🧠 العقل الاستراتيجي', '🧠 Strategic brain'), 'brain'],
                 ['/dashboard/executive', $L('🧭 الملخص التنفيذي', '🧭 Executive summary'), 'executive'],
                 ['/revenue', $L('💰 الإيرادات', '💰 Revenue'), 'revenue'],
                 ['/revenue/intelligence', $L('🔮 توقعات الإيرادات', '🔮 Revenue forecast'), 'revenue_intelligence'],

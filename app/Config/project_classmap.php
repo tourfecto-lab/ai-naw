@@ -1,6 +1,11 @@
 <?php
 // Generated release map. Rebuild via tools/build_project_classmap.php after code changes.
 return [
+    'BrainController' => dirname(__DIR__,2).'/app/Controllers/BrainController.php',
+    'BrainDecisionStore' => dirname(__DIR__,2).'/app/Services/Brain/BrainDecisionStore.php',
+    'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
+    'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
+    'StrategicDecisions' => dirname(__DIR__,2).'/app/Services/Brain/StrategicDecisions.php',
     'TeamAccess' => dirname(__DIR__,2).'/app/Services/TeamAccess.php',
     'StripeConnectOAuth' => dirname(__DIR__,2).'/app/Services/Payment/StripeConnectOAuth.php',
     'WhatsAppQrGateway' => dirname(__DIR__,2).'/app/Services/Chat/WhatsAppQrGateway.php',
