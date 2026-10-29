@@ -2,7 +2,7 @@
    WhatsApp skin for every page of the chat module (body.tab-chat is added by Core\Controller for the chat tab).
    Same palette as the inbox. White-on-green uses #008069 (5:1); the brighter #00a884 is only used for accents.
    ============================================================ */
-body.tab-chat{--wa-page:#f0f2f5;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e9edef;--wa-text:#111b21;--wa-sub:#667781;--wa-green:#008069;--wa-green-2:#00a884;--wa-active:#f0f2f5}
+body.tab-chat{--wa-page:#f0f2f5;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e9edef;--wa-text:#111b21;--wa-sub:#54656f;--wa-green:#008069;--wa-green-2:#00a884;--wa-active:#f0f2f5}
 html[data-theme="dark"] body.tab-chat{--wa-page:#0b141a;--wa-panel:#111b21;--wa-header:#202c33;--wa-line:#222d34;--wa-text:#e9edef;--wa-sub:#8696a0;--wa-green:#008069;--wa-green-2:#00a884;--wa-active:#2a3942}
 body.tab-chat .panel-content{background:var(--wa-page)}
 body.tab-chat .p-card{background:var(--wa-panel);border-color:var(--wa-line);border-radius:12px;box-shadow:none}

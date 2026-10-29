@@ -733,7 +733,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             @media (max-width: 960px) { .ai-chat-split { grid-template-columns: 1fr; } .ai-chat-list { max-height: 320px; } }
             @media (max-width: 560px) { .q-row { grid-template-columns: 1fr 64px 90px; } .q-row .q-del { grid-column:3; } }
             /* ===== WhatsApp-style inbox (colours/shape follow the official app; markup and JS are unchanged) ===== */
-            .ai-chat-split{--wa-bg:#efeae2;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e9edef;--wa-in:#fff;--wa-out:#d9fdd3;--wa-text:#111b21;--wa-sub:#667781;--wa-accent:#00a884;--wa-active:#f0f2f5;--wa-tick:#53bdeb;--wa-pill:#fff;--wa-shadow:0 1px .5px rgba(11,20,26,.13)}
+            .ai-chat-split{--wa-bg:#efeae2;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e9edef;--wa-in:#fff;--wa-out:#d9fdd3;--wa-text:#111b21;--wa-sub:#54656f;--wa-accent:#00a884;--wa-active:#f0f2f5;--wa-tick:#53bdeb;--wa-pill:#fff;--wa-shadow:0 1px .5px rgba(11,20,26,.13)}
             html[data-theme="dark"] .ai-chat-split{--wa-bg:#0b141a;--wa-panel:#111b21;--wa-header:#202c33;--wa-line:#222d34;--wa-in:#202c33;--wa-out:#005c4b;--wa-text:#e9edef;--wa-sub:#8696a0;--wa-accent:#00a884;--wa-active:#2a3942;--wa-tick:#53bdeb;--wa-pill:#182229;--wa-shadow:0 1px .5px rgba(11,20,26,.4)}
             .ai-chat-split{gap:0;border:1px solid var(--wa-line);border-radius:12px;overflow:hidden;background:var(--wa-panel);align-items:stretch;min-height:540px;box-shadow:0 6px 24px -12px rgba(11,20,26,.35)}
             .ai-chat-split .ai-chat-list-card{border:0;border-radius:0;background:var(--wa-panel);border-inline-end:1px solid var(--wa-line);box-shadow:none}
