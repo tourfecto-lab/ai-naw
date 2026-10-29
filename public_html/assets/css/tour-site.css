@@ -367,3 +367,6 @@ html[lang="ar"] .wsx-s-minimal .wsx-h2 { font-weight: 700; }
     .wsx-link, .wsx-foot a, .wsx-footer a, .wsx-brand-inv { display: inline-block; min-height: 44px; line-height: 44px; }
     .wsx-foot li, .wsx-footer li { margin: 0; }
 }
+
+/* the first screen paints first: sections below it are laid out when scrolled near (keeps the intrinsic height so the scrollbar stays stable) */
+.wsx-sec ~ .wsx-sec { content-visibility: auto; contain-intrinsic-size: auto 520px; }

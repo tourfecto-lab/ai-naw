@@ -1408,7 +1408,8 @@ HTML;
                     . ($revCards !== '' ? '<section class="wsx-sec"><div class="wsx-wrap"><div class="wsx-head-row"><h2 class="wsx-h2">' . $T->h('reviews_sub') . '</h2><a class="wsx-link" href="' . $e($base . '/reviews') . '">' . $T->h('pg_reviews') . ' ›</a></div><div class="wsx-quotes">' . $revCards . '</div></div></section>' : '')
                     . '<section class="wsx-sec' . ($revCards !== '' ? ' alt' : '') . '"><div class="wsx-wrap"><div class="wsx-head-row"><h2 class="wsx-h2">' . $T->h('faq') . '</h2><a class="wsx-link" href="' . $e($base . '/faq') . '">' . $T->h('faq_more') . ' ›</a></div><div class="wsx-faq wsx-faq-wide">' . $faqPrev . '</div></div></section>'
                     . $this->tourCtaBand($T, $k);
-                $extraHead = $this->siteSchemaTag('home', $c, $siteUrl, $k['websiteId']);
+                $extraHead = $this->siteSchemaTag('home', $c, $siteUrl, $k['websiteId'])
+                    . ($heroImg !== '' ? '<link rel="preload" as="image" href="' . $e($heroImg) . '" fetchpriority="high">' : '');
                 break;
 
             case 'tours':
