@@ -141,6 +141,27 @@ final class BrainDecisionStoreIntegrationTest extends TestCase
         $this->assertCount(1, $this->tasks);
     }
 
+    public function testAdminCanStopAutonomyAndCapDailyActions(): void
+    {
+        $store = $this->store();
+        $store->setAutonomy(self::USER_ID, true);
+        try {
+            BrainConfig::save($this->db, ['brain_autonomy_allowed' => false]);
+            $this->assertSame('proposed', $store->sync(self::USER_ID, self::WEBSITE_ID, $this->snapshot(2))[0]['status']);
+            $this->assertCount(0, $this->tasks);
+
+            BrainConfig::save($this->db, ['brain_autonomy_allowed' => true, 'brain_auto_actions_per_day' => 0]);
+            $this->assertSame('proposed', $store->sync(self::USER_ID, self::WEBSITE_ID, $this->snapshot(2))[0]['status']);
+
+            BrainConfig::save($this->db, ['brain_auto_actions_per_day' => 10]);
+            $this->assertSame('approved', $store->sync(self::USER_ID, self::WEBSITE_ID, $this->snapshot(2))[0]['status']);
+            $this->assertSame(1, $store->autoExecutedToday(self::USER_ID));
+        } finally {
+            $this->db->query("DELETE FROM system_settings WHERE setting_key IN ('brain_autonomy_allowed','brain_auto_actions_per_day')");
+            BrainConfig::reset();
+        }
+    }
+
     public function testVanishedCauseResolvesOnlyWhenMeasurable(): void
     {
         $store = $this->store();

@@ -118,6 +118,7 @@
 
     function render() {
       if (!data) return;
+      if (data.disabled) { root.innerHTML = `<section class="br-card"><h3>${t('العقل الاستراتيجي متوقف مؤقتًا', 'The strategic brain is paused')}</h3><p class="br-muted">${t('الإدارة وقفته مؤقتًا. خدماتك كلها شغالة عادي.', 'It was paused by the platform team. All your services keep working.')}</p></section>`; return; }
       const sites = data.websites || [];
       if (!sites.length) { root.innerHTML = `<section class="br-card"><h3>${t('ضيف موقعك الأول', 'Add your website first')}</h3><a class="p-btn" href="/websites">${t('ضيف موقع', 'Add website')}</a></section>`; return; }
       const s = data.snapshot;

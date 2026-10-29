@@ -3931,6 +3931,7 @@ HTML;
                 'ai-usage' => [$this->tr('admin.nav.ai_usage'), 'brain', '/admin/ai-usage'],
                 'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
                 'ai-service-routing' => ['توزيع خدمات AI', 'settings', '/admin/ai-routing'],
+                'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
                 'creative-studio-ops' => ['استوديو الوسائط', 'image', '/admin/creative-studio'],
                 'team' => [$this->tr('admin.nav.team'), 'key', '/admin/team'],
                 'settings' => [$this->tr('admin.nav.settings'), 'settings', '/admin/settings'],

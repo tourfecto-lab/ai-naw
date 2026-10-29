@@ -14,6 +14,8 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../app/Services/Brain/MarketIntelligenceService.php';
 
 $db = Database::getInstance();
+require_once __DIR__ . '/../app/Services/Brain/BrainConfig.php';
+if (!BrainConfig::get('brain_market_enabled', $db)) { echo gmdate('c') . ' market data disabled by admin' . PHP_EOL; exit(0); }
 $svc = new MarketIntelligenceService($db);
 $scopes = [];
 foreach ($db->query('SELECT facts_json FROM business_hub_profiles ORDER BY updated_at DESC LIMIT 500') ?: [] as $row) {

@@ -22,6 +22,8 @@ class BrainController extends Controller
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         header('Cache-Control: no-store, private');
         try {
+            // الأدمن قافل العقل للكل
+            if (!BrainConfig::get('brain_enabled', $this->db)) return $this->success(['disabled' => true, 'websites' => [], 'snapshot' => null, 'decisions' => [], 'results' => []]);
             [$uid, $wid, $sites] = $this->site();
             if (!$wid) return $this->success(['websites' => [], 'snapshot' => null, 'decisions' => [], 'results' => []]);
             $snapshot = (new CompanyBrainService($this->db))->snapshot($uid, $wid);
@@ -30,7 +32,7 @@ class BrainController extends Controller
             $sharing = new SharedIntelligence($this->db);
             $optedIn = $sharing->optedIn($uid);
             $patterns = $optedIn ? $sharing->patterns() : [];
-            $autonomy = $store->autonomy($uid);
+            $autonomy = $store->autonomy($uid) && (bool) BrainConfig::get('brain_autonomy_allowed', $this->db);
             return $this->success(['websites' => $sites, 'website_id' => $wid, 'snapshot' => $snapshot, 'decisions' => $store->sync($uid, $wid, $snapshot, $patterns, $autonomy, current_lang() === 'en' ? 'en' : 'ar'), 'results' => $store->results($uid, $wid),
                 'sharing' => ['opted_in' => $optedIn, 'patterns' => count($patterns), 'min_companies' => SharedIntelligence::MIN_COMPANIES], 'autonomy' => $autonomy]);
         } catch (InvalidArgumentException $e) {

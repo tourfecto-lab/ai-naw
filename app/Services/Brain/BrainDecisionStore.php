@@ -2,6 +2,7 @@
 require_once __DIR__ . '/BrainSchema.php';
 require_once __DIR__ . '/StrategicDecisions.php';
 require_once __DIR__ . '/BrainExecutor.php';
+require_once __DIR__ . '/BrainConfig.php';
 
 /**
  * Tourfecto - العقل الاستراتيجي: حفظ القرارات وقياس نتيجتها (الحلقة: قرار ← موافقة ← تنفيذ ← قياس ← تعلّم)
@@ -30,6 +31,16 @@ final class BrainDecisionStore
     private function executor(): BrainExecutor
     {
         return $this->executor ??= new BrainExecutor($this->db);
+    }
+
+    /** عدد القرارات اللي اتنفّذت للشركة النهارده (لحد التنفيذ التلقائي اليومي) */
+    public function autoExecutedToday(int $uid): int
+    {
+        try {
+            return (int) ($this->db->query("SELECT COUNT(*) AS c FROM action_executions WHERE user_id = ? AND source_type = 'brain' AND created_at >= CURDATE()", [$uid])[0]['c'] ?? 0);
+        } catch (Throwable $e) {
+            return 0;
+        }
     }
 
     /** التشغيل الذاتي: مقفول افتراضيًا */
@@ -103,9 +114,12 @@ final class BrainDecisionStore
             $this->db->query('UPDATE brain_decisions SET status = ?, result_value = ?, outcome = ?, measured_at = ? WHERE id = ? AND user_id = ?',
                 [$gone ? 'resolved' : 'done', $after, $outcome, $now, (int) $row['id'], $uid]);
         }
-        // التشغيل الذاتي: القرارات المقترحة اللي مافيهاش صرف بتتوافق وتتنفّذ (مهمة + تنبيه) من غير ما حد يدوس
-        if ($autonomy ?? $this->autonomy($uid)) {
-            foreach ($this->db->query("SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ? AND status = 'proposed' AND requires_spend = 0", [$uid, $wid]) ?: [] as $row) {
+        // التشغيل الذاتي: القرارات المقترحة اللي مافيهاش صرف بتتوافق وتتنفّذ (مهمة + تنبيه) من غير ما حد يدوس.
+        // الأدمن يقدر يقفله للكل، ويحدد أقصى عدد في اليوم لكل شركة (الأعلى أولوية الأول)
+        if (($autonomy ?? $this->autonomy($uid)) && BrainConfig::get('brain_autonomy_allowed', $this->db)) {
+            $left = BrainConfig::get('brain_auto_actions_per_day', $this->db) - $this->autoExecutedToday($uid);
+            foreach ($this->db->query("SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ? AND status = 'proposed' AND requires_spend = 0 ORDER BY priority DESC, id ASC", [$uid, $wid]) ?: [] as $row) {
+                if ($left-- <= 0) break;
                 $this->approveAndExecute($uid, $wid, $row, $snapshot, $lang);
             }
         }

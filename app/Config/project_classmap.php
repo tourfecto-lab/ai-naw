@@ -1,6 +1,8 @@
 <?php
 // Generated release map. Rebuild via tools/build_project_classmap.php after code changes.
 return [
+    'BrainAdminController' => dirname(__DIR__,2).'/app/Controllers/BrainAdminController.php',
+    'BrainConfig' => dirname(__DIR__,2).'/app/Services/Brain/BrainConfig.php',
     'BrainController' => dirname(__DIR__,2).'/app/Controllers/BrainController.php',
     'BrainDecisionStore' => dirname(__DIR__,2).'/app/Services/Brain/BrainDecisionStore.php',
     'BrainExecutor' => dirname(__DIR__,2).'/app/Services/Brain/BrainExecutor.php',

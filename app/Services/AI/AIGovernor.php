@@ -109,15 +109,46 @@ class AIGovernor
         return !($v !== null && in_array(strtolower((string) $v), ['0', 'false', 'off', 'no'], true));
     }
 
+    /** @var array<string,string>|null حدود الأدمن من system_settings (ai_limit_per_day ...) — بتسبق .env */
+    private static ?array $adminLimits = null;
+
+    /** القيمة اللي الأدمن حددها من لوحة العقل، أو null عشان نرجع لـ .env (أي خطأ = .env) */
+    private static function adminLimit(string $key): ?string
+    {
+        if (self::$adminLimits === null) {
+            self::$adminLimits = [];
+            try {
+                foreach (Database::getInstance()->query("SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('ai_limit_per_minute','ai_limit_per_day','ai_limit_usd_per_day','ai_limit_usd_per_month')") ?: [] as $r) {
+                    if (is_numeric($r['setting_value'])) self::$adminLimits[$r['setting_key']] = (string) $r['setting_value'];
+                }
+            } catch (Throwable $e) {
+                // fail-open: نكمّل بإعدادات .env
+            }
+        }
+        return self::$adminLimits[strtolower($key)] ?? null;
+    }
+
+    /** الحدود الفعلية دلوقتي (للوحة الأدمن) */
+    public static function effectiveLimits(): array
+    {
+        return ['enabled' => self::enabled(), 'per_minute' => self::limit('AI_LIMIT_PER_MINUTE', 20), 'per_day' => self::limit('AI_LIMIT_PER_DAY', 400),
+            'usd_per_day' => self::limitFloat('AI_LIMIT_USD_PER_DAY', 0.0), 'usd_per_month' => self::limitFloat('AI_LIMIT_USD_PER_MONTH', 0.0)];
+    }
+
+    public static function resetAdminLimits(): void
+    {
+        self::$adminLimits = null;
+    }
+
     private static function limit(string $key, int $default): int
     {
-        $v = function_exists('env') ? env($key) : null;
+        $v = self::adminLimit($key) ?? (function_exists('env') ? env($key) : null);
         return ($v === null || $v === false || $v === '') ? $default : max(0, (int) $v);
     }
 
     private static function limitFloat(string $key, float $default): float
     {
-        $v = function_exists('env') ? env($key) : null;
+        $v = self::adminLimit($key) ?? (function_exists('env') ? env($key) : null);
         return ($v === null || $v === false || $v === '') ? $default : max(0.0, (float) $v);
     }
 

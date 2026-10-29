@@ -4,6 +4,7 @@ require_once __DIR__ . '/../Growth/GrowthSignalsService.php';
 require_once __DIR__ . '/../BusinessHub/BusinessHubService.php';
 require_once __DIR__ . '/MarketIntelligenceService.php';
 require_once __DIR__ . '/GrowthAdvisor.php';
+require_once __DIR__ . '/BrainConfig.php';
 
 /**
  * Tourfecto - العقل الاستراتيجي لكل شركة (الفهم)
@@ -62,7 +63,7 @@ final class CompanyBrainService
 
         // ذكاء السوق: الوجهة والأسواق من نص الشركة نفسه، والأرقام من مصادر رسمية عامة
         $place = MarketIntelligenceService::detect((string) ($facts['business_facts'] ?? ''), (string) ($facts['audience'] ?? ''), (array) ($growth['markets']['countries'] ?? []));
-        $market = $this->safe(fn () => (new MarketIntelligenceService($this->db))->forCompany($place['destination'], $place['markets'], $growth['lead_time_days'] ?? null, $refreshMarket));
+        $market = $this->safe(fn () => (new MarketIntelligenceService($this->db))->forCompany($place['destination'], $place['markets'], $growth['lead_time_days'] ?? null, $refreshMarket && BrainConfig::get('brain_market_enabled', $this->db)));
         if ($market) $market['markets_default'] = $place['markets_default'];
 
         $policy = json_decode((string) ($seoSite['policy_json'] ?? ''), true) ?: [];
