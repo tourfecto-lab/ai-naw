@@ -909,6 +909,10 @@ $router->get('/api/ads/campaigns/{id}/copies', 'AdsController', 'listCopies', ['
 $router->post('/api/ads/campaigns/{id}/generate-copies', 'AdsController', 'generateCopies', ['AuthMiddleware', 'PlanGateMiddleware:ai_tool']);
 $router->patch('/api/ads/copies/{id}/approve', 'AdsController', 'approveCopy', ['AuthMiddleware']);
 $router->patch('/api/ads/copies/{id}/reject', 'AdsController', 'rejectCopy', ['AuthMiddleware']);
+$router->get('/api/ads/tiktok/status', 'TikTokAdsController', 'status', ['AuthMiddleware']);
+$router->post('/api/ads/tiktok/choose-account', 'TikTokAdsController', 'chooseAccount', ['AuthMiddleware']);
+$router->post('/api/ads/tiktok/disconnect', 'TikTokAdsController', 'disconnect', ['AuthMiddleware']);
+$router->post('/api/ads/campaigns/{id}/publish-tiktok', 'TikTokAdsController', 'publish', ['AuthMiddleware']);
 $router->get('/api/ads/meta/status', 'AdsController', 'getMetaConnectionStatus', ['AuthMiddleware']);
 $router->post('/api/ads/meta/choose-account', 'AdsController', 'chooseMetaAdAccount', ['AuthMiddleware']);
 $router->post('/api/ads/meta/sync', 'AdsController', 'syncMetaCampaigns', ['AuthMiddleware']);

@@ -107,6 +107,11 @@ class AdsController extends Controller
             <div id="googleAdsConnectionStatus"><div class="p-loading-row">جارِ التحميل...</div></div>
         </div>
 
+        <div class="p-card" id="tiktokAdsConnectCard" style="margin-bottom:16px;display:none;">
+            <div class="p-card-head"><h3>TikTok Ads</h3><span class="p-card-sub">إعلانات فيديو على تيك توك - بتتنشر متوقفة</span></div>
+            <div id="tiktokAdsConnectionStatus"></div>
+        </div>
+
         <div class="p-modal-overlay" id="campaignToolsModal">
             <div class="p-modal wide">
                 <div class="p-modal-head">
@@ -320,6 +325,21 @@ HTML;
         }
     }
 
+    async function loadTikTokStatus() {
+        const card = document.getElementById('tiktokAdsConnectCard'), box = document.getElementById('tiktokAdsConnectionStatus');
+        const res = await fetchJSON('/api/ads/tiktok/status');
+        if (!res.success || !res.data || !res.data.configured) return; // stays hidden until the platform admin adds the TikTok app keys
+        card.style.display = '';
+        box.innerHTML = res.data.connected
+            ? '<div style="display:flex;justify-content:space-between;align-items:center;"><span><span class="pill green">\u2714 مربوط</span> ' + esc(res.data.external_account_id || '') + '</span><button class="p-btn danger xs" onclick="disconnectTikTok()">فصل الربط</button></div>'
+            : '<a href="/ads/connect/tiktok" class="p-btn primary xs">\ud83d\udd17 ربط حساب TikTok Ads</a>';
+    }
+    window.disconnectTikTok = async function () {
+        if (!confirm('متأكد من فصل ربط TikTok Ads؟')) return;
+        const res = await fetchJSON('/api/ads/tiktok/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (res.success) { P.toast('تم فصل الربط', 'success'); loadTikTokStatus(); } else P.toast(res.error || 'تعذر الفصل', 'error');
+    };
+
     window.syncGoogleAdsCampaigns = async function () {
         P.toast('جارِ سحب الحملات من Google Ads...', 'success');
         const res = await fetchJSON('/api/ads/google/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -378,7 +398,7 @@ HTML;
                         ${c.target_audience_brief ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;">🎯 ' + esc(c.target_audience_brief) + '</div>' : ''}
                     </td>
                     <td>${c.daily_budget ? money(c.daily_budget) + ' ' + esc(c.currency) : '<span class="p-cell-muted" title="No daily budget on the campaign (it may be set on the ad set)">\u2014</span>'}</td>
-                    <td>${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? (c.recent_activity === 'observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Recorded activity, not a live delivery check">Active in last 30 days</div>' : (c.recent_activity === 'not_observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Not a live delivery check">No activity in 30 days</div>' : '')) : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill blue xs" title="Linked to Meta. Delivery is not verified from here.">Meta</span>' : '<span class="pill blue xs">Google</span>') : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
+                    <td>${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? (c.recent_activity === 'observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Recorded activity, not a live delivery check">Active in last 30 days</div>' : (c.recent_activity === 'not_observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Not a live delivery check">No activity in 30 days</div>' : '')) : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill blue xs" title="Linked to Meta. Delivery is not verified from here.">Meta</span>' : (c.platform === 'google_ads' ? '<span class="pill blue xs">Google</span>' : (c.platform === 'tiktok_ads' ? '<span class="pill blue xs">TikTok</span>' : '<span class="pill blue xs">Linked</span>'))) : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
                     <td>${money(c.spend)} ${esc(c.currency)}</td>
                     <td><div style="display:flex;flex-wrap:wrap;gap:6px;">
                         ${!c.external_campaign_id ? '<button class="p-btn primary xs" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">🚀 انشر</button>' : (c.platform === 'meta_ads' && c.status === 'draft' ? '<button class="p-btn outline xs" data-resume="' + (c.external_adset_id ? 'ad' : '1') + '" data-adset-id="' + esc(c.external_adset_id || '') + '" data-meta-id="' + esc(c.external_campaign_id) + '" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">' + (c.external_adset_id ? 'Resume missing PAUSED Ad' : 'Resume paused setup') + '</button>' : '')}
@@ -564,7 +584,7 @@ HTML;
         body.innerHTML = `
             ${window.__metaResumePartial ? '<div class="p-card" style="border:1px solid #d8a23d;padding:12px;margin-bottom:14px;line-height:1.7"><b>Resume existing campaign — no new Campaign</b><div>Meta Campaign ID: <code>' + esc(window.__metaResumeCampaignId) + '</code></div><div>' + (window.__metaResumeAdOnly ? 'Existing Ad Set ID: <code>' + esc(window.__metaResumeAdsetId) + '</code><div>Create ONLY the missing PAUSED Ad; never create Campaign or Ad Set.</div>' : 'Only create the missing Ad Set and Ad, both PAUSED.') + ' Meta will be checked again before any changes.</div><div style="font-size:12px">If an unexpected existing Ad or Meta status cannot be verified, processing stops. Do not repeat after an uncertain result.</div></div>' : ''}
             <label>${pubTr("المنصة","Platform")}</label>
-            <select id="pubPlatform" class="p-select" style="width:100%;margin-bottom:10px">${pk.map(k => '<option value="' + k + '"' + (k === def ? ' selected' : '') + '>' + (k === 'meta_ads' ? '' + pubTr("Meta (فيسبوك + إنستجرام) - ","Meta (Facebook + Instagram) - ") + '' : '' + pubTr("Google Ads (بحث) - ","Google Ads (Search) - ") + '') + esc(plats[k]) + '</option>').join('')}</select>
+            <select id="pubPlatform" class="p-select" style="width:100%;margin-bottom:10px">${pk.map(k => '<option value="' + k + '"' + (k === def ? ' selected' : '') + '>' + (k === 'meta_ads' ? '' + pubTr("Meta (فيسبوك + إنستجرام) - ","Meta (Facebook + Instagram) - ") + '' : (k === 'tiktok_ads' ? 'TikTok Ads (' + pubTr("فيديو","video") + ') - ' : '' + pubTr("Google Ads (بحث) - ","Google Ads (Search) - ") + '')) + esc(plats[k]) + '</option>').join('')}</select>
             <label>${pubTr("هدف الحملة","Campaign Objective")}</label>
             <select id="pubObjective" class="p-select" style="width:100%;margin-bottom:10px">${objOptions}</select>
             <div id="pubPageWrap"><label>${pubTr("صفحة الفيسبوك اللي الإعلان هيظهر باسمها","Facebook Page Used for the Ad")}</label>
@@ -644,7 +664,11 @@ HTML;
         g('pubFormat').addEventListener('change', loadPubMedia);
         const sync = () => {
             const plat = g('pubPlatform').value, obj = g('pubObjective').value;
-            g('pubFormatWrap').style.display = plat === 'meta_ads' && !window.__metaResumePartial ? '' : 'none';
+            const tt = plat === 'tiktok_ads';
+            g('pubFormatWrap').style.display = (plat === 'meta_ads' || tt) && !window.__metaResumePartial ? '' : 'none';
+            g('pubFormat').disabled = tt;
+            if (tt && g('pubFormat').value !== 'video') { g('pubFormat').value = 'video'; loadPubMedia(); }
+            if (tt) { g('pubPageWrap').style.display = 'none'; }
             const acc = (d.accounts || {})[plat] || {};
             g('pubTrackWrap').style.display = plat === 'google_ads' && acc.conversion_tracking === false && ['leads', 'sales', 'calls', 'whatsapp'].includes(obj) ? '' : 'none';
             g('pubPageWrap').style.display = plat === 'meta_ads' ? '' : 'none';
@@ -699,7 +723,7 @@ HTML;
             payload.existing_campaign_id = window.__metaResumeCampaignId;
         }
         if (g('pubPage') && payload.platform === 'meta_ads') payload.page_id = g('pubPage').value;
-        if (payload.platform === 'meta_ads' && g('pubFormat') && g('pubFormat').value !== 'image') {
+        if ((payload.platform === 'meta_ads' || payload.platform === 'tiktok_ads') && g('pubFormat') && g('pubFormat').value !== 'image') {
             const fmt = g('pubFormat').value, picked = Array.from(window.__pubPicked || []);
             payload.ad_format = fmt;
             if (fmt === 'carousel') {
@@ -723,7 +747,7 @@ HTML;
         if (!payload.destination_url) { P.toast('اكتب رابط الوجهة', 'error'); return; }
         if (!payload.countries.length) { P.toast('حدد الدول المستهدفة', 'error'); return; }
         const btn = g('pubGo'); btn.disabled = true; btn.textContent = window.__metaResumePartial ? 'Checking existing campaign / resuming...' : 'Publishing (Paused)...';
-        const res = await fetchJSON('/api/ads/campaigns/' + pubId + '/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const res = await fetchJSON('/api/ads/campaigns/' + pubId + (payload.platform === 'tiktok_ads' ? '/publish-tiktok' : '/publish'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         btn.disabled = false; btn.textContent = window.__metaResumeAdOnly ? 'Create missing PAUSED Ad only' : (window.__metaResumePartial ? 'Resume PAUSED Ad Set + Ad' : 'Publish (Paused)');
         if (res.success) {
             g('publishModal').classList.remove('open');
@@ -1138,6 +1162,7 @@ HTML;
     loadDashboardRecommendations();
     loadMetaStatus();
     loadGoogleAdsStatus();
+    loadTikTokStatus();
     load();
 })();
 JS;
@@ -1687,7 +1712,7 @@ JS;
         }
         $owner = (int) $campaign->getAttribute('user_id');
         $conns = $this->db->query(
-            "SELECT * FROM platform_connections WHERE user_id = ? AND platform IN ('meta_ads','google_ads') AND status = 'connected'",
+            "SELECT * FROM platform_connections WHERE user_id = ? AND platform IN ('meta_ads','google_ads','tiktok_ads') AND status = 'connected'",
             [$owner]
         );
         $platforms = [];
@@ -1706,6 +1731,9 @@ JS;
                     $info = $api->getAdAccountInfo((string) $c['external_account_id']);
                     $currency = $info['success'] ? $info['currency'] : null;
                     $pixels = $api->listPixels((string) $c['external_account_id']);
+                } elseif ($c['platform'] === 'tiktok_ads') {
+                    $tt = (new TikTokAdsAPI($encryption->decrypt((string) $c['access_token'])))->advertisers([(string) $c['external_account_id']]);
+                    $currency = $tt[0]['currency'] ?? null;
                 } else {
                     $token = $this->getValidGoogleAdsAccessToken($c, $encryption);
                     $currency = $token ? (new GoogleAdsAPI($token))->getAccountCurrency((string) $c['external_account_id']) : null;

@@ -499,6 +499,8 @@ return [
     'GeoIPService' => dirname(__DIR__,2).'/app/Services/GeoIPService.php',
     'GetYourGuideAPI' => dirname(__DIR__,2).'/app/Services/OTA/GetYourGuideAPI.php',
     'GoogleAdsAPI' => dirname(__DIR__,2).'/app/Services/Ads/GoogleAdsAPI.php',
+    'TikTokAdsAPI' => dirname(__DIR__,2).'/app/Services/Ads/TikTokAdsAPI.php',
+    'TikTokAdsController' => dirname(__DIR__,2).'/app/Controllers/TikTokAdsController.php',
     'GoogleAnalyticsAPI' => dirname(__DIR__,2).'/app/Services/Analytics/GoogleAnalyticsAPI.php',
     'GoogleAnalyticsController' => dirname(__DIR__,2).'/app/Controllers/GoogleAnalyticsController.php',
     'GoogleBusinessAPI' => dirname(__DIR__,2).'/app/Services/Reputation/GoogleBusinessAPI.php',
