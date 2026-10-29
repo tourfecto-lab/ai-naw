@@ -90,10 +90,18 @@ class MetaWebhookController extends Controller
                 continue;
             }
             $websiteId = (int) $rows[0]['website_id'];
-            if (empty($entry['messaging'])) {
+            // Messenger and Instagram usually send entry.messaging[]; Instagram's webhooks product can send the same event as
+            // entry.changes[] {field: "messages", value: {...}} - read both.
+            $events = array_values((array) ($entry['messaging'] ?? []));
+            foreach ((array) ($entry['changes'] ?? []) as $change) {
+                if (($change['field'] ?? '') === 'messages' && is_array($change['value'] ?? null)) {
+                    $events[] = $change['value'];
+                }
+            }
+            if (!$events) {
                 MetaWebhookLog::add(['result' => 'no_messaging', 'object' => $platform, 'account' => $accountId, 'keys' => implode(',', array_keys($entry))]);
             }
-            foreach ((array) ($entry['messaging'] ?? []) as $event) {
+            foreach ($events as $event) {
                 $message = (array) ($event['message'] ?? []);
                 $senderId = (string) ($event['sender']['id'] ?? '');
                 $text = trim((string) ($message['text'] ?? ''));

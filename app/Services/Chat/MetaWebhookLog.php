@@ -17,6 +17,9 @@ final class MetaWebhookLog
     /** @param array<string,scalar|null> $row */
     public static function add(array $row): void
     {
+        if (defined('TOURFECTO_TEST_ENV')) {
+            return; // the test suite exercises route() with fake accounts; keep them out of the real log
+        }
         try {
             $f = self::file();
             $dir = dirname($f);

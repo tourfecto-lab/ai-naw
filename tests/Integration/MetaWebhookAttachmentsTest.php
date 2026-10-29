@@ -52,6 +52,41 @@ final class MetaWebhookAttachmentsTest extends TestCase
         $this->assertSame('[weirdtype]', MetaWebhookController::describeAttachment(['attachments' => [['type' => 'Weird<Type>!', 'payload' => []]]])[0]);
     }
 
+    /** Instagram's webhooks product can send the message as entry.changes[] {field: messages, value: {...}} instead of entry.messaging[]. */
+    public function testInstagramChangesFormatIsRouted(): void
+    {
+        $db = Database::getInstance();
+        $site = $db->query('SELECT id, user_id FROM websites ORDER BY id LIMIT 1')[0] ?? null;
+        if (!$site) {
+            $this->markTestSkipped('no website fixture');
+        }
+        $ig = '1784' . random_int(100000000, 999999999);
+        $db->query(
+            "INSERT INTO platform_connections (website_id, user_id, platform, external_location_id, status, created_at) VALUES (?, ?, 'instagram_dm', ?, 'connected', NOW())",
+            [(int) $site['id'], (int) $site['user_id'], $ig]
+        );
+        $mid = 'm_' . bin2hex(random_bytes(6));
+        $seen = [];
+        $fake = new class($seen) {
+            public function __construct(public array &$seen) {}
+            public function processIncomingMessage(array $d): array { $this->seen[] = $d; return ['success' => true]; }
+        };
+        try {
+            $payload = ['object' => 'instagram', 'entry' => [['id' => $ig, 'time' => 1, 'changes' => [[
+                'field' => 'messages',
+                'value' => ['sender' => ['id' => 'IGSID1'], 'recipient' => ['id' => $ig], 'message' => ['mid' => $mid, 'text' => 'hello from instagram']],
+            ]]]]];
+            $r = MetaWebhookController::route($payload, $fake);
+            $this->assertSame(1, $r['messages']);
+            $this->assertSame('instagram', $seen[0]['platform']);
+            $this->assertSame('hello from instagram', $seen[0]['message']);
+            $this->assertSame('IGSID1', $seen[0]['phone_number']);
+        } finally {
+            $db->query('DELETE FROM platform_connections WHERE external_location_id = ?', [$ig]);
+            $db->query('DELETE FROM ai_webhook_events WHERE external_event_id = ?', [$mid]);
+        }
+    }
+
     /** End to end through route(): a picture with no text reaches the chat manager as "[Image]" with its CDN URL. */
     public function testRouteDeliversAPictureWithoutText(): void
     {

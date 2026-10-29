@@ -142,3 +142,7 @@ public_html/storage/sessions/*
 !public_html/storage/sessions/.gitkeep
 public_html/storage/logs/*.log
 public_html/storage/cache/*
+
+# runtime data written by the app (never deploy from a dev box)
+/storage/private/meta-webhook-log.json
+/storage/private/contact-photos/
