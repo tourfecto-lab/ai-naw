@@ -1327,7 +1327,7 @@ JS;
             $ids = array_values(array_unique(array_filter(array_map('intval', array_column($result['campaigns'] ?? [], 'id')))));
             if ($ids) {
                 $placeholders = implode(',', array_fill(0, count($ids), '?'));
-                $activityRows = \App\Core\Database::getInstance()->query(
+                $activityRows = $this->db->query(
                     "SELECT campaign_id, MAX(CASE WHEN impressions > 0 OR spend > 0 THEN date_start ELSE NULL END) AS last_activity, SUM(impressions) AS impressions_30d, SUM(spend) AS spend_30d FROM ad_performance_reports WHERE campaign_id IN ({$placeholders}) AND date_start >= ? GROUP BY campaign_id",
                     array_merge($ids, [date('Y-m-d', strtotime('-30 days'))])
                 );
