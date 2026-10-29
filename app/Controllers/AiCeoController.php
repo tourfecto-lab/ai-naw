@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../Services/AiCeo/AiCeoStore.php';
 require_once __DIR__ . '/../Services/AiCeo/PlatformSnapshot.php';
 require_once __DIR__ . '/../Services/AiCeo/AiCeoChat.php';
+require_once __DIR__ . '/../Services/AiCeo/AiCostIntelligence.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -100,13 +101,48 @@ class AiCeoController extends Controller
         try {
             $store = new AiCeoStore($this->db);
             [$snap] = $this->snapshot(false);
-            $r = (new AiCeoChat())->answer($q, $snap, $store->list(), $store->settings());
-            $store->remember('chat', $q, $r['answer'], null, (int) $this->user['id']);
+            $costs = new AiCostIntelligence($this->db);
+            // نفس السؤال على نفس الأرقام (بعد آخر تحديث للصورة، وفي آخر 30 دقيقة) = نفس الإجابة من غير طلب جديد
+            $cache = function (string $question) use ($snap): ?string {
+                $since = max((string) ($snap['generated_at'] ?? ''), gmdate('Y-m-d H:i:s', time() - 1800));
+                return $this->db->query("SELECT body FROM aiceo_memory WHERE kind = 'chat' AND title = ? AND created_at >= ? AND body IS NOT NULL ORDER BY id DESC LIMIT 1", [mb_substr($question, 0, 255), $since])[0]['body'] ?? null;
+            };
+            $r = (new AiCeoChat(null, fn () => $costs->aiCeoBlocked(), $cache, (int) $this->user['id']))->answer($q, $snap, $store->list(), $store->settings());
+            // الإجابات اللي مقدرش يجاوبها (مفيش ذكاء اصطناعي/الميزانية خلصت) مابتتحفظش، عشان ماتتعادش من الكاش
+            if ($r['source'] !== 'none') $store->remember('chat', $q, $r['answer'], null, (int) $this->user['id']);
             $store->log((int) $this->user['id'], 'chat', ['intent' => $r['intent'], 'source' => $r['source']]);
             return $this->success($r + ['asked_at' => gmdate('Y-m-d H:i:s')]);
         } catch (Throwable $e) {
             Logger::error('AI CEO chat failed', ['error' => $e->getMessage()]);
             return $this->error('The AI CEO could not answer right now.', 503);
+        }
+    }
+
+    /** GET /api/admin/ai-ceo/costs — AI Cost Optimization: الإنفاق والتوقع والميزانيات والاستهلاك غير الطبيعي والتوفير */
+    public function costs(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success((new AiCostIntelligence($this->db))->report() + ['owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO costs failed', ['error' => $e->getMessage()]);
+            return $this->error('AI cost data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/budgets — صاحب المنصة بس (حدود ومراقبة، مش صرف) */
+    public function budgets(array $params = []): array
+    {
+        if ($e = $this->guard(true)) return $e;
+        try {
+            $costs = new AiCostIntelligence($this->db);
+            $in = array_intersect_key((array) $this->get('budgets', []), AiCostIntelligence::BUDGET_KEYS);
+            $saved = $costs->saveBudgets($in);
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'budgets_changed', $in);
+            return $this->success(['budgets' => $saved]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
         }
     }
 

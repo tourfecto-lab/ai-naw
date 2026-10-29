@@ -70,4 +70,18 @@ final class AiCeoChatTest extends TestCase
         $this->assertStringContainsString('EG', $r['answer']);
         $this->assertStringContainsString('العينة صغيرة', $r['answer']);
     }
+
+    public function testBudgetGuardAndCacheAvoidAiCalls(): void
+    {
+        $snap = PlatformDecisionsTest::snapshot();
+        $calls = 0;
+        $ai = function () use (&$calls) { $calls++; return 'x'; };
+        $blocked = (new AiCeoChat($ai, fn () => 'daily'))->answer('اكتبلي خطة تسويق', $snap, [], ['paused' => false]);
+        $this->assertSame('none', $blocked['source']);
+        $this->assertStringContainsString('الميزانية', $blocked['answer']);
+        $cached = (new AiCeoChat($ai, fn () => null, fn (string $q) => 'إجابة محفوظة'))->answer('اكتبلي خطة تسويق', $snap, [], ['paused' => false]);
+        $this->assertSame('cache', $cached['source']);
+        $this->assertSame('إجابة محفوظة', $cached['answer']);
+        $this->assertSame(0, $calls);
+    }
 }

@@ -79,4 +79,21 @@ final class PlatformDecisionsTest extends TestCase
         $this->assertSame(false, in_array('mrr_down', $keys, true));
         $this->assertSame(false, in_array('save_at_risk_customers', $keys, true));
     }
+
+    public function testCostDecisionsFromPhaseTwo(): void
+    {
+        $snap = self::snapshot();
+        $snap['ai_cost'] += ['platform_budget' => ['limit' => 50, 'used_pct' => 60, 'projected_pct' => 120],
+            'anomalies' => [['type' => 'feature', 'name' => 'seo_article', 'today' => 6, 'avg_day' => 1]],
+            'routing_review' => [['feature' => 'seo_article', 'expensive_model' => 'big', 'expensive_cpr' => 0.05, 'expensive_requests' => 20, 'cheap_model' => 'small', 'cheap_cpr' => 0.005]],
+            'aiceo' => ['day' => 1.2, 'month' => 3, 'blocked' => 'daily']];
+        $by = [];
+        foreach (PlatformDecisions::decide($snap) as $d) $by[$d['key']] = $d;
+        $this->assertSame('low', $by['ai_budget_projection']['risk']);
+        $this->assertSame('low', $by['ai_usage_anomaly']['risk']);
+        // تغيير النموذج بيأثر على جودة خدمة العملاء: موافقة
+        $this->assertSame('medium', $by['ai_routing_review']['risk']);
+        $this->assertSame(true, $by['ai_routing_review']['requires_approval']);
+        $this->assertArrayHasKey('aiceo_budget_reached', $by);
+    }
 }
