@@ -1050,6 +1050,8 @@ abstract class Controller
         if ($isChatModule) {
             $chatAssetsHead .= '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat-wa.css') . '">' . "
 ";
+            $chatAssetsFoot .= '    <script src="' . asset_v('/assets/js/ogg-opus.js') . '"></script>' . "
+";
             $chatAssetsFoot .= '    <script src="' . asset_v('/assets/js/chat-wa.js') . '"></script>' . "
 ";
         }

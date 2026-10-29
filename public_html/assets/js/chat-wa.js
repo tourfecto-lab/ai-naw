@@ -106,11 +106,56 @@
     });
 
     /* ---------- voice notes (only where the browser records a format WhatsApp accepts) ---------- */
-    var voiceType = '';
-    if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
-        ['audio/ogg;codecs=opus', 'audio/mp4'].some(function (t) { if (MediaRecorder.isTypeSupported(t)) { voiceType = t; return true; } return false; });
+    // WhatsApp only plays voice notes that are Ogg/Opus. Firefox records that directly; Chrome and Edge record MP4/WebM
+    // (WhatsApp answers "Media upload error"), so there the raw Opus packets from WebCodecs are wrapped in Ogg by ogg-opus.js.
+    var voiceType = '', voiceKind = '';
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+        voiceType = 'audio/ogg;codecs=opus'; voiceKind = 'recorder';
+    } else if (window.AudioEncoder && window.AudioData && window.OggOpus && (window.AudioContext || window.webkitAudioContext)) {
+        voiceType = 'audio/ogg;codecs=opus'; voiceKind = 'webcodecs';
     }
-    if (voiceType && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+
+    /** Records microphone audio with WebCodecs (Opus) and returns an Ogg Opus File through done(file|null). */
+    function opusRecorder(stream, done) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        var ctx = new AC({ sampleRate: 48000 });
+        if (ctx.sampleRate !== 48000) { ctx.close(); throw new Error('48 kHz audio is not available'); }
+        var src = ctx.createMediaStreamSource(stream);
+        var proc = ctx.createScriptProcessor(4096, 1, 1);
+        var packets = [], samples = [], head = null, ts = 0, closed = false, failed = false;
+        var enc = new AudioEncoder({
+            output: function (chunk, meta) {
+                var b = new Uint8Array(chunk.byteLength);
+                chunk.copyTo(b);
+                packets.push(b);
+                samples.push(Math.round((chunk.duration || 20000) * 48 / 1000));
+                if (!head && meta && meta.decoderConfig && meta.decoderConfig.description) head = new Uint8Array(meta.decoderConfig.description);
+            },
+            error: function () { failed = true; }
+        });
+        enc.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 1, bitrate: 32000 });
+        proc.onaudioprocess = function (e) {
+            if (closed) return;
+            var copy = new Float32Array(e.inputBuffer.getChannelData(0));
+            var ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: copy.length, numberOfChannels: 1, timestamp: Math.round(ts * 1e6 / 48000), data: copy });
+            ts += copy.length;
+            try { enc.encode(ad); } finally { ad.close(); }
+        };
+        src.connect(proc);
+        proc.connect(ctx.destination); // silent: nothing is written to the output buffer
+        return {
+            stop: function () {
+                closed = true;
+                try { src.disconnect(); proc.disconnect(); } catch (e) { /* already closed */ }
+                enc.flush().then(function () {
+                    enc.close(); ctx.close();
+                    if (failed || !packets.length) { done(null); return; }
+                    done(new File([OggOpus.mux(packets, samples, { head: head, preSkip: 312 })], 'voice-note.ogg', { type: 'audio/ogg' }));
+                }).catch(function () { done(null); });
+            }
+        };
+    }
+    if (voiceKind && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         var mic = el('button', 'wa-mic-btn', '🎤');
         mic.type = 'button';
         mic.title = 'Voice note';
@@ -134,19 +179,24 @@
             if (rec) { sendNow = true; rec.stop(); return; }
             navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
                 chunks = []; cancelled = false; sendNow = false;
-                rec = new MediaRecorder(stream, { mimeType: voiceType });
-                rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
-                rec.onstop = function () {
+                function finish(note) {
                     stream.getTracks().forEach(function (t) { t.stop(); });
                     var wasCancelled = cancelled;
                     rec = null; endRec();
-                    if (wasCancelled || !chunks.length) return;
-                    var ext = voiceType.indexOf('ogg') !== -1 ? 'ogg' : 'm4a';
-                    var note = new File(chunks, 'voice-note.' + ext, { type: voiceType.split(';')[0] });
+                    if (wasCancelled) return;
+                    if (!note) { say('The voice note could not be recorded. Try again, or use Firefox.'); return; }
                     if (sendNow && typeof window.sendAttachment === 'function') window.sendAttachment({ files: [note], value: '' });
                     else stage(note);
-                };
-                rec.start();
+                }
+                if (voiceKind === 'webcodecs') {
+                    try { rec = opusRecorder(stream, finish); } catch (e) { stream.getTracks().forEach(function (t) { t.stop(); }); say('This browser cannot record a voice note WhatsApp accepts. Use Firefox or the phone app.'); return; }
+                } else {
+                    var mr = new MediaRecorder(stream, { mimeType: voiceType });
+                    mr.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
+                    mr.onstop = function () { finish(chunks.length ? new File(chunks, 'voice-note.ogg', { type: 'audio/ogg' }) : null); };
+                    mr.start();
+                    rec = mr;
+                }
                 started = Date.now();
                 bar.hidden = false; mic.classList.add('on');
                 timer = setInterval(function () { var s = Math.floor((Date.now() - started) / 1000); clock.textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }, 500);
