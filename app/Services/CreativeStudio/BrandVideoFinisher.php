@@ -129,7 +129,7 @@ class BrandVideoFinisher
      * Queue the branded copy of a just-finished generated video. Best effort: it must never break the generation itself.
      * @return MediaItem|null the queued edit, or null when nothing applies
      */
-    public static function queue(MediaItem $item): ?MediaItem
+    public static function queue(MediaItem $item, int $brandId = 0): ?MediaItem
     {
         try {
             $item = (new MediaItem())->find((int) $item->getAttribute('id')) ?: $item; // the caller's copy may predate completion
@@ -140,7 +140,7 @@ class BrandVideoFinisher
             if (($meta['source'] ?? '') === 'video_editor' || !empty($meta['storyboard']) || (($meta['options']['brand_overlay'] ?? true) === false)) {
                 return null; // an edit itself, a storyboard scene (assembled later) or an explicit opt-out
             }
-            $brandId = (int) $item->getAttribute('brand_profile_id');
+            $brandId = $brandId ?: (int) $item->getAttribute('brand_profile_id');
             if ($brandId < 1 || !VideoEditing::available()) {
                 return null;
             }
@@ -154,6 +154,9 @@ class BrandVideoFinisher
             }
             $id = (int) $item->getAttribute('id');
             $probe = VideoEditing::probe(PrivateMedia::resolve((string) $item->getAttribute('file_path')));
+            if ($probe['duration'] > 30) {
+                return null; // the editor trims at 30 s: never cut a long video
+            }
             $png = self::overlayPng((int) $probe['width'], (int) $probe['height'], $logo);
             if ($png === null) {
                 return null;
@@ -163,7 +166,7 @@ class BrandVideoFinisher
                 (int) $item->getAttribute('user_id'),
                 $id,
                 $png,
-                ['start' => 0, 'end' => min(8, round((float) $probe['duration'], 2)), 'mute' => false],
+                ['start' => 0, 'end' => min(30, round((float) $probe['duration'], 2)), 'mute' => false],
                 'brandfin_' . $id . '_' . substr(hash('sha256', $id . '|' . $logo), 0, 16),
                 $card
             );

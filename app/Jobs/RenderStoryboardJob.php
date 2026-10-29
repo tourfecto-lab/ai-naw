@@ -22,6 +22,8 @@ class RenderStoryboardJob implements QueueJobInterface
             $path=GeneratedMediaFiles::write($id,$bytes,'mp4');$item->setAttribute('file_path',$path);$item->setAttribute('width',$size['width']);$item->setAttribute('height',$size['height']);$item->setAttribute('duration_seconds',(int)ceil(array_sum($durations)));
             $poster=VideoEditing::poster(PrivateMedia::resolve($path),$id);if($poster)$item->setAttribute('thumbnail_path',$poster);
             GenerationLifecycle::stage($item,'billing');GenerationLifecycle::complete($item,'media_video');
+            // the assembled film gets the same free logo copy + end card as a single clip, with the brand of its scenes
+            try{$first=(int)(($meta['parents'][0]??0));$parent=$first?(new MediaItem())->find($first):null;if($parent&&class_exists('BrandVideoFinisher')&&(int)$parent->getAttribute('user_id')===(int)$item->getAttribute('user_id')&&!(($parent->getAttribute('generation_meta')&&(json_decode((string)$parent->getAttribute('generation_meta'),true)['options']['brand_overlay']??true)===false)))BrandVideoFinisher::queue($item,(int)$parent->getAttribute('brand_profile_id'));}catch(Throwable $e){Logger::warning('Storyboard branded copy skipped',['media_item_id'=>$id]);}
         }catch(Throwable $e){if(isset($item)&&$item&&$item->getAttribute('status')!=='completed')GenerationLifecycle::fail($item,$e->getMessage());else throw $e;}
         finally{if($output&&is_file($output))@unlink($output);GenerationLifecycle::unlock($id);}
     }
