@@ -582,6 +582,7 @@ HTML;
             <div class="p-cell-muted" id="pubBudgetHint" style="font-size:12px;margin-bottom:10px"></div>
             <div id="pubPhoneWrap" style="display:none"><label>${pubTr("رقم التليفون (بصيغة دولية +20...)","Phone Number (international format, e.g. +20...)")}</label>
                 <input type="tel" id="pubPhone" class="p-select" dir="ltr" style="width:100%;margin-bottom:10px" value="${esc(d.phone || '')}"></div>
+            <div id="pubTrackWrap" class="alert alert-warning" style="display:none;margin-bottom:10px">${pubTr("⚠️ مفيش تتبّع تحويلات على حساب Google Ads. الحملة هتتحسّن على الضغطات بس لحد ما تضيف Conversion Action - بعدها Google تقدر تجيب ناس بتحجز فعلًا.","⚠️ No conversion tracking on this Google Ads account. The campaign will optimise for clicks only until you add a conversion action; after that Google can find people who actually book.")}</div>
             <div id="pubGoogleWrap" class="p-card" style="display:none;padding:12px;margin-bottom:10px">
                 <div style="font-size:13px;margin-bottom:6px">🔎 ${d.keywords ? '<b>' + d.keywords + '</b> ' + pubTr("كلمة مفتاحية جاهزة","keywords ready") + '' : '' + pubTr("مفيش كلمات مفتاحية - <b>هتتولد تلقائيًا</b> وقت النشر","No keywords yet \u2014 <b>they will be generated automatically</b> when publishing") + ''} · ${pubTr("هيتعمل إعلان متجاوب بـ15 عنوان و4 أوصاف + Sitelinks وCallouts وزرار اتصال.","A responsive search ad will be created with 15 headlines, 4 descriptions, sitelinks, callouts, and a call button.")}</div>
                 <label style="font-size:12px">${pubTr("أقصى تكلفة للضغطة (اختياري - بعملة الحساب)","Maximum CPC (optional, account currency)")}</label>
@@ -599,6 +600,7 @@ HTML;
         const sync = () => {
             const plat = g('pubPlatform').value, obj = g('pubObjective').value;
             const acc = (d.accounts || {})[plat] || {};
+            g('pubTrackWrap').style.display = plat === 'google_ads' && acc.conversion_tracking === false && ['leads', 'sales', 'calls', 'whatsapp'].includes(obj) ? '' : 'none';
             g('pubPageWrap').style.display = plat === 'meta_ads' ? '' : 'none';
             g('pubPixelWrap').style.display = plat === 'meta_ads' && (obj === 'leads' || obj === 'sales') ? '' : 'none';
             g('pubPhoneWrap').style.display = obj === 'calls' || plat === 'google_ads' ? '' : 'none';
@@ -1638,6 +1640,7 @@ JS;
         foreach ($conns as $c) {
             $platforms[$c['platform']] = (string) $c['external_account_id'];
             $currency = null;
+            $googleTracking = null;
             try {
                 if ($c['platform'] === 'meta_ads') {
                     $api = new MetaAdsAPI($encryption->decrypt((string) $c['access_token']));
@@ -1647,6 +1650,8 @@ JS;
                 } else {
                     $token = $this->getValidGoogleAdsAccessToken($c, $encryption);
                     $currency = $token ? (new GoogleAdsAPI($token))->getAccountCurrency((string) $c['external_account_id']) : null;
+                    // Without a conversion action Google can only optimise for clicks; the publish dialog warns about it.
+                    $googleTracking = $token ? (new GoogleAdsAPI($token))->hasConversionTracking((string) $c['external_account_id']) : null;
                 }
             } catch (Throwable $e) {
                 $currency = null;
@@ -1658,6 +1663,9 @@ JS;
                 'suggested_daily_budget' => $suggested,
                 'minimum_daily_budget' => AdBudgetCurrency::minimumDaily($currency),
             ];
+            if ($c['platform'] === 'google_ads') {
+                $accounts['google_ads']['conversion_tracking'] = $googleTracking ?? null;
+            }
         }
         $pages = $this->db->query(
             "SELECT external_location_id AS id, external_location_name AS name FROM platform_connections
