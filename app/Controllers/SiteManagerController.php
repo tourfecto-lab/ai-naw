@@ -170,14 +170,19 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 async function api(url,opt){opt=opt||{};opt.credentials='same-origin';opt.headers=Object.assign({'Content-Type':'application/json','X-CSRF-Token':csrf},opt.headers||{});
 var r=await fetch(url,opt);if(r.status===401){location.href='/site-admin/login';return{success:false};}return r.json().catch(function(){return{success:false};});}
 var ST={pending:'قيد الانتظار',confirmed:'مؤكد',cancelled:'ملغي',completed:'مكتمل',no_show:'لم يحضر',new:'جديد',contacted:'تم التواصل',closed:'مغلق',approved:'معتمد',rejected:'مرفوض'};
-function tabs(){var t=document.getElementById('tabs');t.innerHTML='';[['bookings','الحجوزات'],['leads','طلبات التواصل'],['reviews','التقييمات']].forEach(function(x){var b=document.createElement('button');b.textContent=x[1];b.className=tab===x[0]?'on':'';b.onclick=function(){tab=x[0];tabs();load();};t.appendChild(b);});}
-async function load(){main.innerHTML='<p class="muted">جاري التحميل...</p>';if(tab==='bookings')return bookings();if(tab==='leads')return leads();return reviews();}
+function tabs(){var t=document.getElementById('tabs');t.innerHTML='';[['bookings','الحجوزات'],['leads','طلبات التواصل'],['reviews','التقييمات'],['analytics','الزيارات']].forEach(function(x){var b=document.createElement('button');b.textContent=x[1];b.className=tab===x[0]?'on':'';b.onclick=function(){tab=x[0];tabs();load();};t.appendChild(b);});}
+async function load(){main.innerHTML='<p class="muted">جاري التحميل...</p>';if(tab==='bookings')return bookings();if(tab==='leads')return leads();if(tab==='analytics')return analytics();return reviews();}
 async function bookings(){var q=(window.__bq||'');var r=await api('/api/site-admin/bookings?q='+encodeURIComponent(q));if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}
 var s=r.data.stats,h='<div class="stats"><div class="card">قيد الانتظار<b>'+s.pending+'</b></div><div class="card">مؤكدة<b>'+s.confirmed+'</b></div><div class="card">الإيراد المؤكد<b dir="ltr">'+esc(s.revenue)+'</b></div></div>';
 h+='<div class="card row"><input id="q" type="search" placeholder="بحث بالاسم / الهاتف / رقم الحجز" value="'+esc(q)+'"><a class="muted" href="/api/site-admin/bookings/export" >تصدير CSV</a></div>';
 h+=r.data.bookings.length?r.data.bookings.map(function(b){return '<div class="card"><div class="row"><b>'+esc(b.customer_name)+'</b><span class="badge '+(b.status==='pending'?'gold':'')+'">'+esc(ST[b.status]||b.status)+'</span></div><p>'+esc(b.product_name)+' · '+esc(b.start_date)+' · '+b.adults_count+' بالغ'+(b.children_count>0?' + '+b.children_count+' طفل':'')+' · '+esc(b.total_amount)+' '+esc(b.currency)+'</p><p dir="ltr" style="text-align:right">'+esc(b.customer_phone||'')+(b.customer_email?' - '+esc(b.customer_email):'')+' · #'+esc(b.booking_reference)+'</p>'+(CAPS.bookings?(b.status==='pending'?'<button class="act" data-a="confirm" data-id="'+b.id+'">تأكيد</button>':'')+((b.status==='pending'||b.status==='confirmed')?'<button class="act out" data-a="cancel" data-id="'+b.id+'">إلغاء</button>':''):'')+'</div>';}).join(''):'<p class="muted">لا توجد حجوزات بعد</p>';
 main.innerHTML=h;var qi=document.getElementById('q');if(qi){qi.oninput=function(){clearTimeout(window.__bt);window.__bt=setTimeout(function(){window.__bq=qi.value;bookings();},300);};}
 main.querySelectorAll('button[data-a]').forEach(function(b){b.onclick=async function(){if(b.dataset.a==='cancel'&&!confirm('إلغاء الحجز ده؟'))return;var x=await api('/api/site-admin/bookings/'+b.dataset.id,{method:'PUT',body:JSON.stringify({action:b.dataset.a})});if(!x.success)alert(x.error||x.message||'حصل خطأ');load();};});}
+async function analytics(){var r=await api('/api/site-admin/analytics?days=30');if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}var d=r.data,mx=Math.max.apply(null,[1].concat(d.daily.map(function(x){return x.views;})));
+var SL={direct:'مباشر',search:'بحث',social:'سوشيال',ads:'إعلانات',other:'مواقع أخرى'},tot=d.sources.reduce(function(a,x){return a+x.views;},0)||1;
+main.innerHTML='<div class="stats"><div class="card">المشاهدات (30 يوم)<b>'+d.views+'</b></div><div class="card">الزوار<b>'+d.visitors+'</b></div><div class="card">طلبات + حجوزات<b>'+(d.leads+d.bookings)+'</b></div></div>'
++'<div class="card"><div style="display:flex;align-items:flex-end;gap:2px;height:110px">'+d.daily.map(function(x){return '<div title="'+esc(x.day)+': '+x.views+'" style="flex:1;min-width:2px;background:#d4a437;height:'+Math.max(2,Math.round(x.views/mx*100))+'%"></div>';}).join('')+'</div></div>'
++'<div class="card"><b>مصادر الزيارات</b>'+(d.sources.length?d.sources.map(function(x){return '<div class="row"><span>'+esc(SL[x.source]||x.source)+'</span><b>'+Math.round(x.views/tot*100)+'%</b></div>';}).join(''):'<p class="muted">لا توجد بيانات بعد</p>')+'</div>';}
 async function leads(){var r=await api('/api/site-admin/leads');if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}
 main.innerHTML=r.data.leads.length?r.data.leads.map(function(l){return '<div class="card"><div class="row"><b>'+esc(l.visitor_name)+'</b><span class="badge">'+esc(ST[l.status]||l.status)+'</span></div><p dir="ltr" style="text-align:right">'+esc(l.phone||'')+(l.email?' - '+esc(l.email):'')+'</p><p>'+esc(l.message||'')+'</p>'+(CAPS.leads?'<select data-id="'+l.id+'"><option value="new">جديد</option><option value="contacted">تم التواصل</option><option value="closed">مغلق</option></select>':'')+'</div>';}).join(''):'<p class="muted">لا توجد طلبات بعد</p>';
 main.querySelectorAll('select[data-id]').forEach(function(s,i){s.value=r.data.leads[i].status;s.onchange=async function(){var x=await api('/api/site-admin/leads/'+s.dataset.id,{method:'PUT',body:JSON.stringify({status:s.value})});if(!x.success)alert(x.error||'حصل خطأ');};});}
@@ -207,6 +212,15 @@ HTML;
     public function bookingAction(array $params = []): array
     {
         return $this->allowed('bookings') ?? parent::updateBooking($this->pinned(['bookingId' => (int) ($params['bookingId'] ?? 0)]));
+    }
+
+    public function analyticsData(array $params = []): array
+    {
+        if ($e = $this->allowed('view')) {
+            return $e;
+        }
+        $site = $this->ownedWebsite((int) $this->account['website_id']);
+        return $site ? $this->success(SiteAnalytics::report((int) $site->getAttribute('id'), (int) $site->getAttribute('user_id'), (int) $this->get('days', 30))) : $this->error('غير موجود', 404);
     }
 
     public function leadsList(array $params = []): array

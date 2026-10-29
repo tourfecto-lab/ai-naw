@@ -879,6 +879,17 @@ JS;
      * دالة مشتركة: تجيب الموقع بالـ slug، وتتأكد من صلاحية العرض
      * (منشور = عام، مسوّدة = لصاحبها بس).
      */
+    /** عدّاد زيارات يومي مجمّع (بدون IP/كوكي) للوحة التحليلات - ما بيكسرش عرض الصفحة أبدًا */
+    private function trackVisit(GeneratedWebsite $website, string $page, string $slug = ''): void
+    {
+        try {
+            $owner = $this->isAuthenticated() && (int) $website->getAttribute('user_id') === (int) $this->user['id'];
+            SiteAnalytics::track((int) $website->getAttribute('id'), SiteAnalytics::pageKey($page, $slug), $owner);
+        } catch (Throwable $e) {
+            // الزيارة أهم من العداد
+        }
+    }
+
     private function findViewableWebsite(string $slug): ?GeneratedWebsite
     {
         $rows = (new GeneratedWebsite())->where(['slug' => $slug], [], 1);
@@ -1202,6 +1213,7 @@ HTML;
             exit;
         }
         $params['page'] = $page;
+        $this->trackVisit($website, $page);
         $c = $this->internationalContent($website,$params);
         $industry = $c['industry'] ?? 'tours';
         if ($industry !== 'hotel' && $page !== 'home') {
@@ -1753,6 +1765,7 @@ HTML;
         $this->attachWebChat($website);
 
         WhatsAppStudioService::captureQuery((int)$website->getAttribute('id'),(int)$website->getAttribute('user_id'));
+        $this->trackVisit($website, 'tour', $tourSlug);
         $c = $this->internationalContent($website,$params);
         $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);
@@ -1891,6 +1904,7 @@ HTML;
         $this->attachWebChat($website);
 
         WhatsAppStudioService::captureQuery((int)$website->getAttribute('id'),(int)$website->getAttribute('user_id'));
+        $this->trackVisit($website, 'room', $roomSlug);
         $c = $this->internationalContent($website,$params);
         $esc = fn ($v) => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
         [$lang, $dir] = $this->siteLangAttrs($c);

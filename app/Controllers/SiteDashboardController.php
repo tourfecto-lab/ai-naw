@@ -50,6 +50,7 @@ class SiteDashboardController extends Controller
             <button class="p-tab" onclick="sdSwitchTab('seo')" id="sdTabSeoBtn">🔍 SEO والدومين</button>
             <button class="p-tab" onclick="sdSwitchTab('bookings')" id="sdTabBookingsBtn">🧾 الحجوزات <span id="sdBookingsCount" class="p-badge-dot" style="display:none;"></span></button>
             <button class="p-tab" onclick="sdSwitchTab('team')" id="sdTabTeamBtn">👥 فريق الموقع</button>
+            <button class="p-tab" onclick="sdSwitchTab('analytics')" id="sdTabAnalyticsBtn">📈 التحليلات</button>
             <button class="p-tab" onclick="sdSwitchTab('reviews')" id="sdTabReviewsBtn">⭐ التقييمات</button>
             <button class="p-tab" onclick="sdSwitchTab('leads')" id="sdTabLeadsBtn">📩 طلبات التواصل <span id="sdLeadsCount" class="p-badge-dot" style="display:none;"></span></button>
         </div>
@@ -117,6 +118,14 @@ class SiteDashboardController extends Controller
             <div id="sdTeamList" class="p-list">جاري التحميل...</div>
         </div>
 
+        <div id="sdTabAnalytics" style="display:none;">
+            <div class="p-card" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <label for="sdAnDays" class="form-label" style="margin:0;">الفترة</label>
+                <select id="sdAnDays" class="form-control" style="max-width:160px;" onchange="sdLoadAnalytics()"><option value="7">آخر 7 أيام</option><option value="30" selected>آخر 30 يوم</option><option value="90">آخر 90 يوم</option></select>
+            </div>
+            <div id="sdAnBody">جاري التحميل...</div>
+        </div>
+
         <div id="sdTabReviews" style="display:none;">
             <div id="sdReviewsList" class="p-list">جاري التحميل...</div>
         </div>
@@ -139,6 +148,7 @@ HTML;
         });
         if (tab === 'design' && window.SdStudio) SdStudio.open();
         if (tab === 'reviews') sdLoadReviews();
+        if (tab === 'analytics') sdLoadAnalytics();
         if (tab === 'team') sdLoadTeam();
         if (tab === 'bookings') sdLoadBookings();
         if (tab === 'leads') sdLoadLeads();
@@ -373,6 +383,31 @@ HTML;
         const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers/\${id}`, { method: 'DELETE' });
         if (!res.success) toast(res.error || res.message || 'حصل خطأ', 'error');
         sdLoadTeam();
+    };
+
+    const srcLabel = { direct: 'مباشر', search: 'بحث', social: 'سوشيال', ads: 'إعلانات', other: 'مواقع أخرى' };
+    const pageLabel = { home: 'الرئيسية', tours: 'كل الرحلات', about: 'من نحن', contact: 'تواصل', faq: 'الأسئلة', reviews: 'التقييمات', gallery: 'المعرض', terms: 'الشروط', privacy: 'الخصوصية', 'cancellation-policy': 'سياسة الإلغاء' };
+    window.sdLoadAnalytics = async function () {
+        const days = document.getElementById('sdAnDays').value;
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/analytics?days=` + days);
+        const box = document.getElementById('sdAnBody');
+        if (!res.success) { box.innerHTML = '<p>تعذّر التحميل</p>'; return; }
+        const d = res.data, max = Math.max(1, ...d.daily.map(x => x.views));
+        const bars = d.daily.map(x => `<div title="\${esc(x.day)}: \${x.views} مشاهدة / \${x.visitors} زائر" style="flex:1;min-width:2px;background:var(--gold,#d4a437);height:\${Math.max(2, Math.round(x.views / max * 100))}%;border-radius:2px 2px 0 0;"></div>`).join('');
+        const name = p => { const [k, s] = String(p.page).split(':'); return k === 'tour' ? 'رحلة: ' + s : k === 'room' ? 'غرفة: ' + s : (pageLabel[k] || k); };
+        const total = d.sources.reduce((a, x) => a + x.views, 0) || 1;
+        box.innerHTML = `
+            <div class="p-grid cols-3" style="margin-bottom:12px;">
+                <div class="p-card"><span class="p-stat-label">المشاهدات</span><h3>\${d.views}</h3></div>
+                <div class="p-card"><span class="p-stat-label">الزوار (يومي)</span><h3>\${d.visitors}</h3></div>
+                <div class="p-card"><span class="p-stat-label">التحويل (طلبات + حجوزات)</span><h3>\${d.leads + d.bookings} <small>(\${d.conversion}%)</small></h3></div>
+            </div>
+            <div class="p-card" style="margin-bottom:12px;"><div style="display:flex;align-items:flex-end;gap:2px;height:120px;">\${bars}</div></div>
+            <div class="p-grid cols-2">
+                <div class="p-card"><h4 style="margin:0 0 8px;">أكتر الصفحات مشاهدة</h4>\${d.pages.length ? d.pages.map(p => `<div style="display:flex;justify-content:space-between;gap:8px;"><span>\${esc(name(p))}</span><b>\${p.views}</b></div>`).join('') : '<p>لا توجد بيانات بعد</p>'}</div>
+                <div class="p-card"><h4 style="margin:0 0 8px;">مصادر الزيارات</h4>\${d.sources.length ? d.sources.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;"><span>\${esc(srcLabel[x.source] || x.source)}</span><b>\${Math.round(x.views / total * 100)}%</b></div>`).join('') : '<p>لا توجد بيانات بعد</p>'}</div>
+            </div>
+            <p style="font-size:13px;margin-top:10px;">الأرقام تجميعية يومية بدون تخزين IP أو كوكيز. زيارات الروبوتات وزياراتك أنت للموقع مش محسوبة.</p>`;
     };
 
     sdLoadOverview();
@@ -775,6 +810,22 @@ JS;
         }
         return (new SiteManagerService())->delete((int) $this->user['id'], (int) $website->getAttribute('id'), (int) ($params['managerId'] ?? 0))
             ? $this->success([], 'تم الحذف') : $this->error('الحساب مش موجود', 404);
+    }
+
+
+    // ================================================================ التحليلات
+
+    /** GET /api/site-dashboard/{id}/analytics?days=30 */
+    public function analytics(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        return $this->success(SiteAnalytics::report((int) $website->getAttribute('id'), (int) $website->getAttribute('user_id'), (int) $this->get('days', 30)));
     }
 
     // ================================================================ استوديو التصميم
