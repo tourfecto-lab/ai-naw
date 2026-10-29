@@ -7,6 +7,9 @@
  */
 class VideoQualityGate
 {
+    /** Clips are regenerated at this score or below (stricter than the image gate, a retry is worth more than a flawed clip). */
+    public const REJECT_SCORE = 4;
+
     /** @var callable|null fn(string $file, float $second): ?string JPEG/PNG bytes */
     private $frames;
     private CreativeQualityGate $gate;
@@ -35,6 +38,8 @@ class VideoQualityGate
                 if (!$r['checked']) {
                     continue;
                 }
+                $r['reject'] = $r['score'] <= self::REJECT_SCORE;
+                $r['passed'] = $r['score'] >= CreativeQualityGate::PASS_SCORE;
                 if (!$worst['checked'] || $r['score'] < $worst['score']) {
                     $issues = $r['issues'];
                     $worst = $r;

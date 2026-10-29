@@ -81,9 +81,10 @@ class BrandPromptBuilder
     {
         $parts = [
             'One continuous shot with smooth, natural camera motion: no cuts, no scene changes, no morphing or warping, believable physics, natural faces, hands and proportions.',
+            'Photorealistic live-action look as if filmed on a professional cinema camera: real lens depth of field, natural available light, true-to-life skin, water, fabric and materials, documentary-grade realism with a stable, grounded camera.',
             'No text, captions, subtitles, logos, brand names, watermarks or interface elements anywhere in the frame (no signage, sails, shirts or boats with writing).',
         ];
-        $avoid = ['distorted hands or faces', 'flickering or warping objects', 'generic stock-footage look', 'oversaturated colors'];
+        $avoid = ['distorted hands or faces', 'flickering or warping objects', 'CGI or video-game look', 'oversaturated colors'];
         if ($bp) {
             $d = self::profileData($bp);
             $learn = self::learnings((int) $bp->getAttribute('id'));
