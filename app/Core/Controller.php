@@ -1045,6 +1045,7 @@ abstract class Controller
             $chatAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat.css') . '">' . "\n";
             $chatAssetsFoot = '    <script src="' . asset_v('/assets/js/chat-panel.js') . '"></script>' . "\n";
         }
+        $bodyTabClass = $activeTab === 'chat' ? ' tab-chat' : '';
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
         // تخصيص الوكالات (White-Label): حقن ألوان براندنج الوكالة كـ CSS
@@ -1132,7 +1133,7 @@ abstract class Controller
     <link rel="stylesheet" href="{$panelCssUrl}">
     <link rel="stylesheet" href="{$tfThemeCssUrl}">
 {$brandingCss}{$thirdPartyHead}{$chatAssetsHead}</head>
-<body class="ap-theme">
+<body class="ap-theme{$bodyTabClass}">
     <div class="panel-shell">
         <div class="panel-overlay-bg"></div>
         <aside class="panel-sidebar">

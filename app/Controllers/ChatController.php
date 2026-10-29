@@ -781,7 +781,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             #ucReplyCard #manualMessage{background:var(--wa-panel);color:var(--wa-text);border:0;border-radius:22px;padding:11px 18px;min-height:44px;resize:none;box-shadow:none;font-size:15px}
             #ucReplyCard #manualMessage:focus{outline:none;box-shadow:0 0 0 2px rgba(0,168,132,.35)}
             #ucReplyCard .form-group{margin-bottom:8px}
-            #ucReplyCard #sendManualBtn{background:var(--wa-accent);color:#fff;border:0;border-radius:22px;padding:10px 22px;font-weight:600}
+            #ucReplyCard #sendManualBtn{background:#008069;color:#fff;border:0;border-radius:50%;width:46px;height:46px;padding:0;justify-content:center}#ucReplyCard #sendManualBtn .wa-lbl{display:none}#ucReplyCard #sendManualBtn .ic{width:20px;height:20px}#ucReplyCard #attachBtn,#ucReplyCard #templateBtn,#ucReplyCard #catalogBtn{border-radius:50%;width:42px;height:42px;padding:0;justify-content:center;font-size:18px}#ucReplyCard #attachBtn .wa-lbl,#ucReplyCard #templateBtn .wa-lbl,#ucReplyCard #catalogBtn .wa-lbl{display:none}
             #ucReplyCard #sendManualBtn:hover{filter:brightness(1.08)}
             #ucReplyCard .p-btn.outline{background:transparent;border-color:transparent;color:var(--wa-sub)}
             #ucReplyCard .p-btn.outline:hover{background:var(--wa-active);color:var(--wa-text)}
@@ -905,10 +905,10 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                         </div>
                         <input type="file" id="attachInput" style="display:none;" accept="image/jpeg,image/png,video/mp4,video/3gpp,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onchange="sendAttachment(this)">
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()">{IC_SEND}Send</button>
-                            <button class="p-btn outline" id="attachBtn" style="display:none;" onclick="document.getElementById('attachInput').click()" title="Send an image, voice note, video or file">📎 File</button>
-                            <button class="p-btn outline" id="templateBtn" style="display:none;" onclick="templateToggle()" title="Approved WhatsApp templates can be sent any time">📋 Template</button>
-                            <button class="p-btn outline" id="catalogBtn" style="display:none;" onclick="catalogToggle()" title="Send your WhatsApp catalog or one trip">🛍 Catalog</button>
+                            <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()" aria-label="Send" title="Send">{IC_SEND}<span class="wa-lbl">Send</span></button>
+                            <button class="p-btn outline" id="attachBtn" style="display:none;" onclick="document.getElementById('attachInput').click()" title="Send an image, voice note, video or file" aria-label="File">📎<span class="wa-lbl"> File</span></button>
+                            <button class="p-btn outline" id="templateBtn" style="display:none;" onclick="templateToggle()" title="Approved WhatsApp templates can be sent any time" aria-label="Template">📋<span class="wa-lbl"> Template</span></button>
+                            <button class="p-btn outline" id="catalogBtn" style="display:none;" onclick="catalogToggle()" title="Send your WhatsApp catalog or one trip" aria-label="Catalog">🛍<span class="wa-lbl"> Catalog</span></button>
                             <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()">{IC_SPARKLES}Suggest a reply AI</button>
                             <div style="flex:1;"></div>
                             <a href="/chat/leads" class="p-btn outline xs" style="align-self:center;">{IC_TARGET}View theLeads</a>
