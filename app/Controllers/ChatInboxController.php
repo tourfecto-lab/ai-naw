@@ -1152,6 +1152,34 @@ class ChatInboxController extends Controller
      * Emoji reaction on a customer's WhatsApp message (official API only, inside the 24-hour window). An empty emoji removes it.
      * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/react
      */
+    public function deleteMessage(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
+        if (!$conversation) {
+            return $this->error('Conversation not found', 404);
+        }
+        $db = Database::getInstance();
+        $args = [(int) ($params['messageId'] ?? 0), (int) $conversation->getAttribute('id'), (int) $website->getAttribute('id')];
+        if (!$db->query('SELECT id FROM chat_messages WHERE id = ? AND conversation_id = ? AND website_id = ? LIMIT 1', $args)) {
+            return $this->error('Message not found', 404);
+        }
+        $db->exec('DELETE FROM chat_messages WHERE id = ? AND conversation_id = ? AND website_id = ?', $args);
+        return $this->success([], 'Message deleted');
+    }
+
     public function react(array $params = []): array
     {
         if (!$this->authenticated) {

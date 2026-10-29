@@ -1600,6 +1600,7 @@ $router->get('/api/ai-chat/websites/{id}/agents', 'ChatInboxController', 'agents
 $router->get('/api/ai-chat/websites/{id}/conversations', 'ChatInboxController', 'index', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/pulse', 'ChatInboxController', 'pulse', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'show', ['AuthMiddleware']);
+$router->delete('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}', 'ChatInboxController', 'deleteMessage', ['AuthMiddleware']);
 $router->put('/api/ai-chat/websites/{id}/conversations/{conversationId}', 'ChatInboxController', 'update', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply', 'ChatInboxController', 'reply', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/handoff', 'ChatInboxController', 'handoff', ['AuthMiddleware']);

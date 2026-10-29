@@ -1532,9 +1532,11 @@ HTML;
                 pre += '<div class="ai-quote" data-qid="' + meta.quote.id + '"><b>' + esc(meta.quote.who === 'you' ? 'You' : (currentConversation && currentConversation.customer_name) || 'Customer') + '</b><span>' + esc(meta.quote.text) + '</span></div>';
             }
             if (meta.reaction) post += '<span class="wa-react-badge" title="Your reaction">' + esc(meta.reaction) + '</span>';
-            if (meta.canAct) {
-                pre = '<div class="wa-actions"><button type="button" class="wa-act" title="Reply" aria-label="Reply" onclick="waReply(' + meta.id + ')">&#8617;</button>'
+            if (meta.canAct || meta.canDel) {
+                pre = '<div class="wa-actions">'
+                    + (meta.canAct ? '<button type="button" class="wa-act" title="Reply" aria-label="Reply" onclick="waReply(' + meta.id + ')">&#8617;</button>' : '')
                     + (meta.canReact ? '<button type="button" class="wa-act" title="React" aria-label="React" onclick="waReactMenu(' + meta.id + ', this)">&#128578;</button>' : '')
+                    + (meta.canDel ? '<button type="button" class="wa-act wa-del" title="Delete message" aria-label="Delete message" onclick="waDeleteMsg(' + meta.id + ')">&#128465;</button>' : '')
                     + '</div>' + pre;
             }
         }
@@ -1544,8 +1546,15 @@ HTML;
     function metaOf(m, canAct, canReact) {
         // The badge shows the other side's reaction on our bubbles, and ours on the customer's.
         const reaction = m.message_direction === 'outgoing' ? (m.customer_reaction || '') : (m.our_reaction || '');
-        return { id: m.id, quote: m.quote || null, reaction: reaction, canAct: !!canAct && !!m.id, canReact: !!canReact && !!m.id };
+        return { id: m.id, quote: m.quote || null, reaction: reaction, canAct: !!canAct && !!m.id, canReact: !!canReact && !!m.id, canDel: !!m.id };
     }
+    window.waDeleteMsg = async function (id) {
+        if (!currentConversation || !confirm('Delete this message from the inbox? It stays in the customer\'s own chat app.')) return;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/messages/' + id, { method: 'DELETE' });
+        if (!res.success) { toast(res.error || 'Could not delete the message', 'error'); return; }
+        toast('Message deleted');
+        selectConversation(currentConversation.id, true);
+    };
 
 
     const RETRY_LABEL = 'Retry', AI_REPLY_LABEL = 'AI reply';
