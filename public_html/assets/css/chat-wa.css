@@ -96,3 +96,9 @@ html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
   html body.wa-app .panel-content{padding-left:0;padding-right:0}
   html body.wa-app .panel-content>.p-toolbar,html body.wa-app .panel-content>.p-card{margin-left:12px;margin-right:12px}
 }
+@media (max-width:960px){
+  /* search on its own full-width row, the chips scroll sideways under it; no "pick a chat" panel on the list screen */
+  html body.wa-app .ai-chat-list-card .p-toolbar{flex-wrap:wrap;overflow:visible}
+  html body.wa-app .ai-chat-list-card .p-toolbar #ucSearch{flex:1 1 100%;width:100%;min-width:100%!important}
+  html body.wa-app #ucEmptyState{display:none!important}
+}
