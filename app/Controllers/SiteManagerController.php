@@ -120,6 +120,61 @@ HTML;
         return $this->success([], 'تم الخروج');
     }
 
+    // ------------------------------------------------------------ email invitation (choose your own password)
+
+    /** GET /site-admin/invite/{token} */
+    public function invitePage(array $params = []): array
+    {
+        $token = (string) ($params['token'] ?? '');
+        $info = (new SiteManagerService())->inviteInfo($token);
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store, private');
+        header('Referrer-Policy: no-referrer');
+        header('X-Robots-Tag: noindex, nofollow');
+        $csrf = htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8');
+        $who = htmlspecialchars((string) ($info['display_name'] ?? '') !== '' ? $info['display_name'] : (string) ($info['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $user = htmlspecialchars((string) ($info['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $tok = htmlspecialchars($token, ENT_QUOTES, 'UTF-8');
+        $body = $info
+            ? <<<HTML
+<form id="f"><h1>أهلاً {$who}</h1><p>اختار كلمة سر لدخولك للوحة الموقع. اسم المستخدم بتاعك: <b dir="ltr">{$user}</b></p>
+<label for="p1">كلمة السر (10 حروف على الأقل، فيها حروف وأرقام)</label><input id="p1" type="password" autocomplete="new-password" required dir="ltr">
+<label for="p2">تأكيد كلمة السر</label><input id="p2" type="password" autocomplete="new-password" required dir="ltr">
+<div id="err" role="alert"></div><button id="b" type="submit">حفظ والدخول</button></form>
+<script>
+document.getElementById('f').addEventListener('submit',async function(e){e.preventDefault();var er=document.getElementById('err'),b=document.getElementById('b');er.textContent='';
+var p1=document.getElementById('p1').value;if(p1!==document.getElementById('p2').value){er.textContent='التأكيد مش مطابق';return;}
+b.disabled=true;try{var r=await fetch('/api/site-admin/invite/accept',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name=csrf]').content},credentials:'same-origin',body:JSON.stringify({token:'{$tok}',password:p1})});
+var j=await r.json().catch(function(){return{}});if(j.success){location.href='/site-admin/login';return;}er.textContent=j.error||j.message||'تعذّر الحفظ';}catch(x){er.textContent='مشكلة في الاتصال، جرّب تاني';}b.disabled=false;});
+</script>
+HTML
+            : '<div id="f"><h1>الرابط غير صالح</h1><p>رابط الدعوة منتهي أو اتستخدم قبل كده. اطلب من صاحب الموقع يبعتلك دعوة جديدة.</p></div>';
+        echo <<<HTML
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta name="csrf" content="{$csrf}"><title>دعوة لإدارة موقع</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;font-family:system-ui,'IBM Plex Sans Arabic',sans-serif;color:#e2e8f0}
+#f{background:#1e293b;padding:28px;border-radius:16px;width:min(92vw,400px);box-shadow:0 20px 50px rgba(0,0,0,.4)}
+h1{margin:0 0 6px;font-size:22px}p{margin:0 0 16px;color:#94a3b8;font-size:14px;line-height:1.7}
+label{display:block;font-size:13px;margin:12px 0 6px;color:#cbd5e1}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#fff;font-size:16px}
+button{margin-top:18px;width:100%;padding:13px;border:0;border-radius:10px;background:#d4a437;color:#111;font-weight:700;font-size:16px;cursor:pointer}
+button:disabled{opacity:.6}#err{color:#fca5a5;font-size:14px;min-height:20px;margin-top:10px}
+</style></head><body>{$body}</body></html>
+HTML;
+        exit;
+    }
+
+    /** POST /api/site-admin/invite/accept */
+    public function inviteAccept(array $params = []): array
+    {
+        if (($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('ip', 'site_manager_invite', 20, 600))) {
+            return $e;
+        }
+        $r = (new SiteManagerService())->acceptInvite((string) $this->get('token', ''), (string) $this->get('password', ''));
+        return $r['ok'] ? $this->success(['redirect' => '/site-admin/login'], 'تم حفظ كلمة السر') : $this->error($r['error'], 422);
+    }
+
     // ------------------------------------------------------------ the dashboard page
 
     /** GET /site-admin */

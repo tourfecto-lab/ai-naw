@@ -97,16 +97,104 @@ class SiteManagerService
         return ['ok' => true, 'id' => $id];
     }
 
+    public const INVITE_HOURS = 72;
+
+    /**
+     * Invite someone by email: the account exists but nobody knows its password until they open the one-time link and choose one.
+     * @return array{ok:bool,error?:string,id?:int,token?:string}
+     */
+    public function invite(int $ownerId, int $websiteId, string $username, string $displayName, string $role, string $email): array
+    {
+        $email = trim($email);
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 190) {
+            return ['ok' => false, 'error' => 'الإيميل غير صحيح'];
+        }
+        // a random password nobody knows (the invited person sets the real one)
+        $r = $this->create($ownerId, $websiteId, $username, $displayName, $role, self::generatePassword());
+        if (!$r['ok']) {
+            return $r;
+        }
+        $this->db->query('UPDATE site_manager_accounts SET email = ? WHERE id = ?', [$email, $r['id']]);
+        $token = $this->newInviteToken((int) $r['id']);
+        return ['ok' => true, 'id' => $r['id'], 'token' => $token];
+    }
+
+    /** Fresh link for a pending (or forgotten-password) account of this owner; the old link stops working. @return array{ok:bool,error?:string,token?:string,email?:string} */
+    public function reinvite(int $ownerId, int $websiteId, int $accountId): array
+    {
+        $acc = $this->ownedAccount($ownerId, $websiteId, $accountId);
+        if (!$acc) {
+            return ['ok' => false, 'error' => 'الحساب مش موجود'];
+        }
+        if (trim((string) ($acc['email'] ?? '')) === '') {
+            return ['ok' => false, 'error' => 'الحساب ده مالوش إيميل'];
+        }
+        return ['ok' => true, 'token' => $this->newInviteToken($accountId), 'email' => (string) $acc['email']];
+    }
+
+    private function newInviteToken(int $accountId): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $this->db->query(
+            'UPDATE site_manager_accounts SET invite_token_hash = ?, invite_expires = DATE_ADD(NOW(), INTERVAL ' . self::INVITE_HOURS . ' HOUR) WHERE id = ?',
+            [hash('sha256', $token), $accountId]
+        );
+        return $token;
+    }
+
+    /** @return array|null the invited account for a valid, unexpired link (for the "choose your password" page) */
+    public function inviteInfo(string $token): ?array
+    {
+        if (!preg_match('/^[a-f0-9]{64}$/D', $token)) {
+            return null;
+        }
+        $r = $this->db->query(
+            'SELECT a.id, a.username, a.display_name, a.role, a.website_id FROM site_manager_accounts a
+             JOIN generated_websites w ON w.id = a.website_id AND w.user_id = a.owner_user_id
+             WHERE a.invite_token_hash = ? AND a.invite_expires > NOW() AND a.is_active = 1 LIMIT 1',
+            [hash('sha256', $token)]
+        );
+        return $r[0] ?? null;
+    }
+
+    /** The invited person chooses their password; the link works once. @return array{ok:bool,error?:string,username?:string} */
+    public function acceptInvite(string $token, string $password): array
+    {
+        $acc = $this->inviteInfo($token);
+        if (!$acc) {
+            return ['ok' => false, 'error' => 'رابط الدعوة غير صالح أو انتهت صلاحيته'];
+        }
+        if ($problems = self::passwordProblems($password, (string) $acc['username'])) {
+            return ['ok' => false, 'error' => $problems[0]];
+        }
+        $this->db->query(
+            'UPDATE site_manager_accounts SET password_hash = ?, invite_token_hash = NULL, invite_expires = NULL, failed_attempts = 0, locked_until = NULL WHERE id = ? AND invite_token_hash = ?',
+            [password_hash($password, PASSWORD_DEFAULT), (int) $acc['id'], hash('sha256', $token)]
+        );
+        // two parallel uses of one link: only the request whose password was actually stored succeeds
+        $row = $this->db->query('SELECT password_hash, invite_token_hash FROM site_manager_accounts WHERE id = ?', [(int) $acc['id']])[0] ?? null;
+        $stored = $row && $row['invite_token_hash'] === null && password_verify($password, (string) $row['password_hash']);
+        return $stored ? ['ok' => true, 'username' => (string) $acc['username']] : ['ok' => false, 'error' => 'رابط الدعوة اتستخدم قبل كده'];
+    }
+
     /** @return array[] accounts of a site (never the hash) */
     public function listFor(int $ownerId, int $websiteId): array
     {
         if (!$this->ownsSite($ownerId, $websiteId)) {
             return [];
         }
-        return $this->db->query(
-            'SELECT id, username, display_name, role, is_active, last_login_at, locked_until, created_at FROM site_manager_accounts WHERE website_id = ? ORDER BY id',
-            [$websiteId]
-        ) ?: [];
+        try {
+            return $this->db->query(
+                'SELECT id, username, display_name, email, role, is_active, last_login_at, locked_until, created_at, (invite_token_hash IS NOT NULL AND invite_expires > NOW()) AS invite_pending FROM site_manager_accounts WHERE website_id = ? ORDER BY id',
+                [$websiteId]
+            ) ?: [];
+        } catch (Throwable $e) {
+            // invite columns not applied yet (migration 000005): list without them
+            return $this->db->query(
+                'SELECT id, username, display_name, role, is_active, last_login_at, locked_until, created_at FROM site_manager_accounts WHERE website_id = ? ORDER BY id',
+                [$websiteId]
+            ) ?: [];
+        }
     }
 
     private function ownedAccount(int $ownerId, int $websiteId, int $accountId): ?array

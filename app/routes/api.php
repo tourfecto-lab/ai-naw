@@ -1290,6 +1290,7 @@ $router->get('/api/site-dashboard/{id}/bookings/export', 'SiteDashboardControlle
 $router->put('/api/site-dashboard/{id}/bookings/{bookingId}', 'SiteDashboardController', 'updateBooking', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/managers', 'SiteDashboardController', 'managers', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/managers/activity', 'SiteDashboardController', 'managerActivity', ['AuthMiddleware']);
+$router->post('/api/site-dashboard/{id}/managers/{managerId}/invite', 'SiteDashboardController', 'resendManagerInvite', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/analytics', 'SiteDashboardController', 'analytics', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/coupons', 'SiteDashboardController', 'coupons', ['AuthMiddleware']);
 $router->post('/api/site-dashboard/{id}/coupons', 'SiteDashboardController', 'createCoupon', ['AuthMiddleware']);
@@ -1302,6 +1303,7 @@ $router->delete('/api/site-dashboard/{id}/managers/{managerId}', 'SiteDashboardC
 $router->post('/api/site-admin/login', 'SiteManagerController', 'login');
 $router->post('/api/site-admin/logout', 'SiteManagerController', 'logout');
 $router->post('/api/site-admin/password', 'SiteManagerController', 'passwordChange');
+$router->post('/api/site-admin/invite/accept', 'SiteManagerController', 'inviteAccept');
 $router->get('/api/site-admin/bookings', 'SiteManagerController', 'bookingsList');
 $router->get('/api/site-admin/bookings/export', 'SiteManagerController', 'bookingsExport');
 $router->put('/api/site-admin/bookings/{bookingId}', 'SiteManagerController', 'bookingAction');

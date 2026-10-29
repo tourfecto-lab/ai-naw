@@ -281,4 +281,80 @@ Tea", 'price' => '1 EGP'], ['slug' => 'unknown', 'short_description' => 'x']],
         $this->assertSame(['login'], array_column($this->svc->activityFor(self::OWNER, self::SITE), 'action'));
         unset($_SESSION['site_manager']);
     }
+
+    public function testInviteCreatesAPendingAccountWithAHashedOneTimeToken(): void
+    {
+        $r = $this->svc->invite(self::OWNER, self::SITE, 'invited.one', 'Invited', 'editor', 'invited@example.test');
+        $this->assertTrue($r['ok'], (string) ($r['error'] ?? ''));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['token']);
+        $stored = (string) $this->pdo->query("SELECT invite_token_hash FROM site_manager_accounts WHERE id = " . (int) $r['id'])->fetchColumn();
+        $this->assertSame(hash('sha256', $r['token']), $stored);
+        $this->assertNotSame($r['token'], $stored, 'the raw token is never stored');
+        $rows = $this->svc->listFor(self::OWNER, self::SITE);
+        $this->assertSame('invited@example.test', $rows[0]['email']);
+        $this->assertSame(1, (int) $rows[0]['invite_pending']);
+        $this->assertFalse($this->svc->invite(self::OWNER, self::SITE, 'bad.mail', '', 'viewer', 'not-an-email')['ok']);
+        $this->assertFalse($this->svc->invite(self::OTHER_OWNER, self::SITE, 'intruder.inv', '', 'viewer', 'x@example.test')['ok'], 'only the owner invites');
+    }
+
+    public function testAcceptingAnInviteSetsThePasswordAndTheLinkWorksOnce(): void
+    {
+        $r = $this->svc->invite(self::OWNER, self::SITE, 'invited.two', 'Two', 'manager', 'two@example.test');
+        $info = $this->svc->inviteInfo($r['token']);
+        $this->assertSame('invited.two', $info['username']);
+        $weak = $this->svc->acceptInvite($r['token'], 'short1');
+        $this->assertFalse($weak['ok']);
+        $this->assertNotNull($this->svc->inviteInfo($r['token']), 'a weak password does not burn the link');
+        $ok = $this->svc->acceptInvite($r['token'], 'My-own-pass-42');
+        $this->assertTrue($ok['ok']);
+        $this->assertTrue($this->svc->authenticate('invited.two', 'My-own-pass-42', '')['ok']);
+        $this->assertNull($this->svc->inviteInfo($r['token']), 'the link is single use');
+        $this->assertFalse($this->svc->acceptInvite($r['token'], 'Another-pass-43')['ok']);
+        $this->assertFalse($this->svc->authenticate('invited.two', 'Another-pass-43', '')['ok']);
+        $this->assertSame(0, (int) $this->svc->listFor(self::OWNER, self::SITE)[0]['invite_pending']);
+    }
+
+    public function testExpiredMalformedAndReplacedInviteLinksAreRefused(): void
+    {
+        $r = $this->svc->invite(self::OWNER, self::SITE, 'invited.three', '', 'viewer', 'three@example.test');
+        $this->assertNull($this->svc->inviteInfo('not-a-token'));
+        $this->assertNull($this->svc->inviteInfo(str_repeat('a', 64)));
+        $this->pdo->exec("UPDATE site_manager_accounts SET invite_expires = DATE_SUB(NOW(), INTERVAL 1 HOUR) WHERE id = " . (int) $r['id']);
+        $this->assertNull($this->svc->inviteInfo($r['token']), 'expired');
+        $this->assertFalse($this->svc->acceptInvite($r['token'], 'My-own-pass-42')['ok']);
+
+        $fresh = $this->svc->reinvite(self::OWNER, self::SITE, (int) $r['id']);
+        $this->assertTrue($fresh['ok']);
+        $this->assertNotNull($this->svc->inviteInfo($fresh['token']));
+        $again = $this->svc->reinvite(self::OWNER, self::SITE, (int) $r['id']);
+        $this->assertNull($this->svc->inviteInfo($fresh['token']), 'sending a new invite cancels the previous link');
+        $this->assertNotNull($this->svc->inviteInfo($again['token']));
+        $this->assertFalse($this->svc->reinvite(self::OTHER_OWNER, self::SITE, (int) $r['id'])['ok']);
+    }
+
+    public function testSwitchedOffAccountsCannotAcceptAnInvite(): void
+    {
+        $r = $this->svc->invite(self::OWNER, self::SITE, 'invited.four', '', 'viewer', 'four@example.test');
+        $this->svc->update(self::OWNER, self::SITE, (int) $r['id'], ['is_active' => 0]);
+        $this->assertNull($this->svc->inviteInfo($r['token']));
+    }
+
+    public function testAcceptEndpointNeedsCsrfAndAValidToken(): void
+    {
+        $r = $this->svc->invite(self::OWNER, self::SITE, 'invited.five', '', 'viewer', 'five@example.test');
+        $_SERVER['CONTENT_TYPE'] = 'application/x-www-form-urlencoded';
+        $_SESSION['csrf_token'] = 'tok-5';
+
+        $_POST = ['token' => $r['token'], 'password' => 'My-own-pass-42'];
+        $noCsrf = (new SiteManagerController())->inviteAccept([]);
+        $this->assertFalse((bool) ($noCsrf['success'] ?? false), 'refused without a CSRF token');
+
+        $_POST = ['csrf_token' => 'tok-5', 'token' => str_repeat('0', 64), 'password' => 'My-own-pass-42'];
+        $this->assertFalse((bool) ((new SiteManagerController())->inviteAccept([])['success'] ?? false));
+
+        $_POST = ['csrf_token' => 'tok-5', 'token' => $r['token'], 'password' => 'My-own-pass-42'];
+        $this->assertTrue((bool) ((new SiteManagerController())->inviteAccept([])['success'] ?? false));
+        $_POST = [];
+        $this->assertTrue($this->svc->authenticate('invited.five', 'My-own-pass-42', '')['ok']);
+    }
 }

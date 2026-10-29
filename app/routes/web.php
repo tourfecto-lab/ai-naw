@@ -204,6 +204,7 @@ $router->get('/website-builder', 'WebsiteBuilderController', 'index', ['AuthMidd
 $router->get('/dashboard/sites/{id}', 'SiteDashboardController', 'index', ['AuthMiddleware']);
 // دخول مدير الموقع (يوزر وباسورد خاصين بموقع واحد، من غير حساب Tourfecto)
 $router->get('/site-admin/login', 'SiteManagerController', 'loginPage');
+$router->get('/site-admin/invite/{token}', 'SiteManagerController', 'invitePage');
 $router->get('/site-admin', 'SiteManagerController', 'page');
 $router->get('/sites/{slug}/sitemap.xml', 'WebsiteBuilderController', 'siteSitemap');
 $router->get('/sites/{slug}/robots.txt', 'WebsiteBuilderController', 'siteRobots');

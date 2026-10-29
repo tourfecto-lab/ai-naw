@@ -108,11 +108,12 @@ class SiteDashboardController extends Controller
                     <div><label for="sdTmName" class="form-label">الاسم</label><input id="sdTmName" class="form-control" autocomplete="off"></div>
                     <div><label for="sdTmRole" class="form-label">الصلاحية</label>
                         <select id="sdTmRole" class="form-control"><option value="manager">مدير (حجوزات + تواصل + تقييمات)</option><option value="editor">محرر (تواصل + تقييمات)</option><option value="viewer">مشاهدة فقط</option></select></div>
-                    <div><label for="sdTmPass" class="form-label">كلمة السر</label><input id="sdTmPass" class="form-control" dir="ltr" autocomplete="new-password"></div>
+                    <div><label for="sdTmEmail" class="form-label">الإيميل (لإرسال دعوة)</label><input id="sdTmEmail" type="email" class="form-control" dir="ltr" autocomplete="off"></div>
+                    <div><label for="sdTmPass" class="form-label">كلمة السر (أو سيبها فاضية وابعت دعوة)</label><input id="sdTmPass" class="form-control" dir="ltr" autocomplete="new-password"></div>
                 </div>
                 <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
                     <button class="p-btn outline" type="button" onclick="sdTmGenerate()">ولّد كلمة سر قوية</button>
-                    <button class="p-btn primary" type="button" onclick="sdTmCreate()">إنشاء الحساب</button>
+                    <button class="p-btn primary" type="button" onclick="sdTmCreate()">إنشاء الحساب / إرسال دعوة</button>
                 </div>
                 <p style="margin-top:8px;font-size:13px;">كلمة السر بتظهر هنا مرة واحدة بس - انسخها وابعتها للشخص. تقدر تغيّرها أو توقف الحساب في أي وقت.</p>
             </div>
@@ -373,24 +374,29 @@ HTML;
                     <strong dir="ltr">\${esc(m.username)}</strong>
                     <span class="p-badge \${m.is_active == 1 ? '' : 'gold'}">\${m.is_active == 1 ? 'شغّال' : 'موقوف'}</span>
                 </div>
-                <p>\${esc(m.display_name || '')} · آخر دخول: \${esc(m.last_login_at || 'لم يدخل بعد')}</p>
+                <p>\${esc(m.display_name || '')}\${m.email ? ' · ' + esc(m.email) : ''} · \${m.invite_pending == 1 ? 'في انتظار قبول الدعوة' : 'آخر دخول: ' + esc(m.last_login_at || 'لم يدخل بعد')}</p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <select onchange="sdTmUpdate(\${m.id}, { role: this.value })">
                         \${['manager', 'editor', 'viewer'].map(r => `<option value="\${r}" \${m.role === r ? 'selected' : ''}>\${roleLabel[r]}</option>`).join('')}
                     </select>
                     <button class="p-btn outline xs" onclick="sdTmUpdate(\${m.id}, { is_active: \${m.is_active == 1 ? 0 : 1} })">\${m.is_active == 1 ? 'إيقاف' : 'تشغيل'}</button>
                     <button class="p-btn outline xs" onclick="sdTmResetPass(\${m.id})">كلمة سر جديدة</button>
+                    \${m.email ? `<button class="p-btn outline xs" onclick="sdTmInvite(\${m.id})">\${m.invite_pending == 1 ? 'إعادة إرسال الدعوة' : 'دعوة جديدة'}</button>` : ''}
                     <button class="p-btn outline xs" onclick="sdTmDelete(\${m.id})">حذف</button>
                 </div>
             </div>
         `).join('');
     }
     window.sdTmCreate = async function () {
-        const body = { username: document.getElementById('sdTmUser').value, display_name: document.getElementById('sdTmName').value, role: document.getElementById('sdTmRole').value, password: document.getElementById('sdTmPass').value };
+        const body = { username: document.getElementById('sdTmUser').value, display_name: document.getElementById('sdTmName').value, role: document.getElementById('sdTmRole').value, password: document.getElementById('sdTmPass').value, email: document.getElementById('sdTmEmail').value };
         const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (!res.success) { toast(res.error || res.message || 'حصل خطأ', 'error'); return; }
-        alert('تم إنشاء الحساب\u000a\u000aالرابط: ' + location.origin + '/site-admin/login\u000aاسم المستخدم: ' + body.username + '\u000aكلمة السر: ' + body.password + '\u000a\u000aانسخهم دلوقتي - كلمة السر مش هتظهر تاني.');
-        ['sdTmUser', 'sdTmName', 'sdTmPass'].forEach(i => document.getElementById(i).value = '');
+        if (res.data && res.data.invited) {
+            alert(res.data.emailed ? 'اتبعتت الدعوة على الإيميل. الشخص هيختار كلمة سره بنفسه.' : 'اتعمل الحساب. الإيميل مش متظبط على النظام، فانسخ رابط الدعوة وابعته بنفسك (شغّال لمرة واحدة):\u000a\u000a' + res.data.invite_url);
+        } else {
+            alert('تم إنشاء الحساب\u000a\u000aالرابط: ' + location.origin + '/site-admin/login\u000aاسم المستخدم: ' + body.username + '\u000aكلمة السر: ' + body.password + '\u000a\u000aانسخهم دلوقتي - كلمة السر مش هتظهر تاني.');
+        }
+        ['sdTmUser', 'sdTmName', 'sdTmPass', 'sdTmEmail'].forEach(i => document.getElementById(i).value = '');
         sdLoadTeam();
     };
     window.sdTmUpdate = async function (id, changes) {
@@ -406,6 +412,12 @@ HTML;
         if (!res.success) { toast(res.error || res.message || 'حصل خطأ', 'error'); return; }
         alert('كلمة السر الجديدة: ' + pw + '\u000a\u000aانسخها دلوقتي - مش هتظهر تاني.');
         document.getElementById('sdTmPass').value = '';
+        sdLoadTeam();
+    };
+    window.sdTmInvite = async function (id) {
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers/\${id}/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!res.success) { toast(res.error || res.message || 'حصل خطأ', 'error'); return; }
+        alert(res.data.emailed ? 'اتبعتت دعوة جديدة على الإيميل (الرابط القديم بطل).' : 'انسخ رابط الدعوة وابعته بنفسك (شغّال لمرة واحدة):\u000a\u000a' + res.data.invite_url);
         sdLoadTeam();
     };
     window.sdTmDelete = async function (id) {
@@ -850,8 +862,70 @@ JS;
         if (!$website) {
             return $this->error('غير موجود', 404);
         }
-        $r = (new SiteManagerService())->create((int) $this->user['id'], (int) $website->getAttribute('id'), (string) $this->get('username', ''), (string) $this->get('display_name', ''), (string) $this->get('role', 'viewer'), (string) $this->get('password', ''));
+        $svc = new SiteManagerService();
+        $email = trim((string) $this->get('email', ''));
+        // بدون كلمة سر وبإيميل = دعوة: الشخص يختار كلمة سره بنفسه من رابط لمرة واحدة (مفيش كلمة سر بتتبعت)
+        if ($email !== '' && (string) $this->get('password', '') === '') {
+            $r = $svc->invite((int) $this->user['id'], (int) $website->getAttribute('id'), (string) $this->get('username', ''), (string) $this->get('display_name', ''), (string) $this->get('role', 'viewer'), $email);
+            if (!$r['ok']) {
+                return $this->error($r['error'], 422);
+            }
+            $out = $this->deliverInvite($website, $email, (string) $this->get('display_name', ''), (string) $r['token']);
+            return $this->success(['id' => $r['id'], 'invited' => true] + $out, $out['emailed'] ? 'اتبعتت الدعوة على الإيميل' : 'اتعمل الحساب - انسخ رابط الدعوة وابعته');
+        }
+        $r = $svc->create((int) $this->user['id'], (int) $website->getAttribute('id'), (string) $this->get('username', ''), (string) $this->get('display_name', ''), (string) $this->get('role', 'viewer'), (string) $this->get('password', ''));
+        if ($r['ok'] && $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            try {
+                $this->db->query('UPDATE site_manager_accounts SET email = ? WHERE id = ?', [mb_substr($email, 0, 190), (int) $r['id']]);
+            } catch (Throwable $e) {
+                // عمود الإيميل لسه ما اتضافش (ميجريشن 000005): الحساب شغّال من غيره
+            }
+        }
         return $r['ok'] ? $this->success(['id' => $r['id']], 'تم إنشاء الحساب') : $this->error($r['error'], 422);
+    }
+
+    /** يبعت دعوة بالإيميل لو البريد متظبط؛ وإلا بيرجّع الرابط لصاحب الموقع يبعته بنفسه. @return array{emailed:bool,invite_url:string} */
+    private function deliverInvite(GeneratedWebsite $website, string $email, string $name, string $token): array
+    {
+        $url = rtrim(defined('APP_URL') ? (string) APP_URL : '', '/') . '/site-admin/invite/' . $token;
+        $emailed = false;
+        try {
+            $mailer = new Mailer();
+            if ($mailer->isConfigured()) {
+                $site = htmlspecialchars((string) (($website->getContent()['business_name'] ?? '') ?: $website->getAttribute('slug')), ENT_QUOTES, 'UTF-8');
+                $who = htmlspecialchars($name !== '' ? $name : $email, ENT_QUOTES, 'UTF-8');
+                $safeUrl = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+                $html = '<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;line-height:1.8;color:#222"><p>أهلاً ' . $who . '،</p><p>اتدعيت لإدارة موقع <b>' . $site . '</b> على Tourfecto.</p>'
+                    . '<p><a href="' . $safeUrl . '" style="display:inline-block;background:#d4a437;color:#111;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">اختار كلمة السر وادخل</a></p>'
+                    . '<p style="color:#666;font-size:13px">الرابط شغّال لمرة واحدة ولمدة ' . SiteManagerService::INVITE_HOURS . ' ساعة. لو ما كنتش متوقع الدعوة دي تجاهلها.</p></div>';
+                $res = $mailer->context('site_manager_invite', (int) $this->user['id'])->send($email, $name, 'دعوة لإدارة موقع ' . strip_tags($site), $html);
+                $emailed = !empty($res['success']);
+            }
+        } catch (Throwable $e) {
+            $emailed = false;
+        }
+        return ['emailed' => $emailed, 'invite_url' => $emailed ? '' : $url];
+    }
+
+    /** POST /api/site-dashboard/{id}/managers/{managerId}/invite - دعوة جديدة (الرابط القديم بيبطل) */
+    public function resendManagerInvite(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('user', 'site_manager_admin', 30, 3600))) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $r = (new SiteManagerService())->reinvite((int) $this->user['id'], (int) $website->getAttribute('id'), (int) ($params['managerId'] ?? 0));
+        if (!$r['ok']) {
+            return $this->error($r['error'], 422);
+        }
+        $out = $this->deliverInvite($website, (string) $r['email'], '', (string) $r['token']);
+        return $this->success($out, $out['emailed'] ? 'اتبعتت دعوة جديدة' : 'انسخ رابط الدعوة وابعته');
     }
 
     /** PUT /api/site-dashboard/{id}/managers/{managerId}  body: role | is_active | password */
