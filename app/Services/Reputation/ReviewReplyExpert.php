@@ -45,11 +45,15 @@ class ReviewReplyExpert
         'pl' => ['i', 'w', 'na', 'bardzo', 'był', 'była', 'się', 'z', 'jest', 'nie', 'przewodnik', 'polecam', 'do', 'to', 'że'],
     ];
 
-    /** لغة التقييم (كود من حرفين) - من الحروف الأول، وبعدين من الكلمات الشائعة */
-    public static function language(string $text, string $hint = ''): string
+    /**
+     * لغة التقييم (كود من حرفين) - من الحروف الأول، وبعدين من الكلمات الشائعة.
+     * تقييم نجوم من غير كلام: اسم صاحبه بالعربي يبقى الرد عربي (عمود review_language افتراضيه 'en' فمايتصدّقش لوحده).
+     */
+    public static function language(string $text, string $hint = '', string $name = ''): string
     {
         $t = trim($text);
         if ($t === '') {
+            if (preg_match('/\p{Arabic}/u', $name)) return 'ar';
             return isset(self::LANGS[$hint]) ? $hint : 'en';
         }
         if (preg_match('/\p{Arabic}/u', $t)) return 'ar';
@@ -118,7 +122,7 @@ class ReviewReplyExpert
         $text = trim((string) ($r['review_text'] ?? ''));
         $rating = (float) ($r['rating'] ?? 0);
         $type = self::type($rating, $text, (string) ($r['sentiment'] ?? ''));
-        $lang = self::language($text, (string) ($r['review_language'] ?? ''));
+        $lang = self::language($text, (string) ($r['review_language'] ?? ''), (string) ($r['reviewer_name'] ?? ''));
         $langName = self::languageName($lang);
         $platform = self::platformName((string) ($r['platform'] ?? ''));
         [$min, $max] = self::WORDS[$type];
@@ -187,7 +191,7 @@ class ReviewReplyExpert
         $issues = [];
         $text = trim((string) ($r['review_text'] ?? ''));
         $type = self::type((float) ($r['rating'] ?? 0), $text, (string) ($r['sentiment'] ?? ''));
-        $lang = self::language($text, (string) ($r['review_language'] ?? ''));
+        $lang = self::language($text, (string) ($r['review_language'] ?? ''), (string) ($r['reviewer_name'] ?? ''));
         $body = trim($reply);
         if ($body === '') {
             return ['empty reply'];
