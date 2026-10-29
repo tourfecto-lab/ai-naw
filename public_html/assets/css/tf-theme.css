@@ -372,3 +372,12 @@ html:not([data-theme="dark"]) body.ap-theme .p-btn.danger,
 html:not([data-theme="dark"]) body.ap-theme .pill.red { color: #B42318; }
 html:not([data-theme="dark"]) body.ap-theme em.blue { color: #1D4ED8; }
 :where(html:not([data-theme="dark"]) body.ap-theme) a:not([class]) { color: #0B5FA5; }
+
+/* Touch targets, part 2 (touch screens only): buttons/tabs measured 27-31px high, checkboxes 13px, sidebar footer links 21px. */
+@media (pointer: coarse) {
+    body.ap-theme .p-btn, body.ap-theme .p-tab, body.ap-theme .ch-tab, body.ap-theme .ri-tab { min-height: 44px; justify-content: center; }
+    body.ap-theme .p-btn.xs { min-height: 36px; }
+    body.ap-theme .panel-sidebar-footer a { display: flex; align-items: center; min-height: 44px; }
+    body.ap-theme input[type="checkbox"], body.ap-theme input[type="radio"] { width: 20px; height: 20px; }
+    body.ap-theme .p-input, body.ap-theme .p-select, body.ap-theme .form-control { min-height: 44px; }
+}
