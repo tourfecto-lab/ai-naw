@@ -68,7 +68,18 @@
   async function generate() {
     const p = payload();
     if (!confirm(t('الترجمة التلقائية بتتحسب من حصة توليد المواقع في باقتك أو من رصيدك. نكمّل؟', 'Automatic translation uses your plan\'s website generation allowance or your balance. Continue?'))) return;
-    const r = await api('generate', p); draft = { ...draft, ...(r.fields || {}) }; reviewed = false;
+    const before = versionOf(lang)?.updated_at || versionOf(lang)?.id || null, keep = lang;
+    let r;
+    try { r = await api('generate', p); }
+    catch (e) {
+      // الترجمة الطويلة ممكن تكمّل على السيرفر بعد ما الاتصال يتقطع؛ لو مسودة جديدة اتحفظت نعرضها بدل الخطأ
+      await loadBuilder(); pickLanguage(keep); confirmed = true;
+      const v = versionOf(keep);
+      if (!v || (v.updated_at || v.id) === before) throw e;
+      say(t('الترجمة خلصت واتحفظت كمسودة ✓ راجع كل خانة وصحّح أي حاجة قبل النشر.', 'Translation finished and was saved as a draft ✓ Review every field and fix anything before publishing.'));
+      return;
+    }
+    draft = { ...draft, ...(r.fields || {}) }; reviewed = false;
     say(t('الترجمة جاهزة ✓ راجع كل خانة وصحّح أي حاجة قبل النشر. لسه ما اتنشرتش.', 'Translation ready ✓ Review every field and fix anything before publishing. Nothing is published yet.'));
   }
 

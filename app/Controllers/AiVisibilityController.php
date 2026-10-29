@@ -10,6 +10,7 @@ final class AiVisibilityController extends Controller
             $result=match($action){
                 'generate'=>$this->generateDraft($svc,$uid,$wid,$mid),
                 'question'=>$this->saveQuestion($svc,$uid,$wid,$mid,(int)$this->get('id'),trim((string)$this->get('question')),filter_var($this->get('approved',false),FILTER_VALIDATE_BOOLEAN)),
+                'questions'=>$this->saveQuestions($svc,$uid,$wid,$mid,(array)$this->get('questions',[]),(int)$this->get('version'),filter_var($this->get('approved',false),FILTER_VALIDATE_BOOLEAN)),
                 'identity'=>$this->saveIdentity($svc,$uid,$wid,(array)$this->get('aliases',[]),(array)$this->get('profile_urls',[])),
                 default=>null
             };return $this->success(AiVisibilityPresentation::customer($this->view($svc,$uid,$wid,$mid)));
@@ -44,7 +45,8 @@ final class AiVisibilityController extends Controller
         $entity=$o['entities']??null;
         $brand='';try{$brand=(string)($svc->context($uid,$wid,$marketId)['brand']['name']??'');}catch(Throwable $e){error_log('[AiVisibilityController] ignored error: ' . $e->getMessage());}
         return ['state'=>$o['state']??'not_measured','markets'=>$markets,'questions'=>$questions,'metrics'=>$metrics,'trend'=>$trend,'answers'=>$answers,'tasks'=>$o['tasks']??[],
-            'providers'=>$o['providers']??[],'aliases'=>array_values(array_merge([$brand],(array)($entity['aliases']??[]))),'profile_urls'=>array_values((array)($entity['profiles']??[])),'position_basis'=>$o['metrics']['position_basis']??null];
+            'providers'=>$o['providers']??[],'aliases'=>array_values(array_merge([$brand],(array)($entity['aliases']??[]))),'profile_urls'=>array_values((array)($entity['profiles']??[])),'position_basis'=>$o['metrics']['position_basis']??null,
+            'question_sets'=>$set?[['market_id'=>$marketId,'version'=>(int)($set['version']??0),'approved'=>!empty($set['approved_at'])?1:0]]:[]];
     }
     private function setVersion(AiVisibilityService $svc,int $uid,int $wid,int $mid): array
     {
@@ -65,6 +67,13 @@ final class AiVisibilityController extends Controller
         // الموافقة على مستوى السوق: القياس الأسبوعي بيستخدم المجموعة المعتمدة كلها.
         return $svc->save($uid,$wid,$mid,$questions,$version,$approve);
     }
+    /** الصفحة بتحفظ الأسئلة كلها مرة واحدة (كانت بتبعت لمسار مش موجود فالموافقة عمرها ما اتحفظت) */
+    private function saveQuestions(AiVisibilityService $svc,int $uid,int $wid,int $mid,array $questions,int $version,bool $approve): array
+    {
+        $mid=(int)(new SeoMarketService($this->db))->resolve($wid,$uid,$mid)['id'];
+        $questions=array_values(array_filter(array_map(static fn($q)=>is_string($q)?trim($q):'',$questions),'strlen'));
+        return $svc->save($uid,$wid,$mid,$questions,$version,$approve);
+    }
     private function saveIdentity(AiVisibilityService $svc,int $uid,int $wid,array $aliases,array $profiles): array
     {
         $row=$this->db->query('SELECT version,address FROM seo_ai_entities WHERE website_id=? AND user_id=?',[$wid,$uid])[0]??null;
@@ -74,6 +83,7 @@ final class AiVisibilityController extends Controller
     public function generate(array $params=[]): array {return $this->data(['action'=>'generate']);}
     public function question(array $params=[]): array {return $this->data(['action'=>'question']);}
     public function identity(array $params=[]): array {return $this->data(['action'=>'identity']);}
+    public function questions(array $params=[]): array {return $this->data(['action'=>'questions']);}
     public function llms(array $params=[]): array
     {
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);
