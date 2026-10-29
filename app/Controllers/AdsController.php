@@ -58,6 +58,33 @@ class AdsController extends Controller
         $body = <<<HTML
         {$tabsHtml}
 
+        <style>
+        .ads-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-6px 0 16px}
+        .ads-strip .ads-strip-label{font-size:12px;opacity:.7;margin-inline-end:2px}
+        .ads-steps{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+        .ads-steps li{border:1px solid var(--border-color,rgba(128,128,128,.3));border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.6}
+        .ads-steps li b{display:block;margin-bottom:2px}
+        .ads-steps li.done{opacity:.65}
+        .ads-kpi-main{grid-column:span 2}
+        details.ads-accounts{margin-bottom:16px}
+        details.ads-accounts>summary{cursor:pointer;font-weight:700;padding:10px 2px;list-style:none}
+        details.ads-accounts>summary::-webkit-details-marker{display:none}
+        details.ads-accounts>summary::after{content:"\\25BE";margin-inline-start:8px;opacity:.6}
+        details.ads-accounts[open]>summary::after{content:"\\25B4"}
+        @media (max-width:560px){.ads-kpi-main{grid-column:span 1}}
+        </style>
+
+        <div class="ads-strip" id="adsStrip" aria-live="polite"><span class="ads-strip-label">الحسابات المربوطة:</span><span class="p-cell-muted" style="font-size:12px">جارِ التحميل...</span></div>
+
+        <div class="p-card" id="adsGetStarted" style="display:none;margin-bottom:16px;">
+            <div class="p-card-head"><h3>🚀 ابدأ أول حملة في 3 خطوات</h3><span class="p-card-sub">بتتنشر دايمًا متوقفة ومفيش فلوس بتتصرف لحد ما تفعّلها</span></div>
+            <ol class="ads-steps">
+                <li id="adsStep1"><b>1. اربط حساب إعلانات</b>Meta أو Google من قسم الحسابات الإعلانية تحت.</li>
+                <li id="adsStep2"><b>2. جهّز الحملة</b>اضغط حملة بالذكاء الاصطناعي عشان تتولّد لك نصوص واستهداف، أو اعملها يدويًا.</li>
+                <li id="adsStep3"><b>3. راجع وانشر</b>اختار شكل الإعلان (صورة أو كاروسيل أو فيديو) وانشر، وراجعها قبل ما تشغّلها.</li>
+            </ol>
+        </div>
+
         <div class="p-card" id="dashboardFilters" style="margin-bottom:16px;">
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
                 <div>
@@ -97,6 +124,8 @@ class AdsController extends Controller
             <div id="dashboardRecommendations"><div class="p-loading-row">جارِ التحميل...</div></div>
         </div>
 
+        <details class="ads-accounts" id="adsAccounts" open>
+        <summary>🔗 الحسابات الإعلانية وإعدادات الربط</summary>
         <div class="p-card" id="metaConnectCard" style="margin-bottom:16px;">
             <div class="p-card-head"><h3>Meta Ads (Facebook / Instagram)</h3><span class="p-card-sub">اربط حساب إعلاناتك عشان تسحب حملات وإنفاق حقيقي</span></div>
             <div id="metaConnectionStatus"><div class="p-loading-row">جارِ التحميل...</div></div>
@@ -111,6 +140,7 @@ class AdsController extends Controller
             <div class="p-card-head"><h3>TikTok Ads</h3><span class="p-card-sub">إعلانات فيديو على تيك توك - بتتنشر متوقفة</span></div>
             <div id="tiktokAdsConnectionStatus"></div>
         </div>
+        </details>
 
         <div class="p-modal-overlay" id="campaignToolsModal">
             <div class="p-modal wide">
@@ -149,6 +179,7 @@ class AdsController extends Controller
 
         <div id="adsWizardConfig" data-ctas="{$ctasJson}" style="display:none;"></div>
 
+        <div class="p-card-head" style="margin:6px 0 4px"><h3 id="campaignsHeading">الحملات</h3></div>
         <div class="p-toolbar" style="gap:10px;flex-wrap:wrap;">
             <button class="p-btn primary" onclick="openAiWizard()">✨ حملة إعلانية بالذكاء الاصطناعي</button>
             <button class="p-btn outline" onclick="document.getElementById('newCampaignModal').classList.add('open')">+ حملة يدوية</button>
@@ -360,6 +391,39 @@ HTML;
         else P.toast(res.error || 'تعذر الفصل', 'error');
     };
 
+    // One call feeds the status strip, the collapsible accounts box and the getting-started checklist.
+    let adsConnected = null;
+    async function loadAdsStrip() {
+        const strip = document.getElementById('adsStrip');
+        const res = await fetchJSON('/api/ads/connections/status');
+        if (!res.success) { strip.style.display = 'none'; return; }
+        const rows = [['meta_ads', 'Meta', '/ads/connect/meta'], ['google_ads', 'Google', '/ads/connect/google'], ['tiktok_ads', 'TikTok', '/ads/connect/tiktok']];
+        let any = false, html = '<span class="ads-strip-label">الحسابات المربوطة:</span>';
+        rows.forEach(([key, label, url]) => {
+            const d = res.data[key];
+            if (!d || (key === 'tiktok_ads' && !d.configured)) return;
+            const ok = d.connection && d.connection.status === 'connected';
+            any = any || ok;
+            if (ok) html += '<span class="pill green" title="' + esc(d.connection.external_account_id || '') + '">\u2714 ' + label + '</span>';
+            else if (d.connection) html += '<a class="pill yellow" style="text-decoration:none" href="' + url + '">\u26a0 ' + label + ' - إعادة ربط</a>';
+            else if (d.configured) html += '<a class="pill gray" style="text-decoration:none" href="' + url + '">+ ربط ' + label + '</a>';
+        });
+        strip.innerHTML = html;
+        adsConnected = any;
+        // Collapse the account cards once something is connected; they stay one click away.
+        const box = document.getElementById('adsAccounts');
+        if (box && any) box.removeAttribute('open');
+        updateGetStarted();
+    }
+    function updateGetStarted() {
+        const card = document.getElementById('adsGetStarted');
+        if (!card || adsConnected === null || window.__adsCampaignTotal === undefined) return;
+        const noCampaigns = window.__adsCampaignTotal === 0;
+        card.style.display = (!adsConnected || noCampaigns) ? '' : 'none';
+        document.getElementById('adsStep1').className = adsConnected ? 'done' : '';
+        document.getElementById('adsStep2').className = noCampaigns ? '' : 'done';
+    }
+
     let currentPage = 1;
     let searchDebounceTimer = null;
 
@@ -417,7 +481,11 @@ HTML;
             `).join('');
             res.data.campaigns.forEach(c => { if (c.id) loadCopiesInline(c.id); });
             renderPagination(res.data.total, res.data.page, res.data.per_page);
+            window.__adsCampaignTotal = Number(res.data.total) || 0;
+            document.getElementById('campaignsHeading').textContent = 'الحملات (' + window.__adsCampaignTotal + ')';
+            updateGetStarted();
         } else {
+            if (!document.getElementById('campaignSearch').value.trim() && !document.getElementById('campaignStatusFilter').value) { window.__adsCampaignTotal = 0; updateGetStarted(); }
             tbody.innerHTML = '<tr><td colspan="6" class="p-empty">No campaigns match the current filters. <button class="p-btn outline xs" onclick="resetCampaignFilters()">Clear filters</button></td></tr>';
             document.getElementById('campaignsPagination').innerHTML = '';
         }
@@ -1130,10 +1198,11 @@ HTML;
             if (opt) { sel.value = opt.value; return loadDashboardSummary(); }
         }
 
+        let kpiN = 0;
         const kpi = (label, value) => `
-            <div class="p-card" style="padding:14px;">
+            <div class="p-card${kpiN++ < 2 ? ' ads-kpi-main' : ''}" style="padding:${kpiN <= 2 ? '18px' : '14px'};">
                 <div class="p-cell-muted" style="font-size:11.5px;">${label}</div>
-                <div style="font-size:20px;font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" title="No data for this period">&mdash;</span>' : esc(String(value))}</div>
+                <div style="font-size:${kpiN <= 2 ? '28px' : '20px'};font-weight:800;margin-top:4px;">${value === null || value === undefined ? '<span class="p-cell-muted" title="No data for this period">&mdash;</span>' : esc(String(value))}</div>
             </div>`;
 
         const lifetimeMode = period === 'lifetime';
@@ -1169,6 +1238,7 @@ HTML;
     loadMetaStatus();
     loadGoogleAdsStatus();
     loadTikTokStatus();
+    loadAdsStrip();
     load();
 })();
 JS;
@@ -5917,25 +5987,42 @@ JS;
 
     private function adsTabsHtml(string $active): string
     {
-        $tabs = [
-            'dashboard' => ['نظرة عامة', '/ads'],
-            'campaigns' => ['الحملات', '/ads#campaignsTable'],
-            'reports' => ['التقارير', '/ads/reports'],
-            'budget' => ['الميزانية والإنفاق', '/ads/budget'],
-            'market_research' => ['بحث الأسواق', '/ads/market-research'],
-            'competitors' => ['المنافسون', '/ads/competitors'],
-            'autopilot' => ['Autopilot', '/ads/autopilot'],
-            'copilot' => ['AI Copilot', '/ads/copilot'],
-            'alerts' => ['التنبيهات', '/ads/alerts'],
-            'connections' => ['ربط المنصات', '/ads/connections'],
-            'team' => ['فريق العمل', '/ads/team'],
+        // Grouped by what the customer is doing: run campaigns | learn | automate | set up. One scrollable row on every screen.
+        $groups = [
+            [
+                'dashboard' => ['نظرة عامة', '/ads'],
+                'campaigns' => ['الحملات', '/ads#campaignsTable'],
+                'budget' => ['الميزانية والإنفاق', '/ads/budget'],
+                'reports' => ['التقارير', '/ads/reports'],
+            ],
+            [
+                'market_research' => ['بحث الأسواق', '/ads/market-research'],
+                'competitors' => ['المنافسون', '/ads/competitors'],
+            ],
+            [
+                'autopilot' => ['Autopilot', '/ads/autopilot'],
+                'copilot' => ['AI Copilot', '/ads/copilot'],
+                'alerts' => ['التنبيهات', '/ads/alerts'],
+            ],
+            [
+                'connections' => ['ربط المنصات', '/ads/connections'],
+                'team' => ['فريق العمل', '/ads/team'],
+            ],
         ];
-        $html = '<div class="p-tabs" style="margin-bottom:18px;flex-wrap:wrap;">';
-        foreach ($tabs as $key => [$label, $url]) {
-            $activeClass = $key === $active ? ' active' : '';
-            $html .= "<a href=\"{$url}\" class=\"p-tab{$activeClass}\" style=\"text-decoration:none;\">{$label}</a>";
+        $html = '<style>.ads-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;margin-bottom:18px;padding:2px 0 6px}'
+            . '.ads-tabs::-webkit-scrollbar{display:none}.ads-tabs .p-tab{flex:0 0 auto;white-space:nowrap;text-decoration:none}'
+            . '.ads-tabs .ads-tab-sep{flex:0 0 1px;align-self:stretch;margin:6px 4px;background:var(--border-color,rgba(128,128,128,.3))}</style>'
+            . '<div class="ads-tabs" role="tablist">';
+        foreach ($groups as $gi => $tabs) {
+            if ($gi > 0) {
+                $html .= '<span class="ads-tab-sep" aria-hidden="true"></span>';
+            }
+            foreach ($tabs as $key => [$label, $url]) {
+                $on = $key === $active;
+                $html .= "<a href=\"{$url}\" class=\"p-tab" . ($on ? ' active' : '') . "\" role=\"tab\"" . ($on ? ' aria-selected="true"' : '') . ">{$label}</a>";
+            }
         }
-        return $html . '</div>';
+        return $html . '</div><script>(function(){var a=document.querySelector(".ads-tabs .p-tab.active");if(a&&a.scrollIntoView){a.scrollIntoView({inline:"center",block:"nearest"});}})();</script>';
     }
 
     private function firstWebsiteForUser(int $userId): ?array
