@@ -714,8 +714,7 @@
 (function () {
     'use strict';
     var AC = window.AudioContext || window.webkitAudioContext;
-    var orig = window.sendAttachment;
-    if (typeof orig !== 'function' || !AC) return;
+    if (!AC) return;
 
     function wavFromBuffer(buf) {
         var n = buf.length, rate = buf.sampleRate, ch = buf.numberOfChannels, mono = new Float32Array(n);
@@ -742,12 +741,20 @@
             .then(function (buf) { ctx.close(); return wavFromBuffer(buf); }, function (e) { ctx.close(); throw e; });
     }
 
-    window.sendAttachment = async function (input) {
-        var f = input && input.files && input.files[0];
-        var split = document.querySelector('.ai-chat-split');
-        if (f && /\.ogg$/i.test(f.name || '') && split && split.getAttribute('data-ch') === 'instagram') {
-            try { input = { files: [await oggToWav(f)], value: '' }; } catch (e) { /* send the original */ }
-        }
-        return orig.call(this, input);
-    };
+    // The inbox page defines window.sendAttachment after this file loads, so wrap it once the page is ready.
+    function install() {
+        var orig = window.sendAttachment;
+        if (typeof orig !== 'function' || orig.tfWav) return;
+        var wrapped = async function (input) {
+            var f = input && input.files && input.files[0];
+            var split = document.querySelector('.ai-chat-split');
+            if (f && /\.ogg$/i.test(f.name || '') && split && split.getAttribute('data-ch') === 'instagram') {
+                try { input = { files: [await oggToWav(f)], value: '' }; } catch (e) { /* send the original */ }
+            }
+            return orig.call(this, input);
+        };
+        wrapped.tfWav = true;
+        window.sendAttachment = wrapped;
+    }
+    if (document.readyState === 'complete') install(); else window.addEventListener('load', install);
 })();
