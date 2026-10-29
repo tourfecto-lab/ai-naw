@@ -13,7 +13,7 @@ require_once __DIR__ . '/../Execution/ActionExecutor.php';
 final class BrainExecutor extends ActionExecutor
 {
     public const WINDOW_DAYS = 30;
-    private const RISK_KEYS = '/^(travel_advice_|demand_down_|economy_|reply_negative_reviews|fix_site_health)/';
+    private const RISK_KEYS = '/^(travel_advice_|demand_down_|economy_|reply_negative_reviews|fix_site_health|price_above_)/';
 
     protected function table(): string { return 'action_executions'; }
     protected function notificationType(): string { return 'brain'; }
