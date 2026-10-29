@@ -755,7 +755,6 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             .ai-chat-split .ai-chat-item .ub{background:#25d366;color:#0b141a;min-width:20px;height:20px;border-radius:10px;font-size:12px;font-weight:600}
             .ai-chat-split .ai-chat-item .ch{color:var(--wa-sub)}
             
-            #ucThreadPanel{display:flex;flex-direction:column;height:100%}
             #ucEmptyState{border:0;border-radius:0;height:100%;display:flex;align-items:center;justify-content:center;background:var(--wa-header);box-shadow:none;border-bottom:6px solid var(--wa-accent)}
             #ucEmptyState .p-empty{color:var(--wa-sub)}
             #convHeader{border:0;border-radius:0;margin:0!important;background:var(--wa-header);padding:10px 16px;border-bottom:1px solid var(--wa-line);box-shadow:none;color:var(--wa-text)}
@@ -787,6 +786,12 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             #ucReplyCard .p-btn.outline{background:transparent;border-color:transparent;color:var(--wa-sub)}
             #ucReplyCard .p-btn.outline:hover{background:var(--wa-active);color:var(--wa-text)}
             @media (max-width:960px){.ai-chat-split{min-height:0;border-radius:10px}.ai-chat-split .ai-chat-list{max-height:340px;min-height:0}.ai-chat-split .ai-chat-list-card{border-inline-end:0;border-bottom:1px solid var(--wa-line)}.ai-chat-split .ai-bubble{max-width:82%}#convThread{padding:14px 10px}}
+            .ai-chat-split .ai-chat-item .r1 + .r1{position:absolute;top:11px;inset-inline-end:16px;width:auto;padding:0;margin:0!important;gap:6px}
+            .ai-chat-split .ai-chat-item .r1 + .r1 .tm{flex:0 0 auto!important}
+            .ai-chat-split .ai-chat-item .nm{padding-inline-end:46px}
+            .ai-chat-split .ai-chat-item .ch{font-size:10px;max-width:64px;overflow:hidden}
+            #ucThreadPanel[style*="block"]{display:flex!important;flex-direction:column;height:100%}
+            #ucThreadPanel{height:100%}
         </style>
 
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
