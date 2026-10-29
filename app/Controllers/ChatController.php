@@ -1284,7 +1284,7 @@ HTML;
         chip.className = 'wa-reply-chip';
         const body = document.createElement('div');
         const who = document.createElement('b');
-        who.textContent = m.message_direction === 'outgoing' ? 'You' : 'Customer';
+        who.textContent = m.message_direction === 'outgoing' ? 'You' : (currentConversation && currentConversation.customer_name) || 'Customer';
         const t = document.createElement('span');
         t.textContent = text.length > 140 ? text.slice(0, 140) + '…' : text;
         body.appendChild(who); body.appendChild(t);
@@ -1515,7 +1515,7 @@ HTML;
         if (meta) {
             attr = meta.id ? ' data-mid="' + meta.id + '"' : '';
             if (meta.quote && meta.quote.text) {
-                pre += '<div class="ai-quote" data-qid="' + meta.quote.id + '"><b>' + esc(meta.quote.who === 'you' ? 'You' : 'Customer') + '</b><span>' + esc(meta.quote.text) + '</span></div>';
+                pre += '<div class="ai-quote" data-qid="' + meta.quote.id + '"><b>' + esc(meta.quote.who === 'you' ? 'You' : (currentConversation && currentConversation.customer_name) || 'Customer') + '</b><span>' + esc(meta.quote.text) + '</span></div>';
             }
             if (meta.reaction) post += '<span class="wa-react-badge" title="Your reaction">' + esc(meta.reaction) + '</span>';
             if (meta.canAct) {
@@ -1560,7 +1560,7 @@ HTML;
                 let extra = ticks(status, m.delivery_error);
                 if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">' + esc(RETRY_LABEL) + '</button>' + extra;
                 const opts = m.interactive && m.interactive.options && m.interactive.options.length ? '<div class="wa-opts">' + m.interactive.options.map(o => '<span>' + (m.interactive.kind === 'list' ? '&#9776; ' : '') + esc(o) + '</span>').join('') + '</div>' : '';
-                out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : '') + opts, timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : '', metaOf(m, isWa && !failed, false)));
+                out.push(bubble('out', '<span class="who' + (m.by_me && !m.template && !m.catalog ? ' me' : '') + '">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : '') + opts, timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : '', metaOf(m, isWa && !failed, false)));
                 return;
             }
             const text = bodyText(m, m.message_text || '');

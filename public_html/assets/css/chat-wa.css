@@ -273,3 +273,4 @@ html body #ucReplyCard .wa-tray .p-btn:hover{background:var(--wa-active)}
 /* the floating help button must not sit on the send button (the inbox is a full-height app) */
 html body.wa-app .tf-help-fab{bottom:auto;top:76px;inset-inline-end:14px;width:36px;height:36px;opacity:.85}
 @media (max-width:960px){html body.wa-app .tf-help-fab{top:auto;bottom:84px}}
+.ai-chat-split .ai-bubble .who.me{display:none}
