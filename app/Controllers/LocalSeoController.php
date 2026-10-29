@@ -5,24 +5,24 @@ class LocalSeoController extends Controller
         if(!$this->isAuthenticated()){header('Location: /login');exit;}
         $ar=current_lang()==='ar';
         $body='<section id="localSeo" dir="'.($ar?'rtl':'ltr').'"><h2>ظهور نشاطك وبياناته على الإنترنت</h2>
-<p>راجع بيانات شركتك مرة واحدة. المنصة تقارنها بالموقع والأدلة التي تختارها، وتحفظ الاختلافات للمراجعة.</p>
+<p>راجع بيانات شركتك مرة واحدة، والمنصة هتقارنها بموقعك وبالأدلة اللي تختارها وتوريك أي اختلاف.</p>
 <div class="local-toolbar"><label>الموقع <select id="localSite"></select></label><button id="localLoad">تحديث النتائج</button></div>
 <p id="localStatus" role="status" aria-live="polite"></p>
-<section class="local-step"><h3>1. راجع بيانات نشاطك</h3><p>سنقرأ ملف Google Business المرتبط بهذا الموقع لعرض بياناته هنا. تأكيد البيانات لا يحتاج إحداثيات ولا يبدأ قياس خرائط مدفوعًا.</p>
+<section class="local-step"><h3>1. راجع بيانات نشاطك</h3><p>هنقرا ملف Google Business المربوط بالموقع ده ونعرض بياناته هنا. التأكيد مجاني ومش بيبدأ أي قياس خرائط مدفوع.</p>
 <div id="localProfilePreview" role="status" aria-live="polite"></div><a id="localConnect" href="/reputation/platforms" hidden>ربط Google Business أو مراجعة صلاحياته</a>
 <label>روابط صفحات شركتك في الأدلة — اختياري<textarea id="localDirectories" rows="3" placeholder="https://directory.example/your-business"></textarea></label>
-<label class="local-check"><input id="localConfirm" type="checkbox"> راجعت البيانات المعروضة وأؤكد أن ملف Google Business وروابط الأدلة تخص شركتي</label>
+<label class="local-check"><input id="localConfirm" type="checkbox"> راجعت البيانات دي، وملف Google Business وروابط الأدلة تبع شركتي</label>
 <button id="localProfile">تأكيد البيانات وفحصها</button><button id="localNap">إعادة مقارنة البيانات المحفوظة</button>
-<p class="local-help">بعد تأكيدك، المنصة تحفظ البيانات وتقارنها تلقائيًا. إذا تعذر الفحص بعد الحفظ، يمكنك إعادة المقارنة دون إعادة إدخال البيانات.</p></section>
-<section class="local-step"><h3>2. راجع نتيجة المقارنة</h3><p>سترى ما اختلف، ومصدره، والقيمة في Google والقيمة الموجودة في المصدر. البيانات التي لم نتمكن من قراءتها تبقى غير معروفة.</p>
+<p class="local-help">بعد ما تأكد، المنصة بتحفظ البيانات وتقارنها لوحدها. لو الفحص ماكملش، تقدر تعيد المقارنة من غير ما تكتب البيانات تاني.</p></section>
+<section class="local-step"><h3>2. راجع نتيجة المقارنة</h3><p>هتشوف إيه اللي مختلف، والقيمة في Google قصاد القيمة في كل مصدر. اللي ماقدرناش نقراه بيفضل غير معروف.</p>
 <div id="localComparison" aria-live="polite"></div><div id="localTasks"></div></section>
-<section class="local-step"><h3>3. قياس ترتيب الخرائط — اختياري ومدفوع</h3><p>هذا قياس إضافي حول موقع النشاط المؤكد، وليس شرطًا لمقارنة البيانات. شبكة 5×5 لكلمتين أو ثلاث تستخدم 50–75 طلب قياس من حصة SEO ثم المحفظة وفق الحدود الحالية. حد الشبكات الشهري مشترك بين مواقع الحساب.</p>
-<p id="localMapsReady" class="local-help"></p><label>الكلمات التي يبحث بها عملاؤك — كلمتان أو ثلاث، كل كلمة في سطر<textarea id="localKeywords" rows="3"></textarea></label>
+<section class="local-step"><h3>3. قياس ترتيب الخرائط — اختياري ومدفوع</h3><p>ده قياس إضافي حوالين مكان نشاطك المؤكد، ومش شرط لمقارنة البيانات. شبكة 5 في 5 لكلمتين أو تلاتة بتستخدم من 50 لـ 75 طلب قياس من حصة السيو في باقتك وبعدها من رصيدك. حد الشبكات الشهري مشترك بين كل مواقع حسابك.</p>
+<p id="localMapsReady" class="local-help"></p><label>الكلمات اللي عملاءك بيدوّروا بيها — كلمتين أو تلاتة، كل كلمة في سطر<textarea id="localKeywords" rows="3"></textarea></label>
 <details><summary>إعدادات نطاق القياس</summary><label>المسافة بين النقاط بالكيلومتر <input id="localSpacing" type="number" min="0.25" max="5" step="0.25" value="1"></label></details>
-<label class="local-check"><input id="localPaid" type="checkbox"> أوافق على استهلاك طلبات القياس المدفوعة حتى 75 طلبًا؛ الغياب عن النتائج ليس ترتيبًا صفرًا</label><button id="localRun">بدء قياس الخرائط المعتمد</button>
+<label class="local-check"><input id="localPaid" type="checkbox"> موافق على استخدام لحد 75 طلب قياس مدفوع؛ وعارف إن عدم الظهور في نقطة مش معناه ترتيب صفر</label><button id="localRun">بدء قياس الخرائط المعتمد</button>
 <label>السجل الشهري <select id="localHistory"></select></label><div id="localGrid"></div></section>
-<section class="local-step"><h3>أدوات إضافية</h3><p>بحث فجوة الروابط يستخدم مزودًا مدفوعًا عند غياب نتائج محفوظة حديثة. تشغيله اختيار مستقل.</p><button id="localLinks">بحث فجوة الروابط الحقيقي — مدفوع</button><div id="localLinkGap"></div>
-<h3>تقريرك الشهري</h3><p>افتح التقرير لمراجعة البيانات المتاحة وحالة العمل والخطوات القادمة، أو احفظه PDF من نافذة الطباعة. إرسال البريد يحتاج جدولًا مفعلًا في إعدادات تقارير SEO.</p><button id="localReport">فتح التقرير / حفظ PDF</button></section></section><script defer src="'.htmlspecialchars(asset_v('/assets/js/local-seo.js'),ENT_QUOTES,'UTF-8').'"></script>';
+<section class="local-step"><h3>أدوات إضافية</h3><p>بحث فجوة الروابط بيستخدم مزوّد مدفوع لو مفيش نتايج حديثة محفوظة، وتشغيله اختياري.</p><button id="localLinks">بحث فجوة الروابط الحقيقي — مدفوع</button><div id="localLinkGap"></div>
+<h3>تقريرك الشهري</h3><p>افتح التقرير وشوف البيانات وحالة الشغل والخطوات الجاية، أو احفظه PDF من نافذة الطباعة. عشان يوصلك بالإيميل فعّله من مركز السيو.</p><button id="localReport">افتح التقرير أو احفظه PDF</button></section></section><script defer src="'.htmlspecialchars(asset_v('/assets/js/local-seo.js'),ENT_QUOTES,'UTF-8').'"></script>';
         $css='<link rel="stylesheet" href="'.htmlspecialchars(asset_v('/assets/css/local-seo.css'),ENT_QUOTES,'UTF-8').'">';
         echo $this->renderPanelPage('seo_expert',$ar?'البحث المحلي والخرائط':'Local search and maps','بيانات واضحة، فحص تلقائي، ونتائج للمراجعة',$css.$body);exit;
     }
