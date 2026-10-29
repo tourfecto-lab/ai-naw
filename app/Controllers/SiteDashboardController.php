@@ -48,6 +48,7 @@ class SiteDashboardController extends Controller
             <button class="p-tab active" onclick="sdSwitchTab('overview')" id="sdTabOverviewBtn">📊 نظرة عامة</button>
             <button class="p-tab" onclick="sdSwitchTab('design')" id="sdTabDesignBtn">🎨 التصميم</button>
             <button class="p-tab" onclick="sdSwitchTab('seo')" id="sdTabSeoBtn">🔍 SEO والدومين</button>
+            <button class="p-tab" onclick="sdSwitchTab('bookings')" id="sdTabBookingsBtn">🧾 الحجوزات <span id="sdBookingsCount" class="p-badge-dot" style="display:none;"></span></button>
             <button class="p-tab" onclick="sdSwitchTab('reviews')" id="sdTabReviewsBtn">⭐ التقييمات</button>
             <button class="p-tab" onclick="sdSwitchTab('leads')" id="sdTabLeadsBtn">📩 طلبات التواصل <span id="sdLeadsCount" class="p-badge-dot" style="display:none;"></span></button>
         </div>
@@ -80,6 +81,21 @@ class SiteDashboardController extends Controller
             </div>
         </div>
 
+        <div id="sdTabBookings" style="display:none;">
+            <div class="p-grid cols-3" id="sdBookingStats" style="margin-bottom:12px;"></div>
+            <div class="p-card" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <label for="sdBookingFilter" class="form-label" style="margin:0;">الحالة</label>
+                <select id="sdBookingFilter" class="form-control" style="max-width:180px;" onchange="sdLoadBookings()">
+                    <option value="">الكل</option><option value="pending">قيد الانتظار</option><option value="confirmed">مؤكد</option>
+                    <option value="cancelled">ملغي</option><option value="completed">مكتمل</option>
+                </select>
+                <label for="sdBookingSearch" class="form-label" style="margin:0;">بحث</label>
+                <input type="search" id="sdBookingSearch" class="form-control" style="max-width:240px;" placeholder="الاسم / الهاتف / رقم الحجز" oninput="sdLoadBookings()">
+                <a class="p-btn outline xs" id="sdBookingExport" href="#" style="margin-inline-start:auto;">تصدير CSV</a>
+            </div>
+            <div id="sdBookingsList" class="p-list">جاري التحميل...</div>
+        </div>
+
         <div id="sdTabReviews" style="display:none;">
             <div id="sdReviewsList" class="p-list">جاري التحميل...</div>
         </div>
@@ -102,6 +118,7 @@ HTML;
         });
         if (tab === 'design' && window.SdStudio) SdStudio.open();
         if (tab === 'reviews') sdLoadReviews();
+        if (tab === 'bookings') sdLoadBookings();
         if (tab === 'leads') sdLoadLeads();
     };
 
@@ -228,6 +245,52 @@ HTML;
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }),
         });
         if (!res.success) toast(res.error || 'حصل خطأ', 'error');
+    };
+
+    const bookingStatus = { pending: 'قيد الانتظار', confirmed: 'مؤكد', cancelled: 'ملغي', completed: 'مكتمل', no_show: 'لم يحضر' };
+    let bookingTimer = null;
+    window.sdLoadBookings = function () {
+        clearTimeout(bookingTimer);
+        bookingTimer = setTimeout(sdFetchBookings, 250);
+    };
+    async function sdFetchBookings() {
+        const status = document.getElementById('sdBookingFilter').value;
+        const q = document.getElementById('sdBookingSearch').value.trim();
+        const qs = new URLSearchParams({ status, q }).toString();
+        document.getElementById('sdBookingExport').href = `/api/site-dashboard/\${siteId}/bookings/export?` + qs;
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/bookings?` + qs);
+        const list = document.getElementById('sdBookingsList');
+        if (!res.success) { list.innerHTML = '<p>تعذّر تحميل الحجوزات</p>'; return; }
+        const st = res.data.stats;
+        document.getElementById('sdBookingStats').innerHTML =
+            `<div class="p-card"><span class="p-stat-label">قيد الانتظار</span><h3>\${st.pending}</h3></div>` +
+            `<div class="p-card"><span class="p-stat-label">مؤكدة</span><h3>\${st.confirmed}</h3></div>` +
+            `<div class="p-card"><span class="p-stat-label">الإيراد المؤكد</span><h3 dir="ltr">\${esc(st.revenue)}</h3></div>`;
+        const dot = document.getElementById('sdBookingsCount');
+        dot.style.display = st.pending > 0 ? '' : 'none'; dot.textContent = st.pending;
+        if (!res.data.bookings.length) { list.innerHTML = '<p>لا توجد حجوزات بعد</p>'; return; }
+        list.innerHTML = res.data.bookings.map(b => `
+            <div class="p-card" style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <strong>\${esc(b.customer_name)}</strong>
+                    <span class="p-badge \${b.status === 'pending' ? 'gold' : ''}">\${esc(bookingStatus[b.status] || b.status)}</span>
+                </div>
+                <p>\${esc(b.product_name || '')} · \${esc(b.start_date)} · \${b.adults_count} بالغ\${b.children_count > 0 ? ' + ' + b.children_count + ' طفل' : ''} · <bdi>\${esc(b.total_amount)} \${esc(b.currency)}</bdi></p>
+                <p dir="ltr" style="text-align:right;">\${esc(b.customer_phone || '')} \${b.customer_email ? ' - ' + esc(b.customer_email) : ''} · #\${esc(b.booking_reference)}</p>
+                \${b.notes ? '<p>' + esc(b.notes) + '</p>' : ''}
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    \${b.status === 'pending' ? `<button class="p-btn primary xs" onclick="sdBookingAction(\${b.id}, 'confirm')">تأكيد</button>` : ''}
+                    \${(b.status === 'pending' || b.status === 'confirmed') ? `<button class="p-btn outline xs" onclick="sdBookingAction(\${b.id}, 'cancel')">إلغاء</button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+    window.sdBookingAction = async function (id, action) {
+        if (action === 'cancel' && !confirm('إلغاء الحجز ده؟ هيتم تحرير الأماكن.')) return;
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/bookings/\${id}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }),
+        });
+        if (!res.success) toast(res.error || 'حصل خطأ', 'error'); else { toast('تم', 'success'); sdFetchBookings(); }
     };
 
     sdLoadOverview();
@@ -437,6 +500,125 @@ JS;
         }
         $lead->setAttribute('status', $status);
         $lead->save();
+        return $this->success([], 'تم التحديث');
+    }
+
+
+    // ================================================================ الحجوزات
+
+    /** كل حجز مرتبط بالموقع عن طريق منتج الموقع (crm_products.website_id) */
+    private function siteBookingRows(GeneratedWebsite $website, string $status, string $q, int $limit = 200): array
+    {
+        $sql = 'SELECT b.id, b.booking_reference, b.customer_name, b.customer_phone, b.customer_email, b.start_date, b.adults_count, b.children_count,
+                       b.total_amount, b.currency, b.status, b.source, b.notes, b.created_at, p.name AS product_name
+                FROM bookings b JOIN crm_products p ON p.id = b.product_id
+                WHERE p.website_id = ? AND b.user_id = ?';
+        $args = [(int) $website->getAttribute('id'), (int) $website->getAttribute('user_id')];
+        if (in_array($status, ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'], true)) {
+            $sql .= ' AND b.status = ?';
+            $args[] = $status;
+        }
+        if ($q !== '') {
+            $like = '%' . addcslashes(mb_substr($q, 0, 60), '%_\\') . '%';
+            $sql .= ' AND (b.customer_name LIKE ? OR b.customer_phone LIKE ? OR b.booking_reference LIKE ?)';
+            array_push($args, $like, $like, $like);
+        }
+        $sql .= ' ORDER BY b.created_at DESC, b.id DESC LIMIT ' . max(1, min(1000, $limit));
+        return $this->db->query($sql, $args) ?: [];
+    }
+
+    /** GET /api/site-dashboard/{id}/bookings */
+    public function bookings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $rows = $this->siteBookingRows($website, (string) $this->get('status', ''), trim((string) $this->get('q', '')));
+        $all = $this->siteBookingRows($website, '', '', 1000);
+        $stats = ['pending' => 0, 'confirmed' => 0, 'revenue' => 0.0];
+        $currency = '';
+        foreach ($all as $b) {
+            if ($b['status'] === 'pending') {
+                $stats['pending']++;
+            }
+            if (in_array($b['status'], ['confirmed', 'completed'], true)) {
+                $stats['confirmed']++;
+                $stats['revenue'] += (float) $b['total_amount'];
+                $currency = $currency ?: (string) $b['currency'];
+            }
+        }
+        $stats['revenue'] = number_format($stats['revenue'], 2, '.', '') . ($currency !== '' ? ' ' . $currency : '');
+        return $this->success(['bookings' => $rows, 'stats' => $stats]);
+    }
+
+    /** GET /api/site-dashboard/{id}/bookings/export - CSV (الخلايا اللي بتبدأ بـ = + - @ بتتحصّن ضد Excel injection) */
+    public function exportBookings(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $rows = $this->siteBookingRows($website, (string) $this->get('status', ''), trim((string) $this->get('q', '')), 1000);
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="bookings-' . (int) $website->getAttribute('id') . '.csv"');
+        $out = fopen('php://output', 'w');
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['reference', 'customer', 'phone', 'email', 'product', 'date', 'adults', 'children', 'total', 'currency', 'status', 'created']);
+        foreach ($rows as $b) {
+            fputcsv($out, array_map([self::class, 'csvSafe'], [$b['booking_reference'], $b['customer_name'], $b['customer_phone'], $b['customer_email'], $b['product_name'], $b['start_date'], $b['adults_count'], $b['children_count'], $b['total_amount'], $b['currency'], $b['status'], $b['created_at']]));
+        }
+        fclose($out);
+        exit;
+    }
+
+    /** خلية CSV تبدأ بـ = + - @ أو tab تتحصّن بعلامة ' عشان Excel ما ينفّذهاش كمعادلة */
+    public static function csvSafe($v): string
+    {
+        $v = (string) $v;
+        return preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v;
+    }
+
+    /** PUT /api/site-dashboard/{id}/bookings/{bookingId}  body: action = confirm | cancel */
+    public function updateBooking(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $bookingId = (int) ($params['bookingId'] ?? 0);
+        $owned = $this->db->query(
+            'SELECT b.id FROM bookings b JOIN crm_products p ON p.id = b.product_id WHERE b.id = ? AND p.website_id = ? AND b.user_id = ? LIMIT 1',
+            [$bookingId, (int) $website->getAttribute('id'), (int) $website->getAttribute('user_id')]
+        );
+        if (!$owned) {
+            return $this->error('غير موجود', 404);
+        }
+        $action = (string) $this->get('action');
+        try {
+            $engine = new BookingEngine();
+            if ($action === 'confirm') {
+                $engine->confirmBooking((int) $this->user['id'], $bookingId);
+            } elseif ($action === 'cancel') {
+                $engine->cancelBooking((int) $this->user['id'], $bookingId, 'إلغاء من لوحة الموقع');
+            } else {
+                return $this->error('إجراء غير صحيح', 422);
+            }
+        } catch (Throwable $ex) {
+            return $this->error($ex->getMessage() !== '' ? $ex->getMessage() : 'تعذّر تنفيذ الإجراء', 422);
+        }
         return $this->success([], 'تم التحديث');
     }
 

@@ -1285,6 +1285,9 @@ $router->put('/api/site-dashboard/{id}/seo', 'SiteDashboardController', 'updateS
 $router->get('/api/site-dashboard/{id}/reviews', 'SiteDashboardController', 'reviews', ['AuthMiddleware']);
 $router->put('/api/site-dashboard/{id}/reviews/{reviewId}', 'SiteDashboardController', 'updateReview', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/leads', 'SiteDashboardController', 'leads', ['AuthMiddleware']);
+$router->get('/api/site-dashboard/{id}/bookings', 'SiteDashboardController', 'bookings', ['AuthMiddleware']);
+$router->get('/api/site-dashboard/{id}/bookings/export', 'SiteDashboardController', 'exportBookings', ['AuthMiddleware']);
+$router->put('/api/site-dashboard/{id}/bookings/{bookingId}', 'SiteDashboardController', 'updateBooking', ['AuthMiddleware']);
 $router->put('/api/site-dashboard/{id}/leads/{leadId}', 'SiteDashboardController', 'updateLead', ['AuthMiddleware']);
 
 // CRM - Leads/Contacts
