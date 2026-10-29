@@ -278,3 +278,11 @@ html body.wa-app .tf-help-fab{bottom:auto;top:76px;inset-inline-end:14px;width:3
 .ai-chat-avatar{overflow:hidden}
 button.wa-hav{border:0;cursor:pointer;padding:0;overflow:hidden}
 button.wa-hav img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* shared location / contact cards */
+.wa-loc,.wa-contact{display:block;margin:2px 0;padding:8px 10px;border-radius:8px;border-inline-start:4px solid var(--wa-green-2);background:rgba(11,20,26,.18);color:inherit;text-decoration:none;font-size:13.5px}
+html:not([data-theme="dark"]) .wa-loc,html:not([data-theme="dark"]) .wa-contact{background:rgba(11,20,26,.06)}
+.wa-loc b,.wa-contact b{display:block}
+.wa-loc small,.wa-contact small{display:block;color:var(--wa-sub);font-size:12px}
+.wa-loc span{display:inline-block;margin-top:4px;color:var(--wa-green-2);font-weight:600;font-size:12.5px}
+html:not([data-theme="dark"]) .wa-loc span{color:#006e5a}

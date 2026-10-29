@@ -883,6 +883,19 @@ class WhatsAppCloudController extends Controller
         }
     }
 
+    /** "[Contact] Name · +phone" for the first shared contact cards; names and numbers only, length-capped. */
+    private static function contactsText(array $cards): string
+    {
+        $parts = [];
+        foreach (array_slice($cards, 0, 3) as $c) {
+            $name = trim(preg_replace('/[\x00-\x1F]/u', ' ', (string) ($c['name']['formatted_name'] ?? '')));
+            $phone = trim(preg_replace('/[^0-9+ ()-]/', '', (string) ($c['phones'][0]['phone'] ?? '')));
+            if ($name === '' && $phone === '') continue;
+            $parts[] = mb_substr($name !== '' ? $name : $phone, 0, 80) . ($name !== '' && $phone !== '' ? ' · ' . mb_substr($phone, 0, 30) : '');
+        }
+        return $parts ? '[Contact] ' . implode(' | ', $parts) : '[Contact]';
+    }
+
     /**
      * Store a customer's emoji reaction on the message it targets (our outgoing message, or the AI reply kept on a
      * customer's row). An empty emoji means the customer removed it. Returns false when there is nothing to attach it to.
@@ -1139,6 +1152,7 @@ class WhatsAppCloudController extends Controller
                         'location' => '[Location] ' . ($m['location']['latitude'] ?? '') . ',' . ($m['location']['longitude'] ?? ''),
                         'sticker' => '[Sticker]',
                         'order' => '[Order] ' . implode(', ', array_map(fn($i) => (int) ($i['quantity'] ?? 1) . ' × ' . (string) ($i['product_retailer_id'] ?? '?') . (isset($i['item_price']) ? ' (' . $i['item_price'] . ' ' . ($i['currency'] ?? '') . ')' : ''), array_slice((array) ($m['order']['product_items'] ?? []), 0, 30))) . (!empty($m['order']['text']) ? ' — ' . (string) $m['order']['text'] : ''),
+                        'contacts' => self::contactsText((array) ($m['contacts'] ?? [])),
                         'reaction' => '',
                         default => '[' . $type . ']',
                     };

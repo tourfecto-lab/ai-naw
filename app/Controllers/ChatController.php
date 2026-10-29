@@ -1504,6 +1504,20 @@ HTML;
         }
     }
     const FILE_LABEL = 'File';
+    // A shared location or contact arrives as plain text ("[Location] lat,lng" / "[Contact] Name · phone"): show it as a card.
+    function richText(text) {
+        const loc = /^\[Location\]\s*(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)$/.exec(text);
+        if (loc && Math.abs(+loc[1]) <= 90 && Math.abs(+loc[2]) <= 180) {
+            return '<a class="wa-loc" href="https://www.google.com/maps?q=' + loc[1] + ',' + loc[2] + '" target="_blank" rel="noopener noreferrer"><b>&#128205; Location</b><small>' + loc[1] + ', ' + loc[2] + '</small><span>Open in Maps</span></a>';
+        }
+        if (text.indexOf('[Contact]') === 0) {
+            return text.slice(9).split(' | ').filter(Boolean).map(function (c) {
+                const p = c.split(' · ');
+                return '<div class="wa-contact"><b>&#128100; ' + esc(p[0] || '') + '</b>' + (p[1] ? '<small>' + esc(p[1]) + '</small>' : '') + '</div>';
+            }).join('') || '<div class="wa-contact"><b>&#128100; Contact</b></div>';
+        }
+        return esc(text);
+    }
     function bodyText(m, text) {
         if (!m.media) return text;
         let t = text.replace(/^\[(Image|Video|Voice message|Audio|Sticker|Document)\]\s*/, '');
@@ -1564,7 +1578,7 @@ HTML;
                 return;
             }
             const text = bodyText(m, m.message_text || '');
-            out.push(bubble('in', media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), '', '', metaOf(m, isWa, isWa)));
+            out.push(bubble('in', media + (text ? '<span>' + richText(text) + '</span>' : ''), timeOnly(m.created_at), '', '', metaOf(m, isWa, isWa)));
             // The AI reply is stored on the customer's message row; show it as its own bubble.
             const reply = (m.ai_reply_generated || '').trim();
             if (!reply) return;
