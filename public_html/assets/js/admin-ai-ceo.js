@@ -9,6 +9,9 @@
     if (!root || !P) return;
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
+    // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
     const req = async (url, body) => {
       const token = data?.csrf_token || root.dataset.csrf || '';
@@ -125,9 +128,34 @@
       return `<section class="br-card"><h3>Audit Log</h3>${rows ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Time (UTC)</th><th>By</th><th>Action</th><th>Detail</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="br-muted">No activity yet.</p>'}</section>`;
     }
 
+    function tabsBar() {
+      const waiting = (data.decisions || []).filter(d => d.status === 'proposed').length;
+      return `<nav class="ac-tabs" role="tablist">${TABS.map(([id, label]) => `<button type="button" role="tab" class="p-tab${tab === id ? ' active' : ''}" aria-selected="${tab === id}" data-tab="${id}">${esc(label)}${id === 'approvals' && waiting ? ` <span class="ac-badge">${waiting}</span>` : ''}</button>`).join('')}</nav>`;
+    }
+
+    // نظرة عامة: الأرقام + أهم 3 قرارات مفتوحة
+    function overviewTab() {
+      const open = (data.decisions || []).filter(d => ['proposed', 'approved'].includes(d.status));
+      return `${overview(data.snapshot || {})}<section class="br-card"><div class="br-head"><div><h3>Top priorities</h3><p class="br-muted">${num(open.length)} open decisions. The three most important:</p></div>
+        <button type="button" class="p-btn outline xs" data-tab="approvals">See all approvals & tasks</button></div>
+        ${open.length ? `<ol class="br-list">${open.slice(0, 3).map(decisionCard).join('')}</ol>` : '<p class="br-done">✓ No open decisions from the current data.</p>'}</section>`;
+    }
+
+    function body() {
+      switch (tab) {
+        case 'chat': return chat();
+        case 'approvals': return radar(data.decisions || []);
+        case 'costs': return costSection();
+        case 'memory': return memory();
+        case 'log': return activity();
+        default: return overviewTab();
+      }
+    }
+
     function render() {
       if (!data) return;
-      root.innerHTML = `${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}${controls()}${overview(data.snapshot || {})}${chat()}${radar(data.decisions || [])}${costSection()}${memory()}${activity()}`;
+      root.innerHTML = `${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}${controls()}${tabsBar()}${body()}`;
+      root.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; note = null; history.replaceState(null, '', '#' + tab); render(); window.scrollTo({ top: 0 }); });
       const log = root.querySelector('#acChatLog'); if (log) log.scrollTop = log.scrollHeight;
       const act = async (fn, okText) => { if (busy) return; busy = true; try { await fn(); note = okText ? { text: okText } : null; } catch (e) { note = { text: e.message, error: true }; } finally { busy = false; render(); } };
       root.querySelector('#acRefresh')?.addEventListener('click', () => load(true));
@@ -160,6 +188,8 @@
       try { data = await req('/api/admin/ai-ceo' + (refresh ? '?refresh=1' : '')); note = null; render(); }
       catch (e) { root.innerHTML = `<section class="br-card"><p>${esc(e.message)}</p></section>`; }
     }
+    // روابط القرارات زي /admin/ai-ceo#costs بتغيّر التبويب من غير ما الصفحة تتحمل تاني
+    window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.some(t => t[0] === h) && h !== tab) { tab = h; render(); } });
     load(false).then(loadCosts);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();

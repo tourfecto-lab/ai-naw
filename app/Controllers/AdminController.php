@@ -3890,27 +3890,47 @@ HTML;
 
     private function renderAdminSidebar(string $activeTab): string
     {
+        // المجموعات بالترتيب: عام، الذكاء الاصطناعي، العملاء والمبيعات، الفلوس، التشغيل، الأمان، الإعدادات
         $groups = [
             $this->tr('admin.nav.general') => [
                 'overview' => [$this->tr('admin.nav.overview'), 'bar-chart-2', '/admin'],
                 'platform' => [$this->tr('admin.nav.platform_overview'), 'compass', '/admin/platform'],
+                'metrics' => ['أرقام SaaS', 'trending-up', '/admin/metrics'],
+            ],
+            'AI CEO والذكاء الاصطناعي' => [
                 'ai-ceo' => ['AI Mission Control', 'brain', '/admin/ai-ceo'],
                 'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
-                'metrics' => ['أرقام SaaS', 'trending-up', '/admin/metrics'],
-                'health' => ['صحة المنصة', 'activity', '/admin/health'],
-                'alerts' => ['التنبيهات', 'bell', '/admin/alerts'],
-                'errors' => ['أخطاء النظام', 'flag', '/admin/errors'],
+                'ai-usage' => [$this->tr('admin.nav.ai_usage'), 'brain', '/admin/ai-usage'],
+                'ai-service-routing' => ['توزيع خدمات AI', 'settings', '/admin/ai-routing'],
+                'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
+                'creative-studio-ops' => ['استوديو الوسائط', 'image', '/admin/creative-studio'],
             ],
-            $this->tr('admin.nav.customers') => [
+            'العملاء والمبيعات' => [
                 'users' => [$this->tr('admin.nav.users'), 'users', '/admin/users'],
                 'customers-health' => ['صحة العملاء', 'target', '/admin/customers-health'],
                 'trials' => ['متابعة التجارب', 'clock', '/admin/trials'],
                 'adoption' => ['استخدام المميزات', 'activity', '/admin/adoption'],
-                'billing-ops' => ['الدفع والكوبونات', 'credit-card', '/admin/billing-ops'],
-                'subscriptions' => [$this->tr('admin.nav.subscriptions'), 'credit-card', '/admin/subscriptions'],
+                'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), 'flask', '/admin/onboarding-funnel'],
+                'platform-growth' => ['تسويق المنصة (إيميل)', 'send', '/admin/growth'],
+                'email-reputation' => ['سمعة التسويق بالبريد', 'mail', '/admin/email-reputation'],
                 'contact-messages' => [$this->tr('admin.nav.contact_messages'), 'mail', '/admin/contact-messages'],
+            ],
+            'الاشتراكات والفلوس' => [
+                'subscriptions' => [$this->tr('admin.nav.subscriptions'), 'credit-card', '/admin/subscriptions'],
+                'billing-ops' => ['الدفع والكوبونات', 'credit-card', '/admin/billing-ops'],
                 'plans' => [$this->tr('admin.nav.plans'), 'dollar', '/admin/plans'],
+                'plans-studio' => ['الباقات والعملات والدفع (XPay)', 'credit-card', '/admin/plans-studio'],
                 'finance' => [$this->tr('admin.nav.finance'), 'credit-card', '/admin/finance'],
+            ],
+            'التشغيل وصحة المنصة' => [
+                'health' => ['صحة المنصة', 'activity', '/admin/health'],
+                'alerts' => ['التنبيهات', 'bell', '/admin/alerts'],
+                'errors' => ['أخطاء النظام', 'flag', '/admin/errors'],
+                'system' => [$this->tr('admin.nav.system_status'), 'monitor', '/admin/system'],
+                'logs' => [$this->tr('admin.nav.logs'), 'file-text', '/admin/logs'],
+                'jobs' => [$this->tr('admin.nav.jobs'), 'activity', '/admin/jobs'],
+                'emails' => ['سجل البريد', 'mail', '/admin/emails'],
+                'status-page' => ['صفحة الحالة والتحديثات', 'globe', '/admin/status-page'],
             ],
             $this->tr('admin.nav.security_tracking') => [
                 'visitors' => [$this->tr('admin.nav.visitors'), 'eye', '/admin/visitors'],
@@ -3918,26 +3938,13 @@ HTML;
                 'security' => [$this->tr('admin.nav.security'), 'alarm', '/admin/security'],
                 'admin-security' => ['أمان الأدمن', 'lock', '/admin/admin-security'],
                 'audit' => [$this->tr('admin.nav.audit'), 'clock', '/admin/audit'],
-                'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), 'flask', '/admin/onboarding-funnel'],
             ],
             $this->tr('admin.nav.system') => [
-                'system' => [$this->tr('admin.nav.system_status'), 'monitor', '/admin/system'],
-                'logs' => [$this->tr('admin.nav.logs'), 'file-text', '/admin/logs'],
-                'emails' => ['سجل البريد', 'mail', '/admin/emails'],
-                'platform-growth' => ['تسويق المنصة (إيميل)', 'send', '/admin/growth'],
-                'email-reputation' => ['سمعة التسويق بالبريد', 'mail', '/admin/email-reputation'],
-                'plans-studio' => ['الباقات والعملات والدفع (XPay)', 'credit-card', '/admin/plans-studio'],
-                'status-page' => ['صفحة الحالة والتحديثات', 'globe', '/admin/status-page'],
-                'blog' => ['المدونة', 'edit', '/admin/blog'],
-                'jobs' => [$this->tr('admin.nav.jobs'), 'activity', '/admin/jobs'],
-                'ai-usage' => [$this->tr('admin.nav.ai_usage'), 'brain', '/admin/ai-usage'],
-                'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
-                'ai-service-routing' => ['توزيع خدمات AI', 'settings', '/admin/ai-routing'],
-                'creative-studio-ops' => ['استوديو الوسائط', 'image', '/admin/creative-studio'],
                 'team' => [$this->tr('admin.nav.team'), 'key', '/admin/team'],
                 'settings' => [$this->tr('admin.nav.settings'), 'settings', '/admin/settings'],
                 'integrations' => [$this->tr('admin.nav.integrations'), 'plug', '/admin/integrations'],
                 'api-keys' => [$this->tr('admin.nav.api_keys'), 'key', '/admin/api-keys'],
+                'blog' => ['المدونة', 'edit', '/admin/blog'],
             ],
         ];
 
