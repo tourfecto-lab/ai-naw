@@ -106,10 +106,10 @@ final class SalesEngineIntegrationTest extends TestCase
     {
         $store = new AiCeoStore($this->db);
         $eng = new SalesEngine($this->db);
-        $now = strtotime('2026-11-03 09:00:00'); // اتنين
-        $this->db->query("DELETE FROM aiceo_memory WHERE title IN ('Sales daily report 2026-11-02', 'Sales weekly report 2026-10-27')");
+        $now = strtotime('2026-11-02 09:00:00'); // يوم اتنين
+        $this->db->query("DELETE FROM aiceo_memory WHERE title IN ('Sales daily report 2026-11-01', 'Sales weekly report 2026-10-26')");
         $this->assertSame(['daily', 'weekly'], $eng->writeReports($store, $now));
         $this->assertSame([], $eng->writeReports($store, $now));
-        $this->db->query("DELETE FROM aiceo_memory WHERE title IN ('Sales daily report 2026-11-02', 'Sales weekly report 2026-10-27')");
+        $this->db->query("DELETE FROM aiceo_memory WHERE title IN ('Sales daily report 2026-11-01', 'Sales weekly report 2026-10-26')");
     }
 }
