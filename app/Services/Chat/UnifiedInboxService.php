@@ -129,16 +129,37 @@ class UnifiedInboxService
             );
 
             $updates = ['last_message_at' => date('Y-m-d H:i:s')];
+            $notifyAgent = false;
             if ($isCustomerMessage) {
                 $updates['last_customer_message_at'] = date('Y-m-d H:i:s');
                 $updates['unread_count'] = $this->incrementUnread($conversationId);
+                // Like WhatsApp: a device push for the first unread message (not for every one in a burst).
+                $notifyAgent = $updates['unread_count'] === 1;
             }
 
             $this->updateConversation($conversationId, $updates);
+            if ($notifyAgent) {
+                $this->notifyNewMessage($conversationId);
+            }
         } catch (Exception $e) {
             Logger::warning('UnifiedInboxService: failed to link message', [
                 'message_id' => $messageId, 'conversation_id' => $conversationId, 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /** Bell + device push (OneSignal) that a customer wrote. Names the contact only: the message text never leaves the platform. */
+    private function notifyNewMessage(int $conversationId): void
+    {
+        try {
+            $row = $this->db->query('SELECT user_id, customer_name, customer_phone, channel FROM ai_conversations WHERE id = ?', [$conversationId])[0] ?? null;
+            if (!$row || (int) $row['user_id'] < 1) {
+                return;
+            }
+            $who = trim((string) ($row['customer_name'] ?: ($row['customer_phone'] ?: 'A customer')));
+            Notification::notify((int) $row['user_id'], 'ai_chat_new_message', $who, 'New ' . (string) $row['channel'] . ' message', '/chat');
+        } catch (Throwable $e) {
+            Logger::warning('UnifiedInboxService: new-message notification failed', ['conversation_id' => $conversationId, 'error' => $e->getMessage()]);
         }
     }
 
