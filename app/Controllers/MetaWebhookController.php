@@ -40,9 +40,8 @@ class MetaWebhookController extends Controller
     public function receive(array $params = []): array
     {
         $raw = (string) file_get_contents('php://input');
-        $secret = MetaOAuthClient::setting('meta_app_secret', 'META_APP_SECRET');
         $sig = (string) ($_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '');
-        if (!WhatsAppWebhookInbox::verifiedSignature($raw, $sig, $secret)) {
+        if (!self::signatureValid($raw, $sig)) {
             return $this->error('Invalid signature', 401);
         }
         $payload = json_decode($raw, true);
@@ -50,6 +49,18 @@ class MetaWebhookController extends Controller
             return $this->error('Invalid JSON', 400);
         }
         return $this->success(self::route($payload));
+    }
+
+    /** The main Meta app signs its webhooks with its secret; the optional messaging-only app signs with its own. */
+    public static function signatureValid(string $raw, string $sig, ?array $secrets = null): bool
+    {
+        $secrets = $secrets ?? [MetaOAuthClient::setting('meta_app_secret', 'META_APP_SECRET'), MetaMessagingApp::secret()];
+        foreach ($secrets as $secret) {
+            if ($secret !== '' && WhatsAppWebhookInbox::verifiedSignature($raw, $sig, $secret)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -68,8 +79,9 @@ class MetaWebhookController extends Controller
             $accountId = (string) ($entry['id'] ?? '');
             $rows = $accountId === '' ? [] : $db->query(
                 "SELECT c.website_id, w.user_id FROM platform_connections c JOIN websites w ON w.id = c.website_id AND w.user_id = c.user_id
-                 WHERE c.platform = ? AND c.status = 'connected' AND c.external_location_id = ? ORDER BY c.id DESC LIMIT 1",
-                [$platform, $accountId]
+                 WHERE c.platform IN (?, ?) AND c.status = 'connected' AND c.external_location_id = ? ORDER BY (c.platform = ?) DESC, c.id DESC LIMIT 1",
+                // Instagram DMs: a connection made through the messaging app ("instagram_dm") wins over the publishing one.
+                [$platform, $platform === 'instagram' ? 'instagram_dm' : $platform, $accountId, 'instagram_dm']
             );
             if (!$rows) {
                 $total['unknown']++;

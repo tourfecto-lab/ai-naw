@@ -784,6 +784,8 @@ return [
     'UnifiedInboxService' => dirname(__DIR__,2).'/app/Services/Chat/UnifiedInboxService.php',
     'ChatConversationPrefs' => dirname(__DIR__,2).'/app/Services/Chat/ChatConversationPrefs.php',
     'ChatContactPhotos' => dirname(__DIR__,2).'/app/Services/Chat/ChatContactPhotos.php',
+    'MetaMessagingApp' => dirname(__DIR__,2).'/app/Services/OAuth/MetaMessagingApp.php',
+    'ChatMetaConnectController' => dirname(__DIR__,2).'/app/Controllers/ChatMetaConnectController.php',
     'UploadManager' => dirname(__DIR__,2).'/app/Services/UploadManager.php',
     'UsageAlertService' => dirname(__DIR__,2).'/app/Services/Subscription/UsageAlertService.php',
     'UsageReservationAdminController' => dirname(__DIR__,2).'/app/Controllers/UsageReservationAdminController.php',

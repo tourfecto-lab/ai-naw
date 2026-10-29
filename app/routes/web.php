@@ -165,6 +165,8 @@ $router->get('/email-marketing/settings', 'EmailMarketingController', 'showEmail
 $router->get('/email-marketing/transactional', 'EmailMarketingController', 'showTransactionalPage', ['AuthMiddleware']);
 $router->get('/email-marketing/ab-tests', 'EmailMarketingController', 'showAbTestsPage', ['AuthMiddleware']);
 $router->get('/email-marketing/ab-tests/{id}', 'EmailMarketingController', 'showAbTestDetailsPage', ['AuthMiddleware']);
+$router->get('/chat/connect/meta', 'ChatMetaConnectController', 'start', ['AuthMiddleware']);
+$router->get('/chat/connect/meta/callback', 'ChatMetaConnectController', 'callback', ['AuthMiddleware']);
 $router->get('/ads/connect/meta', 'AdsController', 'connectMeta', ['AuthMiddleware']);
 $router->get('/ads/connect/meta/callback', 'AdsController', 'metaOAuthCallback', ['AuthMiddleware']);
 $router->get('/ads/connect/meta/choose', 'AdsController', 'showMetaAdAccountPicker', ['AuthMiddleware']);

@@ -88,6 +88,9 @@
         var head = '<div class="p-card-head"><h3>📘 ' + L('رسايل فيسبوك وإنستجرام', 'Facebook & Instagram messages') + '</h3><span class="p-card-sub">' + L('بتسجيل الدخول بفيسبوك', 'With Facebook sign-in') + '</span></div>';
         if (!d.meta_ready) { c.innerHTML = head + '<p class="p-cell-muted">' + L('الربط بفيسبوك لسه بيتجهز من المنصة.', 'Facebook connection is being prepared by the platform.') + '</p>'; return; }
         var signIn = '<a class="p-btn ' + (d.pages.length ? 'outline xs' : 'primary') + '" href="' + esc(d.connect_url) + '"><b>f</b> ' + (d.pages.length ? L('سجّل دخول تاني / ضيف صفحات', 'Sign in again / add pages') : L('سجّل دخول بفيسبوك', 'Sign in with Facebook')) + '</a>';
+        // The separate messaging-only Meta app (test/dev app): shown only once the platform has its credentials.
+        var msgApp = d.messaging_app && d.messaging_app.configured ? '<a class="p-btn outline xs" href="' + esc(d.messaging_app.connect_url) + '"><b>f</b> ' + L('ربط الرسايل عبر تطبيق الرسائل (تجريبي)', 'Connect messages via the messaging app (test)') + '</a>' : '';
+        signIn += msgApp;
         if (!d.pages.length) {
             c.innerHTML = head + '<p style="font-size:14px">' + L('سجّل دخول بحساب فيسبوك اللي بيدير صفحة الشركة، ووافق على الصلاحيات. الشات بوت هيرد على رسايل الصفحة وإنستجرام المربوط بيها.', 'Sign in with the Facebook account that manages your company page and approve the permissions. The bot will reply to the page and its linked Instagram.') + '</p>' + signIn;
             return;
@@ -133,5 +136,19 @@
     // لو الصفحة حمّلت الموقع قبل السكربت ده
     var sel = document.getElementById('websiteSelect');
     if (sel && sel.value) window.ChatConnect.load(sel.value);
+    (function () {
+        var m = /[?&]meta_msg=([a-z]+)/.exec(location.search);
+        if (!m) return;
+        var msg = {
+            connected: [L('اتربطت صفحاتك عبر تطبيق الرسائل. اختار الصفحة اللي الشات بوت يرد عليها.', 'Your pages are connected through the messaging app. Choose the page the bot answers.'), 'success'],
+            nopages: [L('ما لقيناش صفحات على الحساب ده.', 'No pages were found on this account.'), 'error'],
+            denied: [L('رفضت الموافقة على فيسبوك.', 'Facebook permission was declined.'), 'error'],
+            state: [L('انتهت صلاحية الطلب، جرّب تاني.', 'The request expired, try again.'), 'error'],
+            exchange: [L('فيسبوك رفض الربط. اتأكد من إعدادات تطبيق الرسائل.', 'Facebook refused the connection. Check the messaging app settings.'), 'error'],
+            pages: [L('تعذر قراءة الصفحات من فيسبوك.', 'Could not read your pages from Facebook.'), 'error'],
+            website: [L('الموقع غير موجود.', 'Website not found.'), 'error']
+        }[m[1]];
+        if (msg) toast(msg[0], msg[1]);
+    })();
     if (/[?&]meta=connected/.test(location.search)) toast(L('اتربطت صفحاتك من فيسبوك. اختار الصفحة اللي الشات بوت يرد عليها.', 'Your Facebook pages are connected. Choose the page the bot should answer.'), 'success');
 })();

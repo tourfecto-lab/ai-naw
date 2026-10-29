@@ -405,7 +405,8 @@ class ChatManager
                     });
 
                 case 'instagram':
-                    return $this->sendViaPlatformConnection($websiteId, 'instagram', function ($token) use ($recipient, $message) {
+                    $igPlatform = !empty((new PlatformConnection())->where(['website_id' => $websiteId, 'platform' => 'instagram_dm', 'status' => 'connected'], [], 1)) ? 'instagram_dm' : 'instagram';
+                    return $this->sendViaPlatformConnection($websiteId, $igPlatform, function ($token) use ($recipient, $message) {
                         return (new InstagramAPI($token))->sendMessage($recipient, $message);
                     });
 
