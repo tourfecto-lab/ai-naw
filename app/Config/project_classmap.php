@@ -19,6 +19,7 @@ return [
     'BrandSiteAudit' => dirname(__DIR__,2).'/app/Services/AiCeo/BrandSiteAudit.php',
     'BrandGrowth' => dirname(__DIR__,2).'/app/Services/AiCeo/BrandGrowth.php',
     'CustomerSuccess' => dirname(__DIR__,2).'/app/Services/AiCeo/CustomerSuccess.php',
+    'OpsAdvisor' => dirname(__DIR__,2).'/app/Services/AiCeo/OpsAdvisor.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
     'GrowthAdvisor' => dirname(__DIR__,2).'/app/Services/Brain/GrowthAdvisor.php',

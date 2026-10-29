@@ -10,13 +10,15 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['ops', 'Platform & Dev Advisor'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
     let sales = null, salesError = null, salesLoading = false;
     // نمو علامة Tourfecto (المرحلة 5)
     let brand = null, brandError = null, brandLoading = false, brandPlan = null;
     // نجاح العملاء والإيرادات (المرحلة 6)
     let cs = null, csError = null, csLoading = false;
+    // مراقبة المنصة ومستشار التطوير (المرحلة 7)
+    let ops = null, opsError = null, opsLoading = false, opsIssue = null;
     let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -296,6 +298,61 @@
           <div class="br-actions"><button type="button" class="p-btn primary xs" id="csSave">Save</button></div>` : ''}</section>`;
     }
 
+    const SEVC = { critical: '🔴 Critical', high: '🟠 High', medium: '🟡 Medium', low: '⚪ Low' };
+    const STC = { ok: '✓', fail: '✗', warn: '!', slow: '⏱' };
+    function opsTab() {
+      if (opsError) return `<section class="br-card"><h3>Platform & Dev Advisor</h3><p class="br-muted">${esc(opsError)}</p></section>`;
+      if (!ops) return '<section class="br-card"><h3>Platform & Dev Advisor</h3><p class="br-muted">Loading…</p></section>';
+      const last = ops.checks[0], owner = ops.owner, st = ops.settings, ab = ops.abuse, bk = ops.backups;
+      const trend = ops.checks.slice().reverse().map(c => c.failed ? '✗' : (c.slow ? '⏱' : '✓')).join('');
+      const bRow = b => `<li class="br-past" style="list-style:none"><details><summary><b>${b.priority.toFixed(1)}</b> · ${esc(SEVC[b.severity])} · <b dir="auto">[${esc(b.service)}]</b> <span dir="auto">${esc(b.problem)}</span> · cost ${esc(b.cost_estimate)} · ${esc(b.status.replace('_', ' '))}${b.needs_approval ? ' · needs approval' : ''}</summary>
+        <dl class="br-facts"><dt>Evidence</dt><dd dir="auto">${esc(b.evidence || '—')}</dd><dt>Improvement</dt><dd dir="auto">${esc(b.improvement || '—')}</dd><dt>Benefit</dt><dd dir="auto">${esc(b.benefit || '—')}</dd><dt>How to test</dt><dd dir="auto">${esc(b.test_method || '—')}</dd>
+        <dt>Before</dt><dd>${esc(b.metric_before || '—')}</dd>${b.metric_after ? `<dt>After</dt><dd>${esc(b.metric_after)}</dd>` : ''}<dt>Source</dt><dd>${esc(b.source)}</dd></dl>
+        ${b.issue_url ? `<p><a href="${esc(b.issue_url)}" target="_blank" rel="noopener">GitHub issue ↗</a></p>` : ''}
+        ${owner ? `<div class="br-actions">${['approved', 'in_progress', 'done', 'rejected'].filter(x => x !== b.status).map(x => `<button type="button" class="p-btn outline xs" data-bstatus="${x}" data-bid="${b.id}">${esc(x.replace('_', ' '))}</button>`).join('')}
+          <button type="button" class="p-btn outline xs" data-bissue="${b.id}">${st.github_ready ? 'Create GitHub issue' : 'Copy issue text'}</button></div>` : ''}</details></li>`;
+      return `<section class="br-card"><div class="br-head"><div><h3>Page checks</h3><p class="br-muted">Every cron cycle the platform's own pages are opened without login: public pages must answer 200, protected pages must redirect to login. No accounts or customer data are used. ${last ? esc(last.base_url) : ''}</p></div>
+          <div class="br-actions"><button type="button" class="p-btn primary xs" id="opRun">Run checks now</button></div></div>
+        ${last ? `<p>Last run ${esc(last.run_at)} UTC · ${num(last.checked)} pages · <b>${num(last.failed)} down</b> · ${num(last.slow)} slow · last ${ops.checks.length} runs: <span dir="ltr">${trend}</span></p>
+          <div class="p-table-scroll"><table class="p-table"><thead><tr><th>Page</th><th>Type</th><th>HTTP</th><th>Time</th><th>Result</th></tr></thead><tbody>${last.results.map(r => `<tr><td dir="ltr">${esc(r.path)}</td><td>${esc(r.kind)}</td><td>${r.code}</td><td>${num(r.ms)} ms</td><td>${STC[r.status] || ''} ${esc(r.note || r.status)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="br-muted">No checks yet. Run them now or wait for the hourly cron.</p>'}</section>
+
+        <section class="br-card"><h3>Incidents (${ops.incidents.length} open)</h3><p class="br-muted">Opened automatically from failed checks, platform health failures, errors repeated 20+ times a day, failing providers and stale backups; closed automatically when the problem is gone.</p>
+        ${ops.incidents.length ? `<ul class="br-proof">${ops.incidents.map(i => `<li>${esc(SEVC[i.severity])} · <b>${esc(i.service)}</b>: <span dir="auto">${esc(i.title)}</span> · ${(i.evidence || []).map(esc).join('; ')} · since ${esc(i.first_seen)} UTC${i.occurrence > 1 ? ` · <b>${i.occurrence}th time</b>` : ''}
+          <form class="br-actions" data-rc="${i.id}"><input class="p-select" name="text" placeholder="Root cause (optional)" value="${esc(i.root_cause || '')}" aria-label="Root cause"><button class="p-btn outline xs">Save</button></form></li>`).join('')}</ul>` : '<p class="br-done">✓ No open incidents.</p>'}
+        ${ops.recurring.length ? `<details class="br-past" open><summary>Recurring failures (3+ times in 30 days)</summary><ul class="br-proof">${ops.recurring.map(r => `<li><b>${esc(r.service)}</b>: <span dir="auto">${esc(r.title)}</span> · ${r.times} times · last ${esc(r.last_seen)}</li>`).join('')}</ul></details>` : ''}
+        ${ops.resolved.length ? `<details class="br-past"><summary>Recently resolved (${ops.resolved.length})</summary><ul class="br-proof">${ops.resolved.map(i => `<li>${esc(i.service)}: <span dir="auto">${esc(i.title)}</span> · ${esc(i.first_seen)} → ${esc(i.resolved_at || '')}${i.root_cause ? ` · cause: <span dir="auto">${esc(i.root_cause)}</span>` : ''}</li>`).join('')}</ul></details>` : ''}</section>
+
+        <section class="br-card"><h3>Development backlog (${ops.backlog.length})</h3><p class="br-muted">Each item: service, problem, evidence, severity, improvement, priority (out of 50), cost (S/M/L), benefit, how to test, and whether it needs approval. Built from recurring incidents, recurring support topics and the Tourfecto site audit, or added by you. High-risk fixes are never deployed to production without your approval.</p>
+        ${ops.backlog.length ? `<ul class="br-list">${ops.backlog.map(bRow).join('')}</ul>` : '<p class="br-done">✓ Nothing in the backlog.</p>'}
+        ${opsIssue ? `<details class="br-past" open><summary>Issue text (copy into GitHub)</summary><textarea class="p-select" rows="10" readonly style="width:100%" dir="ltr">${esc(opsIssue)}</textarea></details>` : ''}
+        ${ops.done.length ? `<details class="br-past"><summary>Done — before / after (${ops.done.length})</summary><ul class="br-proof">${ops.done.map(b => `<li dir="auto">[${esc(b.service)}] ${esc(b.problem)} · before: ${esc(b.metric_before || '—')} · after: ${esc(b.metric_after || '—')}</li>`).join('')}</ul></details>` : ''}
+        ${owner ? `<details class="br-past"><summary>Add an item</summary><form id="opAdd" class="br-facts">
+          <label class="br-field">Service<input class="p-select" name="service" required maxlength="80"></label><label class="br-field">Problem<input class="p-select" name="problem" required maxlength="500"></label>
+          <label class="br-field">Evidence<input class="p-select" name="evidence"></label><label class="br-field">Severity<select class="p-select" name="severity">${['critical', 'high', 'medium', 'low'].map(x => `<option${x === 'medium' ? ' selected' : ''}>${x}</option>`).join('')}</select></label>
+          <label class="br-field">Improvement<input class="p-select" name="improvement"></label><label class="br-field">Cost<select class="p-select" name="cost_estimate"><option>S</option><option selected>M</option><option>L</option></select></label>
+          <label class="br-field">Benefit<input class="p-select" name="benefit"></label><label class="br-field">How to test<input class="p-select" name="test_method"></label>
+          <label class="br-field">Before (metric)<input class="p-select" name="metric_before"></label><div class="br-actions"><button class="p-btn primary xs">Add</button></div></form></details>` : ''}</section>
+
+        <section class="br-card"><h3>Providers & integrations (24 hours)</h3>${ops.providers && ops.providers.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Provider</th><th>Calls</th><th>Errors</th><th>Avg time</th><th>Status</th><th>If it fails</th></tr></thead><tbody>${ops.providers.map(p => `<tr><td>${esc(p.provider)}</td><td>${num(p.calls)}</td><td>${num(p.errors)} (${num(p.error_rate)}%)</td><td>${num(p.avg_ms)} ms</td><td>${STC[p.status] || ''} ${esc(p.status)}</td><td>${esc(p.alternative || '—')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="br-muted">No API calls logged in 24 hours.</p>'}
+        ${ops.health ? `<details class="br-past"><summary>Platform health: ${esc(ops.health.overall || '?')} (cron, integrations, mail, queue, payments, server, database)</summary>${Object.entries(ops.health.sections).map(([k, sec]) => `<p><b>${esc(k)}</b></p><ul class="br-proof">${sec.checks.map(c => `<li>${STC[c.status] || esc(c.status)} ${esc(c.label)}: ${esc(c.message)}${c.action ? ` <small class="br-muted">→ ${esc(c.action)}</small>` : ''}</li>`).join('')}</ul>`).join('')}</details>` : ''}</section>
+
+        <section class="br-card"><h3>Abuse & security</h3><p class="br-muted">${esc(ab.note)}</p>
+          <p>AI usage over ${num(ab.ai_threshold)} actions in 24 hours: ${ab.ai_heavy_users.length ? ab.ai_heavy_users.map(u => `<a href="/admin/users/${u.user_id}" dir="auto">${esc(u.company)}</a> (${num(u.calls)}, $${num(u.cost)})`).join(' · ') : 'none'}</p>
+          <p>IPs with 20+ failed logins in the last hour: ${ab.login_attack_ips.length ? ab.login_attack_ips.map(i => `<span dir="ltr">${esc(i.ip)}</span> (${i.failed} tries, ${i.emails} emails)`).join(' · ') : (ab.login_data ? 'none' : 'login history unavailable')}</p></section>
+
+        <section class="br-card"><h3>Backups</h3><p>${STC[bk.status] || ''} ${esc(bk.message)}</p>
+        ${owner ? `<div class="br-facts"><label class="br-field">Backup folder (absolute path on the server)<input class="p-select" id="opBackup" dir="ltr" value="${esc(st.backup_dir)}" placeholder="/www/backups/tourfecto"></label>
+          <label class="br-field">Address to check (platform domain only)<input class="p-select" id="opBase" dir="ltr" value="${esc(st.base_url)}" placeholder="${esc(last ? last.base_url : '')}"></label>
+          <label class="br-check-row"><input type="checkbox" id="opGh" ${st.github_issues ? 'checked' : ''}> <span><b>Allow creating GitHub issues</b><small>Also needs GITHUB_ISSUES_TOKEN and GITHUB_ISSUES_REPO in .env. ${st.github_ready ? 'Ready.' : 'Not ready.'}</small></span></label></div>
+          <div class="br-actions"><button type="button" class="p-btn primary xs" id="opSave">Save</button></div>` : ''}</section>`;
+    }
+
+    async function loadOps() {
+      opsLoading = true;
+      try { ops = await req('/api/admin/ai-ceo/ops'); opsError = null; } catch (e) { opsError = e.message; } finally { opsLoading = false; }
+      render();
+    }
+
     async function loadSuccess() {
       csLoading = true;
       try { cs = await req('/api/admin/ai-ceo/success'); csError = null; } catch (e) { csError = e.message; } finally { csLoading = false; }
@@ -381,6 +438,7 @@
         case 'sales': if (!sales && !salesError && !salesLoading) loadSales(); return salesTab();
         case 'brand': if (!brand && !brandError && !brandLoading) loadBrand(); return brandTab();
         case 'success': if (!cs && !csError && !csLoading) loadSuccess(); return successTab();
+        case 'ops': if (!ops && !opsError && !opsLoading) loadOps(); return opsTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();
@@ -412,6 +470,16 @@
       root.querySelectorAll('[data-sapprove]').forEach(b => b.onclick = () => sAct('approve', { ids: [Number(b.dataset.sapprove)] }, 'Approved ✓'));
       root.querySelector('#slReeval')?.addEventListener('click', () => sAct('reevaluate', {}, 'Re-checked ✓'));
       root.querySelector('#slPause')?.addEventListener('click', () => { if (confirm('Pause these sequences? No more emails go to them.')) sAct('pause', { ids: sales.active_noncompliant.map(x => x.id) }, 'Paused ✓'); });
+      const oAct = (action, body, okText) => act(async () => { const r = await req('/api/admin/ai-ceo/ops/' + action, body); await loadOps(); return r; }, okText);
+      root.querySelector('#opRun')?.addEventListener('click', () => { note = { text: 'Checking the pages… about a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/ops/run', {}); await loadOps(); }, 'Checks done ✓'); });
+      root.querySelectorAll('[data-bstatus]').forEach(b => b.onclick = () => { const s = b.dataset.bstatus; const after = s === 'done' ? prompt('Result after the change (optional, e.g. "0 incidents in 14 days"):') : null; if (s === 'done' && after === null) return;
+        oAct('backlog-status', { id: Number(b.dataset.bid), status: s, metric_after: after || null }, 'Saved ✓'); });
+      root.querySelectorAll('[data-bissue]').forEach(b => b.onclick = () => { const it = ops.backlog.find(x => x.id === Number(b.dataset.bissue));
+        if (!ops.settings.github_ready) { opsIssue = `${'[' + it.service + '] ' + it.problem}\n\nService: ${it.service}\nProblem: ${it.problem}\nEvidence: ${it.evidence || ''}\nSeverity: ${it.severity}\nImprovement: ${it.improvement || ''}\nPriority: ${it.priority}/50\nCost: ${it.cost_estimate}\nBenefit: ${it.benefit || ''}\nHow to test: ${it.test_method || ''}\nNeeds approval: ${it.needs_approval ? 'yes' : 'no'}`; render(); return; }
+        if (confirm('Create a GitHub issue for this item?')) oAct('issue', { id: it.id }, 'Issue created ✓'); });
+      root.querySelectorAll('[data-rc]').forEach(f => f.onsubmit = ev => { ev.preventDefault(); oAct('root-cause', { id: Number(f.dataset.rc), text: new FormData(f).get('text') }, 'Saved ✓'); });
+      root.querySelector('#opAdd')?.addEventListener('submit', ev => { ev.preventDefault(); oAct('backlog-add', { item: Object.fromEntries(new FormData(ev.target).entries()) }, 'Added ✓'); });
+      root.querySelector('#opSave')?.addEventListener('click', () => oAct('settings', { settings: { backup_dir: root.querySelector('#opBackup').value.trim(), base_url: root.querySelector('#opBase').value.trim(), github_issues: root.querySelector('#opGh').checked } }, 'Saved ✓'));
       root.querySelector('#csSave')?.addEventListener('click', () => act(async () => { await req('/api/admin/ai-ceo/success/settings', { settings: { support_minutes: root.querySelector('#csMin').value.trim(), support_cost_hour: root.querySelector('#csHour').value.trim(), market_median_price: root.querySelector('#csMarket').value.trim() } }); await loadSuccess(); }, 'Saved ✓'));
       root.querySelector('#bgAudit')?.addEventListener('click', () => { note = { text: 'Auditing the site… this can take a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/brand/audit', {}); await loadBrand(); }, 'Audit done ✓'); });
       root.querySelector('#bgPlan')?.addEventListener('click', () => { const markets = [...root.querySelectorAll('[data-bgm]:checked')].map(x => x.dataset.bgm), month = root.querySelector('#bgMonth').value;

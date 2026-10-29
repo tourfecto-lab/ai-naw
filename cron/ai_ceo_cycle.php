@@ -41,6 +41,14 @@ try {
 } catch (Throwable $e) {
     echo gmdate('c') . ' tourism db: ' . $e->getMessage() . PHP_EOL;
 }
+// المرحلة 7: فحص صفحات المنصة والحوادث وقائمة التطوير (كل دورة، من غير ذكاء اصطناعي)
+try {
+    require_once __DIR__ . '/../app/Services/AiCeo/OpsAdvisor.php';
+    $ops = (new OpsAdvisor($db))->runCycle();
+    if ($ops['failed'] || $ops['opened'] || $ops['resolved']) $store->log(null, 'ops_cycle', $ops);
+} catch (Throwable $e) {
+    echo gmdate('c') . ' ops: ' . $e->getMessage() . PHP_EOL;
+}
 
 $snap = (new PlatformSnapshot($db))->collect();
 $db->query("INSERT INTO system_settings (setting_key, setting_value, is_secret, category) VALUES ('aiceo_snapshot', ?, 0, 'ai_ceo')

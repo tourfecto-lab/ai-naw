@@ -220,6 +220,47 @@ final class PlatformDecisions
                 [[$sl['crm_pending'] . ' شركة ردت أو مهتمة', $sl['crm_pending'] . ' replied or interested companies']], '/admin/ai-ceo#sales', ['انقلهم للـ CRM', 'Move them to the CRM']);
         }
 
+        // المرحلة 7: مراقبة المنصة
+        $op = $snap['ops'] ?? null;
+        $opUrl = '/admin/ai-ceo#ops';
+        if ($op && ($op['pages_failed'] ?? 0) > 0) {
+            $add('ops_pages_down', 'platform', 'low', ['impact' => 5, 'roi' => 5, 'urgency' => 5, 'confidence' => 5, 'risk' => 1, 'cost' => 2, 'effort' => 2],
+                ['صفحات واقعة في المنصة', 'Platform pages are down'],
+                ['آخر فحص للصفحات لقى صفحات بترجع خطأ أو مش بترد.', 'The last page check found pages returning errors or not answering.'],
+                [[$op['pages_failed'] . ' صفحة · آخر فحص ' . $op['last_check_at'], $op['pages_failed'] . ' pages · last check ' . $op['last_check_at']]], $opUrl, ['شوف الصفحات', 'See the pages']);
+        }
+        $crit = (int) ($op['incidents_open']['critical'] ?? 0) + (int) ($op['incidents_open']['high'] ?? 0);
+        if ($op && $crit > 0) {
+            $add('ops_incidents_open', 'platform', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => 5, 'confidence' => 4, 'risk' => 1, 'cost' => 2, 'effort' => 3],
+                ['حوادث خطيرة مفتوحة', 'Serious incidents are open'],
+                ['حوادث بخطورة عالية أو حرجة لسه مفتوحة. سجّل السبب الجذري لما تعرفه.', 'High or critical incidents are still open. Record the root cause once known.'],
+                [[$crit . ' حادثة', $crit . ' incidents']], $opUrl, ['افتح الحوادث', 'Open incidents']);
+        }
+        if ($op && !empty($op['providers_failing'])) {
+            $add('ops_provider_failing', 'platform', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => 4, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['مزود خدمة بيفشل', 'A service provider is failing'],
+                ['نسبة أخطاء 20% أو أكتر آخر 24 ساعة. فيه بديل مقترح لكل مزود.', 'Error rate of 20% or more in 24 hours. Each provider has a suggested alternative.'],
+                [[implode('، ', $op['providers_failing']), implode(', ', $op['providers_failing'])]], $opUrl, ['شوف المزودين', 'See providers']);
+        }
+        if ($op && ($op['backup_status'] ?? 'ok') !== 'ok') {
+            $add('ops_backups', 'platform', 'low', ['impact' => 5, 'roi' => 3, 'urgency' => $op['backup_status'] === 'fail' ? 4 : 2, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['النسخ الاحتياطية مش متأكدين منها', 'Backups are not verified'],
+                ['لازم نسخة احتياطية مشفرة يومية برا مجلد الموقع، وتجربة استرجاع على سيرفر منفصل.', 'A daily encrypted backup outside the site folder, and a restore test on a separate server, are needed.'],
+                [[$op['backup_status'] === 'fail' ? 'النسخ ناقصة أو قديمة' : 'مجلد النسخ مش متحدد', $op['backup_status'] === 'fail' ? 'Backups missing or stale' : 'Backup folder not set']], $opUrl, ['اضبط النسخ', 'Set up backups']);
+        }
+        if ($op && (($op['abuse_users'] ?? 0) + ($op['abuse_ips'] ?? 0)) > 0) {
+            $add('ops_abuse_review', 'security', 'medium', ['impact' => 3, 'roi' => 3, 'urgency' => 4, 'confidence' => 3, 'risk' => 3, 'cost' => 1, 'effort' => 2],
+                ['استخدام غير طبيعي محتاج مراجعة', 'Unusual usage needs review'],
+                ['عميل استهلاكه أضعاف الطبيعي أو عناوين فيها محاولات دخول فاشلة كتير. مفيش حظر تلقائي: القرار ليك.', 'A customer far above normal usage, or IPs with many failed logins. Nothing is blocked automatically: your call.'],
+                [[$op['abuse_users'] . ' عميل · ' . $op['abuse_ips'] . ' عنوان IP', $op['abuse_users'] . ' customers · ' . $op['abuse_ips'] . ' IPs']], $opUrl, ['راجع', 'Review']);
+        }
+        if ($op && ($op['backlog_open'] ?? 0) > 0) {
+            $add('ops_backlog_review', 'product', 'low', ['impact' => 3, 'roi' => 3, 'urgency' => 2, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['قائمة التطوير محتاجة مراجعة', 'The development backlog needs review'],
+                ['بنود تطوير مرتبة بالأولوية والتكلفة والفايدة، كل واحد فيه طريقة اختبار. وافق أو ارفض.', 'Development items ranked by priority, cost and benefit, each with a test method. Approve or reject.'],
+                [[$op['backlog_open'] . ' بند', $op['backlog_open'] . ' items']], $opUrl, ['افتح القائمة', 'Open backlog']);
+        }
+
         // المرحلة 6: نجاح العملاء
         $cs = $snap['success'] ?? null;
         $csUrl = '/admin/ai-ceo#success';
