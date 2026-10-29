@@ -324,3 +324,16 @@ html[data-theme="dark"] .ai-chat-split[data-ch="instagram"]{--wa-bg:#000;--wa-pa
 /* the skin follows through to the colours the inbox shell reads from the accent */
 .ai-chat-split[data-ch="messenger"] .wa-send,.ai-chat-split[data-ch="instagram"] .wa-send{background:var(--wa-accent)}
 @media (max-width:640px){.wa-ch-tabs{padding:6px 10px 0}}
+
+/* ---- slimmer top bar on the chat pages: only what an agent needs while answering (notifications, wallet, language, theme,
+        profile). Currency picker, monthly-analyses chip and the SEO / e-mail shortcuts live elsewhere in the panel. ---- */
+html body.tab-chat .panel-topbar{min-height:0;padding:6px 14px;gap:8px}
+html body.tab-chat .panel-topbar h1{font-size:17px;line-height:1.2;margin:0}
+html body.tab-chat .panel-topbar .subtitle{display:none}
+html body.tab-chat .panel-topbar-actions{gap:6px}
+html body.tab-chat .panel-topbar-actions .tf-cur,
+html body.tab-chat .panel-topbar-actions #panelCreditsWrap,
+html body.tab-chat .panel-topbar-actions a.icon-btn[href="/ai/analyze"],
+html body.tab-chat .panel-topbar-actions a.icon-btn[href*="email"]{display:none!important}
+html body.tab-chat .panel-topbar-actions .icon-btn,html body.tab-chat .panel-topbar-actions .ap-icon-btn{width:34px;height:34px;min-width:0;padding:0}
+html body.tab-chat .panel-topbar-actions .panel-credits{padding:0 10px;height:34px;font-size:12.5px}
