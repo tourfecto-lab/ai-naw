@@ -866,10 +866,6 @@ class ChatInboxController extends Controller
             'button_label' => (string) $this->get('button_label', ''),
             'footer' => (string) $this->get('footer', ''),
         ];
-        // Validate against WhatsApp's limits before touching the network.
-        if (WhatsAppCloudAPI::interactiveBody('201000000000', $spec) === null) {
-            return $this->error('Check the message and the options: up to 3 buttons (20 characters each) or 10 list rows (24 characters each)', 422);
-        }
         $api = WhatsAppCloudAPI::forWebsite($websiteId);
         if (!$api) {
             return $this->error('Buttons need the official WhatsApp connection (Cloud API)', 409);
@@ -882,6 +878,10 @@ class ChatInboxController extends Controller
             return $this->success(['sent' => false, 'reason' => 'outside_24h'], 'Not sent');
         }
         $r = $api->sendInteractive($to, $spec);
+        // sendInteractive() refuses (without any network call) what breaks WhatsApp's limits.
+        if (($r['error'] ?? '') === 'Invalid interactive message') {
+            return $this->error('Check the message and the options: up to 3 buttons (20 characters each) or 10 list rows (24 characters each)', 422);
+        }
         $sent = !empty($r['ok']);
         if (!$sent) {
             Logger::warning('WhatsApp interactive send failed', ['website_id' => $websiteId, 'http_code' => (int) ($r['http_code'] ?? 0), 'error_code' => $r['error_code'] ?? null]);
