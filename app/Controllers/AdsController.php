@@ -337,6 +337,9 @@ HTML;
     let currentPage = 1;
     let searchDebounceTimer = null;
 
+    // Campaign names imported from Meta carry invisible direction marks and wrapping quotes; amounts get thousands separators.
+    const cleanName = n => String(n || '').replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim();
+    const money = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? '\u2014' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     async function load() {
         const tbody = document.querySelector('#campaignsTable tbody');
         tbody.innerHTML = '<tr class="p-loading-row"><td colspan="6">جارِ التحميل...</td></tr>';
@@ -370,19 +373,19 @@ HTML;
                 <tr>
                     <td><input type="checkbox" class="campaign-select" value="${c.id}" onchange="updateBulkBar()"></td>
                     <td>
-                        ${esc(c.name)}
+                        <b>${esc(cleanName(c.name))}</b>
                         ${c.ai_generated ? '<span class="pill blue xs" style="margin-inline-start:6px;">✨ ذكاء اصطناعي</span>' : ''}
                         ${c.target_audience_brief ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;">🎯 ' + esc(c.target_audience_brief) + '</div>' : ''}
                     </td>
-                    <td>${esc(c.daily_budget || '-')} ${esc(c.currency)}</td>
+                    <td>${c.daily_budget ? money(c.daily_budget) + ' ' + esc(c.currency) : '<span class="p-cell-muted" title="No daily budget on the campaign (it may be set on the ad set)">\u2014</span>'}</td>
                     <td>${CAMP_ST[c.status] || esc(c.status)}${c.platform === 'meta_ads' && c.external_campaign_id ? (c.recent_activity === 'observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Recorded activity, not a live delivery check">Active in last 30 days</div>' : (c.recent_activity === 'not_observed_last_30_days' ? '<div class="p-cell-muted" style="font-size:11px;margin-top:3px;" title="Not a live delivery check">No activity in 30 days</div>' : '')) : ''}<div style="margin-top:4px">${c.external_campaign_id ? (c.platform === 'meta_ads' ? '<span class="pill blue xs" title="Linked to Meta. Delivery is not verified from here.">Meta</span>' : '<span class="pill blue xs">Google</span>') : '<span class="pill xs">Local draft · not linked</span>'}</div></td>
-                    <td>${esc(c.spend)} ${esc(c.currency)}</td>
-                    <td>
+                    <td>${money(c.spend)} ${esc(c.currency)}</td>
+                    <td><div style="display:flex;flex-wrap:wrap;gap:6px;">
                         ${!c.external_campaign_id ? '<button class="p-btn primary xs" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">🚀 انشر</button>' : (c.platform === 'meta_ads' && c.status === 'draft' ? '<button class="p-btn outline xs" data-resume="' + (c.external_adset_id ? 'ad' : '1') + '" data-adset-id="' + esc(c.external_adset_id || '') + '" data-meta-id="' + esc(c.external_campaign_id) + '" data-id="' + c.id + '" data-name="' + esc(c.name) + '" onclick="openPublish(this)">' + (c.external_adset_id ? 'Resume missing PAUSED Ad' : 'Resume paused setup') + '</button>' : '')}
                         <a href="/ads/campaigns/${c.id}" class="p-btn outline xs" style="text-decoration:none;">📋 التفاصيل</a>
                         <button class="p-btn outline xs" onclick="generateCopies(${c.id})">توليد ✨</button>
                         <button class="p-btn outline xs" data-campaign-id="${c.id}" data-campaign-name="${esc(c.name)}" onclick="openCampaignTools(this)">🛠 أدوات</button>
-                        <div id="copies-${c.id}" style="margin-top:6px;"></div>
+                        </div><div id="copies-${c.id}" style="margin-top:6px;"></div>
                     </td>
                 </tr>
             `).join('');
@@ -4316,7 +4319,7 @@ JS;
                     <option value="90">آخر 90 يوم</option>
                 </select>
             </div>
-            <div id="trendChartEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد لعرض الاتجاه</div>
+            <div id="trendChartEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات أداء مسجّلة لهذه الفترة. جرّب فترة أطول، أو افتح <a href="/ads">نظرة عامة</a> واضغط «مزامنة الحملات الآن» لسحب أحدث الأرقام من Meta.</div>
             <canvas id="trendChart" height="90"></canvas>
         </div>
 
@@ -4438,7 +4441,7 @@ JS;
 
         <div class="p-card" style="margin-bottom:16px;">
             <div class="p-card-head"><h3>📉 اتجاه الإنفاق مقابل التحويلات</h3></div>
-            <div id="budgetTrendEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد</div>
+            <div id="budgetTrendEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات أداء مسجّلة لهذه الفترة. جرّب فترة أطول، أو افتح <a href="/ads">نظرة عامة</a> واضغط «مزامنة الحملات الآن» لسحب أحدث الأرقام من Meta.</div>
             <canvas id="budgetTrendChart" height="90"></canvas>
         </div>
 
@@ -4450,7 +4453,7 @@ JS;
                     <option value="monthly">آخر 30 يوم</option>
                 </select>
             </div>
-            <div id="comparisonEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد</div>
+            <div id="comparisonEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات أداء مسجّلة لهذه الفترة. جرّب فترة أطول، أو افتح <a href="/ads">نظرة عامة</a> واضغط «مزامنة الحملات الآن» لسحب أحدث الأرقام من Meta.</div>
             <canvas id="comparisonChart" height="100"></canvas>
         </div>
         HTML;
@@ -4558,7 +4561,7 @@ JS;
 
         <div class="p-card" style="margin-bottom:16px;">
             <div class="p-card-head"><h3>📈 أداء الحملة</h3></div>
-            <div id="campaignTrendEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات كافية بعد</div>
+            <div id="campaignTrendEmpty" class="p-cell-muted" style="display:none;">لا توجد بيانات أداء مسجّلة لهذه الفترة. جرّب فترة أطول، أو افتح <a href="/ads">نظرة عامة</a> واضغط «مزامنة الحملات الآن» لسحب أحدث الأرقام من Meta.</div>
             <canvas id="campaignTrendChart" height="90"></canvas>
         </div>
 

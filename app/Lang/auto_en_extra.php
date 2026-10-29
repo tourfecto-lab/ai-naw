@@ -5005,4 +5005,5 @@ return [
     'اربط ماسنجر وإنستجرام' => 'Connect Messenger and Instagram',
     'ضيف موقعك الأول، وبعدها اربط ماسنجر وإنستجرام.' => 'Add your website first, then connect Messenger and Instagram.',
     'إعدادات الرسايل والقنوات' => 'Messaging & channels settings',
+    'لا توجد بيانات أداء مسجّلة لهذه الفترة. جرّب فترة أطول، أو افتح <a href="/ads">نظرة عامة</a> واضغط «مزامنة الحملات الآن» لسحب أحدث الأرقام من Meta.' => 'No performance data was recorded for this period. Try a longer period, or open the <a href="/ads">overview</a> and press "Sync campaigns now" to pull the latest numbers from Meta.',
 ];
