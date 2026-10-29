@@ -70,11 +70,11 @@ class SiteDashboardController extends Controller
 
         <div id="sdTabSeo" style="display:none;">
             <div class="p-card">
-                <label class="form-label">عنوان الصفحة (SEO Title)</label>
+                <label for="sdSeoTitle" class="form-label">عنوان الصفحة (SEO Title)</label>
                 <input type="text" id="sdSeoTitle" class="form-control" style="margin-bottom:10px;">
-                <label class="form-label">وصف الصفحة (SEO Description)</label>
+                <label for="sdSeoDesc" class="form-label">وصف الصفحة (SEO Description)</label>
                 <textarea id="sdSeoDesc" class="form-control" rows="3" style="margin-bottom:10px;"></textarea>
-                <label class="form-label">دومين مخصص (اختياري)</label>
+                <label for="sdCustomDomain" class="form-label">دومين مخصص (اختياري)</label>
                 <input type="text" id="sdCustomDomain" class="form-control" style="margin-bottom:10px;" dir="ltr" placeholder="www.example.com">
                 <button class="p-btn primary" onclick="sdSaveSeo()">حفظ</button><button class="p-btn outline" onclick="sdDomainInstructions()">تحقق من النطاق</button><pre id="sdDomainInstructions" style="white-space:pre-wrap;direction:ltr"></pre>
             </div>

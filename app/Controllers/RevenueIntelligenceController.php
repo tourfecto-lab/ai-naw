@@ -1479,13 +1479,13 @@ HTML;
                 <p style="font-size:13px;opacity:.8;margin:0 0 12px;">${I18N['revai.stripe.hint']}</p>
                 ${s.has_settings && s.has_webhook_secret ? `<p style="font-size:13px;margin:0 0 10px;">${s.is_enabled ? badge('● ' + I18N['revai.stripe.enable'], '#22C55E') : badge(I18N['revai.stripe.mode_test'] + '/' + I18N['revai.stripe.mode_live'], '#F59E0B')} <span style="opacity:.7;">(${esc(s.mode)})</span>${s.last_event_at ? ` · ${I18N['revai.stripe.last_event']}: ${esc(s.last_event_type || '')} @ ${esc(s.last_event_at)}` : ''}</p>` : ''}
                 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
-                    <div style="flex:2;min-width:220px;"><label class="form-label">${I18N['revai.stripe.webhook_secret']}</label>
+                    <div style="flex:2;min-width:220px;"><label for="revaiStripeSecret" class="form-label">${I18N['revai.stripe.webhook_secret']}</label>
                         <input type="password" id="revaiStripeSecret" class="p-input" style="width:100%;" placeholder="whsec_...">
                     </div>
-                    <div style="flex:1;min-width:140px;"><label class="form-label">${I18N['revai.stripe.account_id']}</label>
+                    <div style="flex:1;min-width:140px;"><label for="revaiStripeAccount" class="form-label">${I18N['revai.stripe.account_id']}</label>
                         <input type="text" id="revaiStripeAccount" class="p-input" style="width:100%;" value="${esc(s.connected_account_id || '')}">
                     </div>
-                    <div><label class="form-label">${I18N['revai.stripe.mode']}</label>
+                    <div><label for="revaiStripeMode" class="form-label">${I18N['revai.stripe.mode']}</label>
                         <select id="revaiStripeMode" class="p-select">
                             <option value="test" ${(s.mode || 'test') === 'test' ? 'selected' : ''}>${I18N['revai.stripe.mode_test']}</option>
                             <option value="live" ${s.mode === 'live' ? 'selected' : ''}>${I18N['revai.stripe.mode_live']}</option>
@@ -1653,7 +1653,7 @@ HTML;
         panel.innerHTML = `
             <div class="p-card">
                 <div class="p-grid cols-4" style="align-items:end;">
-                    <div><label class="form-label">${I18N['revai.reports.type']}</label>
+                    <div><label for="revaiReportType" class="form-label">${I18N['revai.reports.type']}</label>
                         <select id="revaiReportType" class="p-select">
                             <option value="overview">${I18N['revai.tab.overview']}</option>
                             <option value="opportunities">${I18N['revai.tab.opportunities']}</option>
@@ -1662,8 +1662,8 @@ HTML;
                             <option value="pipeline_forecast">${I18N['revai.tab.pipeline']}</option>
                         </select>
                     </div>
-                    <div><label class="form-label">${I18N['revai.reports.from']}</label><input type="date" id="revaiReportFrom" class="p-input"></div>
-                    <div><label class="form-label">${I18N['revai.reports.to']}</label><input type="date" id="revaiReportTo" class="p-input"></div>
+                    <div><label for="revaiReportFrom" class="form-label">${I18N['revai.reports.from']}</label><input type="date" id="revaiReportFrom" class="p-input"></div>
+                    <div><label for="revaiReportTo" class="form-label">${I18N['revai.reports.to']}</label><input type="date" id="revaiReportTo" class="p-input"></div>
                     <div><button class="p-btn primary" id="revaiExportCsvBtn" style="width:100%;">${I18N['revai.reports.download_csv']}</button></div>
                 </div>
                 <p style="font-size:12px;opacity:.7;margin-top:8px;">${I18N['revai.reports.date_range_hint']}</p>

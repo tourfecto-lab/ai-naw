@@ -738,18 +738,18 @@ class BookingController extends Controller
         <div class="p-modal-body">
             <p class="p-cell-muted" style="font-size:13px;margin-top:0;line-height:1.8;">اكتب الطرق اللي السائح يقدر يدفعلك بيها. بتظهرله في صفحة لينك الدفع بلغته، ولما يدفع بيدوس «دفعت» ويوصلك تنبيه تراجع وتأكد. الفلوس بتوصلك إنت مباشرة - المنصة مابتلمسهاش.</p>
             <div id="pmAlert" class="alert alert-danger" style="display:none;"></div>
-            <label class="form-label">🅿️ PayPal.me <small class="p-cell-muted">(للسياح من برّه - بيفتحله PayPal والمبلغ مكتوب)</small></label>
+            <label for="pmPaypal" class="form-label">🅿️ PayPal.me <small class="p-cell-muted">(للسياح من برّه - بيفتحله PayPal والمبلغ مكتوب)</small></label>
             <input id="pmPaypal" class="form-control" dir="ltr" maxlength="60" placeholder="paypal.me/YourName">
-            <label class="form-label" style="margin-top:10px;">⚡ InstaPay <small class="p-cell-muted">(عنوان الدفع أو رقم الموبايل)</small></label>
+            <label for="pmInstapay" class="form-label" style="margin-top:10px;">⚡ InstaPay <small class="p-cell-muted">(عنوان الدفع أو رقم الموبايل)</small></label>
             <input id="pmInstapay" class="form-control" dir="ltr" maxlength="80" placeholder="name@instapay">
             <label class="form-label" style="margin-top:10px;">📱 محفظة موبايل</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <input id="pmWalletName" class="form-control" maxlength="40" placeholder="Vodafone Cash" style="flex:1;min-width:140px;">
                 <input id="pmWalletNumber" class="form-control" dir="ltr" maxlength="30" placeholder="01xxxxxxxxx" style="flex:1;min-width:140px;">
             </div>
-            <label class="form-label" style="margin-top:10px;">🏦 تحويل بنكي <small class="p-cell-muted">(اسم البنك، اسم الحساب، IBAN، SWIFT)</small></label>
+            <label for="pmBank" class="form-label" style="margin-top:10px;">🏦 تحويل بنكي <small class="p-cell-muted">(اسم البنك، اسم الحساب، IBAN، SWIFT)</small></label>
             <textarea id="pmBank" class="form-control" rows="4" dir="auto" maxlength="600" placeholder="Bank: ...&#10;Account name: ...&#10;IBAN: ...&#10;SWIFT: ..."></textarea>
-            <label class="form-label" style="margin-top:10px;">💬 طريقة تانية <small class="p-cell-muted">(مثلًا Wise أو Western Union أو الدفع عند الوصول)</small></label>
+            <label for="pmOther" class="form-label" style="margin-top:10px;">💬 طريقة تانية <small class="p-cell-muted">(مثلًا Wise أو Western Union أو الدفع عند الوصول)</small></label>
             <textarea id="pmOther" class="form-control" rows="2" dir="auto" maxlength="400"></textarea>
             <div class="p-card" style="margin-top:14px;padding:12px;">
                 <b style="font-size:13.5px;">💳 الدفع بالكارت (Stripe)</b>
@@ -772,16 +772,16 @@ class BookingController extends Controller
             <div id="plManual" style="display:none;">
                 <p class="p-cell-muted" style="font-size:12.5px;margin-top:0;">العميل دفع كاش أو تحويل أو على الماكينة؟ سجّلها هنا عشان الحساب يبقى مظبوط. لو الحجز لسه "مستني" هيتأكد.</p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-                    <div style="width:130px;"><label class="form-label">المبلغ</label><input type="number" id="mpAmount" class="form-control" min="0.01" step="0.01"></div>
-                    <div style="flex:1;min-width:140px;"><label class="form-label">طريقة الدفع</label>
+                    <div style="width:130px;"><label for="mpAmount" class="form-label">المبلغ</label><input type="number" id="mpAmount" class="form-control" min="0.01" step="0.01"></div>
+                    <div style="flex:1;min-width:140px;"><label for="mpMethod" class="form-label">طريقة الدفع</label>
                         <select id="mpMethod" class="form-control"><option value="cash">كاش</option><option value="transfer">تحويل (بنك / إنستاباي / محفظة)</option><option value="pos">ماكينة / فيزا عندك</option><option value="other">غير كده</option></select></div>
                 </div>
-                <label class="form-label" style="margin-top:8px;">ملاحظة (اختياري)</label>
+                <label for="mpNote" class="form-label" style="margin-top:8px;">ملاحظة (اختياري)</label>
                 <input id="mpNote" class="form-control" maxlength="200" placeholder="مثلاً: رقم التحويل، أو استلمها أحمد">
                 <button class="p-btn primary" style="margin-top:10px;" onclick="mpAdd()">💾 سجّل الدفعة</button>
             </div>
             <div id="plForm">
-                <label class="form-label">العميل يدفع</label>
+                <label for="plKind" class="form-label">العميل يدفع</label>
                 <select id="plKind" class="form-control" onchange="plKindChanged()">
                     <option value="deposit_pct">عربون بنسبة من الإجمالي</option>
                     <option value="deposit_fixed">عربون بمبلغ ثابت</option>
@@ -792,7 +792,7 @@ class BookingController extends Controller
                     <span id="plValueUnit">%</span>
                     <span id="plCalc" class="p-cell-muted" style="font-size:13px;"></span>
                 </div>
-                <label class="form-label" style="margin-top:10px;">اللينك صالح لمدة</label>
+                <label for="plHours" class="form-label" style="margin-top:10px;">اللينك صالح لمدة</label>
                 <select id="plHours" class="form-control">
                     <option value="24">يوم</option><option value="48" selected>يومين</option><option value="72">3 أيام</option><option value="168">أسبوع</option>
                 </select>
@@ -812,25 +812,25 @@ class BookingController extends Controller
             <p class="p-cell-muted" style="font-size:13px;margin-top:0;">بيقلل اللي مابيجوش، وبيوفّر عليك مكالمات "الميعاد إمتى؟". كل حجز مؤكد بيوصله تذكير واحد بس.</p>
             <label style="display:flex;gap:8px;align-items:center;margin:10px 0;font-weight:700;"><input type="checkbox" id="rmEnabled"> شغّل التذكير التلقائي</label>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:140px;"><label class="form-label">يتبعت اليوم اللي قبلها الساعة</label><select id="rmHour" class="form-control"></select></div>
-                <div style="flex:1;min-width:140px;"><label class="form-label">عن طريق</label>
+                <div style="flex:1;min-width:140px;"><label for="rmHour" class="form-label">يتبعت اليوم اللي قبلها الساعة</label><select id="rmHour" class="form-control"></select></div>
+                <div style="flex:1;min-width:140px;"><label for="rmChannel" class="form-label">عن طريق</label>
                     <select id="rmChannel" class="form-control">
                         <option value="auto">واتساب، أو إيميل لو مفيش رقم</option>
                         <option value="whatsapp">واتساب بس</option>
                         <option value="email">إيميل بس</option>
                     </select></div>
             </div>
-            <label class="form-label" style="margin-top:10px;">📍 مكان التجمع</label>
+            <label for="rmMeeting" class="form-label" style="margin-top:10px;">📍 مكان التجمع</label>
             <textarea id="rmMeeting" class="form-control" rows="2" placeholder="مثلاً: لوبي فندق ستيجنبرجر - الأقصر، أو رابط لوكيشن Google Maps"></textarea>
-            <label class="form-label" style="margin-top:10px;">📞 رقم التواصل اللي يظهر للعميل</label>
+            <label for="rmPhone" class="form-label" style="margin-top:10px;">📞 رقم التواصل اللي يظهر للعميل</label>
             <input id="rmPhone" class="form-control" dir="ltr" placeholder="+20 100 000 0000">
-            <label class="form-label" style="margin-top:10px;">لغة الرسالة</label>
+            <label for="rmLang" class="form-label" style="margin-top:10px;">لغة الرسالة</label>
             <select id="rmLang" class="form-control">
                 <option value="auto">تلقائي: عربي للأسماء العربي، إنجليزي للأجانب</option>
                 <option value="ar">عربي دايمًا</option>
                 <option value="en">إنجليزي دايمًا</option>
             </select>
-            <label class="form-label" style="margin-top:10px;">نص الرسالة (عربي)</label>
+            <label for="rmTemplate" class="form-label" style="margin-top:10px;">نص الرسالة (عربي)</label>
             <textarea id="rmTemplate" class="form-control" rows="8" dir="auto"></textarea>
             <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:13px;">نص الرسالة (إنجليزي)</summary>
                 <textarea id="rmTemplateEn" class="form-control" rows="8" dir="ltr" style="margin-top:6px;"></textarea>
@@ -878,13 +878,13 @@ class BookingController extends Controller
     <div class="p-modal" style="max-width:520px;">
         <div class="p-modal-head"><h3 id="trTitle">🧳 رحلة جديدة</h3><button class="p-modal-close" onclick="P_close('trModal')">×</button></div>
         <div class="p-modal-body">
-            <label class="form-label">اسم الرحلة</label>
+            <label for="trName" class="form-label">اسم الرحلة</label>
             <input id="trName" class="form-control" maxlength="255" placeholder="مثال: رحلة الأقصر يوم كامل">
             <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:140px;"><label class="form-label">السعر للفرد</label><input id="trPrice" type="number" min="0" step="0.01" class="form-control" dir="ltr"></div>
-                <div style="width:130px;"><label class="form-label">العملة</label><select id="trCurrency" class="form-control"><option>USD</option><option>EUR</option><option>GBP</option><option>EGP</option><option>SAR</option><option>AED</option><option>KWD</option><option>QAR</option><option>TRY</option><option>MAD</option><option>JOD</option></select></div>
+                <div style="flex:1;min-width:140px;"><label for="trPrice" class="form-label">السعر للفرد</label><input id="trPrice" type="number" min="0" step="0.01" class="form-control" dir="ltr"></div>
+                <div style="width:130px;"><label for="trCurrency" class="form-label">العملة</label><select id="trCurrency" class="form-control"><option>USD</option><option>EUR</option><option>GBP</option><option>EGP</option><option>SAR</option><option>AED</option><option>KWD</option><option>QAR</option><option>TRY</option><option>MAD</option><option>JOD</option></select></div>
             </div>
-            <label class="form-label" style="margin-top:10px;">وصف مختصر (اختياري)</label>
+            <label for="trDesc" class="form-label" style="margin-top:10px;">وصف مختصر (اختياري)</label>
             <textarea id="trDesc" class="form-control" rows="3" maxlength="2000" placeholder="البرنامج، اللي شامله السعر، مكان التجمع..."></textarea>
             <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;"><input type="checkbox" id="trActive" checked> الرحلة متاحة للحجز</label>
             <div style="display:flex;gap:8px;margin-top:16px;"><button class="p-btn primary" id="trSaveBtn" onclick="trSave()">💾 احفظ</button><button class="p-btn outline" onclick="P_close('trModal')">إلغاء</button></div>
@@ -899,24 +899,24 @@ class BookingController extends Controller
             <p class="p-cell-muted" style="margin-top:0;font-size:12.5px;">لحجز جالك بالتليفون أو الواتساب أو في المكتب. بيتسجّل مع باقي حجوزاتك، وبيخصم من الأماكن المتاحة، وبيوصل للعميل تذكير قبل الرحلة.</p>
             <div id="bnNoTrips" style="display:none;" class="p-card"><b>لسه مفيش رحلات</b><div class="p-cell-muted" style="margin:4px 0 10px;">ضيف أول رحلة بسعرها، وبعدها سجّل الحجز.</div><button class="p-btn primary" onclick="P_close('bnModal');bkTab('trips');trOpen(0);">➕ ضيف رحلة</button></div>
             <div id="bnForm">
-                <label class="form-label">الرحلة</label><select id="bnProduct" class="form-control"></select>
+                <label for="bnProduct" class="form-label">الرحلة</label><select id="bnProduct" class="form-control"></select>
                 <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-                    <div style="flex:1;min-width:150px;"><label class="form-label">التاريخ</label><input id="bnDate" type="date" class="form-control"></div>
-                    <div style="width:130px;"><label class="form-label">الوقت (اختياري)</label><input id="bnTime" type="time" class="form-control"></div>
+                    <div style="flex:1;min-width:150px;"><label for="bnDate" class="form-label">التاريخ</label><input id="bnDate" type="date" class="form-control"></div>
+                    <div style="width:130px;"><label for="bnTime" class="form-label">الوقت (اختياري)</label><input id="bnTime" type="time" class="form-control"></div>
                 </div>
-                <label class="form-label" style="margin-top:10px;">اسم العميل</label><input id="bnName" class="form-control" maxlength="190">
+                <label for="bnName" class="form-label" style="margin-top:10px;">اسم العميل</label><input id="bnName" class="form-control" maxlength="190">
                 <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-                    <div style="flex:1;min-width:160px;"><label class="form-label">الموبايل/واتساب (بكود الدولة)</label><input id="bnPhone" class="form-control" dir="ltr" placeholder="+201001234567"></div>
-                    <div style="flex:1;min-width:160px;"><label class="form-label">الإيميل (اختياري)</label><input id="bnEmail" type="email" class="form-control" dir="ltr"></div>
-                </div>
-                <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-                    <div style="width:110px;"><label class="form-label">الكبار</label><input id="bnAdults" type="number" min="1" max="200" value="1" class="form-control"></div>
-                    <div style="width:110px;"><label class="form-label">الأطفال</label><input id="bnChildren" type="number" min="0" max="200" value="0" class="form-control"></div>
-                    <div style="flex:1;min-width:150px;"><label class="form-label">الإجمالي (اختياري)</label><input id="bnTotal" type="number" min="0" step="0.01" class="form-control" dir="ltr" placeholder="تلقائي من سعر الرحلة"></div>
+                    <div style="flex:1;min-width:160px;"><label for="bnPhone" class="form-label">الموبايل/واتساب (بكود الدولة)</label><input id="bnPhone" class="form-control" dir="ltr" placeholder="+201001234567"></div>
+                    <div style="flex:1;min-width:160px;"><label for="bnEmail" class="form-label">الإيميل (اختياري)</label><input id="bnEmail" type="email" class="form-control" dir="ltr"></div>
                 </div>
                 <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-                    <div style="width:170px;"><label class="form-label">جه منين</label><select id="bnSource" class="form-control"><option value="phone">تليفون</option><option value="chat">واتساب/شات</option><option value="walk_in">في المكتب</option><option value="direct">غير ذلك</option></select></div>
-                    <div style="flex:1;min-width:160px;"><label class="form-label">ملاحظات (اختياري)</label><input id="bnNotes" class="form-control" maxlength="1000"></div>
+                    <div style="width:110px;"><label for="bnAdults" class="form-label">الكبار</label><input id="bnAdults" type="number" min="1" max="200" value="1" class="form-control"></div>
+                    <div style="width:110px;"><label for="bnChildren" class="form-label">الأطفال</label><input id="bnChildren" type="number" min="0" max="200" value="0" class="form-control"></div>
+                    <div style="flex:1;min-width:150px;"><label for="bnTotal" class="form-label">الإجمالي (اختياري)</label><input id="bnTotal" type="number" min="0" step="0.01" class="form-control" dir="ltr" placeholder="تلقائي من سعر الرحلة"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+                    <div style="width:170px;"><label for="bnSource" class="form-label">جه منين</label><select id="bnSource" class="form-control"><option value="phone">تليفون</option><option value="chat">واتساب/شات</option><option value="walk_in">في المكتب</option><option value="direct">غير ذلك</option></select></div>
+                    <div style="flex:1;min-width:160px;"><label for="bnNotes" class="form-label">ملاحظات (اختياري)</label><input id="bnNotes" class="form-control" maxlength="1000"></div>
                 </div>
                 <div style="display:flex;gap:8px;margin-top:16px;"><button class="p-btn primary" id="bnSaveBtn" onclick="bkNewSave()">✅ سجّل الحجز</button><button class="p-btn outline" onclick="P_close('bnModal')">إلغاء</button></div>
             </div>
@@ -927,7 +927,7 @@ class BookingController extends Controller
 <div id="bkAvail" style="display:none;">
     <div class="p-card" style="margin-bottom:14px;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <div style="flex:1;min-width:200px;"><label class="form-label">الرحلة / الخدمة</label><select id="bkProduct" class="form-control" onchange="bkCal()"></select></div>
+            <div style="flex:1;min-width:200px;"><label for="bkProduct" class="form-label">الرحلة / الخدمة</label><select id="bkProduct" class="form-control" onchange="bkCal()"></select></div>
             <div><button class="p-btn outline xs" onclick="bkShift(-30)">‹ الشهر اللي فات</button> <button class="p-btn outline xs" onclick="bkShift(30)">الشهر الجاي ›</button></div>
         </div>
         <p class="p-cell-muted" style="font-size:12px;margin:10px 0 0;">الرقم في كل يوم = عدد الحجوزات المسموحة. غيّره واضغط برّه الخانة يتحفظ. 0 = اليوم مقفول.</p>
@@ -939,9 +939,9 @@ class BookingController extends Controller
     <div class="p-card">
         <div class="p-card-head"><h3>⚡ تحديد فترة مرة واحدة</h3></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <div><label class="form-label">من</label><input type="date" id="bkFrom" class="form-control"></div>
-            <div><label class="form-label">لحد</label><input type="date" id="bkTo" class="form-control"></div>
-            <div style="width:110px;"><label class="form-label">السعة</label><input type="number" min="0" id="bkCap" class="form-control" value="10"></div>
+            <div><label for="bkFrom" class="form-label">من</label><input type="date" id="bkFrom" class="form-control"></div>
+            <div><label for="bkTo" class="form-label">لحد</label><input type="date" id="bkTo" class="form-control"></div>
+            <div style="width:110px;"><label for="bkCap" class="form-label">السعة</label><input type="number" min="0" id="bkCap" class="form-control" value="10"></div>
             <div><label class="form-label">الأيام</label><div id="bkWeekdays" style="display:flex;gap:4px;flex-wrap:wrap;"></div></div>
             <button class="p-btn primary" onclick="bkBulk()">تطبيق</button>
         </div>

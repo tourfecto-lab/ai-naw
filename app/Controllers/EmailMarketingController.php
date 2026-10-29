@@ -138,9 +138,9 @@ class EmailMarketingController extends Controller
                 </div>
                 <div class="p-modal-body">
                     <input type="hidden" id="listId" value="">
-                    <label class="p-cell-muted" style="font-size:12px;">List name *</label>
+                    <label for="listName" class="p-cell-muted" style="font-size:12px;">List name *</label>
                     <input type="text" id="listName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Example: summer offers customers">
-                    <label class="p-cell-muted" style="font-size:12px;">Description (optional)</label>
+                    <label for="listDesc" class="p-cell-muted" style="font-size:12px;">Description (optional)</label>
                     <input type="text" id="listDesc" class="p-select" style="width:100%;margin-bottom:10px;" placeholder="Short description">
                     <button class="p-btn primary" onclick="saveList()">Save</button>
                 </div>
@@ -155,11 +155,11 @@ class EmailMarketingController extends Controller
                     <button class="p-modal-close" onclick="document.getElementById('subscriberModal').classList.remove('open')">×</button>
                 </div>
                 <div class="p-modal-body">
-                    <label class="p-cell-muted" style="font-size:12px;">Email *</label>
+                    <label for="subEmail" class="p-cell-muted" style="font-size:12px;">Email *</label>
                     <input type="email" id="subEmail" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="client@example.com">
-                    <label class="p-cell-muted" style="font-size:12px;">Name</label>
+                    <label for="subName" class="p-cell-muted" style="font-size:12px;">Name</label>
                     <input type="text" id="subName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Full name">
-                    <label class="p-cell-muted" style="font-size:12px;">List</label>
+                    <label for="subList" class="p-cell-muted" style="font-size:12px;">List</label>
                     <select id="subList" class="p-select" style="width:100%;margin-bottom:10px;"></select>
                     <button class="p-btn primary" onclick="saveSubscriber()">Save</button>
                 </div>
@@ -174,9 +174,9 @@ class EmailMarketingController extends Controller
                     <button class="p-modal-close" onclick="document.getElementById('importModal').classList.remove('open')">×</button>
                 </div>
                 <div class="p-modal-body">
-                    <label class="p-cell-muted" style="font-size:12px;">Target list</label>
+                    <label for="importList" class="p-cell-muted" style="font-size:12px;">Target list</label>
                     <select id="importList" class="p-select" style="width:100%;margin-bottom:8px;"></select>
-                    <label class="p-cell-muted" style="font-size:12px;">Data (JSON or CSV format: email,name on each line)</label>
+                    <label for="importData" class="p-cell-muted" style="font-size:12px;">Data (JSON or CSV format: email,name on each line)</label>
                     <textarea id="importData" class="p-select" style="width:100%;min-height:120px;font-family:monospace;font-size:12px;"
                         placeholder='[{&quot;email&quot;:&quot;a@example.com&quot;,&quot;name&quot;:&quot;Ahmed&quot;},{&quot;email&quot;:&quot;b@example.com&quot;,&quot;name&quot;:&quot;Sara&quot;}]'></textarea>
                     <div style="display:flex;gap:8px;margin-top:8px;">
@@ -298,11 +298,11 @@ class EmailMarketingController extends Controller
                 </div>
                 <div class="p-modal-body">
                     <input type="hidden" id="fieldId" value="">
-                    <label class="p-cell-muted" style="font-size:12px;">Programmatic name * (snake_case)</label>
+                    <label for="fieldName" class="p-cell-muted" style="font-size:12px;">Programmatic name * (snake_case)</label>
                     <input type="text" id="fieldName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="company_name">
-                    <label class="p-cell-muted" style="font-size:12px;">Display label *</label>
+                    <label for="fieldLabel" class="p-cell-muted" style="font-size:12px;">Display label *</label>
                     <input type="text" id="fieldLabel" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Company name">
-                    <label class="p-cell-muted" style="font-size:12px;">Type</label>
+                    <label for="fieldType" class="p-cell-muted" style="font-size:12px;">Type</label>
                     <select id="fieldType" class="p-select" style="width:100%;margin-bottom:8px;" onchange="toggleFieldOptions()">
                         <option value="text">Text</option>
                         <option value="number">Number</option>
@@ -312,7 +312,7 @@ class EmailMarketingController extends Controller
                         <option value="multi_select">Multi-select</option>
                     </select>
                     <div id="fieldOptionsWrap" style="display:none;margin-bottom:8px;">
-                        <label class="p-cell-muted" style="font-size:12px;">Options (comma separated)</label>
+                        <label for="fieldOptions" class="p-cell-muted" style="font-size:12px;">Options (comma separated)</label>
                         <input type="text" id="fieldOptions" class="p-select" style="width:100%;" placeholder="A, B, C">
                     </div>
                     <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:12px;">
@@ -332,9 +332,9 @@ class EmailMarketingController extends Controller
                 </div>
                 <div class="p-modal-body">
                     <input type="hidden" id="tagId" value="">
-                    <label class="p-cell-muted" style="font-size:12px;">Tag name *</label>
+                    <label for="tagName" class="p-cell-muted" style="font-size:12px;">Tag name *</label>
                     <input type="text" id="tagName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="VIP">
-                    <label class="p-cell-muted" style="font-size:12px;">Color (optional)</label>
+                    <label for="tagColor" class="p-cell-muted" style="font-size:12px;">Color (optional)</label>
                     <input type="color" id="tagColor" class="p-select" style="width:100%;height:38px;margin-bottom:12px;" value="#0077be">
                     <button class="p-btn primary" onclick="saveTag()">Save</button>
                 </div>
@@ -350,11 +350,11 @@ class EmailMarketingController extends Controller
                 </div>
                 <div class="p-modal-body">
                     <input type="hidden" id="segmentId" value="">
-                    <label class="p-cell-muted" style="font-size:12px;">Segment name *</label>
+                    <label for="segmentName" class="p-cell-muted" style="font-size:12px;">Segment name *</label>
                     <input type="text" id="segmentName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Riyadh customers">
-                    <label class="p-cell-muted" style="font-size:12px;">Description</label>
+                    <label for="segmentDesc" class="p-cell-muted" style="font-size:12px;">Description</label>
                     <input type="text" id="segmentDesc" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Short description">
-                    <label class="p-cell-muted" style="font-size:12px;">Condition logic</label>
+                    <label for="segmentMatchAll" class="p-cell-muted" style="font-size:12px;">Condition logic</label>
                     <select id="segmentMatchAll" class="p-select" style="width:100%;margin-bottom:10px;">
                         <option value="1">All conditions (AND)</option>
                         <option value="0">Any condition (OR)</option>
@@ -375,16 +375,16 @@ class EmailMarketingController extends Controller
                     <button class="p-modal-close" onclick="document.getElementById('suppressionModal').classList.remove('open')">×</button>
                 </div>
                 <div class="p-modal-body">
-                    <label class="p-cell-muted" style="font-size:12px;">Email *</label>
+                    <label for="supEmail" class="p-cell-muted" style="font-size:12px;">Email *</label>
                     <input type="email" id="supEmail" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="bounce@example.com">
-                    <label class="p-cell-muted" style="font-size:12px;">Reason</label>
+                    <label for="supType" class="p-cell-muted" style="font-size:12px;">Reason</label>
                     <select id="supType" class="p-select" style="width:100%;margin-bottom:8px;">
                         <option value="manual">Manual cancellation</option>
                         <option value="bounce">Bounce</option>
                         <option value="complaint">Complaint</option>
                         <option value="spam">Spam report</option>
                     </select>
-                    <label class="p-cell-muted" style="font-size:12px;">Notes</label>
+                    <label for="supReason" class="p-cell-muted" style="font-size:12px;">Notes</label>
                     <input type="text" id="supReason" class="p-select" style="width:100%;margin-bottom:12px;" placeholder="Optional">
                     <button class="p-btn primary" onclick="saveSuppression()">Save</button>
                 </div>
@@ -456,9 +456,9 @@ class EmailMarketingController extends Controller
                 </div>
                 <div class="p-modal-body">
                     <input type="hidden" id="templateId" value="">
-                    <label class="p-cell-muted" style="font-size:12px;">Template name *</label>
+                    <label for="templateName" class="p-cell-muted" style="font-size:12px;">Template name *</label>
                     <input type="text" id="templateName" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Example: weekly offers newsletter">
-                    <label class="p-cell-muted" style="font-size:12px;">Default subject (subject)</label>
+                    <label for="templateSubject" class="p-cell-muted" style="font-size:12px;">Default subject (subject)</label>
                     <input type="text" id="templateSubject" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Example: this week offers {{first_name}}">
                     <label class="p-cell-muted" style="font-size:12px;">Content HTML</label>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
@@ -710,16 +710,16 @@ class EmailMarketingController extends Controller
                     <input type="hidden" id="campaignId" value="">
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <div>
-                            <label class="p-cell-muted" style="font-size:12px;">Campaign name *</label>
+                            <label for="campaignName" class="p-cell-muted" style="font-size:12px;">Campaign name *</label>
                             <input type="text" id="campaignName" class="p-select" style="width:100%;" placeholder="Example: summer offer launch">
                         </div>
                         <div>
-                            <label class="p-cell-muted" style="font-size:12px;">Audience (list)</label>
+                            <label for="campaignList" class="p-cell-muted" style="font-size:12px;">Audience (list)</label>
                             <select id="campaignList" class="p-select" style="width:100%;"></select>
                         </div>
                     </div>
                     <div style="margin-top:8px;">
-                        <label class="p-cell-muted" style="font-size:12px;">Or target a dynamic segment (overrides the list)</label>
+                        <label for="campaignSegment" class="p-cell-muted" style="font-size:12px;">Or target a dynamic segment (overrides the list)</label>
                         <select id="campaignSegment" class="p-select" style="width:100%;">
                             <option value="0">— No segment —</option>
                         </select>
@@ -736,16 +736,16 @@ class EmailMarketingController extends Controller
                             </div>
                         </div>
                     </div>
-                    <label class="p-cell-muted" style="font-size:12px;margin-top:8px;display:block;">Topic (subject) * <button type="button" class="p-btn xs" onclick="aiSubjects(this)">✨ Suggest subjects</button></label>
+                    <label for="campaignSubject" class="p-cell-muted" style="font-size:12px;margin-top:8px;display:block;">Topic (subject) * <button type="button" class="p-btn xs" onclick="aiSubjects(this)">✨ Suggest subjects</button></label>
                     <input type="text" id="campaignSubject" class="p-select" style="width:100%;margin-bottom:8px;" placeholder="Example: special offer for the first 50 customers {{first_name}}">
                     <div id="campaignAiSubjects" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;"></div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                         <div>
-                            <label class="p-cell-muted" style="font-size:12px;">From (name)</label>
+                            <label for="campaignFromName" class="p-cell-muted" style="font-size:12px;">From (name)</label>
                             <input type="text" id="campaignFromName" class="p-select" style="width:100%;" placeholder="Your company">
                         </div>
                         <div>
-                            <label class="p-cell-muted" style="font-size:12px;">From (email)</label>
+                            <label for="campaignFromEmail" class="p-cell-muted" style="font-size:12px;">From (email)</label>
                             <input type="text" id="campaignFromEmail" class="p-select" style="width:100%;" placeholder="noreply@yourdomain.com">
                         </div>
                     </div>
@@ -760,7 +760,7 @@ class EmailMarketingController extends Controller
                     </div>
                     <textarea id="campaignHtml" class="p-select" style="width:100%;min-height:220px;font-family:monospace;font-size:12px;" placeholder="<p>Hello {{first_name}},</p><p>This week offer...</p>"></textarea>
                     <div id="campaignScheduleWrap" style="margin-top:10px;display:none;">
-                        <label class="p-cell-muted" style="font-size:12px;">Schedule (date and time)</label>
+                        <label for="campaignScheduledAt" class="p-cell-muted" style="font-size:12px;">Schedule (date and time)</label>
                         <input type="datetime-local" id="campaignScheduledAt" class="p-select" style="width:100%;">
                     </div>
                     <div style="display:flex;gap:8px;margin-top:12px;">
@@ -895,11 +895,11 @@ class EmailMarketingController extends Controller
             <div class="p-card-head"><h3>🔗 Platform connections</h3><span class="p-card-sub">Bookings and CRM trigger workflows; bookings made from an email are credited to the campaign</span></div>
             <div id="emPlatformIntegration" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:4px 2px;">
                 <label style="display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" id="emIntSyncBookings"/> <span>Add new booking customers as subscribers<br><small class="p-cell-muted">Off by default. Existing contacts who unsubscribed are never re-subscribed.</small></span></label>
-                <div><label class="p-label">List for booking customers</label><select class="p-input" id="emIntBookingList" style="width:100%;"></select></div>
+                <div><label for="emIntBookingList" class="p-label">List for booking customers</label><select class="p-input" id="emIntBookingList" style="width:100%;"></select></div>
                 <label style="display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" id="emIntSyncCrm"/> <span>Add new CRM leads / won deals as subscribers</span></label>
-                <div><label class="p-label">List for CRM contacts</label><select class="p-input" id="emIntCrmList" style="width:100%;"></select></div>
+                <div><label for="emIntCrmList" class="p-label">List for CRM contacts</label><select class="p-input" id="emIntCrmList" style="width:100%;"></select></div>
                 <label style="display:flex;gap:8px;align-items:flex-start;"><input type="checkbox" id="emIntAttribution"/> <span>Credit bookings to the email that brought them</span></label>
-                <div><label class="p-label">Attribution window (days)</label><input class="p-input" id="emIntWindow" type="number" min="1" max="90" style="width:100%;"/></div>
+                <div><label for="emIntWindow" class="p-label">Attribution window (days)</label><input class="p-input" id="emIntWindow" type="number" min="1" max="90" style="width:100%;"/></div>
                 <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                     <small class="p-cell-muted" id="emIntVars"></small>
                     <p id="emIntegrationStatus" role="status" aria-live="polite">Loading connections…</p><button class="p-btn primary xs" id="emIntegrationSave" disabled onclick="savePlatformIntegration(this)">Save connections</button>
@@ -921,27 +921,27 @@ class EmailMarketingController extends Controller
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                     <div>
-                        <label class="p-label">Name</label>
+                        <label for="emAutoName" class="p-label">Name</label>
                         <input class="p-input" id="emAutoName" placeholder="Example: welcome new subscribers" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Description</label>
+                        <label for="emAutoDesc" class="p-label">Description</label>
                         <input class="p-input" id="emAutoDesc" placeholder="Optional description" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Operator</label>
+                        <label for="emAutoTrigger" class="p-label">Operator</label>
                         <select class="p-input" id="emAutoTrigger" style="width:100%;"></select>
                     </div>
                     <div id="emAutoTriggerValueWrap">
-                        <label class="p-label" id="emAutoTriggerValueLabel">List (optional)</label>
+                        <label for="emAutoTriggerValue" class="p-label" id="emAutoTriggerValueLabel">List (optional)</label>
                         <select class="p-input" id="emAutoTriggerValue" style="width:100%;"></select>
                     </div>
                     <div>
-                        <label class="p-label">Qualifying entry lists (optional)</label>
+                        <label for="emAutoEntryAudience" class="p-label">Qualifying entry lists (optional)</label>
                         <select class="p-input" id="emAutoEntryAudience" multiple style="width:100%;height:70px;"></select>
                     </div>
                     <div>
-                        <label class="p-label">Stay only while in these lists (optional)</label>
+                        <label for="emAutoExitAudience" class="p-label">Stay only while in these lists (optional)</label>
                         <select class="p-input" id="emAutoExitAudience" multiple style="width:100%;height:70px;"></select>
                     </div>
                 </div>
@@ -990,15 +990,15 @@ class EmailMarketingController extends Controller
             <summary style="cursor:pointer;font-weight:600">⚙️ Use my own mail server (optional, advanced)</summary>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:10px;">
                 <div>
-                    <label class="p-label">Host (host)</label>
+                    <label for="emSmtpHost" class="p-label">Host (host)</label>
                     <input class="p-input" id="emSmtpHost" placeholder="smtp.example.com" style="width:100%;"/>
                 </div>
                 <div>
-                    <label class="p-label">Port (port)</label>
+                    <label for="emSmtpPort" class="p-label">Port (port)</label>
                     <input class="p-input" id="emSmtpPort" type="number" value="587" style="width:100%;"/>
                 </div>
                 <div>
-                    <label class="p-label">Encryption</label>
+                    <label for="emSmtpEncryption" class="p-label">Encryption</label>
                     <select class="p-input" id="emSmtpEncryption" style="width:100%;">
                         <option value="tls">STARTTLS</option>
                         <option value="ssl">SSL/TLS</option>
@@ -1006,19 +1006,19 @@ class EmailMarketingController extends Controller
                     </select>
                 </div>
                 <div>
-                    <label class="p-label">Username</label>
+                    <label for="emSmtpUsername" class="p-label">Username</label>
                     <input class="p-input" id="emSmtpUsername" placeholder="you@example.com" style="width:100%;"/>
                 </div>
                 <div>
-                    <label class="p-label">Password / App Password</label>
+                    <label for="emSmtpPassword" class="p-label">Password / App Password</label>
                     <input class="p-input" id="emSmtpPassword" type="password" placeholder="••••••••" style="width:100%;"/>
                 </div>
                 <div>
-                    <label class="p-label">Sender (from email)</label>
+                    <label for="emSmtpFromEmail" class="p-label">Sender (from email)</label>
                     <input class="p-input" id="emSmtpFromEmail" placeholder="noreply@example.com" style="width:100%;"/>
                 </div>
                 <div>
-                    <label class="p-label">Sender name</label>
+                    <label for="emSmtpFromName" class="p-label">Sender name</label>
                     <input class="p-input" id="emSmtpFromName" placeholder="My company" style="width:100%;"/>
                 </div>
             </div>
@@ -1106,20 +1106,20 @@ class EmailMarketingController extends Controller
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
                     <div>
-                        <label class="p-label">Name</label>
+                        <label for="emTxName" class="p-label">Name</label>
                         <input class="p-input" id="emTxName" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Short value (slug)</label>
+                        <label for="emTxSlug" class="p-label">Short value (slug)</label>
                         <input class="p-input" id="emTxSlug" placeholder="welcome (Optional)" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Topic (subject)</label>
+                        <label for="emTxSubject" class="p-label">Topic (subject)</label>
                         <input class="p-input" id="emTxSubject" style="width:100%;"/>
                     </div>
                 </div>
                 <div style="margin-top:12px;">
-                    <label class="p-label">Content (HTML - supports {{variables}})</label>
+                    <label for="emTxHtml" class="p-label">Content (HTML - supports {{variables}})</label>
                     <textarea class="p-input" id="emTxHtml" rows="10" style="width:100%;font-family:monospace;font-size:13px;"></textarea>
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
@@ -1137,15 +1137,15 @@ class EmailMarketingController extends Controller
                 </div>
                 <div style="display:grid;grid-template-columns:1fr;gap:12px;">
                     <div>
-                        <label class="p-label">Recipient email</label>
+                        <label for="emTxSendEmail" class="p-label">Recipient email</label>
                         <input class="p-input" id="emTxSendEmail" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Recipient name (optional)</label>
+                        <label for="emTxSendName" class="p-label">Recipient name (optional)</label>
                         <input class="p-input" id="emTxSendName" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Data (JSON for variables)</label>
+                        <label for="emTxSendData" class="p-label">Data (JSON for variables)</label>
                         <textarea class="p-input" id="emTxSendData" rows="3" placeholder='{"first_name":"Ahmed","company_name":"My company"}' style="width:100%;font-family:monospace;font-size:13px;"></textarea>
                     </div>
                 </div>
@@ -1193,20 +1193,20 @@ class EmailMarketingController extends Controller
                 </div>
                 <div style="display:grid;grid-template-columns:1fr;gap:12px;">
                     <div>
-                        <label class="p-label">Name</label>
+                        <label for="emAbName" class="p-label">Name</label>
                         <input class="p-input" id="emAbName" style="width:100%;"/>
                     </div>
                     <div>
-                        <label class="p-label">Main campaign (audience)</label>
+                        <label for="emAbCampaign" class="p-label">Main campaign (audience)</label>
                         <select class="p-input" id="emAbCampaign" style="width:100%;"></select>
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
-                            <label class="p-label">Variant B share %</label>
+                            <label for="emAbSplit" class="p-label">Variant B share %</label>
                             <input class="p-input" id="emAbSplit" type="number" value="50" min="5" max="95" style="width:100%;"/>
                         </div>
                         <div>
-                            <label class="p-label">Winning metric</label>
+                            <label for="emAbMetric" class="p-label">Winning metric</label>
                             <select class="p-input" id="emAbMetric" style="width:100%;">
                                 <option value="open">Open rate</option>
                                 <option value="click">Click rate</option>
@@ -1285,17 +1285,17 @@ class EmailMarketingController extends Controller
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div class="p-card">
                 <div class="p-card-head"><h3>🅰️ Variant A — {$vaTotal} recipient</h3></div>
-                <label class="p-label">Topic</label>
+                <label for="emAbASubject" class="p-label">Topic</label>
                 <input class="p-input" id="emAbASubject" value="{$vaSubject}" style="width:100%;"/>
-                <label class="p-label" style="margin-top:10px;">Content</label>
+                <label for="emAbAHtml" class="p-label" style="margin-top:10px;">Content</label>
                 <textarea class="p-input" id="emAbAHtml" rows="10" style="width:100%;font-family:monospace;font-size:13px;">{$vaHtml}</textarea>
                 <button class="p-btn xs" style="margin-top:10px;" onclick="saveAbVariant('a')">💾 Save variant A</button>
             </div>
             <div class="p-card">
                 <div class="p-card-head"><h3>🅱️ Variant B — {$vbTotal} recipient</h3></div>
-                <label class="p-label">Topic</label>
+                <label for="emAbBSubject" class="p-label">Topic</label>
                 <input class="p-input" id="emAbBSubject" value="{$vbSubject}" style="width:100%;"/>
-                <label class="p-label" style="margin-top:10px;">Content</label>
+                <label for="emAbBHtml" class="p-label" style="margin-top:10px;">Content</label>
                 <textarea class="p-input" id="emAbBHtml" rows="10" style="width:100%;font-family:monospace;font-size:13px;">{$vbHtml}</textarea>
                 <button class="p-btn xs" style="margin-top:10px;" onclick="saveAbVariant('b')">💾 Save variant B</button>
             </div>

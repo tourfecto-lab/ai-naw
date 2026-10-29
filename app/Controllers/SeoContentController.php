@@ -61,15 +61,15 @@ class SeoContentController extends Controller
             <div>
                 <div class="scc-card">
                     <h3>حملة محتوى جديدة</h3>
-                    <label class="scc-label">اسم الحملة</label>
+                    <label for="sccCampaignName" class="scc-label">اسم الحملة</label>
                     <input type="text" id="sccCampaignName" class="scc-input" placeholder="مثال: مقالات رحلات الخريف" />
-                    <label class="scc-label">مصدر المواضيع</label>
+                    <label for="sccSource" class="scc-label">مصدر المواضيع</label>
                     <select id="sccSource" class="scc-select">
                         <option value="keywords">كلمات مفتاحية متابَعة</option>
                         <option value="gsc">استعلامات Search Console</option>
                         <option value="manual">يدوي</option>
                     </select>
-                    <label class="scc-label">المواضيع (سطر لكل موضوع)</label>
+                    <label for="sccTopics" class="scc-label">المواضيع (سطر لكل موضوع)</label>
                     <textarea id="sccTopics" class="scc-textarea" placeholder="رحلة سفاري صحراوية&#10;أفضل فنادق القاهرة"></textarea>
                     <div class="scc-row" style="margin-top:10px;">
                         <button class="p-btn" id="sccDiscoverBtn">اكتشاف مواضيع</button>

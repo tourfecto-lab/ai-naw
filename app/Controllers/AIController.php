@@ -1120,11 +1120,11 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$tNewCompetitor}</h3><button class="p-modal-close" onclick="document.getElementById('newCompModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label>{$tLinkedWebsite}</label>
+                    <label for="compWebsiteId">{$tLinkedWebsite}</label>
                     <select id="compWebsiteId" class="p-select" style="width:100%;margin-bottom:10px;"></select>
-                    <label>{$tCompetitorName}</label>
+                    <label for="compName">{$tCompetitorName}</label>
                     <input type="text" id="compName" class="p-select" style="width:100%;margin-bottom:10px;">
-                    <label>{$tCompetitorUrl}</label>
+                    <label for="compUrl">{$tCompetitorUrl}</label>
                     <input type="text" id="compUrl" class="p-select" style="width:100%;" placeholder="https://...">
                 </div>
                 <div class="p-modal-foot"><button class="p-btn" onclick="addCompetitor()">{$tAdd}</button></div>
@@ -2084,7 +2084,7 @@ JS;
                 <div class="p-modal-head"><h3>🚀 {$tPublishTitle}</h3><button class="p-modal-close" onclick="closePublishModal()">×</button></div>
                 <div class="p-modal-body">
                     <div id="publishStep_selectSite">
-                        <label class="form-label">{$tSelectSite}</label>
+                        <label for="pubWebsiteId" class="form-label">{$tSelectSite}</label>
                         <select id="pubWebsiteId" class="p-select" style="width:100%;margin-bottom:14px;"></select>
                     </div>
 
@@ -2105,19 +2105,19 @@ JS;
                         </div>
 
                         <div id="pubTab_wordpress">
-                            <label class="form-label">{$tSiteUrl}</label>
+                            <label for="pubSiteUrl" class="form-label">{$tSiteUrl}</label>
                             <input type="url" id="pubSiteUrl" class="form-control" placeholder="https://example.com" style="margin-bottom:10px;">
-                            <label class="form-label">{$tWpUsername}</label>
+                            <label for="pubUsername" class="form-label">{$tWpUsername}</label>
                             <input type="text" id="pubUsername" class="form-control" style="margin-bottom:10px;">
-                            <label class="form-label">Application Password</label>
+                            <label for="pubAppPassword" class="form-label">Application Password</label>
                             <input type="text" id="pubAppPassword" class="form-control" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx" style="margin-bottom:6px;">
                             <p class="p-cell-muted" style="font-size:12.5px;">{$tAppPasswordHint}</p>
                         </div>
 
                         <div id="pubTab_custom_api" style="display:none;">
-                            <label class="form-label">{$tEndpointUrl}</label>
+                            <label for="pubEndpointUrl" class="form-label">{$tEndpointUrl}</label>
                             <input type="url" id="pubEndpointUrl" class="form-control" placeholder="https://example.com/tourfecto-publish" style="margin-bottom:10px;">
-                            <label class="form-label">{$tSecretKeyOptional}</label>
+                            <label for="pubAccessToken" class="form-label">{$tSecretKeyOptional}</label>
                             <input type="text" id="pubAccessToken" class="form-control" placeholder="{$tSecretKeyPlaceholder}" style="margin-bottom:6px;">
                             <p class="p-cell-muted" style="font-size:12.5px;">
                                 {$tCustomSiteHint}

@@ -77,7 +77,7 @@ class WebsiteBuilderController extends Controller
                     </div>
 
                     <div id="mgTabGeneral">
-                        <label class="form-label">{$this->tr('wb.field.theme_color')}</label>
+                        <label for="editThemeColor" class="form-label">{$this->tr('wb.field.theme_color')}</label>
                         <select id="editThemeColor" class="form-control" style="margin-bottom:10px;">
                             <option value="gold">🟡 {$this->tr('wb.theme.gold')}</option>
                             <option value="blue">🔵 {$this->tr('wb.theme.blue')}</option>
@@ -85,23 +85,23 @@ class WebsiteBuilderController extends Controller
                             <option value="red">🔴 {$this->tr('wb.theme.red')}</option>
                             <option value="purple">🟣 {$this->tr('wb.theme.purple')}</option>
                         </select>
-                        <label class="form-label">{$this->tr('wb.field.business_name')}</label>
+                        <label for="editBusinessName" class="form-label">{$this->tr('wb.field.business_name')}</label>
                         <input type="text" id="editBusinessName" class="form-control" style="margin-bottom:10px;">
-                        <label class="form-label">{$this->tr('wb.field.tagline')}</label>
+                        <label for="editTagline" class="form-label">{$this->tr('wb.field.tagline')}</label>
                         <input type="text" id="editTagline" class="form-control" style="margin-bottom:10px;">
-                        <label class="form-label">{$this->tr('wb.field.hero_headline')}</label>
+                        <label for="editHeroHeadline" class="form-label">{$this->tr('wb.field.hero_headline')}</label>
                         <input type="text" id="editHeroHeadline" class="form-control" style="margin-bottom:10px;">
-                        <label class="form-label">{$this->tr('wb.field.hero_subtext')}</label>
+                        <label for="editHeroSubtext" class="form-label">{$this->tr('wb.field.hero_subtext')}</label>
                         <input type="text" id="editHeroSubtext" class="form-control" style="margin-bottom:10px;">
-                        <label class="form-label">{$this->tr('wb.field.about_text')}</label>
+                        <label for="editAboutText" class="form-label">{$this->tr('wb.field.about_text')}</label>
                         <textarea id="editAboutText" class="form-control" rows="3" style="margin-bottom:10px;"></textarea>
-                        <label class="form-label">{$this->tr('wb.field.cta_text')}</label>
+                        <label for="editCtaText" class="form-label">{$this->tr('wb.field.cta_text')}</label>
                         <input type="text" id="editCtaText" class="form-control" style="margin-bottom:10px;">
                         <div class="p-grid cols-2">
-                            <div><label class="form-label">{$this->tr('wb.field.contact_phone')}</label><input type="text" id="editPhone" class="form-control" dir="ltr"></div>
-                            <div><label class="form-label">{$this->tr('wb.field.contact_whatsapp')}</label><input type="text" id="editWhatsapp" class="form-control" dir="ltr"></div>
-                            <div><label class="form-label">{$this->tr('wb.field.contact_email')}</label><input type="email" id="editEmail" class="form-control" dir="ltr"></div>
-                            <div><label class="form-label">{$this->tr('wb.field.contact_address')}</label><input type="text" id="editAddress" class="form-control"></div>
+                            <div><label for="editPhone" class="form-label">{$this->tr('wb.field.contact_phone')}</label><input type="text" id="editPhone" class="form-control" dir="ltr"></div>
+                            <div><label for="editWhatsapp" class="form-label">{$this->tr('wb.field.contact_whatsapp')}</label><input type="text" id="editWhatsapp" class="form-control" dir="ltr"></div>
+                            <div><label for="editEmail" class="form-label">{$this->tr('wb.field.contact_email')}</label><input type="email" id="editEmail" class="form-control" dir="ltr"></div>
+                            <div><label for="editAddress" class="form-label">{$this->tr('wb.field.contact_address')}</label><input type="text" id="editAddress" class="form-control"></div>
                         </div>
                         <button class="p-btn primary" style="margin-top:14px;" onclick="saveSiteEdit()">{$this->tr('common.save')}</button>
                     </div>

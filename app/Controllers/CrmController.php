@@ -433,13 +433,13 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.leads.new')}</h3><button class="p-modal-close" onclick="document.getElementById('newLeadModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.leads.name')} *</label>
+                    <label for="leadName" class="form-label">{$this->tr('crm.leads.name')} *</label>
                     <input type="text" id="leadName" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.leads.email')}</label>
+                    <label for="leadEmail" class="form-label">{$this->tr('crm.leads.email')}</label>
                     <input type="email" id="leadEmail" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.leads.phone')}</label>
+                    <label for="leadPhone" class="form-label">{$this->tr('crm.leads.phone')}</label>
                     <input type="text" id="leadPhone" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.leads.source')}</label>
+                    <label for="leadSource" class="form-label">{$this->tr('crm.leads.source')}</label>
                     <select id="leadSource" class="form-control">
                         <option value="manual">{$this->tr('crm.leads.source.manual')}</option>
                         <option value="website_form">{$this->tr('crm.leads.source.website_form')}</option>
@@ -590,17 +590,17 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.deals.new')}</h3><button class="p-modal-close" onclick="document.getElementById('newDealModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.deals.title_label')} *</label>
+                    <label for="dealTitle" class="form-label">{$this->tr('crm.deals.title_label')} *</label>
                     <input type="text" id="dealTitle" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.deals.value')}</label>
+                    <label for="dealValue" class="form-label">{$this->tr('crm.deals.value')}</label>
                     <input type="number" id="dealValue" class="form-control" style="margin-bottom:10px;" value="0">
-                    <label class="form-label">{$this->tr('crm.deals.currency')}</label>
+                    <label for="dealCurrency" class="form-label">{$this->tr('crm.deals.currency')}</label>
                     <select id="dealCurrency" class="form-control" style="margin-bottom:10px;">
                         <option value="USD">USD</option>
                         <option value="EGP">EGP</option>
                         <option value="EUR">EUR</option>
                     </select>
-                    <label class="form-label">{$this->tr('crm.deals.stage')}</label>
+                    <label for="dealStage" class="form-label">{$this->tr('crm.deals.stage')}</label>
                     <select id="dealStage" class="form-control"></select>
                 </div>
                 <div class="p-modal-foot"><button class="p-btn primary" onclick="addDeal()">{$this->tr('common.add')}</button></div>
@@ -799,13 +799,13 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.contacts.new')}</h3><button class="p-modal-close" onclick="document.getElementById('newContactModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.contacts.col.name')} *</label>
+                    <label for="cName" class="form-label">{$this->tr('crm.contacts.col.name')} *</label>
                     <input type="text" id="cName" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.contacts.col.email')}</label>
+                    <label for="cEmail" class="form-label">{$this->tr('crm.contacts.col.email')}</label>
                     <input type="email" id="cEmail" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.contacts.col.phone')}</label>
+                    <label for="cPhone" class="form-label">{$this->tr('crm.contacts.col.phone')}</label>
                     <input type="text" id="cPhone" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.leads.source')}</label>
+                    <label for="cSource" class="form-label">{$this->tr('crm.leads.source')}</label>
                     <select id="cSource" class="form-control">
                         <option value="manual">{$this->tr('crm.leads.source.manual')}</option>
                         <option value="website">{$this->tr('crm.leads.source.website_form')}</option>
@@ -822,7 +822,7 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.segments.save_current')}</h3><button class="p-modal-close" onclick="document.getElementById('saveSegmentModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.segments.name')} *</label>
+                    <label for="segmentName" class="form-label">{$this->tr('crm.segments.name')} *</label>
                     <input type="text" id="segmentName" class="form-control">
                 </div>
                 <div class="p-modal-foot"><button class="p-btn primary" onclick="saveSegment()">{$this->tr('common.save')}</button></div>
@@ -1203,13 +1203,13 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.companies.new')}</h3><button class="p-modal-close" onclick="document.getElementById('newCompanyModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.companies.col.name')} *</label>
+                    <label for="coName" class="form-label">{$this->tr('crm.companies.col.name')} *</label>
                     <input type="text" id="coName" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.companies.col.industry')}</label>
+                    <label for="coIndustry" class="form-label">{$this->tr('crm.companies.col.industry')}</label>
                     <input type="text" id="coIndustry" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.companies.col.website')}</label>
+                    <label for="coWebsite" class="form-label">{$this->tr('crm.companies.col.website')}</label>
                     <input type="text" id="coWebsite" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.companies.col.phone')}</label>
+                    <label for="coPhone" class="form-label">{$this->tr('crm.companies.col.phone')}</label>
                     <input type="text" id="coPhone" class="form-control">
                 </div>
                 <div class="p-modal-foot"><button class="p-btn primary" onclick="addCompany()">{$this->tr('common.add')}</button></div>
@@ -1323,11 +1323,11 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.tasks.new')}</h3><button class="p-modal-close" onclick="document.getElementById('newTaskModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.tasks.col.title')} *</label>
+                    <label for="tTitle" class="form-label">{$this->tr('crm.tasks.col.title')} *</label>
                     <input type="text" id="tTitle" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.tasks.col.due')}</label>
+                    <label for="tDue" class="form-label">{$this->tr('crm.tasks.col.due')}</label>
                     <input type="datetime-local" id="tDue" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.tasks.col.priority')}</label>
+                    <label for="tPriority" class="form-label">{$this->tr('crm.tasks.col.priority')}</label>
                     <select id="tPriority" class="form-control">
                         <option value="low">{$this->tr('crm.priority.low')}</option>
                         <option value="medium" selected>{$this->tr('crm.priority.medium')}</option>
@@ -1461,11 +1461,11 @@ JS;
             <div class="p-modal">
                 <div class="p-modal-head"><h3>{$this->tr('crm.appointments.new')}</h3><button class="p-modal-close" onclick="document.getElementById('newApptModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.appointments.col.title')} *</label>
+                    <label for="aTitle" class="form-label">{$this->tr('crm.appointments.col.title')} *</label>
                     <input type="text" id="aTitle" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.appointments.col.when')} *</label>
+                    <label for="aStarts" class="form-label">{$this->tr('crm.appointments.col.when')} *</label>
                     <input type="datetime-local" id="aStarts" class="form-control" style="margin-bottom:10px;">
-                    <label class="form-label">{$this->tr('crm.appointments.purpose')}</label>
+                    <label for="aPurpose" class="form-label">{$this->tr('crm.appointments.purpose')}</label>
                     <input type="text" id="aPurpose" class="form-control">
                 </div>
                 <div class="p-modal-foot"><button class="p-btn primary" onclick="addAppt()">{$this->tr('common.add')}</button></div>
@@ -1666,10 +1666,10 @@ JS;
                     <button class="p-modal-close" onclick="closeBuilder()">×</button>
                 </div>
                 <div class="p-modal-body">
-                    <label class="form-label">{$this->tr('crm.automation.rule_name')} *</label>
+                    <label for="builderName" class="form-label">{$this->tr('crm.automation.rule_name')} *</label>
                     <input type="text" id="builderName" class="form-control" style="margin-bottom:12px;">
 
-                    <label class="form-label">{$this->tr('crm.automation.when')} *</label>
+                    <label for="builderTrigger" class="form-label">{$this->tr('crm.automation.when')} *</label>
                     <select id="builderTrigger" class="form-control" style="margin-bottom:16px;" onchange="onTriggerChange()"></select>
 
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">

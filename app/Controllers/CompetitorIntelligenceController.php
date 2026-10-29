@@ -1816,17 +1816,17 @@ HTML;
         <div class="p-card-head"><h3>{$this->tr('ci.competitors.add_btn')}</h3></div>
         <div class="p-grid cols-2">
             <input type="hidden" id="ciNewWebsiteId" value="">
-            <div class="form-group"><label class="form-label">{$this->tr('ci.form.name')} *</label><input type="text" id="ciNewName" class="p-input" placeholder="{$this->tr('ci.form.name')}"></div>
-            <div class="form-group"><label class="form-label">{$this->tr('ci.form.website')}</label><input type="text" id="ciNewDomain" class="p-input" dir="ltr" placeholder="example.com"></div>
-            <div class="form-group"><label class="form-label">{$this->tr('ci.form.industry')}</label><input type="text" id="ciNewIndustry" class="p-input" placeholder="{$this->tr('ci.form.industry')}"></div>
-            <div class="form-group"><label class="form-label">{$this->tr('ci.form.country')}</label><input type="text" id="ciNewCountry" class="p-input" placeholder="{$this->tr('ci.form.country')}"></div>
-            <div class="form-group"><label class="form-label">{$this->tr('ci.category.label')}</label><select id="ciNewCategory" class="p-select">
+            <div class="form-group"><label for="ciNewName" class="form-label">{$this->tr('ci.form.name')} *</label><input type="text" id="ciNewName" class="p-input" placeholder="{$this->tr('ci.form.name')}"></div>
+            <div class="form-group"><label for="ciNewDomain" class="form-label">{$this->tr('ci.form.website')}</label><input type="text" id="ciNewDomain" class="p-input" dir="ltr" placeholder="example.com"></div>
+            <div class="form-group"><label for="ciNewIndustry" class="form-label">{$this->tr('ci.form.industry')}</label><input type="text" id="ciNewIndustry" class="p-input" placeholder="{$this->tr('ci.form.industry')}"></div>
+            <div class="form-group"><label for="ciNewCountry" class="form-label">{$this->tr('ci.form.country')}</label><input type="text" id="ciNewCountry" class="p-input" placeholder="{$this->tr('ci.form.country')}"></div>
+            <div class="form-group"><label for="ciNewCategory" class="form-label">{$this->tr('ci.category.label')}</label><select id="ciNewCategory" class="p-select">
                 <option value="direct">{$this->tr('ci.category.direct')}</option>
                 <option value="indirect">{$this->tr('ci.category.indirect')}</option>
                 <option value="emerging">{$this->tr('ci.category.emerging')}</option>
                 <option value="potential">{$this->tr('ci.category.potential')}</option>
             </select></div>
-            <div class="form-group"><label class="form-label">{$this->tr('ci.settings.default_frequency')}</label><select id="ciNewFrequency" class="p-select">
+            <div class="form-group"><label for="ciNewFrequency" class="form-label">{$this->tr('ci.settings.default_frequency')}</label><select id="ciNewFrequency" class="p-select">
                 <option value="weekly">{$this->tr('ci.frequency.weekly')}</option>
                 <option value="daily">{$this->tr('ci.frequency.daily')}</option>
             </select></div>
@@ -1860,8 +1860,8 @@ HTML;
         <div class="p-card-head"><h3 style="display:flex;align-items:center;gap:8px;">{$this->ciIcon('radar')} {$this->tr('ci.tab.discovery')}</h3></div>
         <div class="p-grid cols-2">
             <input type="hidden" id="ciDiscWebsiteId" value="">
-            <div class="form-group"><label class="form-label">{$this->tr('ci.form.name')}</label><input type="text" id="ciDiscName" class="p-input" placeholder="{$this->tr('ci.form.name')}"></div>
-            <div class="form-group"><label class="form-label">{$this->tr('ci.form.website')}</label><input type="text" id="ciDiscWebsite" class="p-input" dir="ltr" placeholder="example.com"></div>
+            <div class="form-group"><label for="ciDiscName" class="form-label">{$this->tr('ci.form.name')}</label><input type="text" id="ciDiscName" class="p-input" placeholder="{$this->tr('ci.form.name')}"></div>
+            <div class="form-group"><label for="ciDiscWebsite" class="form-label">{$this->tr('ci.form.website')}</label><input type="text" id="ciDiscWebsite" class="p-input" dir="ltr" placeholder="example.com"></div>
         </div>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="p-btn outline xs" onclick="ciSuggestCandidate()">{$this->ciIcon('plus')} {$this->tr('ci.discovery.suggest_btn')}</button>
@@ -1974,14 +1974,14 @@ HTML;
         <p class="ci-form-note">{$this->tr('ci.settings.defaults_hint')}</p>
         <div class="p-grid cols-2">
             <div class="form-group">
-                <label class="form-label">{$this->tr('ci.settings.default_frequency')}</label>
+                <label for="ciSettingsFrequency" class="form-label">{$this->tr('ci.settings.default_frequency')}</label>
                 <select id="ciSettingsFrequency" class="p-select">
                     <option value="weekly">{$this->tr('ci.frequency.weekly')}</option>
                     <option value="daily">{$this->tr('ci.frequency.daily')}</option>
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">{$this->tr('ci.watchlist.min_severity')}</label>
+                <label for="ciSettingsMinSeverity" class="form-label">{$this->tr('ci.watchlist.min_severity')}</label>
                 <select id="ciSettingsMinSeverity" class="p-select">
                     <option value="info">info</option>
                     <option value="low">low</option>
@@ -2002,11 +2002,11 @@ HTML;
         </div>
         <div class="p-grid cols-2" style="margin-top:14px;">
             <div class="form-group">
-                <label class="form-label">{$this->tr('ci.settings.webhook_url')}</label>
+                <label for="ciSettingsWebhookUrl" class="form-label">{$this->tr('ci.settings.webhook_url')}</label>
                 <input type="text" id="ciSettingsWebhookUrl" class="p-input" placeholder="https://your-endpoint.example/hooks/ci" dir="ltr">
             </div>
             <div class="form-group">
-                <label class="form-label">{$this->tr('ci.settings.slack_webhook_url')}</label>
+                <label for="ciSettingsSlackUrl" class="form-label">{$this->tr('ci.settings.slack_webhook_url')}</label>
                 <input type="text" id="ciSettingsSlackUrl" class="p-input" placeholder="https://hooks.slack.com/services/..." dir="ltr">
             </div>
         </div>
@@ -2112,9 +2112,9 @@ HTML;
                     <div class="p-card-head"><h4 style="margin:0;">{$this->tr('ci.profile.keywords_record')}</h4></div>
                     <div class="ci-form-note" style="margin-top:2px;margin-bottom:10px;">{$this->tr('ci.profile.keywords_desc')}</div>
                     <div class="p-grid cols-3">
-                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.keyword')}</label><input type="text" id="ciKrKeyword" class="p-input" placeholder="desert safari dubai"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.position')}</label><input type="number" id="ciKrPosition" class="p-input" min="1" max="100" placeholder="1-100"></div>
-                        <div class="form-group"><label class="form-label">URL</label><input type="text" id="ciKrUrl" class="p-input" dir="ltr" placeholder="https://competitor.example/safari"></div>
+                        <div class="form-group"><label for="ciKrKeyword" class="form-label">{$this->tr('ci.profile.keyword')}</label><input type="text" id="ciKrKeyword" class="p-input" placeholder="desert safari dubai"></div>
+                        <div class="form-group"><label for="ciKrPosition" class="form-label">{$this->tr('ci.profile.position')}</label><input type="number" id="ciKrPosition" class="p-input" min="1" max="100" placeholder="1-100"></div>
+                        <div class="form-group"><label for="ciKrUrl" class="form-label">URL</label><input type="text" id="ciKrUrl" class="p-input" dir="ltr" placeholder="https://competitor.example/safari"></div>
                     </div>
                     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
                         <button class="p-btn primary xs" onclick="ciRecordKeywordRanking()">{$this->ciIcon('plus')} {$this->tr('ci.profile.keywords_record')}</button>
@@ -2134,9 +2134,9 @@ HTML;
                     <div class="p-card-head"><h4 style="margin:0;">{$this->tr('ci.profile.add_price')}</h4></div>
                     <div class="ci-form-note" style="margin-top:2px;margin-bottom:10px;">{$this->tr('ci.profile.prices_desc')}</div>
                     <div class="p-grid cols-3">
-                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.product_name')}</label><input type="text" id="ciPpProduct" class="p-input" placeholder="Deluxe Room"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.price')}</label><input type="number" id="ciPpPrice" class="p-input" min="0.01" step="0.01"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('ci.profile.currency')}</label><input type="text" id="ciPpCurrency" class="p-input" value="USD" dir="ltr" maxlength="8"></div>
+                        <div class="form-group"><label for="ciPpProduct" class="form-label">{$this->tr('ci.profile.product_name')}</label><input type="text" id="ciPpProduct" class="p-input" placeholder="Deluxe Room"></div>
+                        <div class="form-group"><label for="ciPpPrice" class="form-label">{$this->tr('ci.profile.price')}</label><input type="number" id="ciPpPrice" class="p-input" min="0.01" step="0.01"></div>
+                        <div class="form-group"><label for="ciPpCurrency" class="form-label">{$this->tr('ci.profile.currency')}</label><input type="text" id="ciPpCurrency" class="p-input" value="USD" dir="ltr" maxlength="8"></div>
                     </div>
                     <div style="margin-top:10px;">
                         <button class="p-btn primary xs" onclick="ciRecordProductPrice()">{$this->ciIcon('plus')} {$this->tr('ci.profile.add_price')}</button>

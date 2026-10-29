@@ -28,7 +28,7 @@ class AgencyController extends Controller
             <div class="p-modal">
                 <div class="p-modal-head"><h3>New agency</h3><button class="p-modal-close" onclick="document.getElementById('newAgencyModal').classList.remove('open')">×</button></div>
                 <div class="p-modal-body">
-                    <label>Agency name</label>
+                    <label for="agencyName">Agency name</label>
                     <input type="text" id="agencyName" class="p-select" style="width:100%;">
                 </div>
                 <div class="p-modal-foot"><button class="p-btn" onclick="createAgency()">Create</button></div>

@@ -4052,15 +4052,15 @@ HTML;
                         <div class="p-modal-head"><h3>📢 {$this->tr('admin.broadcast.title')}</h3><button class="p-modal-close" onclick="P.closeModal('broadcastModal')">×</button></div>
                         <div class="p-modal-body">
                             <p class="p-cell-muted" style="margin-bottom:14px;">{$this->tr('admin.broadcast.hint')}</p>
-                            <label class="form-label">{$this->tr('admin.broadcast.audience')}</label>
+                            <label for="broadcastAudience" class="form-label">{$this->tr('admin.broadcast.audience')}</label>
                             <select id="broadcastAudience" class="form-control" style="margin-bottom:10px;">
                                 <option value="all">{$this->tr('admin.broadcast.audience.all')}</option>
                                 <option value="active_subscribers">{$this->tr('admin.broadcast.audience.subscribers')}</option>
                                 <option value="no_subscription">{$this->tr('admin.broadcast.audience.no_sub')}</option>
                             </select>
-                            <label class="form-label">{$this->tr('admin.broadcast.msg_title')}</label>
+                            <label for="broadcastTitle" class="form-label">{$this->tr('admin.broadcast.msg_title')}</label>
                             <input type="text" id="broadcastTitle" class="form-control" style="margin-bottom:10px;" maxlength="100">
-                            <label class="form-label">{$this->tr('admin.broadcast.msg_body')}</label>
+                            <label for="broadcastBody" class="form-label">{$this->tr('admin.broadcast.msg_body')}</label>
                             <textarea id="broadcastBody" class="form-control" rows="3" maxlength="300"></textarea>
                             <div id="broadcastAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
                         </div>
@@ -4246,21 +4246,21 @@ HTML;
                         <div class="p-modal-head"><h3>{$this->tr('admin.plans.edit_title')}</h3><button class="p-modal-close" onclick="P.closeModal('editPlanModal')">×</button></div>
                         <div class="p-modal-body">
                             <input type="hidden" id="planId">
-                            <label class="form-label">{$this->tr('admin.plans.name')}</label>
+                            <label for="planName" class="form-label">{$this->tr('admin.plans.name')}</label>
                             <input type="text" id="planName" class="form-control" style="margin-bottom:10px;">
                             <div class="p-grid cols-2">
                                 <div>
-                                    <label class="form-label">{$this->tr('admin.plans.price_monthly')}</label>
+                                    <label for="planPriceMonthly" class="form-label">{$this->tr('admin.plans.price_monthly')}</label>
                                     <input type="number" step="0.01" id="planPriceMonthly" class="form-control" style="margin-bottom:10px;">
                                 </div>
                                 <div>
-                                    <label class="form-label">{$this->tr('admin.plans.price_yearly')}</label>
+                                    <label for="planPriceYearly" class="form-label">{$this->tr('admin.plans.price_yearly')}</label>
                                     <input type="number" step="0.01" id="planPriceYearly" class="form-control" style="margin-bottom:10px;">
                                 </div>
                             </div>
                             <div class="p-grid cols-2">
                                 <div>
-                                    <label class="form-label">{$this->tr('admin.plans.currency')}</label>
+                                    <label for="planCurrency" class="form-label">{$this->tr('admin.plans.currency')}</label>
                                     <select id="planCurrency" class="form-control" style="margin-bottom:10px;">
                                         <option value="USD">USD</option>
                                         <option value="EGP">EGP</option>
@@ -4271,22 +4271,22 @@ HTML;
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="form-label">{$this->tr('admin.plans.currency_symbol')}</label>
+                                    <label for="planCurrencySymbol" class="form-label">{$this->tr('admin.plans.currency_symbol')}</label>
                                     <input type="text" id="planCurrencySymbol" class="form-control" style="margin-bottom:10px;" maxlength="10">
                                 </div>
                             </div>
                             <hr style="border-color:var(--panel-border);margin:14px 0;">
                             <p class="p-cell-muted" style="margin-bottom:10px;">{$this->tr('admin.plans.limits_hint')}</p>
                             <div class="p-grid cols-2">
-                                <div><label class="form-label">{$this->tr('admin.plans.ai_analysis')}</label><input type="number" id="planAiAnalysis" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">{$this->tr('admin.plans.competitor_analysis')}</label><input type="number" id="planCompetitorAnalysis" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">{$this->tr('admin.plans.chat_credits')}</label><input type="number" id="planChatCredits" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">{$this->tr('admin.plans.review_credits')}</label><input type="number" id="planReviewCredits" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">{$this->tr('admin.plans.multiple_websites')}</label><input type="number" id="planMultipleWebsites" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">رسائل المساعد الذكي (لكل فترة)</label><input type="number" min="-1" id="planAssistantMsgs" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">توليد موقع كامل (لكل فترة)</label><input type="number" min="-1" id="planWebsiteGens" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">إضافة رحلة/غرفة لموقع (لكل فترة)</label><input type="number" min="-1" id="planWebsiteItems" class="form-control" style="margin-bottom:10px;"></div>
-                                <div><label class="form-label">WhatsApp marketing recipients per subscription period (0 disables, -1 unlimited)</label><input type="number" min="-1" id="planWhatsAppMarketing" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planAiAnalysis" class="form-label">{$this->tr('admin.plans.ai_analysis')}</label><input type="number" id="planAiAnalysis" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planCompetitorAnalysis" class="form-label">{$this->tr('admin.plans.competitor_analysis')}</label><input type="number" id="planCompetitorAnalysis" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planChatCredits" class="form-label">{$this->tr('admin.plans.chat_credits')}</label><input type="number" id="planChatCredits" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planReviewCredits" class="form-label">{$this->tr('admin.plans.review_credits')}</label><input type="number" id="planReviewCredits" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planMultipleWebsites" class="form-label">{$this->tr('admin.plans.multiple_websites')}</label><input type="number" id="planMultipleWebsites" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planAssistantMsgs" class="form-label">رسائل المساعد الذكي (لكل فترة)</label><input type="number" min="-1" id="planAssistantMsgs" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planWebsiteGens" class="form-label">توليد موقع كامل (لكل فترة)</label><input type="number" min="-1" id="planWebsiteGens" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planWebsiteItems" class="form-label">إضافة رحلة/غرفة لموقع (لكل فترة)</label><input type="number" min="-1" id="planWebsiteItems" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="planWhatsAppMarketing" class="form-label">WhatsApp marketing recipients per subscription period (0 disables, -1 unlimited)</label><input type="number" min="-1" id="planWhatsAppMarketing" class="form-control" style="margin-bottom:10px;"></div>
                                 <div class="p-cell-muted" style="grid-column:1/-1;font-size:12px;margin:-4px 0 10px">-1 = غير محدود، 0 = مش مشمولة (بتتخصم من المحفظة). أي حاجة بعد ما الحصة تخلص بتتخصم من المحفظة.</div>
                             </div>
                             <label style="display:flex;align-items:center;gap:8px;margin:8px 0;"><input type="checkbox" id="planWhatsappBot"> {$this->tr('admin.plans.whatsapp_bot')}</label>
@@ -4318,9 +4318,9 @@ HTML;
                 <div class="p-card" style="margin-top:16px;">
                     <div class="p-card-head"><h3>🎫 {$this->tr('admin.cards.title')}</h3><span class="p-card-sub">{$this->tr('admin.cards.subtitle')}</span></div>
                     <div class="p-grid cols-3">
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.cards.count')}</label><input type="number" id="cardsCount" class="form-control" min="1" max="500" value="10"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.cards.value')}</label><input type="number" id="cardsValue" class="form-control" min="0.01" step="0.01" value="10"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.cards.batch_label')}</label><input type="text" id="cardsBatchLabel" class="form-control" placeholder="{$this->tr('admin.cards.batch_placeholder')}"></div>
+                        <div class="form-group"><label for="cardsCount" class="form-label">{$this->tr('admin.cards.count')}</label><input type="number" id="cardsCount" class="form-control" min="1" max="500" value="10"></div>
+                        <div class="form-group"><label for="cardsValue" class="form-label">{$this->tr('admin.cards.value')}</label><input type="number" id="cardsValue" class="form-control" min="0.01" step="0.01" value="10"></div>
+                        <div class="form-group"><label for="cardsBatchLabel" class="form-label">{$this->tr('admin.cards.batch_label')}</label><input type="text" id="cardsBatchLabel" class="form-control" placeholder="{$this->tr('admin.cards.batch_placeholder')}"></div>
                     </div>
                     <button class="p-btn primary" onclick="generateCards()">🎫 {$this->tr('admin.cards.generate')}</button>
                     <div id="cardsAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
@@ -4343,29 +4343,29 @@ HTML;
                     <div class="p-card-head"><h3>⚙️ {$this->tr('wallet.admin.settings_title')}</h3><span class="p-card-sub">{$this->tr('wallet.admin.settings_sub')}</span></div>
                     <div class="p-grid cols-2">
                         <div>
-                            <label class="form-label">IBAN</label>
+                            <label for="wsIban" class="form-label">IBAN</label>
                             <input type="text" id="wsIban" class="form-control" style="margin-bottom:10px;" dir="ltr">
-                            <label class="form-label">{$this->tr('wallet.bank_name')}</label>
+                            <label for="wsIbanBank" class="form-label">{$this->tr('wallet.bank_name')}</label>
                             <input type="text" id="wsIbanBank" class="form-control" style="margin-bottom:10px;">
-                            <label class="form-label">{$this->tr('wallet.account_name')}</label>
+                            <label for="wsIbanAccount" class="form-label">{$this->tr('wallet.account_name')}</label>
                             <input type="text" id="wsIbanAccount" class="form-control" style="margin-bottom:10px;">
                         </div>
                         <div>
-                            <label class="form-label">PayPal Email</label>
+                            <label for="wsPaypal" class="form-label">PayPal Email</label>
                             <input type="email" id="wsPaypal" class="form-control" style="margin-bottom:10px;" dir="ltr">
-                            <label class="form-label">InstaPay</label>
+                            <label for="wsInstapay" class="form-label">InstaPay</label>
                             <input type="text" id="wsInstapay" class="form-control" style="margin-bottom:10px;" dir="ltr" placeholder="name@instapay">
-                            <label class="form-label">رقم محفظة موبايل (فودافون كاش / غيره)</label>
+                            <label for="wsMobileWallet" class="form-label">رقم محفظة موبايل (فودافون كاش / غيره)</label>
                             <input type="text" id="wsMobileWallet" class="form-control" style="margin-bottom:10px;" dir="ltr" placeholder="01xxxxxxxxx">
-                            <label class="form-label">اسم صاحب المحفظة</label>
+                            <label for="wsMobileWalletName" class="form-label">اسم صاحب المحفظة</label>
                             <input type="text" id="wsMobileWalletName" class="form-control" style="margin-bottom:10px;">
-                            <label class="form-label">{$this->tr('wallet.admin.whatsapp_number')}</label>
+                            <label for="wsWhatsapp" class="form-label">{$this->tr('wallet.admin.whatsapp_number')}</label>
                             <input type="text" id="wsWhatsapp" class="form-control" style="margin-bottom:10px;" dir="ltr" placeholder="201xxxxxxxxx">
                         </div>
                     </div>
-                    <label class="form-label">SWIFT / BIC (للتحويلات الدولية - اختياري)</label>
+                    <label for="wsSwift" class="form-label">SWIFT / BIC (للتحويلات الدولية - اختياري)</label>
                     <input type="text" id="wsSwift" class="form-control" style="margin-bottom:10px;max-width:320px;" dir="ltr">
-                    <label class="form-label">ملاحظة للعميل تحت بيانات الدفع (اختياري)</label>
+                    <label for="wsInstructions" class="form-label">ملاحظة للعميل تحت بيانات الدفع (اختياري)</label>
                     <textarea id="wsInstructions" class="form-control" rows="2" style="margin-bottom:10px;" placeholder="مثال: اكتب إيميل حسابك في سبب التحويل"></textarea>
                     <div class="p-cell-muted" style="font-size:12px;margin-bottom:10px;">أي طريقة تسيبها فاضية مش هتظهر للعميل. PayPal: اكتب الإيميل أو رابط paypal.me/اسمك. العميل بيحوّل ويضغط «حوّلت»، وطلبه بيظهر فوق في «طلبات الإيداع» - أول ما توافق، الباقة اللي اختارها بتتفعّل لوحدها.</div>
                     <div id="walletSettingsAlert" class="alert alert-danger" style="display:none;"></div>
@@ -4375,10 +4375,10 @@ HTML;
                 <div class="p-card" style="margin-top:16px;" id="siteSubsCard">
                     <div class="p-card-head"><h3>🌐 اشتراك المواقع (منشئ المواقع)</h3><span class="p-card-sub">الموقع منتج لوحده: العميل بيعمل معاينة مجانًا، والنشر محتاج اشتراك موقع. مشتركين المنصة بياخدوا خصم.</span></div>
                     <div class="p-grid cols-4">
-                        <div><label class="form-label">السعر الشهري ($)</label><input type="number" id="ssMonthly" class="form-control" min="1" step="0.01" dir="ltr"></div>
-                        <div><label class="form-label">السعر السنوي ($)</label><input type="number" id="ssYearly" class="form-control" min="1" step="0.01" dir="ltr"></div>
-                        <div><label class="form-label">خصم مشتركين المنصة (%)</label><input type="number" id="ssDiscount" class="form-control" min="0" max="90" dir="ltr"></div>
-                        <div><label class="form-label">أيام السماح بعد انتهاء الاشتراك</label><input type="number" id="ssGrace" class="form-control" min="0" max="30" dir="ltr"></div>
+                        <div><label for="ssMonthly" class="form-label">السعر الشهري ($)</label><input type="number" id="ssMonthly" class="form-control" min="1" step="0.01" dir="ltr"></div>
+                        <div><label for="ssYearly" class="form-label">السعر السنوي ($)</label><input type="number" id="ssYearly" class="form-control" min="1" step="0.01" dir="ltr"></div>
+                        <div><label for="ssDiscount" class="form-label">خصم مشتركين المنصة (%)</label><input type="number" id="ssDiscount" class="form-control" min="0" max="90" dir="ltr"></div>
+                        <div><label for="ssGrace" class="form-label">أيام السماح بعد انتهاء الاشتراك</label><input type="number" id="ssGrace" class="form-control" min="0" max="30" dir="ltr"></div>
                     </div>
                     <label style="display:flex;gap:8px;align-items:center;margin:10px 0;font-size:13px"><input type="checkbox" id="ssEnabled"> تفعيل اشتراك المواقع (لو قفلته: كل المواقع المنشورة شغالة ببلاش زي الأول)</label>
                     <button class="p-btn primary" onclick="saveSiteSubsConfig()">حفظ</button>
@@ -4428,8 +4428,8 @@ HTML;
                     <div class="p-card-head"><h3>🎨 {$this->tr('admin.brand.title')}</h3><span class="p-card-sub">{$this->tr('admin.brand.subtitle')}</span></div>
 
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.brand.site_name')}</label><input type="text" id="br_site_name" class="form-control"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.brand.logo_height')}</label><input type="number" id="br_site_logo_height" class="form-control" min="16" max="120"></div>
+                        <div class="form-group"><label for="br_site_name" class="form-label">{$this->tr('admin.brand.site_name')}</label><input type="text" id="br_site_name" class="form-control"></div>
+                        <div class="form-group"><label for="br_site_logo_height" class="form-label">{$this->tr('admin.brand.logo_height')}</label><input type="number" id="br_site_logo_height" class="form-control" min="16" max="120"></div>
                     </div>
 
                     <label class="form-label" style="margin-top:10px;display:block;">{$this->tr('admin.brand.logo')}</label>
@@ -4457,10 +4457,10 @@ HTML;
                     </div>
 
                     <div class="p-grid cols-2" style="margin-top:10px;">
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.brand.phone')}</label><input type="text" id="br_contact_phone" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.brand.email')}</label><input type="email" id="br_contact_email" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="br_contact_phone" class="form-label">{$this->tr('admin.brand.phone')}</label><input type="text" id="br_contact_phone" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="br_contact_email" class="form-label">{$this->tr('admin.brand.email')}</label><input type="email" id="br_contact_email" class="form-control" dir="ltr"></div>
                     </div>
-                    <div class="form-group"><label class="form-label">{$this->tr('admin.brand.address')}</label><input type="text" id="br_site_address" class="form-control"></div>
+                    <div class="form-group"><label for="br_site_address" class="form-label">{$this->tr('admin.brand.address')}</label><input type="text" id="br_site_address" class="form-control"></div>
 
                     <div id="brandAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
                     <button class="p-btn primary" style="margin-top:10px;" onclick="saveBrandSettings()">{$this->tr('common.save')}</button>
@@ -4468,11 +4468,11 @@ HTML;
 
                 <div class="p-card" style="margin-bottom:20px;">
                     <div class="p-card-head"><h3>📜 {$this->tr('admin.legal.title')}</h3><span class="p-card-sub">{$this->tr('admin.legal.subtitle')}</span></div>
-                    <label class="form-label">{$this->tr('admin.legal.terms')}</label>
+                    <label for="legalTermsContent" class="form-label">{$this->tr('admin.legal.terms')}</label>
                     <textarea id="legalTermsContent" class="form-control" rows="8" style="font-family:monospace;font-size:12px;margin-bottom:14px;" dir="ltr"></textarea>
-                    <label class="form-label">{$this->tr('admin.legal.privacy')}</label>
+                    <label for="legalPrivacyContent" class="form-label">{$this->tr('admin.legal.privacy')}</label>
                     <textarea id="legalPrivacyContent" class="form-control" rows="8" style="font-family:monospace;font-size:12px;margin-bottom:14px;" dir="ltr"></textarea>
-                    <label class="form-label">سياسة الاسترجاع (/refund-policy) - سيبها فاضية عشان تستخدم النص الافتراضي بالعربي والإنجليزي</label>
+                    <label for="legalRefundContent" class="form-label">سياسة الاسترجاع (/refund-policy) - سيبها فاضية عشان تستخدم النص الافتراضي بالعربي والإنجليزي</label>
                     <textarea id="legalRefundContent" class="form-control" rows="8" style="font-family:monospace;font-size:12px;margin-bottom:10px;" dir="ltr"></textarea>
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:10px;">{$this->tr('admin.legal.hint')}</p>
                     <div id="legalAlert" class="alert alert-danger" style="display:none;margin-bottom:10px;"></div>
@@ -4489,7 +4489,7 @@ HTML;
 
                     <h4 style="margin:14px 0 8px;font-size:13px;color:var(--panel-text-muted);">🤖 {$this->tr('admin.sys.cat.ai')}</h4>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Gemini API Key</label><input type="password" id="ss_gemini_api_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_gemini_api_key" class="form-label">Gemini API Key</label><input type="password" id="ss_gemini_api_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
                     </div>
 
                     <h3>قياس ظهور AI</h3><p>قياس أسبوعي مدفوع. 0 في الميزانية يوقف الطلبات. المفاتيح بتتشفّر ومش بترجع للمتصفح. النماذج: gpt-4.1-mini / gemini-2.5-flash / sonar. راجع أسعار المزودين قبل التفعيل. Perplexity: مسار Sonar التوافقي ممكن يتحوّل إلى Agent API؛ التكلفة تتسجل من رد المزود فقط.</p>
@@ -4520,24 +4520,24 @@ HTML;
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">🔗 Google OAuth</h4>
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">لازم يتفعّل "Google Business Profile API" على نفس مشروع Google Cloud ده (وصول رسمي من Google، مش مجرد تفعيل) عشان ربط نشاط العميل التجاري (منشورات، مراجعات) يشتغل.</p>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Client ID</label><input type="text" id="ss_google_client_id" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Client Secret</label><input type="password" id="ss_google_client_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_google_client_id" class="form-label">Client ID</label><input type="text" id="ss_google_client_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_google_client_secret" class="form-label">Client Secret</label><input type="password" id="ss_google_client_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">🗺️ Google Maps / Places</h4>
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">مفتاح منفصل عن Google OAuth فوق - لازم يفعّل عليه Maps JavaScript API و Places API و Geocoding API من نفس مشروع Google Cloud. قيّده بالـ APIs دي بس (API restrictions)، وسيب Application restrictions على None: السيرفر بيستخدمه كمان لـ Places وGeocoding، وقيد HTTP referrers بيخلّي جوجل يرفض طلبات السيرفر. نفس المفتاح ده بيشغّل خريطة اختيار موقع النشاط في صفحة منشورات GBP، وكمان بيُستخدم لاكتشاف منافسين حقيقيين عبر Google Places في ذكاء المنافسين.</p>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">API Key</label><input type="password" id="ss_google_maps_api_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_google_maps_api_key" class="form-label">API Key</label><input type="password" id="ss_google_maps_api_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">📘 Meta (Facebook/Instagram/WhatsApp)</h4>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">App ID</label><input type="text" id="ss_meta_app_id" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">App Secret</label><input type="password" id="ss_meta_app_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Login for Business Config ID <span class="p-cell-muted">(ربط الإعلانات والصفحات)</span></label><input type="text" id="ss_meta_login_config_id" class="form-control" dir="ltr" inputmode="numeric"></div>
-                        <div class="form-group"><label class="form-label">Config ID للدخول بفيسبوك <span class="p-cell-muted">(اختياري)</span></label><input type="text" id="ss_meta_signin_config_id" class="form-control" dir="ltr" inputmode="numeric"></div>
-                        <div class="form-group"><label class="form-label">WhatsApp Embedded Signup Config ID <span class="p-cell-muted">(ربط واتساب بضغطة)</span></label><input type="text" id="ss_meta_wa_config_id" class="form-control" dir="ltr" inputmode="numeric"></div>
-                        <div class="form-group"><label class="form-label">الصلاحيات <span class="p-cell-muted">(لو مش Login for Business - فاضي = الكل)</span></label><input type="text" id="ss_meta_oauth_scopes" class="form-control" dir="ltr" placeholder="pages_show_list,pages_manage_posts"></div>
+                        <div class="form-group"><label for="ss_meta_app_id" class="form-label">App ID</label><input type="text" id="ss_meta_app_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_meta_app_secret" class="form-label">App Secret</label><input type="password" id="ss_meta_app_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_meta_login_config_id" class="form-label">Login for Business Config ID <span class="p-cell-muted">(ربط الإعلانات والصفحات)</span></label><input type="text" id="ss_meta_login_config_id" class="form-control" dir="ltr" inputmode="numeric"></div>
+                        <div class="form-group"><label for="ss_meta_signin_config_id" class="form-label">Config ID للدخول بفيسبوك <span class="p-cell-muted">(اختياري)</span></label><input type="text" id="ss_meta_signin_config_id" class="form-control" dir="ltr" inputmode="numeric"></div>
+                        <div class="form-group"><label for="ss_meta_wa_config_id" class="form-label">WhatsApp Embedded Signup Config ID <span class="p-cell-muted">(ربط واتساب بضغطة)</span></label><input type="text" id="ss_meta_wa_config_id" class="form-control" dir="ltr" inputmode="numeric"></div>
+                        <div class="form-group"><label for="ss_meta_oauth_scopes" class="form-label">الصلاحيات <span class="p-cell-muted">(لو مش Login for Business - فاضي = الكل)</span></label><input type="text" id="ss_meta_oauth_scopes" class="form-control" dir="ltr" placeholder="pages_show_list,pages_manage_posts"></div>
                     </div>
                     {$metaSetupBox}
 
@@ -4545,55 +4545,55 @@ HTML;
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">بوابة <b>Evolution API</b> (مفتوحة المصدر) على سيرفر عندك. كل عميل بيضغط "ربط واتساب" ويمسح الكود من موبايله - من غير أي مفاتيح. الربط ده غير رسمي من واتساب: للأرقام اللي بتبعت كميات كبيرة الأفضل الربط الرسمي (Embedded Signup فوق).</p>
                     <div class="p-grid cols-2">
                         <div class="form-group"><label class="form-label" for="ss_wa_qr_enabled">التفعيل للعملاء</label><select id="ss_wa_qr_enabled" class="form-control"><option value="0">متوقف</option><option value="1">مفعّل</option></select></div>
-                        <div class="form-group"><label class="form-label">رابط البوابة</label><input type="url" id="ss_wa_qr_base_url" class="form-control" dir="ltr" placeholder="https://wa.yourdomain.com"></div>
-                        <div class="form-group"><label class="form-label">المفتاح العام (AUTHENTICATION_API_KEY)</label><input type="password" id="ss_wa_qr_api_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_wa_qr_base_url" class="form-label">رابط البوابة</label><input type="url" id="ss_wa_qr_base_url" class="form-control" dir="ltr" placeholder="https://wa.yourdomain.com"></div>
+                        <div class="form-group"><label for="ss_wa_qr_api_key" class="form-label">المفتاح العام (AUTHENTICATION_API_KEY)</label><input type="password" id="ss_wa_qr_api_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
                         <div class="form-group"><label class="form-label">&nbsp;</label><button type="button" class="p-btn outline" onclick="testWaQrGateway(this)">🔌 اختبار الاتصال بالبوابة</button></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">💳 Stripe Connect (العملاء بيستلموا فلوس الحجوزات على حسابهم بتسجيل الدخول)</h4>
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">من Stripe ← Settings ← Connect ← Onboarding options ← OAuth: فعّل OAuth وضيف رابط الرجوع: <code dir="ltr">{$stripeRedirect}</code></p>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Connect Client ID</label><input type="text" id="ss_stripe_connect_client_id" class="form-control" dir="ltr" placeholder="ca_..."></div>
-                        <div class="form-group"><label class="form-label">Secret key بتاع المنصة</label><input type="password" id="ss_stripe_platform_secret_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_stripe_connect_client_id" class="form-label">Connect Client ID</label><input type="text" id="ss_stripe_connect_client_id" class="form-control" dir="ltr" placeholder="ca_..."></div>
+                        <div class="form-group"><label for="ss_stripe_platform_secret_key" class="form-label">Secret key بتاع المنصة</label><input type="password" id="ss_stripe_platform_secret_key" class="form-control" placeholder="••••••••" dir="ltr"></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">🎵 TikTok (ربط حسابات العملاء بتسجيل الدخول)</h4>
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">من TikTok for Developers ← تطبيقك. ضيف رابط الرجوع: <code dir="ltr">{$tiktokRedirect}</code></p>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Client Key</label><input type="text" id="ss_tiktok_client_key" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Client Secret</label><input type="password" id="ss_tiktok_client_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_tiktok_client_key" class="form-label">Client Key</label><input type="text" id="ss_tiktok_client_key" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_tiktok_client_secret" class="form-label">Client Secret</label><input type="password" id="ss_tiktok_client_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">🔐 تسجيل الدخول الاجتماعي - Microsoft</h4>
                     <p class="p-cell-muted" style="font-size:11.5px;margin-bottom:8px;">Google وFacebook بيستخدموا نفس بيانات الاعتماد فوق (Google OAuth / Meta) - محتاجين بس تضيف رابط الـ Redirect الخاص بتسجيل الدخول في لوحة كل منصة.</p>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Client ID</label><input type="text" id="ss_oauth_microsoft_client_id" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Client Secret</label><input type="password" id="ss_oauth_microsoft_client_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Tenant</label><input type="text" id="ss_oauth_microsoft_tenant" class="form-control" dir="ltr" placeholder="common"></div>
+                        <div class="form-group"><label for="ss_oauth_microsoft_client_id" class="form-label">Client ID</label><input type="text" id="ss_oauth_microsoft_client_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_oauth_microsoft_client_secret" class="form-label">Client Secret</label><input type="password" id="ss_oauth_microsoft_client_secret" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_oauth_microsoft_tenant" class="form-label">Tenant</label><input type="text" id="ss_oauth_microsoft_tenant" class="form-control" dir="ltr" placeholder="common"></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);"> تسجيل الدخول الاجتماعي - Apple</h4>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Services ID (client_id)</label><input type="text" id="ss_oauth_apple_client_id" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Team ID</label><input type="text" id="ss_oauth_apple_team_id" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Key ID</label><input type="text" id="ss_oauth_apple_key_id" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Private Key (.p8)</label><textarea id="ss_oauth_apple_private_key" class="form-control" dir="ltr" rows="4" placeholder="-----BEGIN PRIVATE KEY-----"></textarea></div>
+                        <div class="form-group"><label for="ss_oauth_apple_client_id" class="form-label">Services ID (client_id)</label><input type="text" id="ss_oauth_apple_client_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_oauth_apple_team_id" class="form-label">Team ID</label><input type="text" id="ss_oauth_apple_team_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_oauth_apple_key_id" class="form-label">Key ID</label><input type="text" id="ss_oauth_apple_key_id" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_oauth_apple_private_key" class="form-label">Private Key (.p8)</label><textarea id="ss_oauth_apple_private_key" class="form-control" dir="ltr" rows="4" placeholder="-----BEGIN PRIVATE KEY-----"></textarea></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">💬 {$this->tr('admin.sys.cat.whatsapp')}</h4>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">{$this->tr('admin.sys.support_number')}</label><input type="text" id="ss_support_whatsapp_number" class="form-control" dir="ltr" placeholder="201xxxxxxxxx"></div>
+                        <div class="form-group"><label for="ss_support_whatsapp_number" class="form-label">{$this->tr('admin.sys.support_number')}</label><input type="text" id="ss_support_whatsapp_number" class="form-control" dir="ltr" placeholder="201xxxxxxxxx"></div>
                     </div>
 
                     <h4 style="margin:18px 0 8px;font-size:13px;color:var(--panel-text-muted);">✉️ SMTP ({$this->tr('admin.sys.cat.mail')})</h4>
                     <div class="p-grid cols-2">
-                        <div class="form-group"><label class="form-label">Host</label><input type="text" id="ss_mail_host" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Port</label><input type="text" id="ss_mail_port" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Username</label><input type="text" id="ss_mail_username" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Password</label><input type="password" id="ss_mail_password" class="form-control" placeholder="••••••••" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">Encryption</label><input type="text" id="ss_mail_encryption" class="form-control" dir="ltr" placeholder="tls"></div>
-                        <div class="form-group"><label class="form-label">From Address</label><input type="email" id="ss_mail_from_address" class="form-control" dir="ltr"></div>
-                        <div class="form-group"><label class="form-label">From Name</label><input type="text" id="ss_mail_from_name" class="form-control"></div>
+                        <div class="form-group"><label for="ss_mail_host" class="form-label">Host</label><input type="text" id="ss_mail_host" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_mail_port" class="form-label">Port</label><input type="text" id="ss_mail_port" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_mail_username" class="form-label">Username</label><input type="text" id="ss_mail_username" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_mail_password" class="form-label">Password</label><input type="password" id="ss_mail_password" class="form-control" placeholder="••••••••" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_mail_encryption" class="form-label">Encryption</label><input type="text" id="ss_mail_encryption" class="form-control" dir="ltr" placeholder="tls"></div>
+                        <div class="form-group"><label for="ss_mail_from_address" class="form-label">From Address</label><input type="email" id="ss_mail_from_address" class="form-control" dir="ltr"></div>
+                        <div class="form-group"><label for="ss_mail_from_name" class="form-label">From Name</label><input type="text" id="ss_mail_from_name" class="form-control"></div>
                     </div>
 
                     <p class="p-cell-muted" style="font-size:11.5px;margin-top:14px;">{$this->tr('admin.sys.secret_hint')}</p>
@@ -4612,9 +4612,9 @@ HTML;
                         <div class="p-modal-head"><h3 id="faqModalTitle">{$this->tr('admin.faq.new')}</h3><button class="p-modal-close" onclick="P.closeModal('editFaqModal')">×</button></div>
                         <div class="p-modal-body">
                             <input type="hidden" id="faqId">
-                            <label class="form-label">{$this->tr('admin.faq.question')}</label>
+                            <label for="faqQuestion" class="form-label">{$this->tr('admin.faq.question')}</label>
                             <input type="text" id="faqQuestion" class="form-control" style="margin-bottom:10px;">
-                            <label class="form-label">{$this->tr('admin.faq.answer')}</label>
+                            <label for="faqAnswer" class="form-label">{$this->tr('admin.faq.answer')}</label>
                             <textarea id="faqAnswer" class="form-control" rows="4" style="margin-bottom:10px;"></textarea>
                             <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="faqIsActive" checked> {$this->tr('admin.plans.is_active')}</label>
                             <div id="faqAlert" class="alert alert-danger" style="display:none;margin-top:10px;"></div>
