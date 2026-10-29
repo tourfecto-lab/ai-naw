@@ -12,7 +12,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | # | Phase | Status |
 |---|---|---|
 | 1 | AI Executive Foundation | **COMPLETED** (verified by the owner on tourfectoai.pro, 2026-10-29) |
-| 2 | AI Cost & Quality Intelligence | Not started |
+| 2 | AI Cost & Quality Intelligence | **Implemented** — see below (awaiting owner check of the cost section) |
 | 3 | Global Tourism Business Intelligence | Not started |
 | 4 | Autonomous Growth & Sales | Not started |
 | 5 | Tourfecto Brand Growth Engine | Not started |
@@ -91,7 +91,7 @@ Approving a decision turns it into an in-progress task with a link to the existi
   - `/admin/ai-ceo` loads with real data: every tile has a value and no source is missing.
   - The chat answered "إيه اللي حصل النهارده؟" from the numbers.
 - **Hourly cron:** installed in aaPanel as `tourfecto-ai-ceo-cycle` (user www, minute 40). First run: `7 open decisions, 0 auto-approved`, with no unavailable sections.
-- **Fix after review (PR #29):** the page root is now `dir=ltr`. English lines rendered reversed inside the RTL admin shell.
+- **Fix after review (PR #28):** the page root is now `dir=ltr`. English lines rendered reversed inside the RTL admin shell.
 - **Real figures at the time** (not invented):
   - MRR $0 (it was $573.17 thirty days earlier) and 0 paying customers (2 before), so 30-day churn shows 100%.
   - 1 customer at risk, with $374.17 MRR (`past_due`).
@@ -105,4 +105,48 @@ Approving a decision turns it into an in-progress task with a link to the existi
 2. Optional: add the hourly cron in aaPanel:
    `cd /www/wwwroot/tourfectoai.pro && PHP=$(command -v php || ls -d /www/server/php/*/bin/php | sort -V | tail -1) && $PHP cron/ai_ceo_cycle.php`
 
-**Next: Phase 2** — AI Cost & Quality Intelligence. Reuse `AIGovernor` (limits), `AiServiceRouting` and `/admin/ai-routing` (models), `AIUsageStatsService` (cost) and `SemanticCache`. Add per-task quality checks, a separate AI CEO budget, anomaly alerts and the savings dashboard.
+## Phase 2 — AI Cost & Quality Intelligence
+
+**Reused (not rebuilt)**
+- **Routing:**
+  - `AIOrchestrator` provides the task → provider chain, the circuit breaker and the fallback when a provider fails.
+  - `AiServiceRouting` and `/admin/ai-routing` assign the model per task.
+- **Limits and cost:**
+  - `AIGovernor` enforces the per-company limits (set in `/admin/brain`).
+  - `api_usage_logs` holds every call, with `feature` = task, `model`, cost and duration.
+  - `AIUsageStatsService` serves the existing cost page.
+
+**New**
+- `app/Services/AiCeo/AiCostIntelligence.php`:
+  - Spend today, usual day (7-day average), month, and a month-end projection at the current pace.
+  - Cost per task, per model (cost per request, average tokens, average latency) and per account.
+  - **Anomalies:** a task or account spending more than 3× its usual day, and at least $0.50.
+  - **Routing review:** the same task served by two models where one costs more than 3× per request (5+ requests each). This only produces a recommendation and never changes routing.
+  - **Budgets** in `system_settings`:
+    - `ai_platform_budget_usd_month`: an alert threshold, unset by default.
+    - **A separate AI CEO budget:** `aiceo_ai_budget_usd_day` = $1 and `aiceo_ai_budget_usd_month` = $20 by default. AI CEO spend counts only `feature LIKE 'ai_ceo%'`.
+  - **Measured savings:** AI CEO answers given from the numbers or the cache, multiplied by the real average cost of a paid AI CEO call. It shows "—" until there is at least one paid call. Nothing is projected.
+- **Chat:**
+  - It checks the AI CEO budget before calling AI. When the budget is reached it says so, with no call.
+  - The same question on the same snapshot within 30 minutes is answered from memory (source `cache`) with no call.
+  - Answers that failed are not saved, so they are never served from the cache.
+- **Decisions:**
+  - `ai_budget_projection`: projected spend ≥ 90% of the budget. Risk low.
+  - `ai_usage_anomaly`: risk low.
+  - `ai_routing_review`: risk **medium**, because changing a model affects customer quality, so it needs approval and a quality test first.
+  - `aiceo_budget_reached`.
+- **API:**
+  - `GET /api/admin/ai-ceo/costs`
+  - `POST /api/admin/ai-ceo/budgets` (owner only; audited as `budgets_changed`)
+- **Page:** a new "AI Cost Optimization" section in Mission Control (`#costs`). It has tiles, unusual usage, the routing review, cost tables by task, model and account, and the budget form.
+- **Tests:**
+  - `tests/Unit/AiCostIntelligenceTest.php`
+  - `tests/Integration/AiCostIntelligenceIntegrationTest.php`: the AI CEO budget is separate from customers and stops at the limit; invalid budgets are rejected.
+  - New cases in `PlatformDecisionsTest` and `AiCeoChatTest` for the budget guard and the cache.
+
+**Known limits (stated on the page)**
+- Failed provider calls are not written to `api_usage_logs`, so failure rates are not measured here. Provider outages show in platform health and in the orchestrator's circuit breaker.
+- There are no automatic per-task quality scores yet. Quality is protected by keeping model changes behind approval and a sample test. A per-task quality test harness would need paid calls, so it is deferred and needs the owner's approval to spend.
+- Batch processing and "do not re-analyse unchanged data" already exist inside individual services (for example the SEO cycles and the market TTLs). No new generic layer was added, because it would duplicate them.
+
+**Next: Phase 3** — Global Tourism Business Intelligence. Reuse `PlatformOutreachService` and `platform_leads` (the Apify import, 637 companies).

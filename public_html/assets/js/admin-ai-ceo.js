@@ -8,7 +8,7 @@
     const root = document.getElementById('aiCeo'), P = window.Panel;
     if (!root || !P) return;
     const esc = P.esc;
-    let data = null, note = null, busy = false, chatBusy = false;
+    let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
     const req = async (url, body) => {
       const token = data?.csrf_token || root.dataset.csrf || '';
@@ -80,6 +80,38 @@
         ${later.length ? `<details class="br-past"><summary>Not now (${later.length})</summary><ol class="br-list">${later.map(decisionCard).join('')}</ol></details>` : ''}</section>`;
     }
 
+    // AI Cost Optimization (phase 2): spend, projection, budgets, anomalies, routing review, measured savings
+    function costSection() {
+      if (costsError) return `<section class="br-card" id="costs"><h3>AI Cost Optimization</h3><p class="br-muted">${esc(costsError)}</p></section>`;
+      if (!costs) return '<section class="br-card" id="costs"><h3>AI Cost Optimization</h3><p class="br-muted">Loading AI costs…</p></section>';
+      const c = costs, t = c.totals, pb = c.platform_budget, a = c.aiceo, sv = c.savings, owner = c.owner, b = c.budgets || {};
+      const usd = v => v === null || v === undefined ? '—' : '$' + num(v);
+      const table = (head, rows) => rows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>` : '<p class="br-muted">No data.</p>';
+      const field = (k, label, hint) => `<label class="br-field">${esc(label)}<input class="p-select" type="number" min="0" step="any" data-budget="${k}" value="${b[k] ?? ''}" ${owner ? '' : 'disabled'}><small>${esc(hint)}</small></label>`;
+      return `<section class="br-card" id="costs"><h3>AI Cost Optimization</h3>
+        <p class="br-muted">From api_usage_logs (every provider call the platform makes). Goal: the lowest cost that keeps the required quality.</p>
+        <div class="br-tiles">
+          ${tile(usd(t.today), 'AI spend today', t.requests_today + ' requests · usual day ' + usd(t.avg_day_7d))}
+          ${tile(usd(t.month), 'This month', t.requests_month + ' requests')}
+          ${tile(usd(t.projected_month), 'Projected month-end', pb ? num(pb.projected_pct) + '% of the ' + usd(pb.limit) + ' budget' : 'no platform budget set')}
+          ${tile(usd(a.month), 'AI CEO spend (month)', 'today ' + usd(a.day) + ' / ' + usd(a.day_limit) + ' · month limit ' + usd(a.month_limit) + (a.blocked ? ' · BLOCKED (' + a.blocked + ')' : ''))}
+          ${tile(usd(sv.aiceo_saved_usd_month), 'Measured savings (month)', num(sv.aiceo_avoided_calls_month) + ' AI CEO answers without an AI call' + (sv.aiceo_avg_call_usd === null ? ' · no paid AI CEO call yet to price them' : ''))}
+        </div>
+        <h4 style="margin-top:16px">Unusual usage today</h4>
+        ${c.anomalies.length ? `<ul class="br-proof">${c.anomalies.map(x => `<li>${esc(x.type)} <b>${esc(x.name)}</b>: ${usd(x.today)} today vs ${usd(x.avg_day)} a usual day</li>`).join('')}</ul>` : '<p class="br-muted">Nothing unusual: no task or account above 3× its usual daily spend.</p>'}
+        <h4 style="margin-top:16px">Model routing review</h4>
+        ${c.routing_review.length ? `<ul class="br-proof">${c.routing_review.map(x => `<li><b>${esc(x.feature)}</b>: ${esc(x.expensive_model)} ${usd(x.expensive_cpr)}/request (${num(x.expensive_requests)} requests) vs ${esc(x.cheap_model)} ${usd(x.cheap_cpr)}/request. Test quality, then adjust in <a href="/admin/ai-routing">AI routing</a>.</li>`).join('')}</ul>` : '<p class="br-muted">No task runs on a model more than 3× costlier than another model already serving it.</p>'}
+        <details class="br-past"><summary>Cost by task (last 8 days)</summary>${table(['Task', 'Today', 'Usual day', 'Requests today', '8-day cost'], c.features.map(f => `<tr><td dir="ltr">${esc(f.feature)}</td><td>${usd(f.today)}</td><td>${usd(f.avg_day)}</td><td>${num(f.requests_today)}</td><td>${usd(f.cost_8d)}</td></tr>`))}</details>
+        <details class="br-past"><summary>Cost and speed by model (this month)</summary>${table(['Model', 'Provider', 'Requests', 'Cost', 'Per request', 'Avg tokens', 'Avg ms'], c.models.map(m => `<tr><td dir="ltr">${esc(m.model)}</td><td>${esc(m.provider)}</td><td>${num(m.requests)}</td><td>${usd(m.cost)}</td><td>${usd(m.cost_per_request)}</td><td>${num(m.avg_tokens)}</td><td>${num(m.avg_ms)}</td></tr>`))}</details>
+        <details class="br-past"><summary>Top accounts by AI cost (this month)</summary>${table(['Account', 'Requests', 'Month', 'Today'], c.customers.map(u => `<tr><td>user #${num(u.user_id)}</td><td>${num(u.requests)}</td><td>${usd(u.cost)}</td><td>${usd(u.today)}</td></tr>`))}<p class="br-muted">Per-account limits are set in <a href="/admin/brain">Strategic brain admin</a>.</p></details>
+        <h4 style="margin-top:16px">Budgets</h4>
+        <div class="br-facts">${field('ai_platform_budget_usd_month', 'Platform AI budget per month (USD)', 'Alert threshold for all AI spend. Empty = not set.')}
+          ${field('aiceo_ai_budget_usd_day', 'AI CEO budget per day (USD)', 'Separate from customers. Chat stops calling AI when reached.')}
+          ${field('aiceo_ai_budget_usd_month', 'AI CEO budget per month (USD)', 'Default 20.')}</div>
+        ${owner ? '<div class="br-actions"><button type="button" class="p-btn primary" id="acBudgets">Save budgets</button></div>' : '<p class="br-muted">Only the platform owner can change budgets.</p>'}
+        <p class="br-muted" style="margin-top:10px">${(c.limits || []).map(esc).join(' ')}</p></section>`;
+    }
+
     function memory() {
       const rows = (data.memory || []).filter(m => m.kind !== 'chat').map(m => `<li><span class="br-area">${esc(m.kind)}</span> <b dir="auto">${esc(m.title)}</b>${m.body ? `<div class="br-muted" dir="auto">${esc(m.body)}</div>` : ''}<small class="br-muted"> · ${esc(m.created_at)} UTC</small></li>`).join('');
       return `<section class="br-card"><h3>Institutional Memory</h3><p class="br-muted">Decisions, plans and results the AI CEO keeps so it does not repeat mistakes.</p>
@@ -95,7 +127,7 @@
 
     function render() {
       if (!data) return;
-      root.innerHTML = `${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}${controls()}${overview(data.snapshot || {})}${chat()}${radar(data.decisions || [])}${memory()}${activity()}`;
+      root.innerHTML = `${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}${controls()}${overview(data.snapshot || {})}${chat()}${radar(data.decisions || [])}${costSection()}${memory()}${activity()}`;
       const log = root.querySelector('#acChatLog'); if (log) log.scrollTop = log.scrollHeight;
       const act = async (fn, okText) => { if (busy) return; busy = true; try { await fn(); note = okText ? { text: okText } : null; } catch (e) { note = { text: e.message, error: true }; } finally { busy = false; render(); } };
       root.querySelector('#acRefresh')?.addEventListener('click', () => load(true));
@@ -110,9 +142,17 @@
         finally { chatBusy = false; render(); root.querySelector('#acMsg')?.focus(); }
       };
       root.querySelectorAll('[data-q]').forEach(b => b.onclick = () => ask(b.dataset.q));
+      root.querySelector('#acBudgets')?.addEventListener('click', () => act(async () => {
+        const budgets = {}; root.querySelectorAll('[data-budget]').forEach(el => { budgets[el.dataset.budget] = el.value.trim(); });
+        await req('/api/admin/ai-ceo/budgets', { budgets }); await loadCosts(); }, 'Budgets saved ✓'));
       root.querySelector('#acChatForm')?.addEventListener('submit', ev => { ev.preventDefault(); ask(root.querySelector('#acMsg').value); });
       root.querySelector('#acMemForm')?.addEventListener('submit', ev => { ev.preventDefault(); act(async () => {
         const r = await req('/api/admin/ai-ceo/memory', { kind: root.querySelector('#acMemKind').value, title: root.querySelector('#acMemTitle').value, body: root.querySelector('#acMemBody').value }); data.memory = r.memory; }, 'Saved to memory ✓'); });
+    }
+
+    async function loadCosts() {
+      try { costs = await req('/api/admin/ai-ceo/costs'); costsError = null; } catch (e) { costsError = e.message; }
+      render();
     }
 
     async function load(refresh) {
@@ -120,7 +160,7 @@
       try { data = await req('/api/admin/ai-ceo' + (refresh ? '?refresh=1' : '')); note = null; render(); }
       catch (e) { root.innerHTML = `<section class="br-card"><p>${esc(e.message)}</p></section>`; }
     }
-    load(false);
+    load(false).then(loadCosts);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

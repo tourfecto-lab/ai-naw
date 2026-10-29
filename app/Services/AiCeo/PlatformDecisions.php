@@ -155,6 +155,38 @@ final class PlatformDecisions
                 '/admin/ai-routing', ['افتح توزيع المزودين', 'Open AI routing']);
         }
 
+        // المرحلة 2: ميزانية المنصة، والاستهلاك غير الطبيعي، وتوزيع النماذج، وميزانية AI CEO
+        $pb = $ai['platform_budget'] ?? null;
+        if ($pb && ($pb['projected_pct'] ?? 0) >= 90) {
+            $add('ai_budget_projection', 'cost', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => ($pb['used_pct'] ?? 0) >= 90 ? 5 : 3, 'confidence' => 3, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['تكلفة الذكاء الاصطناعي هتعدّي الميزانية الشهرية', 'AI spend is on track to exceed the monthly budget'],
+                ['التوقع بسرعة الصرف الحالية. راجع أغلى المهام قبل ما الميزانية تخلص.', 'Projection at the current daily pace. Review the costliest tasks before the budget runs out.'],
+                [['اتصرف ' . $n($pb['used_pct']) . '% · المتوقع آخر الشهر ' . $n($pb['projected_pct']) . '% من $' . $n($pb['limit']), 'Spent ' . $n($pb['used_pct']) . '% · projected ' . $n($pb['projected_pct']) . '% of $' . $n($pb['limit'])]],
+                '/admin/ai-ceo#costs', ['افتح تكلفة الذكاء الاصطناعي', 'Open AI cost optimization']);
+        }
+        if (!empty($ai['anomalies'])) {
+            $add('ai_usage_anomaly', 'cost', 'low', ['impact' => 3, 'roi' => 4, 'urgency' => 4, 'confidence' => 4, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['استهلاك ذكاء اصطناعي غير طبيعي النهارده', 'Abnormal AI usage today'],
+                ['مهمة أو عميل بيصرف النهارده أكتر من 3 أضعاف معدله: ممكن تكرار طلبات أو إساءة استخدام.', 'A task or account spends over 3× its usual daily rate today: possibly repeated calls or abuse.'],
+                array_map(static fn ($x) => [$x['name'] . ': $' . $n($x['today']) . ' النهارده مقابل $' . $n($x['avg_day']) . ' في اليوم عادةً', $x['name'] . ': $' . $n($x['today']) . ' today vs $' . $n($x['avg_day']) . ' a day usually'], array_slice($ai['anomalies'], 0, 4)),
+                '/admin/ai-ceo#costs', ['افتح تكلفة الذكاء الاصطناعي', 'Open AI cost optimization']);
+        }
+        if (!empty($ai['routing_review'])) {
+            // تغيير النموذج بيأثر على جودة خدمة العملاء: بموافقة، وبعد اختبار الجودة
+            $add('ai_routing_review', 'cost', 'medium', ['impact' => 3, 'roi' => 4, 'urgency' => 2, 'confidence' => 3, 'risk' => 3, 'cost' => 1, 'effort' => 2],
+                ['مهام بتستخدم نموذج أغلى بكتير من بديل شغال على نفس المهمة', 'Tasks use a model far costlier than an alternative already serving the same task'],
+                ['جرّب النموذج الأرخص على عينة وقارن الجودة قبل ما تغيّر التوزيع.', 'Test the cheaper model on a sample and compare quality before changing the routing.'],
+                array_map(static fn ($x) => [$x['feature'] . ': ' . $x['expensive_model'] . ' $' . $x['expensive_cpr'] . '/طلب مقابل ' . $x['cheap_model'] . ' $' . $x['cheap_cpr'], $x['feature'] . ': ' . $x['expensive_model'] . ' $' . $x['expensive_cpr'] . '/request vs ' . $x['cheap_model'] . ' $' . $x['cheap_cpr']], array_slice($ai['routing_review'], 0, 4)),
+                '/admin/ai-routing', ['افتح توزيع خدمات AI', 'Open AI routing']);
+        }
+        if (!empty($ai['aiceo']['blocked'])) {
+            $add('aiceo_budget_reached', 'cost', 'low', ['impact' => 2, 'roi' => 2, 'urgency' => 2, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['AI CEO وصل ميزانيته للذكاء الاصطناعي', 'The AI CEO reached its AI budget'],
+                ['المحادثة شغالة من الأرقام بس لحد ما الميزانية تتجدد أو تزوّدها.', 'Chat answers from the numbers only until the budget resets or you raise it.'],
+                [[($ai['aiceo']['blocked'] === 'daily' ? 'اليومية' : 'الشهرية') . ': $' . $n($ai['aiceo']['day']) . ' اليوم · $' . $n($ai['aiceo']['month']) . ' الشهر', ucfirst((string) $ai['aiceo']['blocked']) . ': $' . $n($ai['aiceo']['day']) . ' today · $' . $n($ai['aiceo']['month']) . ' this month']],
+                '/admin/ai-ceo#costs', ['افتح ميزانية AI CEO', 'Open the AI CEO budget']);
+        }
+
         $o = $snap['outreach'] ?? null;
         if ($o && $o['awaiting_approval'] > 0) {
             $add('outreach_awaiting_approval', 'sales', 'medium', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 4, 'risk' => 3, 'cost' => 2, 'effort' => 2],

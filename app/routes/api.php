@@ -2011,6 +2011,8 @@ $router->post('/api/admin/ai-ceo/mode','AiCeoController','mode',['AuthMiddleware
 $router->post('/api/admin/ai-ceo/pause','AiCeoController','pause',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/chat','AiCeoController','chat',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/memory','AiCeoController','memory',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/ai-ceo/costs','AiCeoController','costs',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/budgets','AiCeoController','budgets',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/settings','BrainAdminController','save',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/market-refresh','BrainAdminController','marketRefresh',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);

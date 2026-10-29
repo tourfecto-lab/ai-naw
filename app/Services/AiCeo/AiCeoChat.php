@@ -13,10 +13,16 @@ final class AiCeoChat
 {
     /** @var callable|null للاختبارات: fn(string $prompt): ?string */
     private $ai;
+    /** @var callable|null fn(): ?string — سبب إيقاف الذكاء الاصطناعي لو AI CEO وصل ميزانيته ('daily'/'monthly') */
+    private $budgetGuard;
+    /** @var callable|null fn(string $question): ?string — إجابة محفوظة لنفس السؤال على نفس الأرقام (مفيش داعي نسأل تاني) */
+    private $cache;
 
-    public function __construct(?callable $ai = null)
+    public function __construct(?callable $ai = null, ?callable $budgetGuard = null, ?callable $cache = null)
     {
         $this->ai = $ai;
+        $this->budgetGuard = $budgetGuard;
+        $this->cache = $cache;
     }
 
     public static function intent(string $q): ?string
@@ -48,6 +54,13 @@ final class AiCeoChat
         if (!empty($settings['paused'])) {
             return ['answer' => $t('AI CEO متوقف بزرار الطوارئ، فمش هبعت أي طلب للذكاء الاصطناعي. أقدر أجاوب من الأرقام على: إيه اللي حصل النهارده؟ إيه أهم مشكلة؟ ليه الاشتراكات قلّت؟ إيه الخدمات اللي محتاجة تطوير؟ إيه أفضل دولة؟ إيه المطلوب مني؟',
                 'The AI CEO is on emergency stop, so no AI request is sent. I can still answer from the numbers: what happened today, the top problem, why subscriptions dropped, what needs development, the best country, and what I need from you.'), 'intent' => null, 'source' => 'none'];
+        }
+        $cached = $this->cache ? call_user_func($this->cache, $question) : null;
+        if (is_string($cached) && $cached !== '') return ['answer' => $cached, 'intent' => null, 'source' => 'cache'];
+        $blocked = $this->budgetGuard ? call_user_func($this->budgetGuard) : null;
+        if ($blocked) {
+            return ['answer' => $t('AI CEO وصل ميزانيته ' . ($blocked === 'daily' ? 'اليومية' : 'الشهرية') . ' للذكاء الاصطناعي، فمش هبعت طلب جديد. أقدر أجاوب من الأرقام على الأسئلة الأساسية، أو زوّد الميزانية من قسم AI Cost Optimization.',
+                'The AI CEO reached its ' . $blocked . ' AI budget, so no new AI request is sent. I can answer the core questions from the numbers, or raise the budget in AI Cost Optimization.'), 'intent' => null, 'source' => 'none'];
         }
         $prompt = $this->prompt($question, $snap, $decisions, $ar);
         $text = null;

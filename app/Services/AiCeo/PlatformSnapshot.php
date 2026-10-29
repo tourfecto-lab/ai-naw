@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/AiCostIntelligence.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -6,7 +7,7 @@
  * بتجمع من خدمات الأدمن الموجودة بدل ما تحسب من أول وجديد:
  *   الإيرادات SaasMetricsService · التجارب TrialFollowUpService · صحة العملاء CustomerHealthService
  *   صحة المنصة PlatformHealthService · الأخطاء ErrorLogService · تكلفة الذكاء الاصطناعي AIUsageStatsService
- *   التسويق للشركات PlatformOutreachService · التسجيلات (users).
+ *   التسويق للشركات PlatformOutreachService · التسجيلات (users) · التكلفة والميزانيات AiCostIntelligence (المرحلة 2).
  * كل قسم بيرجع null لو مصدره مش متاح، والقرارات والمحادثة بتقول "مش معروف" بدل ما تخمّن.
  * الأرقام مجمّعة على مستوى المنصة؛ مفيش بيانات عميل بعينه هنا غير أعداد ومبالغ إجمالية.
  */
@@ -108,8 +109,12 @@ final class PlatformSnapshot
         $today = $stats->summary(date('Y-m-d 00:00:00'), date('Y-m-d 23:59:59'));
         $week = $stats->summary(date('Y-m-d 00:00:00', strtotime('-7 days')), date('Y-m-d 23:59:59', strtotime('-1 day')));
         $month = $stats->summary(date('Y-m-01 00:00:00'), date('Y-m-d 23:59:59'));
-        return ['today_usd' => round((float) ($today['total_cost'] ?? 0), 2), 'avg_day_7d_usd' => round((float) ($week['total_cost'] ?? 0) / 7, 2),
+        $out = ['today_usd' => round((float) ($today['total_cost'] ?? 0), 2), 'avg_day_7d_usd' => round((float) ($week['total_cost'] ?? 0) / 7, 2),
             'month_usd' => round((float) ($month['total_cost'] ?? 0), 2), 'requests_today' => (int) ($today['total_requests'] ?? 0), 'failed_today' => (int) ($today['failed_requests'] ?? 0)];
+        // المرحلة 2: التوقع، والميزانيات، والاستهلاك غير الطبيعي، ومراجعة توزيع النماذج
+        $r = (new AiCostIntelligence($this->db))->report();
+        return $out + ['projected_month_usd' => $r['totals']['projected_month'], 'platform_budget' => $r['platform_budget'], 'aiceo' => $r['aiceo'],
+            'anomalies' => array_slice($r['anomalies'], 0, 5), 'routing_review' => array_slice($r['routing_review'], 0, 5)];
     }
 
     private function outreach(): array
