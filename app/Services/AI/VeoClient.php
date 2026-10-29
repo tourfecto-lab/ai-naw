@@ -66,6 +66,22 @@ class VeoClient
 
         $result = $this->request('POST', $url, $payload);
 
+        // Google retires preview models (the Veo 3.1 Fast preview was switched off): find a Veo model that still exists and retry once.
+        if (!$result['success'] && self::isRetiredModelError((string) ($result['error'] ?? ''))) {
+            $alt = self::pickModel($this->listVideoModels(), $this->model);
+            if ($alt !== null && $alt !== $this->model) {
+                Logger::warning('Veo model retired, switching', ['from' => $this->model, 'to' => $alt]);
+                $settings['model'] = $alt;
+                try {
+                    $payload = self::generationPayload($prompt, $aspectRatio, $durationSeconds, $settings);
+                } catch (InvalidArgumentException $e) {
+                    return ['success' => false, 'error' => 'Invalid video settings'];
+                }
+                $this->model = $alt;
+                $result = $this->request('POST', $this->baseUrl . '/models/' . $alt . ':predictLongRunning', $payload);
+            }
+        }
+
         if (!$result['success']) {
             return $result;
         }
@@ -157,8 +173,61 @@ class VeoClient
         }catch(Throwable $e){Logger::error('Video transfer failed',['message'=>$e->getMessage()]);return ['success'=>false,'error'=>'Video transfer could not complete'];}
     }
 
+    /** Provider messages that mean the configured model no longer exists. */
+    public static function isRetiredModelError(string $message): bool
+    {
+        return (bool) preg_match('/no longer available|is not found|not supported for predictLongRunning|has been (retired|deprecated|shut ?down)|HTTP\s*404/i', $message);
+    }
+
+    /**
+     * Models of this API key that can generate video (method predictLongRunning), e.g. ['veo-3.1-generate-preview', ...].
+     * @return string[]
+     */
+    public function listVideoModels(): array
+    {
+        $names = [];
+        $token = '';
+        for ($page = 0; $page < 5; $page++) {
+            $url = $this->baseUrl . '/models?pageSize=200' . ($token !== '' ? '&pageToken=' . rawurlencode($token) : '');
+            $r = $this->request('GET', $url, null);
+            if (!$r['success']) {
+                break;
+            }
+            foreach ((array) ($r['data']['models'] ?? []) as $m) {
+                $name = preg_replace('#^models/#', '', (string) ($m['name'] ?? ''));
+                if (str_starts_with($name, 'veo-') && in_array('predictLongRunning', (array) ($m['supportedGenerationMethods'] ?? []), true)) {
+                    $names[] = $name;
+                }
+            }
+            $token = (string) ($r['data']['nextPageToken'] ?? '');
+            if ($token === '') {
+                break;
+            }
+        }
+        return array_values(array_unique($names));
+    }
+
+    /** Best replacement: newest version, then the fast variant, then a stable (-001) build over a preview, never a lite model when another exists. */
+    public static function pickModel(array $models, ?string $exclude = null): ?string
+    {
+        $models = array_values(array_filter($models, static fn ($m) => is_string($m) && $m !== $exclude));
+        if (!$models) {
+            return null;
+        }
+        $score = static function (string $m): float {
+            preg_match('/^veo-(\d+(?:\.\d+)?)/', $m, $v);
+            $s = ((float) ($v[1] ?? 0)) * 1000;
+            $s += str_contains($m, 'fast') ? 50 : 0;
+            $s += str_contains($m, 'preview') ? 0 : 20;
+            $s -= str_contains($m, 'lite') ? 200 : 0;
+            return $s;
+        };
+        usort($models, static fn ($a, $b) => $score($b) <=> $score($a));
+        return $models[0];
+    }
+
     /** @return array ['success'=>bool, 'data'=>?array, 'error'=>?string] */
-    private function request(string $method, string $url, ?array $payload): array
+    protected function request(string $method, string $url, ?array $payload): array
     {
         try {
             $ch = curl_init($url);
