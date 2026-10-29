@@ -53,8 +53,8 @@ final class BrainActionsIntegrationTest extends TestCase
 
     private function review(int $uid, string $text, float $rating, bool $replied = false): int
     {
-        $this->db->query("INSERT INTO reviews (website_id, user_id, source_platform, platform, external_review_id, reviewer_name, review_text, rating, review_date, reply_sent_at)
-            VALUES (?, ?, 'google_business', 'google_business', ?, 'Anna', ?, ?, NOW(), " . ($replied ? 'NOW()' : 'NULL') . ')', [$this->sites[$uid], $uid, uniqid('ext', true), $text, $rating]);
+        $this->db->query("INSERT INTO reviews (website_id, user_id, source_platform, external_review_id, reviewer_name, review_text, rating, review_date, reply_sent_at)
+            VALUES (?, ?, 'google_business', ?, 'Anna', ?, ?, NOW(), " . ($replied ? 'NOW()' : 'NULL') . ')', [$this->sites[$uid], $uid, uniqid('ext', true), $text, $rating]);
         return (int) ($this->db->query('SELECT MAX(id) AS id FROM reviews WHERE user_id = ?', [$uid])[0]['id'] ?? 0);
     }
 
