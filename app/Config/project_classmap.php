@@ -14,6 +14,8 @@ return [
     'PlatformDecisions' => dirname(__DIR__,2).'/app/Services/AiCeo/PlatformDecisions.php',
     'AiCostIntelligence' => dirname(__DIR__,2).'/app/Services/AiCeo/AiCostIntelligence.php',
     'TourismBusinessDb' => dirname(__DIR__,2).'/app/Services/AiCeo/TourismBusinessDb.php',
+    'SalesCompliance' => dirname(__DIR__,2).'/app/Services/AiCeo/SalesCompliance.php',
+    'SalesEngine' => dirname(__DIR__,2).'/app/Services/AiCeo/SalesEngine.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
     'GrowthAdvisor' => dirname(__DIR__,2).'/app/Services/Brain/GrowthAdvisor.php',

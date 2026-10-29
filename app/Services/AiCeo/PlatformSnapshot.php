@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/AiCostIntelligence.php';
+require_once __DIR__ . '/SalesEngine.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -37,6 +38,7 @@ final class PlatformSnapshot
             'errors' => $this->section('errors', fn () => $this->errors()),
             'ai_cost' => $this->section('ai_cost', fn () => $this->aiCost()),
             'outreach' => $this->section('outreach', fn () => $this->outreach()),
+            'sales' => $this->section('sales', fn () => $this->sales()),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
     }
@@ -115,6 +117,17 @@ final class PlatformSnapshot
         $r = (new AiCostIntelligence($this->db))->report();
         return $out + ['projected_month_usd' => $r['totals']['projected_month'], 'platform_budget' => $r['platform_budget'], 'aiceo' => $r['aiceo'],
             'anomalies' => array_slice($r['anomalies'], 0, 5), 'routing_review' => array_slice($r['routing_review'], 0, 5)];
+    }
+
+    /** المرحلة 4: البوابة القانونية والمسار والـ CRM */
+    private function sales(): array
+    {
+        $e = new SalesEngine($this->db);
+        $s = $e->settings();
+        $q = $e->approvalQueue(0);
+        $p = $e->pipeline();
+        return ['basis_confirmed' => array_keys(array_filter($s['basis'])), 'has_address' => $s['has_address'], 'queue_ok' => $q['counts']['ok'], 'queue_blocked' => $q['counts']['blocked'],
+            'block_reasons' => $q['counts']['reasons'], 'active_noncompliant' => count($e->activeNonCompliant(500)), 'crm_pending' => $p['crm_pending'], 'stages' => $p['stages']];
     }
 
     private function outreach(): array

@@ -10,8 +10,9 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
+    let sales = null, salesError = null, salesLoading = false;
     let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -143,6 +144,59 @@
             ${owner ? g.ids.slice(1).map(i => `<button type="button" class="p-btn xs outline" data-merge="${g.ids[0]}:${i}:${esc(g.reason)}">Merge #${i} into #${g.ids[0]}</button>`).join('') : ''}</li>`).join('')}</ul>` : '<p class="br-muted">No duplicates found.</p>') : ''}</section>`;
     }
 
+    const REGION = { us: 'United States', ca: 'Canada', eu: 'Europe (EU/EEA/UK/CH)', gcc: 'Gulf (GCC)', other: 'Rest of world' };
+    const BASIS_TEXT = {
+      us: 'CAN-SPAM: business email allowed with a clear unsubscribe link, honest subject and the company postal address.',
+      eu: 'GDPR + ePrivacy: only with a documented legitimate-interest assessment, and only to generic company addresses (info@, booking@…). Germany and Austria always need opt-in.',
+      gcc: 'UAE/Saudi PDPL and similar: confirm your basis; only generic company addresses are used.',
+      other: 'Other countries (e.g. Egypt PDPL): confirm your basis per your legal advice; only generic company addresses are used.',
+    };
+    function salesTab() {
+      if (salesError) return `<section class="br-card"><h3>Leads & Sales</h3><p class="br-muted">${esc(salesError)}</p></section>`;
+      if (!sales) return '<section class="br-card"><h3>Leads & Sales</h3><p class="br-muted">Loading…</p></section>';
+      const s = sales.settings, pl = sales.pipeline, q = sales.queue, owner = sales.owner, t = sales.today;
+      const st = pl.stages, stagesHtml = Object.entries(st).map(([k, v]) => tile(num(v), k.replace('_', ' '))).join('');
+      const regRows = Object.entries(pl.by_region).map(([r, v]) => `<tr><td>${esc(REGION[r] || r)}</td>${Object.values(v).map(n => `<td>${num(n)}</td>`).join('')}</tr>`);
+      const srcRows = Object.entries(pl.by_source).map(([r, v]) => `<tr><td dir="ltr">${esc(r)}</td>${Object.values(v).map(n => `<td>${num(n)}</td>`).join('')}</tr>`);
+      const head = '<tr><th></th>' + Object.keys(st).map(k => `<th>${esc(k.replace('_', ' '))}</th>`).join('') + '</tr>';
+      const reasons = Object.entries(q.counts.reasons || {}).map(([r, n]) => `<li>${esc(r)}: ${num(n)}</li>`).join('');
+      const qRows = q.items.map(i => `<tr><td dir="auto">${esc(i.company || '—')}</td><td>${esc(i.country || '?')} · ${esc(i.verdict.region)}</td><td>${num(i.icp_fit)}</td><td>${i.score ?? '—'}</td><td>${esc(i.track || '')}</td>
+        <td>${i.verdict.ok ? `✓ ${esc(i.verdict.basis)}` : `<span class="br-muted">${i.verdict.reason_texts.map(esc).join('; ')}</span>`}</td><td>${owner && i.verdict.ok ? `<button type="button" class="p-btn xs outline" data-sapprove="${i.id}">Approve</button>` : ''}</td></tr>`);
+      return `<section class="br-card"><h3>Lawful basis & targeting</h3>
+        <p class="br-muted">No first message is approved unless it passes this gate. This is a conservative safeguard, not legal advice. When in doubt, keep a region off and ask your lawyer.</p>
+        <p>${s.has_address ? '✓ Company postal address is set in outreach emails.' : '⚠️ <b>Postal address missing</b>: add the full company address in <a href="/admin/growth">platform outreach settings</a>. Until then nothing is approved.'}</p>
+        ${['us', 'eu', 'gcc', 'other'].map(r => `<label class="br-check-row"><input type="checkbox" data-basis="${r}" ${s.basis[r] ? 'checked' : ''} ${owner ? '' : 'disabled'}> <span><b>${esc(REGION[r])}: I confirm a lawful basis</b><small>${esc(BASIS_TEXT[r])}</small></span></label>`).join('')}
+        <p class="br-muted">Canada (CASL) always needs a recorded opt-in.</p>
+        <div class="br-facts"><label class="br-field">Target markets<span>${['us', 'eu', 'gcc', 'other', 'ca'].map(r => `<label class="br-muted"><input type="checkbox" data-target="${r}" ${s.targets.includes(r) ? 'checked' : ''} ${owner ? '' : 'disabled'}> ${esc(REGION[r])}</label>`).join(' ')}</span></label>
+          <label class="br-field">Sales & marketing spend per month (USD)<input class="p-select" type="number" min="0" step="any" id="slSpend" value="${s.spend_usd_month ?? ''}" ${owner ? '' : 'disabled'}><small>Used only to compute CAC.</small></label></div>
+        ${owner ? '<div class="br-actions"><button type="button" class="p-btn primary" id="slSave">Save</button></div>' : ''}</section>
+
+        <section class="br-card"><h3>Sales pipeline</h3><div class="br-tiles">${stagesHtml}</div>
+        <p class="br-muted">Contacted → engaged ${num(pl.conversion.contacted_to_engaged)}% · → interested ${num(pl.conversion.contacted_to_interested)}% · → signed up ${num(pl.conversion.contacted_to_signed_up)}% · signed up → paying ${num(pl.conversion.signed_up_to_paying)}% · CAC ${pl.cac_usd === null ? '—' : '$' + num(pl.cac_usd)} (${esc(pl.cac_note)})</p>
+        <details class="br-past"><summary>By region</summary><div class="p-table-scroll"><table class="p-table"><thead>${head}</thead><tbody>${regRows.join('')}</tbody></table></div></details>
+        <details class="br-past"><summary>By source / channel</summary><div class="p-table-scroll"><table class="p-table"><thead>${head}</thead><tbody>${srcRows.join('')}</tbody></table></div></details></section>
+
+        <section class="br-card"><h3>Today & reports</h3><p>Emails sent ${num(t.sent)} (opened ${num(t.opened)}, clicked ${num(t.clicked)}) · report views ${num(t.report_views)} · WhatsApp clicks ${num(t.whatsapp_clicks)} · interested ${num(t.interested)} · signed up ${num(t.signed_up)} · unsubscribed ${num(t.unsubscribed)}</p>
+        ${sales.reports.length ? `<details class="br-past"><summary>Daily & weekly reports (${sales.reports.length})</summary>${sales.reports.map(r => `<p><b>${esc(r.title)}</b><br><span style="white-space:pre-wrap">${esc(r.body || '')}</span></p>`).join('')}</details>` : '<p class="br-muted">Reports are written by the hourly AI CEO cron (daily, and weekly on Mondays).</p>'}</section>
+
+        <section class="br-card"><div class="br-head"><div><h3>First-message approvals</h3><p class="br-muted">${num(q.counts.ok)} may be contacted · ${num(q.counts.blocked)} blocked by the gate. Sorted by ideal-customer fit.</p></div>
+          <div class="br-actions">${owner && q.counts.ok ? `<button type="button" class="p-btn primary xs" id="slApproveAll">Approve all ${num(q.counts.ok)} compliant</button>` : ''}<button type="button" class="p-btn outline xs" id="slReeval">Re-check approved queue</button></div></div>
+        ${reasons ? `<details class="br-past"><summary>Why companies are blocked</summary><ul class="br-proof">${reasons}</ul></details>` : ''}
+        ${qRows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Company</th><th>Country · region</th><th>ICP fit</th><th>Score</th><th>Need</th><th>Gate</th><th></th></tr></thead><tbody>${qRows.join('')}</tbody></table></div>` : '<p class="br-muted">No companies waiting for approval.</p>'}</section>
+
+        ${sales.active_noncompliant.length ? `<section class="br-card"><h3>Running sequences the gate now rejects (${sales.active_noncompliant.length})</h3><ul class="br-proof">${sales.active_noncompliant.slice(0, 30).map(x => `<li>#${x.id} ${esc(x.company || '')} · ${esc(x.country || '?')} · step ${x.step}: ${x.reasons.map(esc).join('; ')}</li>`).join('')}</ul>
+          ${owner ? `<button type="button" class="p-btn xs" style="background:var(--panel-danger,#dc2626);color:#fff" id="slPause">Pause these ${sales.active_noncompliant.length}</button>` : ''}</section>` : ''}
+
+        <section class="br-card"><h3>CRM handoff</h3><p>${num(pl.crm_pending)} replied or interested companies are not in the CRM yet. Moving creates a contact and a deal with a follow-up tomorrow in the platform owner's CRM.</p>
+          ${owner && pl.crm_pending ? '<button type="button" class="p-btn primary xs" id="slCrm">Move to CRM</button>' : ''}<p class="br-muted">Not built yet (needs your decision): reading inbound replies by email, A/B tests of templates, a referral program and partnership discovery.</p></section>`;
+    }
+
+    async function loadSales() {
+      salesLoading = true;
+      try { sales = await req('/api/admin/ai-ceo/sales'); salesError = null; } catch (e) { salesError = e.message; } finally { salesLoading = false; }
+      render();
+    }
+
     function profileCard(p, owner) {
       const c = p.company, j = v => v ? `<pre class="br-muted" style="white-space:pre-wrap;max-height:180px;overflow:auto" dir="ltr">${esc(typeof v === 'string' ? v : JSON.stringify(v, null, 1))}</pre>` : '—';
       return `<section class="br-card" id="coProfile"><div class="br-head"><div><h3 dir="auto">${esc(c.company || '—')} <span class="br-muted">#${c.id}</span></h3>
@@ -207,6 +261,7 @@
         case 'approvals': return radar(data.decisions || []);
         case 'costs': return costSection();
         case 'companies': if (!co && !coError && !coLoading) loadCompanies(); return companiesTab();
+        case 'sales': if (!sales && !salesError && !salesLoading) loadSales(); return salesTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();
@@ -231,6 +286,14 @@
         finally { chatBusy = false; render(); root.querySelector('#acMsg')?.focus(); }
       };
       root.querySelectorAll('[data-q]').forEach(b => b.onclick = () => ask(b.dataset.q));
+      const sAct = (action, body, okText) => act(async () => { const r = await req('/api/admin/ai-ceo/sales/' + action, body); await loadSales(); return r; }, okText);
+      root.querySelector('#slSave')?.addEventListener('click', () => { const settings = { targets: [...root.querySelectorAll('[data-target]:checked')].map(x => x.dataset.target), spend_usd_month: root.querySelector('#slSpend').value.trim() };
+        root.querySelectorAll('[data-basis]').forEach(x => { settings['basis_' + x.dataset.basis] = x.checked; }); sAct('settings', { settings }, 'Saved ✓'); });
+      root.querySelector('#slApproveAll')?.addEventListener('click', () => { if (confirm('Approve every company that passes the gate? Their email sequence starts within the daily limit.')) sAct('approve', { all: true }, 'Approved ✓'); });
+      root.querySelectorAll('[data-sapprove]').forEach(b => b.onclick = () => sAct('approve', { ids: [Number(b.dataset.sapprove)] }, 'Approved ✓'));
+      root.querySelector('#slReeval')?.addEventListener('click', () => sAct('reevaluate', {}, 'Re-checked ✓'));
+      root.querySelector('#slPause')?.addEventListener('click', () => { if (confirm('Pause these sequences? No more emails go to them.')) sAct('pause', { ids: sales.active_noncompliant.map(x => x.id) }, 'Paused ✓'); });
+      root.querySelector('#slCrm')?.addEventListener('click', () => sAct('crm', {}, 'Moved to CRM ✓'));
       root.querySelector('#coForm')?.addEventListener('submit', ev => { ev.preventDefault(); const fd = new FormData(ev.target); coFilters = { page: 1 };
         for (const [k, v] of fd.entries()) coFilters[k] = k === 'has_email' || k === 'converted' ? true : v; loadCompanies(); });
       root.querySelectorAll('[data-co-page]').forEach(b => b.onclick = () => { coFilters.page = (co?.results.page || 1) + Number(b.dataset.coPage); loadCompanies(); });

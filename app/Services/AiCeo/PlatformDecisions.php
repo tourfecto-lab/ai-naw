@@ -187,8 +187,41 @@ final class PlatformDecisions
                 '/admin/ai-ceo#costs', ['افتح ميزانية AI CEO', 'Open the AI CEO budget']);
         }
 
+        // المرحلة 4: المبيعات (البوابة القانونية قبل أي رسالة، والـ CRM)
+        $sl = $snap['sales'] ?? null;
+        if ($sl && !$sl['has_address']) {
+            $add('sales_postal_address', 'sales', 'low', ['impact' => 4, 'roi' => 3, 'urgency' => 3, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['عنوان الشركة البريدي ناقص في إيميلات التسويق', 'The company postal address is missing from outreach emails'],
+                ['القوانين (زي CAN-SPAM) بتشترط عنوان فعلي في كل إيميل تسويقي، فالبوابة مش هتوافق على رسايل جديدة.', 'Laws such as CAN-SPAM require a real postal address in every marketing email, so the gate approves no new messages.'],
+                [['حط العنوان الكامل في إعدادات تسويق المنصة', 'Add the full address in platform outreach settings']], '/admin/growth', ['افتح تسويق المنصة', 'Open platform outreach']);
+        }
+        if ($sl && !$sl['basis_confirmed'] && ($sl['queue_blocked'] ?? 0) > 0) {
+            $add('sales_basis_setup', 'sales', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['حدد الأساس القانوني للتسويق في كل منطقة', 'Confirm the lawful basis for outreach per region'],
+                ['من غير تأكيدك، البوابة مش هتوافق على أول رسالة لأي شركة (أمريكا، أوروبا، الخليج، باقي الدول).', 'Without your confirmation the gate approves no first message to any company (US, Europe, Gulf, rest of world).'],
+                [[$sl['queue_blocked'] . ' شركة مستنية', $sl['queue_blocked'] . ' companies waiting']], '/admin/ai-ceo#sales', ['افتح المبيعات', 'Open Leads & Sales']);
+        }
+        if ($sl && ($sl['queue_ok'] ?? 0) > 0) {
+            $add('sales_compliant_ready', 'sales', 'medium', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 4, 'risk' => 2, 'cost' => 1, 'effort' => 1],
+                ['شركات عدّت البوابة القانونية ومستنية موافقتك على أول رسالة', 'Companies passed the compliance gate and await your approval for the first message'],
+                ['الموافقة بتبدأ سلسلة الإيميلات بحدها اليومي، ومفيش إرسال من غير موافقتك.', 'Approving starts the email sequence within its daily limit; nothing is sent without you.'],
+                [[$sl['queue_ok'] . ' شركة مسموح التواصل معاها', $sl['queue_ok'] . ' companies may be contacted']], '/admin/ai-ceo#sales', ['راجع ووافق', 'Review and approve']);
+        }
+        if ($sl && ($sl['active_noncompliant'] ?? 0) > 0) {
+            $add('sales_noncompliant_sequences', 'sales', 'medium', ['impact' => 4, 'roi' => 3, 'urgency' => 4, 'confidence' => 4, 'risk' => 3, 'cost' => 1, 'effort' => 1],
+                ['سلاسل إيميل شغالة على شركات البوابة دلوقتي بترفضها', 'Running email sequences to companies the gate now rejects'],
+                ['اتوافق عليها قبل البوابة. راجعها ووقّف اللي ملوش أساس قانوني.', 'They were approved before the gate. Review and pause those without a lawful basis.'],
+                [[$sl['active_noncompliant'] . ' شركة', $sl['active_noncompliant'] . ' companies']], '/admin/ai-ceo#sales', ['راجعها', 'Review them']);
+        }
+        if ($sl && ($sl['crm_pending'] ?? 0) > 0) {
+            $add('sales_crm_handoff', 'sales', 'low', ['impact' => 4, 'roi' => 5, 'urgency' => 4, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['شركات مهتمة لسه مااتنقلتش للـ CRM', 'Interested companies are not in the CRM yet'],
+                ['المهتم اللي مابيتابعش بيبرد. النقل بيعمل جهة اتصال وفرصة بمتابعة بكرة.', 'An interested lead goes cold without follow-up. Moving it creates a contact and a deal with a follow-up tomorrow.'],
+                [[$sl['crm_pending'] . ' شركة ردت أو مهتمة', $sl['crm_pending'] . ' replied or interested companies']], '/admin/ai-ceo#sales', ['انقلهم للـ CRM', 'Move them to the CRM']);
+        }
+
         $o = $snap['outreach'] ?? null;
-        if ($o && $o['awaiting_approval'] > 0) {
+        if ($o && $o['awaiting_approval'] > 0 && !$sl) {
             $add('outreach_awaiting_approval', 'sales', 'medium', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 4, 'risk' => 3, 'cost' => 2, 'effort' => 2],
                 ['شركات سياحة مستنية موافقتك قبل أول رسالة', 'Tourism companies await your approval before the first message'],
                 ['الإرسال لشركات من بره المنصة محتاج تتأكد من الأساس القانوني والموافقة.', 'Contacting outside companies needs a lawful basis and your approval.'],

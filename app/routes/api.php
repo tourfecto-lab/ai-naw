@@ -2040,6 +2040,8 @@ $router->post('/api/admin/ai-ceo/companies-merge','AiCeoController','merge',['Au
 $router->get('/api/admin/ai-ceo/companies/{id}','AiCeoController','company',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/companies/{id}/consent','AiCeoController','consent',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/companies/{id}/erase','AiCeoController','erase',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/ai-ceo/sales','AiCeoController','sales',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/sales/{action}','AiCeoController','salesAction',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/settings','BrainAdminController','save',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/market-refresh','BrainAdminController','marketRefresh',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);
