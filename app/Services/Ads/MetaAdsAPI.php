@@ -166,7 +166,7 @@ class MetaAdsAPI
         $dailyRes = $this->getAllPages("{$adAccountId}/insights", [
             'level' => 'campaign',
             'fields' => 'campaign_id,impressions,clicks,spend,actions',
-            'date_preset' => 'last_30d',
+            'date_preset' => 'last_90d', // the longest chart window (reports page); 30 days left dormant accounts with empty charts
             'time_increment' => 1,
             'limit' => 500,
         ]);
