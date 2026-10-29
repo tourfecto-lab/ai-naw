@@ -96,7 +96,7 @@ final class MetaDmMedia
      * @param callable|null $post fn(string $url, array $payload): array{0:int,1:string} [http code, body] (tests inject a fake)
      * @return array{ok:bool,id:string,error:string}
      */
-    public static function send(string $token, string $recipientId, string $type, string $url, string $channel, ?callable $post = null): array
+    public static function send(string $token, string $recipientId, string $type, string $url, string $channel, ?callable $post = null, ?string $filePath = null, ?string $mime = null): array
     {
         if ($token === '' || !preg_match('/^\d{5,25}$/', $recipientId) || !in_array($type, ['image', 'audio', 'video', 'file'], true) || !self::isOurs($url)) {
             return ['ok' => false, 'id' => '', 'error' => 'invalid_request'];
@@ -106,6 +106,13 @@ final class MetaDmMedia
             $payload['messaging_type'] = 'RESPONSE';
         }
         $endpoint = 'https://graph.facebook.com/' . MetaOAuthClient::apiVersion() . '/me/messages?access_token=' . urlencode($token);
+        // Preferred: upload the file itself (no need for Meta to reach our server). If Meta refuses, fall back to the URL.
+        if (!$post && $filePath !== null && $mime !== null && is_file($filePath)) {
+            $up = self::upload($endpoint, $recipientId, $type, $filePath, $mime, $channel);
+            if ($up['ok']) {
+                return $up;
+            }
+        }
         if ($post) {
             [$code, $body] = $post($endpoint, $payload);
         } else {
@@ -123,6 +130,32 @@ final class MetaDmMedia
         $err = is_array($d) && isset($d['error']['message']) ? mb_substr((string) $d['error']['message'], 0, 160) : 'http_' . $code;
         Logger::warning('Meta attachment send failed', ['channel' => $channel, 'http_code' => $code, 'error' => $err]);
         return ['ok' => false, 'id' => '', 'error' => $err];
+    }
+
+    /** @return array{ok:bool,id:string,error:string} */
+    private static function upload(string $endpoint, string $recipientId, string $type, string $filePath, string $mime, string $channel): array
+    {
+        $fields = [
+            'recipient' => json_encode(['id' => $recipientId]),
+            'message' => json_encode(['attachment' => ['type' => $type, 'payload' => ['is_reusable' => true]]]),
+            'filedata' => new CURLFile($filePath, $mime, 'media.' . pathinfo($filePath, PATHINFO_EXTENSION)),
+        ];
+        if ($channel === 'messenger') {
+            $fields['messaging_type'] = 'RESPONSE';
+        }
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $fields,
+            CURLOPT_TIMEOUT => 60, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS]);
+        $body = (string) curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $d = json_decode($body, true);
+        if ($code === 200 && is_array($d) && !empty($d['message_id'])) {
+            return ['ok' => true, 'id' => (string) $d['message_id'], 'error' => ''];
+        }
+        $err = is_array($d) && isset($d['error']['message']) ? mb_substr((string) $d['error']['message'], 0, 160) : 'http_' . $code;
+        Logger::info('Meta attachment upload refused, trying the URL', ['channel' => $channel, 'error' => $err]);
+        return ['ok' => false, 'id' => '', 'error' => 'upload: ' . $err];
     }
 
     /** True for a URL we issued ourselves (the inbox may show it). */

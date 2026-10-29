@@ -550,7 +550,7 @@ class ChatInboxController extends Controller
             return $this->success(['sent' => false, 'reason' => $token === '' ? 'no_recipient' : 'provider_rejected'], 'Not sent');
         }
         $url = MetaDmMedia::url($name);
-        $r = MetaDmMedia::send($token, (string) $conversation->getAttribute('channel_thread_id'), $type, $url, $channel);
+        $r = MetaDmMedia::send($token, (string) $conversation->getAttribute('channel_thread_id'), $type, $url, $channel, null, (string) MetaDmMedia::path($name), $mime);
         $sent = $r['ok'];
         $label = ['image' => '[Image]', 'video' => '[Video]', 'audio' => '[Voice message]', 'file' => '[File] ' . $filename][$type];
         $text = trim($label . ($caption !== '' && $type !== 'audio' ? ' ' . $caption : ''));
