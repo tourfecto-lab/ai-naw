@@ -17,7 +17,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 4 | Autonomous Growth & Sales | **Implemented (partial scope, see below)** — awaiting owner setup and check |
 | 5 | Tourfecto Brand Growth Engine | **Implemented (partial scope, see below)** — awaiting owner check of the Brand Growth tab |
 | 6 | Customer Success & Revenue Intelligence | **Implemented (partial scope, see below)** — awaiting owner check of the Customer Success tab |
-| 7 | AI Platform Operations & Development Advisor | Not started |
+| 7 | AI Platform Operations & Development Advisor | **Implemented (partial scope, see below)** — awaiting owner check of the Platform & Dev Advisor tab |
 | 8 | Financial & Strategic Intelligence | Not started |
 | 9 | Executive Intelligence & Continuous Learning | Not started |
 | 10 | Final Integration & Controlled Activation | Not started |
@@ -321,4 +321,56 @@ Until the postal address is set and at least one region's basis is confirmed, **
 - Market-based price changes. Prices are never changed automatically; market data is the owner-entered median until competitor pricing is collected (Phase 9).
 - A support ticket system. Support today is the contact form only.
 
-**Next: Phase 7** — AI Platform Operations & Development Advisor.
+## Phase 7 — AI Platform Operations & Development Advisor
+
+**Reused:**
+- `PlatformHealthService`: cron, integrations, mail, queue, payments, server and database schema checks;
+- `ErrorLogService`: grouped errors;
+- `api_usage_logs`: provider calls, status codes and timings;
+- `login_history`;
+- `tools/backup.php` and `tools/restore_backup.php`: encrypted backups.
+
+**New:** `app/Services/AiCeo/OpsAdvisor.php`, plus migration `2026_10_29_000010_ai_ceo_ops.sql` (`aiceo_ops_checks`, `aiceo_incidents`, `aiceo_dev_backlog`).
+- **Page checks (synthetic):** every cron cycle, and on demand, the platform's own pages are opened without login.
+  - It covers 14 public pages, including `/api/health`, and 11 protected pages.
+  - Public pages must return 200. Protected pages must redirect or answer 401/403.
+  - A 5xx or no answer counts as down. A protected page answering 200 is flagged as a security warning. Anything over 3 seconds is slow.
+  - No accounts and no customer data are used. The address is fixed to the platform domain (settings reject other hosts). Results are kept for 30 days.
+- **Incidents:**
+  - Opened automatically from failed pages, protected pages without login, platform-health failures, errors repeated 20+ times a day, providers with a 20%+ error rate, and stale backups.
+  - Updated while the problem lasts and closed automatically when it is gone.
+  - Each reopening increments `occurrence`. Recurring failures are those that happen 3+ times in 30 days.
+  - The owner can record a root cause.
+- **Development backlog:** every item has the ten required fields: service, problem, evidence, severity, improvement, priority (0–50 from the Phase 1 formula), estimated cost (S/M/L), benefit, test method, and whether it needs approval.
+  - Items are generated from recurring incidents, recurring support topics (Phase 6) and critical findings of the Tourfecto site audit (Phase 5), or added by the owner. A key prevents duplicates.
+  - Statuses: open → approved → in progress → done / rejected.
+  - The metric before is recorded at creation. When an item is marked done, the metric after is recorded (automatically for incident items).
+- **GitHub issues** are created only if the owner turns it on **and** `GITHUB_ISSUES_TOKEN` and `GITHUB_ISSUES_REPO` exist in `.env`. Otherwise the issue text is shown for copying.
+- **Providers:** calls, errors, error rate and average time per provider over 24 hours, with a suggested alternative for each (e.g. route Gemini tasks to OpenAI/Claude in AI service routing).
+- **Abuse:** customers above max(200, 10× median) AI actions in 24 hours, and IPs with 20+ failed logins in an hour. These are shown for review only; nothing is blocked automatically.
+- **Backups:** the age of the newest `*.tfb` in the folder the owner sets. Over 26 hours is a warning, over 48 hours a failure. Restore tests are documented: only on a separate server or database, never production.
+- **Snapshot section `ops` and decisions:**
+  - `ops_pages_down`
+  - `ops_incidents_open`
+  - `ops_provider_failing`
+  - `ops_backups`
+  - `ops_abuse_review` (medium, needs approval)
+  - `ops_backlog_review`
+- **API:**
+  - `GET /api/admin/ai-ceo/ops`
+  - `POST /api/admin/ai-ceo/ops/run` (any admin, 6 per hour)
+  - `POST /api/admin/ai-ceo/ops/{backlog-add|backlog-status|issue|root-cause|settings}` (owner only, except root cause)
+  - Everything is audited.
+- **Mission Control:** a new **Platform & Dev Advisor** tab.
+- **Tests:**
+  - `tests/Unit/OpsAdvisorTest.php`
+  - `tests/Integration/OpsAdvisorIntegrationTest.php`: a page goes down and comes back three times (open, no duplicate, auto-resolve, occurrence count, recurring); the backlog is generated once per key; done records the after metric; validation; GitHub is off by default; settings reject other hosts and relative paths.
+
+**Not built in this phase (needs owner decisions or access)**
+- Logged-in end-to-end tests of sign-up, subscription, connections, SEO, social, WhatsApp, studio, CRM and bookings. They need dedicated test accounts on a staging copy, not on the shared production database. The Playwright checks used during development can be turned into a CI job once a staging database exists.
+- Server CPU, memory and database size beyond what `PlatformHealthService` already reads. aaPanel monitoring covers this today.
+- Watching Google/Meta/WhatsApp platform changes. There is no reliable free feed; this is manual.
+- Restoring backups automatically. Restores must be done by hand on an isolated server.
+- Preparing fixes and pull requests automatically. This stays with a developer (or Claude Code) after the owner approves a backlog item.
+
+**Next: Phase 8** — Financial & Strategic Intelligence.

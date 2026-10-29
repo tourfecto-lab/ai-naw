@@ -8,6 +8,7 @@ require_once __DIR__ . '/../Services/AiCeo/SalesEngine.php';
 require_once __DIR__ . '/../Services/AiCeo/BrandSiteAudit.php';
 require_once __DIR__ . '/../Services/AiCeo/BrandGrowth.php';
 require_once __DIR__ . '/../Services/AiCeo/CustomerSuccess.php';
+require_once __DIR__ . '/../Services/AiCeo/OpsAdvisor.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -381,6 +382,80 @@ class AiCeoController extends Controller
             return $this->success(['settings' => $s]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 7: مراقبة المنصة ومستشار التطوير
+
+    /** GET /api/admin/ai-ceo/ops */
+    public function ops(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            $o = new OpsAdvisor($this->db);
+            $health = null;
+            try { $h = (new PlatformHealthService($this->db))->report(); $health = ['overall' => $h['overall'] ?? null, 'counts' => $h['counts'] ?? [], 'sections' => array_map(static fn ($s) => ['checks' => array_map(static fn ($c) => ['label' => $c['label'] ?? $c['key'] ?? '', 'status' => $c['status'] ?? '', 'message' => mb_substr((string) ($c['message'] ?? ''), 0, 220), 'action' => $c['action'] ?? null], $s['checks'] ?? [])], $h['sections'] ?? [])]; } catch (Throwable $e) {}
+            return $this->success(['checks' => $o->lastChecks(24), 'incidents' => $o->incidents('open'), 'resolved' => $o->incidents('resolved', 20), 'recurring' => $o->recurring(), 'backlog' => $o->backlog(),
+                'done' => $o->backlog('done', 20), 'providers' => $o->providers(), 'abuse' => $o->abuse(), 'backups' => $o->backups(), 'health' => $health, 'settings' => $o->settings(), 'owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO ops failed', ['error' => $e->getMessage()]);
+            return $this->error('Platform operations data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/ops/run — فحص الصفحات والحوادث دلوقتي (أي أدمن، 6 مرات في الساعة) */
+    public function opsRun(array $params = []): array
+    {
+        if ($e = $this->guard(false)) return $e;
+        if ($e = $this->rateLimitGuard('user', 'ai_ceo_ops_run', 6, 3600)) return $e;
+        if (function_exists('set_time_limit')) @set_time_limit(240);
+        try {
+            $r = (new OpsAdvisor($this->db))->runCycle();
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'ops_cycle', $r);
+            return $this->success(['result' => $r]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO ops run failed', ['error' => $e->getMessage()]);
+            return $this->error('The checks failed to run.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/ops/{action}  backlog-add | backlog-status | issue | root-cause | settings */
+    public function opsAction(array $params = []): array
+    {
+        $action = (string) ($params['action'] ?? '');
+        if ($e = $this->guard($action !== 'root-cause')) return $e;
+        $o = new OpsAdvisor($this->db);
+        $store = new AiCeoStore($this->db);
+        $uid = (int) $this->user['id'];
+        try {
+            switch ($action) {
+                case 'backlog-add':
+                    $id = $o->addBacklog(['source' => 'manual'] + array_intersect_key((array) $this->get('item', []), array_flip(['service', 'problem', 'evidence', 'severity', 'improvement', 'cost_estimate', 'benefit', 'test_method', 'needs_approval', 'metric_before'])));
+                    $store->log($uid, 'backlog_added', ['id' => $id]);
+                    return $this->success(['id' => $id]);
+                case 'backlog-status':
+                    $o->setBacklogStatus((int) $this->get('id', 0), (string) $this->get('status', ''), $this->get('metric_after') !== null ? (string) $this->get('metric_after') : null);
+                    $store->log($uid, 'backlog_status', ['id' => (int) $this->get('id', 0), 'status' => (string) $this->get('status', '')]);
+                    return $this->success([]);
+                case 'issue':
+                    $url = $o->createIssue((int) $this->get('id', 0));
+                    $store->log($uid, 'backlog_issue', ['id' => (int) $this->get('id', 0), 'url' => $url]);
+                    return $this->success(['url' => $url]);
+                case 'root-cause':
+                    $o->setRootCause((int) $this->get('id', 0), (string) $this->get('text', ''));
+                    $store->log($uid, 'incident_root_cause', ['id' => (int) $this->get('id', 0)]);
+                    return $this->success([]);
+                case 'settings':
+                    $s = $o->saveSettings((array) $this->get('settings', []));
+                    $store->log($uid, 'ops_settings', ['base_url' => $s['base_url'], 'backup_dir' => $s['backup_dir'] !== '', 'github_issues' => $s['github_issues']]);
+                    return $this->success(['settings' => $s]);
+            }
+            return $this->error('Unknown action', 404);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (RuntimeException $e) {
+            return $this->error($e->getMessage() === 'github_not_enabled' ? 'GitHub issues are off. Turn them on in settings and set GITHUB_ISSUES_TOKEN and GITHUB_ISSUES_REPO in .env.' : 'GitHub did not accept the issue.', 409);
         }
     }
 

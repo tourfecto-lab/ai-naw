@@ -4,6 +4,7 @@ require_once __DIR__ . '/SalesEngine.php';
 require_once __DIR__ . '/BrandSiteAudit.php';
 require_once __DIR__ . '/BrandGrowth.php';
 require_once __DIR__ . '/CustomerSuccess.php';
+require_once __DIR__ . '/OpsAdvisor.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -44,6 +45,7 @@ final class PlatformSnapshot
             'sales' => $this->section('sales', fn () => $this->sales()),
             'brand' => $this->section('brand', fn () => $this->brand()),
             'success' => $this->section('success', fn () => $this->success()),
+            'ops' => $this->section('ops', fn () => (new OpsAdvisor($this->db))->summary()),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
     }
