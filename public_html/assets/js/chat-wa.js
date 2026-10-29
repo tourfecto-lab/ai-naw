@@ -485,6 +485,8 @@
         });
         tray.addEventListener('click', function (e) { if (e.target.closest('button,a')) { tray.hidden = true; plus.classList.remove('on'); plus.setAttribute('aria-expanded', 'false'); } });
         document.addEventListener('click', function (e) { if (!tray.hidden && !tray.contains(e.target) && e.target !== plus) { tray.hidden = true; plus.classList.remove('on'); } });
+        msgBox.title = msgBox.placeholder; // keep the Enter / Shift+Enter hint as a tooltip
+        msgBox.placeholder = 'Message';
         document.body.classList.add('wa-composer');
     })();
 
