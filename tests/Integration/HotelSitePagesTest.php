@@ -69,12 +69,41 @@ final class HotelSitePagesTest extends TestCase
         $this->assertStringContainsString('How do I book a room?', $faq);
     }
 
-    public function testOnlyArabicAndEnglishHotelsUseTheKit(): void
+    public function testEveryTemplateLanguageUsesTheKitAndUnknownOnesKeepTheLegacyHome(): void
     {
         $c = $this->controller();
-        $this->assertTrue($this->call($c, 'hotelUsesSiteKit', $this->content('ar')));
-        $this->assertTrue($this->call($c, 'hotelUsesSiteKit', $this->content('en')));
-        $this->assertFalse($this->call($c, 'hotelUsesSiteKit', $this->content('fr')), 'other languages keep the single-page hotel home');
+        foreach (['ar', 'en', 'fr', 'de', 'it', 'es'] as $lang) {
+            $this->assertTrue($this->call($c, 'hotelUsesSiteKit', $this->content($lang)), $lang);
+        }
+        $this->assertFalse($this->call($c, 'hotelUsesSiteKit', $this->content('ja')), 'languages without room wording keep the single-page hotel home');
+    }
+
+    public function testHotelWordingExistsForEveryLanguageWithTheSameKeysAndPlaceholders(): void
+    {
+        $all = (new ReflectionClass(TourSiteTheme::class))->getReflectionConstant('HOTEL')->getValue();
+        $this->assertEqualsCanonicalizing(TourSiteTheme::HOTEL_LANGS, array_keys($all));
+        $en = $all['en'];
+        foreach (TourSiteTheme::HOTEL_LANGS as $lang) {
+            $this->assertArrayHasKey($lang, $all);
+            $this->assertSame([], array_diff(array_keys($en), array_keys($all[$lang])), "$lang is missing keys");
+            foreach (['cancel_a', 'n_tours'] as $k) {
+                $this->assertSame(preg_match_all('/%d|%s/', $en[$k]), preg_match_all('/%d|%s/', $all[$lang][$k]), "$lang $k placeholders");
+            }
+        }
+    }
+
+    public function testHotelPagesInEveryLanguageHaveNoTourWording(): void
+    {
+        $words = ['fr' => 'excursion', 'de' => 'tour', 'it' => 'escursion', 'es' => 'excursi'];
+        foreach ($words as $lang => $word) {
+            $content = $this->content($lang);
+            foreach (['home', 'tours', 'faq'] as $page) {
+                $html = $this->call($this->controller(), 'renderHotelSitePage', $page, 'demo', $content, $this->site($content));
+                $text = str_replace('tourfecto', '', mb_strtolower(strip_tags(preg_replace('~<script.*?</script>|<style.*?</style>~is', '', $html))));
+                $this->assertStringNotContainsString($word, $text, "$lang $page");
+                $this->assertStringContainsString('/sites/demo/rooms/nile-view', $html, "$lang $page");
+            }
+        }
     }
 
     public function testThemeHotelModeIsOffByDefaultAndFallsBackPerKey(): void
@@ -86,7 +115,10 @@ final class HotelSitePagesTest extends TestCase
         $this->assertSame('Menu', $t->t('menu'), 'keys without a hotel word fall back to the normal text');
         $fr = new TourSiteTheme('fr', 'ltr');
         $fr->setHotel(true);
-        $this->assertNotSame('Rooms', $fr->t('tours'), 'hotel mode is limited to ar / en');
+        $this->assertSame('Chambres', $fr->t('tours'));
+        $ja = new TourSiteTheme('ja', 'ltr');
+        $ja->setHotel(true);
+        $this->assertSame('Rooms', $ja->t('tours'), 'a language the theme does not know renders in English, with English room wording');
     }
 
     public function testHotelHomeLinksToTheInnerPages(): void

@@ -149,8 +149,8 @@ class TourSiteTheme
         return $fit[crc32($slug) % min(3, count($fit))];
     }
 
-    /** كلمات الفنادق (غرفة بدل رحلة) للعربي والإنجليزي؛ باقي اللغات بتفضل على الصفحة الواحدة القديمة للفنادق */
-    public const HOTEL_LANGS = ['ar', 'en'];
+    /** كلمات الفنادق (غرفة بدل رحلة) لكل لغات القالب (عربي، إنجليزي، فرنسي، ألماني، إيطالي، إسباني) */
+    public const HOTEL_LANGS = ['ar', 'en', 'fr', 'de', 'it', 'es'];
     private const HOTEL = [
         'en' => [
             'tours' => 'Rooms', 'view' => 'View room', 'our_tours' => 'Our rooms', 'our_tours_sub' => 'Choose your room, see exactly what is included and book directly with the hotel.',
@@ -163,6 +163,54 @@ class TourSiteTheme
             'cancel_a' => 'Free cancellation up to %d hours before check-in. After that, %s%% of the price is refunded.',
             'cancel_contact' => 'Please contact us about cancellation for your stay - the conditions depend on the room and dates.', 'tours_n' => 'Rooms',
             'highlights' => 'Room highlights', 'amenities' => 'Room amenities', 'included' => 'Included in your stay', 'pickup_t' => 'Airport / station transfer', 'pickup_d' => 'Ask us about transfers to and from the hotel.',
+        ],
+        'fr' => [
+            'tours' => 'Chambres', 'view' => 'Voir la chambre', 'our_tours' => 'Nos chambres', 'our_tours_sub' => 'Choisissez votre chambre, voyez exactement ce qui est inclus et réservez directement auprès de l\'hôtel.',
+            'see_tours' => 'Voir nos chambres', 'direct_d' => 'Sans intermédiaire : vous parlez directement aux personnes qui gèrent votre séjour.', 'clear_d' => 'Chaque chambre indique ce qui est inclus.',
+            'how1' => 'Choisissez votre chambre', 'how1d' => 'Comparez les chambres, la surface et le prix.', 'how3' => 'Profitez de votre séjour', 'how3d' => 'Nous confirmons votre réservation et vous accueillons à votre arrivée.',
+            'book_tour' => 'Réserver cette chambre', 'more' => 'D\'autres chambres qui pourraient vous plaire', 'all' => 'Toutes les chambres', 'wa_home' => 'Bonjour, je voudrais des renseignements sur vos chambres.',
+            'n_tours' => '%d chambres', 'pg_tours' => 'Toutes les chambres', 'search' => 'Rechercher une chambre…', 'no_results' => 'Aucune chambre ne correspond à votre recherche.', 'cta_t' => 'Prêt pour votre séjour ?',
+            'top' => 'Chambres populaires', 'see_all' => 'Voir toutes les chambres', 'gallery_sub' => 'Moments de notre hôtel.', 'about_sub' => 'Qui nous sommes et comment nous accueillons nos hôtes.',
+            'how_book_q' => 'Comment réserver une chambre ?', 'how_book_a' => 'Ouvrez la chambre qui vous plaît et réservez en ligne, ou envoyez-nous vos dates sur WhatsApp. Nous confirmons votre réservation par message.',
+            'cancel_a' => 'Annulation gratuite jusqu\'à %d heures avant l\'arrivée. Ensuite, %s%% du prix est remboursé.',
+            'cancel_contact' => 'Contactez-nous pour l\'annulation de votre séjour - les conditions dépendent de la chambre et des dates.', 'tours_n' => 'Chambres',
+            'highlights' => 'Points forts de la chambre', 'amenities' => 'Équipements de la chambre', 'included' => 'Inclus dans votre séjour', 'pickup_t' => 'Transfert aéroport / gare', 'pickup_d' => 'Renseignez-vous sur les transferts depuis et vers l\'hôtel.',
+        ],
+        'de' => [
+            'tours' => 'Zimmer', 'view' => 'Zimmer ansehen', 'our_tours' => 'Unsere Zimmer', 'our_tours_sub' => 'Wählen Sie Ihr Zimmer, sehen Sie genau, was enthalten ist, und buchen Sie direkt beim Hotel.',
+            'see_tours' => 'Unsere Zimmer ansehen', 'direct_d' => 'Ohne Zwischenhändler: Sie sprechen direkt mit den Menschen, die Ihren Aufenthalt organisieren.', 'clear_d' => 'Bei jedem Zimmer steht, was enthalten ist.',
+            'how1' => 'Zimmer wählen', 'how1d' => 'Vergleichen Sie Zimmer, Größe und Preis.', 'how3' => 'Aufenthalt genießen', 'how3d' => 'Wir bestätigen Ihre Buchung und empfangen Sie bei der Anreise.',
+            'book_tour' => 'Dieses Zimmer buchen', 'more' => 'Weitere Zimmer, die Ihnen gefallen könnten', 'all' => 'Alle Zimmer', 'wa_home' => 'Guten Tag, ich habe eine Frage zu Ihren Zimmern.',
+            'n_tours' => '%d Zimmer', 'pg_tours' => 'Alle Zimmer', 'search' => 'Zimmer suchen…', 'no_results' => 'Keine Zimmer entsprechen Ihrer Suche.', 'cta_t' => 'Bereit für Ihren Aufenthalt?',
+            'top' => 'Beliebte Zimmer', 'see_all' => 'Alle Zimmer ansehen', 'gallery_sub' => 'Momente aus unserem Hotel.', 'about_sub' => 'Wer wir sind und wie wir unsere Gäste empfangen.',
+            'how_book_q' => 'Wie buche ich ein Zimmer?', 'how_book_a' => 'Öffnen Sie das gewünschte Zimmer und buchen Sie online, oder senden Sie uns Ihre Reisedaten per WhatsApp. Wir bestätigen Ihre Buchung per Nachricht.',
+            'cancel_a' => 'Kostenlose Stornierung bis %d Stunden vor der Anreise. Danach werden %s%% des Preises erstattet.',
+            'cancel_contact' => 'Bitte kontaktieren Sie uns wegen der Stornierung Ihres Aufenthalts - die Bedingungen hängen von Zimmer und Datum ab.', 'tours_n' => 'Zimmer',
+            'highlights' => 'Highlights des Zimmers', 'amenities' => 'Ausstattung des Zimmers', 'included' => 'In Ihrem Aufenthalt enthalten', 'pickup_t' => 'Flughafen- / Bahnhofstransfer', 'pickup_d' => 'Fragen Sie uns nach Transfers von und zum Hotel.',
+        ],
+        'it' => [
+            'tours' => 'Camere', 'view' => 'Vedi la camera', 'our_tours' => 'Le nostre camere', 'our_tours_sub' => 'Scegli la tua camera, scopri esattamente cosa è incluso e prenota direttamente con l\'hotel.',
+            'see_tours' => 'Scopri le nostre camere', 'direct_d' => 'Senza intermediari: parli direttamente con chi gestisce il tuo soggiorno.', 'clear_d' => 'Ogni camera indica cosa è incluso.',
+            'how1' => 'Scegli la tua camera', 'how1d' => 'Confronta camere, dimensioni e prezzo.', 'how3' => 'Goditi il soggiorno', 'how3d' => 'Confermiamo la prenotazione e ti accogliamo all\'arrivo.',
+            'book_tour' => 'Prenota questa camera', 'more' => 'Altre camere che potrebbero piacerti', 'all' => 'Tutte le camere', 'wa_home' => 'Buongiorno, vorrei informazioni sulle vostre camere.',
+            'n_tours' => '%d camere', 'pg_tours' => 'Tutte le camere', 'search' => 'Cerca una camera…', 'no_results' => 'Nessuna camera corrisponde alla tua ricerca.', 'cta_t' => 'Pronto per il tuo soggiorno?',
+            'top' => 'Camere più richieste', 'see_all' => 'Vedi tutte le camere', 'gallery_sub' => 'Momenti del nostro hotel.', 'about_sub' => 'Chi siamo e come accogliamo i nostri ospiti.',
+            'how_book_q' => 'Come prenoto una camera?', 'how_book_a' => 'Apri la camera che ti piace e prenota online, oppure inviaci le date su WhatsApp. Confermiamo la prenotazione con un messaggio.',
+            'cancel_a' => 'Cancellazione gratuita fino a %d ore prima dell\'arrivo. Dopo, viene rimborsato il %s%% del prezzo.',
+            'cancel_contact' => 'Contattaci per la cancellazione del tuo soggiorno - le condizioni dipendono dalla camera e dalle date.', 'tours_n' => 'Camere',
+            'highlights' => 'Punti di forza della camera', 'amenities' => 'Servizi della camera', 'included' => 'Incluso nel soggiorno', 'pickup_t' => 'Transfer aeroporto / stazione', 'pickup_d' => 'Chiedici informazioni sui transfer da e per l\'hotel.',
+        ],
+        'es' => [
+            'tours' => 'Habitaciones', 'view' => 'Ver habitación', 'our_tours' => 'Nuestras habitaciones', 'our_tours_sub' => 'Elige tu habitación, ve exactamente qué incluye y reserva directamente con el hotel.',
+            'see_tours' => 'Ver nuestras habitaciones', 'direct_d' => 'Sin intermediarios: hablas directamente con quienes gestionan tu estancia.', 'clear_d' => 'Cada habitación indica lo que incluye.',
+            'how1' => 'Elige tu habitación', 'how1d' => 'Compara habitaciones, tamaño y precio.', 'how3' => 'Disfruta tu estancia', 'how3d' => 'Confirmamos tu reserva y te recibimos a tu llegada.',
+            'book_tour' => 'Reservar esta habitación', 'more' => 'Otras habitaciones que podrían gustarte', 'all' => 'Todas las habitaciones', 'wa_home' => 'Hola, quisiera información sobre sus habitaciones.',
+            'n_tours' => '%d habitaciones', 'pg_tours' => 'Todas las habitaciones', 'search' => 'Buscar habitación…', 'no_results' => 'Ninguna habitación coincide con tu búsqueda.', 'cta_t' => '¿Listo para tu estancia?',
+            'top' => 'Habitaciones populares', 'see_all' => 'Ver todas las habitaciones', 'gallery_sub' => 'Momentos de nuestro hotel.', 'about_sub' => 'Quiénes somos y cómo recibimos a nuestros huéspedes.',
+            'how_book_q' => '¿Cómo reservo una habitación?', 'how_book_a' => 'Abre la habitación que te guste y reserva en línea, o envíanos tus fechas por WhatsApp. Confirmamos tu reserva por mensaje.',
+            'cancel_a' => 'Cancelación gratuita hasta %d horas antes de la llegada. Después, se reembolsa el %s%% del precio.',
+            'cancel_contact' => 'Contáctanos para la cancelación de tu estancia: las condiciones dependen de la habitación y las fechas.', 'tours_n' => 'Habitaciones',
+            'highlights' => 'Lo mejor de la habitación', 'amenities' => 'Servicios de la habitación', 'included' => 'Incluido en tu estancia', 'pickup_t' => 'Traslado aeropuerto / estación', 'pickup_d' => 'Pregúntanos por los traslados desde y hacia el hotel.',
         ],
         'ar' => [
             'tours' => 'الغرف', 'view' => 'تفاصيل الغرفة', 'our_tours' => 'غرفنا', 'our_tours_sub' => 'اختار غرفتك، واعرف بالظبط إيه اللي شامل، واحجز مباشرة مع الفندق.',
