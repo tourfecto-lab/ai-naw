@@ -19,7 +19,7 @@ define('GEMINI_MODEL_ALT', env('GEMINI_MODEL_ALT') ?: 'gemini-2.5-pro');
 // موديل توليد الفيديو (Veo) - بنفس GEMINI_API_KEY، عبر Gemini API
 // (predictLongRunning) مش Vertex AI - مفيش حاجة تضاف في .env غير
 // الاختيار الاختياري ده لو عايز موديل مختلف (مثلاً Veo كامل بدل Fast).
-define('VEO_MODEL', env('VEO_MODEL') ?: 'veo-3.1-fast-generate-preview');
+define('VEO_MODEL', env('VEO_MODEL') ?: 'gemini-omni-1.1-flash'); // Google retired the Veo 3.1 Fast preview; video now goes through gemini-omni (Interactions API)
 
 // ============================================
 // إعدادات الموديل

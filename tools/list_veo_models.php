@@ -14,4 +14,5 @@ $client = new VeoClient();
 $models = $client->listVideoModels();
 echo 'Configured model : ' . (defined('VEO_MODEL') ? VEO_MODEL : 'veo-3.1-fast-generate-preview') . "\n";
 echo 'Available (predictLongRunning): ' . ($models ? implode(', ', $models) : '(none - Google may have moved video to the Interactions API)') . "\n";
+echo 'Gemini Omni models  : ' . implode(', ', (new GeminiOmniClient())->listOmniModels() ?: ['(none visible)']) . "\n";
 echo 'Would switch to  : ' . (VeoClient::pickModel($models, defined('VEO_MODEL') ? VEO_MODEL : null) ?? '-') . "\n";

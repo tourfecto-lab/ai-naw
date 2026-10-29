@@ -32,7 +32,7 @@ class AiServiceRouting
         $key=$provider==='veo'?'VEO_MODEL':strtoupper($provider).($kind==='image'?'_IMAGE_MODEL':'_MODEL');
         $v=defined($key)?constant($key):(function_exists('env')?env($key):getenv($key));
         if(is_string($v)&&preg_match('/^[A-Za-z0-9._-]{1,120}$/D',$v))return $v;
-        return ['veo'=>'veo-3.1-fast-generate-preview','gemini'=>$kind==='image'?'gemini-2.5-flash-image':'gemini-flash-latest','openai'=>$kind==='image'?'gpt-image-1':'gpt-4o-mini','anthropic'=>'claude-sonnet-4-5','deepseek'=>'deepseek-chat','kimi'=>'moonshot-v1-8k'][$provider]??'';
+        return ['veo'=>'gemini-omni-1.1-flash','gemini'=>$kind==='image'?'gemini-2.5-flash-image':'gemini-flash-latest','openai'=>$kind==='image'?'gpt-image-1':'gpt-4o-mini','anthropic'=>'claude-sonnet-4-5','deepseek'=>'deepseek-chat','kimi'=>'moonshot-v1-8k'][$provider]??'';
     }
     public static function state(): array
     {
@@ -62,7 +62,7 @@ class AiServiceRouting
             if(!is_string($provider)||!in_array($provider,$entry['providers'],true))throw new InvalidArgumentException('المزود لا يدعم هذه الخدمة في المنصة.');
             $model=$models[$provider]??self::defaultModel($provider,$entry['kind']);
             if(!is_string($model)||!preg_match('/^[A-Za-z0-9._-]{1,120}$/D',$model))throw new InvalidArgumentException('معرف النموذج غير صالح؛ استخدم اسم النموذج فقط.');
-            $match=$entry['kind']==='video'?str_starts_with($model,'veo-'):(($entry['kind']==='image')?($provider==='gemini'?str_starts_with($model,'gemini-')&&str_contains($model,'image'):(str_starts_with($model,'gpt-image-')||$model==='dall-e-3')):!preg_match('/(?:image|^veo-|^dall-e-|embedding|^whisper-)/i',$model));
+            $match=$entry['kind']==='video'?(str_starts_with($model,'veo-')||str_starts_with($model,'gemini-omni')):(($entry['kind']==='image')?($provider==='gemini'?str_starts_with($model,'gemini-')&&str_contains($model,'image'):(str_starts_with($model,'gpt-image-')||$model==='dall-e-3')):!preg_match('/(?:image|^veo-|^gemini-omni|^dall-e-|embedding|^whisper-)/i',$model));
             if(!$match)throw new InvalidArgumentException('نوع النموذج لا يتوافق مع الخدمة.');
             if($checkKeys&&$route['enabled']&&self::apiKey($provider)==='')throw new InvalidArgumentException('أضف مفتاح '.$provider.' في التكاملات قبل تفعيل المسار.');
             $clean[$provider]=$model;

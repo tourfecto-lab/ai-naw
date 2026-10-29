@@ -488,6 +488,51 @@ final class CreativeStudioModuleIntegrationTest extends TestCase
         $this->assertSame('downloadVideo', $fake->calls[1]['method']);
     }
 
+    public function testVideoJobFinishesInOneRunWhenTheProviderAnswersSynchronously(): void
+    {
+        $id = $this->insertMediaItem(['user_id' => 999600, 'type' => 'short_video', 'prompt' => 'V', 'aspect_ratio' => '9:16', 'duration_seconds' => 8, 'status' => 'generating']);
+        $mp4 = "\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom\x00\x00\x00\x08free";
+        $fake = new CreativeStudioFakeVeo(['success' => true, 'operation_name' => 'omni:abc', 'video_data' => $mp4]);
+        $job = new GenerateVideoJob(function () use ($fake) {
+            return $fake;
+        });
+        $job->handle(['media_item_id' => $id, 'final_prompt' => 'V']);
+
+        $row = self::$pdo->query('SELECT * FROM media_items WHERE id = ' . $id)->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame('completed', $row['status']);
+        $this->assertFileExists(PrivateMedia::resolve((string) $row['file_path']));
+        $this->assertSame('omni:abc', $row['provider_ref']);
+        $this->assertSame(['startGeneration'], array_column($fake->calls, 'method'), 'no polling and no download call');
+    }
+
+    public function testVideoJobSwitchesToOmniWhenTheStoredVeoModelIsRetired(): void
+    {
+        $id = $this->insertMediaItem(['user_id' => 999600, 'type' => 'short_video', 'prompt' => 'V', 'aspect_ratio' => '9:16', 'duration_seconds' => 8, 'status' => 'generating']);
+        $mp4 = "\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom\x00\x00\x00\x08free";
+        $retired = new CreativeStudioFakeVeo(['success' => false, 'error' => 'This model models/veo-3.1-fast-generate-preview is no longer available.']);
+        $omni = new CreativeStudioFakeVeo(['success' => true, 'operation_name' => 'omni:z1', 'video_data' => $mp4]);
+        $job = new GenerateVideoJob(fn () => $retired, fn () => $omni);
+        $job->handle(['media_item_id' => $id, 'final_prompt' => 'V']);
+
+        $row = self::$pdo->query('SELECT * FROM media_items WHERE id = ' . $id)->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame('completed', $row['status']);
+        $this->assertSame('omni:z1', $row['provider_ref']);
+        $this->assertCount(1, $retired->calls);
+        $this->assertCount(1, $omni->calls);
+    }
+
+    public function testVideoJobDoesNotSwitchProvidersOnOtherErrors(): void
+    {
+        $id = $this->insertMediaItem(['user_id' => 999600, 'type' => 'short_video', 'prompt' => 'V', 'aspect_ratio' => '9:16', 'duration_seconds' => 8, 'status' => 'generating']);
+        $first = new CreativeStudioFakeVeo(['success' => false, 'error' => 'Quota exceeded']);
+        $omni = new CreativeStudioFakeVeo(['success' => true, 'operation_name' => 'omni:never', 'video_data' => 'x']);
+        (new GenerateVideoJob(fn () => $first, fn () => $omni))->handle(['media_item_id' => $id, 'final_prompt' => 'V']);
+
+        $row = self::$pdo->query('SELECT * FROM media_items WHERE id = ' . $id)->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame('failed', $row['status']);
+        $this->assertSame([], $omni->calls);
+    }
+
     public function testVideoJobPollTimeoutFails(): void
     {
         $id = $this->insertMediaItem(['user_id' => 999600, 'type' => 'short_video', 'prompt' => 'V', 'aspect_ratio' => '9:16', 'status' => 'generating', 'provider_ref' => 'models/veo/operations/op-3', 'poll_attempts' => 40]);

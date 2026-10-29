@@ -15,13 +15,16 @@
 class VeoClient
 {
     /** @var string */
-    private $apiKey;
+    protected $apiKey;
 
     /** @var string */
-    private $model;
+    protected $model;
 
     /** @var string */
-    private $baseUrl;
+    protected $baseUrl;
+
+    /** @var int HTTP timeout of request(); the Omni client raises it because the clip is generated inside one request */
+    protected $timeout = 30;
 
     public function __construct(?string $model=null)
     {
@@ -29,7 +32,7 @@ class VeoClient
             ? (new SystemSettingsService())->get('gemini_api_key', defined('GEMINI_API_KEY')?GEMINI_API_KEY:'')
             : (defined('GEMINI_API_KEY')?GEMINI_API_KEY:'');
         if(class_exists('AiServiceRouting'))$this->apiKey=AiServiceRouting::apiKey('veo');
-        $this->model = $model ?? (defined('VEO_MODEL')?VEO_MODEL:'veo-3.1-fast-generate-preview');
+        $this->model = $model ?? (defined('VEO_MODEL')?VEO_MODEL:'gemini-omni-1.1-flash');
         $this->baseUrl = defined('GEMINI_API_URL')?rtrim(GEMINI_API_URL,'/'):'https://generativelanguage.googleapis.com/v1beta'; // https://generativelanguage.googleapis.com/v1beta
     }
 
@@ -43,8 +46,8 @@ class VeoClient
     public static function supportsResolution(string $resolution,?string $model=null): bool
     {
         if($model===null&&class_exists('AiServiceRouting')){$policy=AiServiceRouting::policy('creative_studio_video');$model=$policy['models']['veo']??null;}
-        $model=$model??(defined('VEO_MODEL')?VEO_MODEL:'veo-3.1-fast-generate-preview');
-        return $resolution==='720p'||(str_starts_with($model,'veo-3.1-')&&!str_contains($model,'lite')&&in_array($resolution,['1080p','4k'],true));
+        $model=$model??(defined('VEO_MODEL')?VEO_MODEL:'gemini-omni-1.1-flash');
+        return $resolution==='720p'||((str_starts_with($model,'veo-3.1-')||str_starts_with($model,'gemini-omni'))&&!str_contains($model,'lite')&&in_array($resolution,['1080p','4k'],true));
     }
     public static function generationPayload(string $prompt,string $ratio,int $duration,array $settings=[]): array
     {
@@ -236,7 +239,7 @@ class VeoClient
             $options = [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_TIMEOUT => 30,
+                CURLOPT_TIMEOUT => $this->timeout,
                 CURLOPT_CONNECTTIMEOUT => 10,
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_USERAGENT => 'Tourfecto/1.0',

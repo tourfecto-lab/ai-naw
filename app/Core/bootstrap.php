@@ -106,6 +106,7 @@ $optionalJobDependencyFiles = [
     APP_PATH . '/Services/SocialMedia/TikTokAPI.php',
     APP_PATH . '/Services/SocialMedia/YouTubeAPI.php',
     APP_PATH . '/Services/AI/VeoClient.php',
+    APP_PATH . '/Services/AI/GeminiOmniClient.php',
     // GBP Module Upgrade (2026-08-10) - GbpBackgroundSyncJob محتاج
     // الكلاسات دي في سياق الـ Cron/Queue Worker (مختلف عن
     // public_html/index.php اللي بيخدم طلبات الـ web فقط).

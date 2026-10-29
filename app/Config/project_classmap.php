@@ -820,6 +820,7 @@ return [
     'Validator' => dirname(__DIR__,2).'/app/Core/Validator.php',
     'VendorMask' => dirname(__DIR__,2).'/app/Services/AI/VendorMask.php',
     'VeoClient' => dirname(__DIR__,2).'/app/Services/AI/VeoClient.php',
+    'GeminiOmniClient' => dirname(__DIR__,2).'/app/Services/AI/GeminiOmniClient.php',
     'ViatorAPI' => dirname(__DIR__,2).'/app/Services/OTA/ViatorAPI.php',
     'VideoEditing' => dirname(__DIR__,2).'/app/Services/CreativeStudio/VideoEditing.php',
     'VideoScript' => dirname(__DIR__,2).'/app/Models/VideoScript.php',
