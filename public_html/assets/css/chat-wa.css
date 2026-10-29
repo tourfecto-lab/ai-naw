@@ -211,3 +211,18 @@ html:not([data-theme="dark"]) .wa-link b{color:#006e5a}
 .wa-opts{display:flex;flex-direction:column;gap:4px;margin-top:6px}
 .wa-opts span{display:block;text-align:center;padding:7px 10px;border-radius:8px;background:rgba(11,20,26,.16);color:var(--wa-green-2);font-size:13.5px;font-weight:600}
 html:not([data-theme="dark"]) .wa-opts span{background:rgba(0,0,0,.05);color:#006e5a}
+
+/* desktop (WhatsApp Web): the header is just the contact, tap it for assignment/status/tags; the composer is one compact block */
+@media (min-width:961px){
+  html body.wa-app #convHeader{max-height:64px;overflow:hidden;cursor:pointer;position:relative}
+  html body.wa-app #convHeader::after{content:"⌄";position:absolute;inset-inline-end:56px;top:16px;color:var(--wa-sub);font-size:18px}
+  html body.wa-app #convHeader.wa-head-open{max-height:none;overflow:visible}
+  html body.wa-app #convHeader.wa-head-open::after{content:"⌃"}
+  html body.wa-app #leadPanel{display:none}
+  html body.wa-app #convHeader.wa-head-open+#leadPanel{display:block}
+  html body.wa-app #ucReplyCard{padding:8px 14px 10px}
+  html body.wa-app #ucReplyCard .p-card-head{display:none}
+  html body.wa-app #ucReplyCard .form-group{margin-bottom:6px}
+  html body.wa-app #ucReplyCard #manualMessage{min-height:44px;max-height:120px}
+  html body.wa-app #ucReplyCard>div:last-child{align-items:center}
+}

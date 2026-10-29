@@ -353,7 +353,7 @@
     var head = $('convHeader');
     if (head) {
         head.addEventListener('click', function (e) {
-            if (!document.body.classList.contains('wa-in-chat')) return;
+            if (!document.body.classList.contains('wa-in-chat') && window.innerWidth <= 960) return;
             if (e.target.closest && e.target.closest('select,button,a,input,textarea')) return;
             head.classList.toggle('wa-head-open');
         });
