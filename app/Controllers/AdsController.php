@@ -595,6 +595,11 @@ HTML;
                 <input type="tel" id="pubPhone" class="p-select" dir="ltr" style="width:100%;margin-bottom:10px" value="${esc(d.phone || '')}"></div>
             <div id="pubTrackWrap" class="alert alert-warning" style="display:none;margin-bottom:10px">${pubTr("⚠️ مفيش تتبّع تحويلات على حساب Google Ads. الحملة هتتحسّن على الضغطات بس لحد ما تضيف Conversion Action - بعدها Google تقدر تجيب ناس بتحجز فعلًا.","⚠️ No conversion tracking on this Google Ads account. The campaign will optimise for clicks only until you add a conversion action; after that Google can find people who actually book.")}</div>
             <div id="pubGoogleWrap" class="p-card" style="display:none;padding:12px;margin-bottom:10px">
+                <label style="font-size:12px">${pubTr("نوع حملة Google","Google campaign type")}</label>
+                <select id="pubGoogleFormat" class="p-select" style="width:100%;margin-bottom:8px">
+                    <option value="search">${pubTr("بحث (Search) - كلمات مفتاحية","Search - keywords")}</option>
+                    <option value="pmax"${(d.accounts || {}).google_ads && (d.accounts.google_ads.conversion_tracking === false) ? ' disabled' : ''}>${pubTr("Performance Max - كل قنوات Google (يحتاج تتبّع تحويلات)","Performance Max - all Google channels (needs conversion tracking)")}</option>
+                </select>
                 <div style="font-size:13px;margin-bottom:6px">🔎 ${d.keywords ? '<b>' + d.keywords + '</b> ' + pubTr("كلمة مفتاحية جاهزة","keywords ready") + '' : '' + pubTr("مفيش كلمات مفتاحية - <b>هتتولد تلقائيًا</b> وقت النشر","No keywords yet \u2014 <b>they will be generated automatically</b> when publishing") + ''} · ${pubTr("هيتعمل إعلان متجاوب بـ15 عنوان و4 أوصاف + Sitelinks وCallouts وزرار اتصال.","A responsive search ad will be created with 15 headlines, 4 descriptions, sitelinks, callouts, and a call button.")}</div>
                 <label style="font-size:12px">${pubTr("أقصى تكلفة للضغطة (اختياري - بعملة الحساب)","Maximum CPC (optional, account currency)")}</label>
                 <input type="number" id="pubMaxCpc" class="p-select" style="width:100%;margin-bottom:6px" min="0" step="0.01" placeholder="${pubTr("فاضي = Google تحدد","Blank = Google decides")}">
@@ -708,6 +713,7 @@ HTML;
         }
         if (g('pubPixel') && g('pubPixel').value) payload.pixel_id = g('pubPixel').value;
         if (g('pubPhone') && g('pubPhone').value.trim()) payload.phone = g('pubPhone').value.trim();
+        if (payload.platform === 'google_ads' && g('pubGoogleFormat') && g('pubGoogleFormat').value === 'pmax') payload.google_format = 'pmax';
         if (g('pubMaxCpc') && g('pubMaxCpc').value) payload.max_cpc = g('pubMaxCpc').value;
         if (g('pubHead')) {
             const headline = g('pubHead').value.trim(), primary_text = g('pubText').value.trim();
@@ -2061,6 +2067,41 @@ JS;
                     'default_countries' => $countries,
                     'existing_campaign_id' => $resumePartial ? $linkedMetaCampaign : '',
                     'existing_adset_id' => $resumeAdOnly ? $storedAdset : '',
+                ]);
+            } elseif ((string) $this->get('google_format', 'search') === 'pmax') {
+                $customerId = (string) $conn['external_account_id'];
+                // Performance Max can only bid on conversions: refuse it on an account that tracks none.
+                if (!$googleApi->hasConversionTracking($customerId)) {
+                    return $this->error('Performance Max needs conversion tracking on the Google Ads account. Add a conversion action in Google Ads first, or publish a Search campaign instead.', 422);
+                }
+                $imageUrls = $this->mediaImageUrls($owner);
+                if (!$imageUrls && ($og = (new MetaAdsAPI(''))->fetchOgImageFromWebsite($destinationUrl))) {
+                    $imageUrls[] = $og;
+                }
+                $imageBytes = [];
+                foreach (array_slice($imageUrls, 0, 4) as $u) {
+                    if ($bytes = GoogleAdsAPI::fetchImageBytes((string) $u)) {
+                        $imageBytes[] = $bytes;
+                    }
+                }
+                $searchAssets = json_decode((string) ($campaign->getAttribute('search_assets_json') ?? ''), true);
+                if (!is_array($searchAssets) || empty($searchAssets['headlines'])) {
+                    try {
+                        $searchAssets = (new AdCopyGenerationService())->generateSearchAssets($campaign, [], $destinationUrl);
+                    } catch (Throwable $e) {
+                        $searchAssets = [];
+                    }
+                }
+                $languages = (array) $this->get('languages', []);
+                if (empty($languages)) {
+                    $languages = [AdGeo::detectLanguage(implode(' ', array_map(fn ($c) => ($c['headline'] ?? '') . ' ' . ($c['primary_text'] ?? ''), $copiesData)))];
+                }
+                $result = $googleApi->createPerformanceMaxCampaign($customerId, $campaignPayload, $copiesData, $destinationUrl, [
+                    'countries' => $countries,
+                    'languages' => $languages,
+                    'image_bytes' => $imageBytes,
+                    'business_name' => (string) ($business['business_name'] ?? $business['company_name'] ?? $campaign->getAttribute('name')),
+                    'search_assets' => $searchAssets,
                 ]);
             } else {
                 $customerId = (string) $conn['external_account_id'];

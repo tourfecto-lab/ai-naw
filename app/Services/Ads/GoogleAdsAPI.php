@@ -584,6 +584,219 @@ class GoogleAdsAPI
     }
 
     /**
+     * Performance Max: text assets for one asset group.
+     * Google needs >= 3 headlines (30), >= 1 long headline (90), >= 2 descriptions (90, one of them <= 60) and a business name (25).
+     * @return array{headlines: string[], long_headlines: string[], descriptions: string[], business_name: string}
+     */
+    public static function buildPmaxTextAssets(array $copies, array $searchAssets, string $businessName): array
+    {
+        $rsa = self::buildRsaAssets($copies, $searchAssets);
+        $long = [];
+        $addLong = function (?string $t) use (&$long) {
+            if ($t !== null && count($long) < 5 && !in_array(mb_strtolower($t), array_map('mb_strtolower', $long), true)) {
+                $long[] = $t;
+            }
+        };
+        foreach ($copies as $c) {
+            $addLong(self::fitText(trim((string) ($c['headline'] ?? '') . ' - ' . (string) ($c['description'] ?? ''), ' -'), 90));
+            foreach (preg_split('/(?<=[.!؟?])\s+/u', trim((string) ($c['primary_text'] ?? ''))) ?: [] as $sentence) {
+                $addLong(self::fitText((string) $sentence, 90));
+            }
+        }
+        $desc = array_slice($rsa['descriptions'], 0, 5);
+        $hasShort = false;
+        foreach ($desc as $d) {
+            $hasShort = $hasShort || mb_strlen($d) <= 60;
+        }
+        if (!$hasShort) {
+            foreach (array_merge($rsa['headlines'], $long) as $cand) {
+                $short = self::fitText($cand, 60);
+                if ($short !== null && !in_array($short, $desc, true)) {
+                    array_unshift($desc, $short);
+                    $desc = array_slice($desc, 0, 5);
+                    break;
+                }
+            }
+        }
+        return [
+            'headlines' => $rsa['headlines'],
+            'long_headlines' => $long,
+            'descriptions' => $desc,
+            'business_name' => (string) mb_substr(trim($businessName), 0, 25),
+        ];
+    }
+
+    /**
+     * Centre-crop an image to a ratio and scale it to a Google-friendly size. Needs the GD extension.
+     * @return string|null JPEG bytes, or null when the source is too small / not an image
+     */
+    public static function cropImage(string $bytes, float $ratio, int $minW, int $minH, int $outW): ?string
+    {
+        if (!function_exists('imagecreatefromstring') || strlen($bytes) > 12 * 1024 * 1024) {
+            return null;
+        }
+        $src = @imagecreatefromstring($bytes);
+        if (!$src) {
+            return null;
+        }
+        $sw = imagesx($src);
+        $sh = imagesy($src);
+        if ($sw / $sh > $ratio) {
+            $ch = $sh;
+            $cw = (int) round($sh * $ratio);
+        } else {
+            $cw = $sw;
+            $ch = (int) round($sw / $ratio);
+        }
+        if ($cw < $minW || $ch < $minH) {
+            imagedestroy($src);
+            return null;
+        }
+        $w = min($outW, $cw);
+        $h = (int) round($w / $ratio);
+        $dst = imagecreatetruecolor($w, $h);
+        imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
+        imagecopyresampled($dst, $src, 0, 0, (int) floor(($sw - $cw) / 2), (int) floor(($sh - $ch) / 2), $w, $h, $cw, $ch);
+        ob_start();
+        imagejpeg($dst, null, 88);
+        $out = (string) ob_get_clean();
+        imagedestroy($src);
+        imagedestroy($dst);
+        return $out !== '' ? $out : null;
+    }
+
+    /** Public https image fetched through the SSRF guard (own signed library links or the site's og:image). */
+    public static function fetchImageBytes(string $url): ?string
+    {
+        if (!preg_match('#^https://#i', $url) || !class_exists('SafeHttp')) {
+            return null;
+        }
+        $r = SafeHttp::exec($url, [CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_HEADER => false]);
+        $body = $r['response'] ?? false;
+        return (is_string($body) && $r['code'] === 200 && strlen($body) > 1000 && strlen($body) <= 12 * 1024 * 1024) ? $body : null;
+    }
+
+    /**
+     * Performance Max campaign in ONE atomic googleAds:mutate (budget + campaign + targeting + asset group + assets):
+     * either everything is created (PAUSED) or nothing is. Google requires conversion-based bidding, so the account
+     * must already have a conversion action.
+     *
+     * $options: countries[], languages[], image_bytes[] (raw images; cropped to 1.91:1 / 1:1 here), business_name,
+     * search_assets{headlines[],descriptions[]}, final_url_suffix
+     */
+    public function createPerformanceMaxCampaign(string $customerId, array $campaign, array $copies, string $destinationUrl, array $options = []): array
+    {
+        $customerId = preg_replace('/[^0-9]/', '', $customerId);
+        $warnings = [];
+
+        $text = self::buildPmaxTextAssets($copies, (array) ($options['search_assets'] ?? []), (string) ($options['business_name'] ?? ''));
+        if (count($text['headlines']) < 3 || !$text['long_headlines'] || count($text['descriptions']) < 2 || $text['business_name'] === '') {
+            return ['success' => false, 'step' => 'preflight', 'error' => 'Performance Max needs at least 3 headlines, 1 long headline, 2 descriptions and a business name. Generate the Google assets or approve more copies, then try again.'];
+        }
+        $countries = array_values(array_filter((array) ($options['countries'] ?? []), fn ($c) => AdGeo::googleGeoTargetId((string) $c) !== null));
+        if (!$countries) {
+            return ['success' => false, 'step' => 'preflight', 'error' => 'Choose the target countries; without them Google would show the ads worldwide.'];
+        }
+
+        // Images: first usable source gives the landscape and square marketing images and the logo.
+        $landscape = $square = $logo = null;
+        foreach ((array) ($options['image_bytes'] ?? []) as $bytes) {
+            $landscape = $landscape ?? self::cropImage((string) $bytes, 1.91, 600, 314, 1200);
+            $square = $square ?? self::cropImage((string) $bytes, 1.0, 300, 300, 1200);
+            $logo = $logo ?? self::cropImage((string) $bytes, 1.0, 128, 128, 600);
+        }
+        if (!$landscape || !$square) {
+            return ['success' => false, 'step' => 'preflight', 'error' => 'Performance Max needs at least one image of 600x314 px or larger. Pick an image from your library or add an og:image to the landing page.'];
+        }
+        if (!$logo) {
+            $warnings[] = 'No logo image was available; add a logo in Google Ads before activating the campaign.';
+        }
+
+        $c = "customers/{$customerId}";
+        $budgetTmp = "{$c}/campaignBudgets/-1";
+        $campaignTmp = "{$c}/campaigns/-2";
+        $groupTmp = "{$c}/assetGroups/-3";
+        $ops = [];
+        $ops[] = ['campaignBudgetOperation' => ['create' => [
+            'resourceName' => $budgetTmp,
+            'name' => $campaign['name'] . ' - Budget ' . time(),
+            'amountMicros' => (string) (int) round((float) ($campaign['daily_budget'] ?? 10) * 1_000_000),
+            'deliveryMethod' => 'STANDARD',
+            'explicitlyShared' => false,
+        ]]];
+        $ops[] = ['campaignOperation' => ['create' => [
+            'resourceName' => $campaignTmp,
+            'name' => $campaign['name'],
+            'advertisingChannelType' => 'PERFORMANCE_MAX',
+            'status' => 'PAUSED',
+            'campaignBudget' => $budgetTmp,
+            'maximizeConversions' => new stdClass(),
+            'containsEuPoliticalAdvertising' => 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+            'urlExpansionOptOut' => false,
+            'geoTargetTypeSetting' => ['positiveGeoTargetType' => 'PRESENCE', 'negativeGeoTargetType' => 'PRESENCE'],
+            'finalUrlSuffix' => 'utm_source=google&utm_medium=cpc&utm_campaign={campaignid}&utm_content={creative}',
+        ]]];
+        foreach ($countries as $iso) {
+            $ops[] = ['campaignCriterionOperation' => ['create' => ['campaign' => $campaignTmp, 'location' => ['geoTargetConstant' => 'geoTargetConstants/' . AdGeo::googleGeoTargetId($iso)]]]];
+        }
+        foreach (array_values(array_unique(array_filter(array_map(fn ($l) => AdGeo::googleLanguageId((string) $l), (array) ($options['languages'] ?? []))))) as $langId) {
+            $ops[] = ['campaignCriterionOperation' => ['create' => ['campaign' => $campaignTmp, 'language' => ['languageConstant' => 'languageConstants/' . $langId]]]];
+        }
+        $ops[] = ['assetGroupOperation' => ['create' => [
+            'resourceName' => $groupTmp,
+            'name' => mb_substr($campaign['name'], 0, 120) . ' - Asset group',
+            'campaign' => $campaignTmp,
+            'finalUrls' => [$destinationUrl],
+            'status' => 'ENABLED',
+        ]]];
+
+        $n = 10;
+        $link = function (string $fieldType, array $assetBody) use (&$ops, &$n, $c, $groupTmp) {
+            $tmp = "{$c}/assets/-" . $n++;
+            $ops[] = ['assetOperation' => ['create' => ['resourceName' => $tmp] + $assetBody]];
+            $ops[] = ['assetGroupAssetOperation' => ['create' => ['assetGroup' => $groupTmp, 'asset' => $tmp, 'fieldType' => $fieldType]]];
+        };
+        foreach (array_slice($text['headlines'], 0, 15) as $t) {
+            $link('HEADLINE', ['textAsset' => ['text' => $t]]);
+        }
+        foreach ($text['long_headlines'] as $t) {
+            $link('LONG_HEADLINE', ['textAsset' => ['text' => $t]]);
+        }
+        foreach ($text['descriptions'] as $t) {
+            $link('DESCRIPTION', ['textAsset' => ['text' => $t]]);
+        }
+        $link('BUSINESS_NAME', ['textAsset' => ['text' => $text['business_name']]]);
+        $stamp = time();
+        $link('MARKETING_IMAGE', ['name' => $campaign['name'] . ' landscape ' . $stamp, 'imageAsset' => ['data' => base64_encode($landscape)]]);
+        $link('SQUARE_MARKETING_IMAGE', ['name' => $campaign['name'] . ' square ' . $stamp, 'imageAsset' => ['data' => base64_encode($square)]]);
+        if ($logo) {
+            $link('LOGO', ['name' => $campaign['name'] . ' logo ' . $stamp, 'imageAsset' => ['data' => base64_encode($logo)]]);
+        }
+
+        $res = $this->httpPost("/customers/{$customerId}/googleAds:mutate", ['mutateOperations' => $ops]);
+        if (!$res['success']) {
+            return ['success' => false, 'step' => 'mutate', 'error' => 'Google rejected the Performance Max campaign, nothing was created: ' . ($res['error'] ?? '')];
+        }
+        $campaignName = '';
+        $budgetName = '';
+        foreach ((array) ($res['data']['mutateOperationResponses'] ?? []) as $r) {
+            $campaignName = $r['campaignResult']['resourceName'] ?? $campaignName;
+            $budgetName = $r['campaignBudgetResult']['resourceName'] ?? $budgetName;
+        }
+        if ($campaignName === '') {
+            return ['success' => false, 'step' => 'mutate', 'uncertain' => true, 'error' => 'Google accepted the request but returned no campaign id. Check Google Ads before retrying.'];
+        }
+        return [
+            'success' => true,
+            'external_campaign_id' => str_replace("customers/{$customerId}/campaigns/", '', $campaignName),
+            'external_budget_resource' => $budgetName,
+            'headlines' => count($text['headlines']),
+            'descriptions' => count($text['descriptions']),
+            'warning' => $warnings ? implode(' | ', $warnings) : null,
+        ];
+    }
+
+    /**
      * تواريخ الحملة: الإصدارات الحديثة من الـAPI بتستخدم startDateTime/endDateTime
      * والقديمة startDate/endDate - بنجرّب الاتنين بدل ما الحملة كلها تفشل بسبب التاريخ.
      */
