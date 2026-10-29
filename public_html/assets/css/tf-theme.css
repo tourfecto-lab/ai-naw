@@ -342,3 +342,18 @@ html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #3441C2
 html[data-theme="dark"] body.ap-theme .p-tab.active,
 html[data-theme="dark"] body.ap-theme .ch-tab.active,
 html[data-theme="dark"] body.ap-theme .ri-tab.active { background: #3F4DDB; border-color: #3F4DDB; color: #fff; }
+
+/* Contrast, part 5 (dark theme), from a 33-page audit at 375px:
+   - class-less links kept the global #0077BE (3.2:1 on the navy surface), the most common failure (59 hits);
+   - white text on the light red / grey / green fills of pills and badges (2.0-3.3:1);
+   - inline grey (#6b7280) helper text and the #DC2626 error text. */
+:where(html[data-theme="dark"] body.ap-theme) a:not([class]) { color: var(--panel-accent); }
+html[data-theme="dark"] body.ap-theme .pill.red,
+html[data-theme="dark"] body.ap-theme span.pill[class*="red"] { background: #C92A1F; color: #fff; }
+html[data-theme="dark"] body.ap-theme .p-badge:not(.green):not(.red):not(.orange):not(.blue):not(.purple):not(.status-active) { background: #5B6578; color: #fff; }
+html[data-theme="dark"] body.ap-theme [style*="color:#6b7280" i],
+html[data-theme="dark"] body.ap-theme [style*="color: #6b7280" i] { color: var(--panel-text-muted) !important; }
+html[data-theme="dark"] body.ap-theme [style*="color:#dc2626" i],
+html[data-theme="dark"] body.ap-theme [style*="color: #dc2626" i] { color: var(--ap-bad) !important; }
+html[data-theme="dark"] body.ap-theme [style*="background:#16a34a" i],
+html[data-theme="dark"] body.ap-theme [style*="background: #16a34a" i] { background: #15803D !important; }
