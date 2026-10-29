@@ -18,7 +18,8 @@ final class BrainSchema
             'tbi_suppression' => '2026_10_29_000007_tourism_business_intelligence.sql', 'tbi_merges' => '2026_10_29_000007_tourism_business_intelligence.sql',
             'tbi_crm_handoffs' => '2026_10_29_000008_ai_ceo_sales.sql', 'aiceo_brand_audits' => '2026_10_29_000009_ai_ceo_brand.sql',
             'aiceo_ops_checks' => '2026_10_29_000010_ai_ceo_ops.sql', 'aiceo_incidents' => '2026_10_29_000010_ai_ceo_ops.sql', 'aiceo_dev_backlog' => '2026_10_29_000010_ai_ceo_ops.sql',
-            'aiceo_cost_items' => '2026_10_29_000011_ai_ceo_finance.sql', 'aiceo_goals' => '2026_10_29_000011_ai_ceo_finance.sql', 'aiceo_goal_tasks' => '2026_10_29_000011_ai_ceo_finance.sql'] as $table => $file) {
+            'aiceo_cost_items' => '2026_10_29_000011_ai_ceo_finance.sql', 'aiceo_goals' => '2026_10_29_000011_ai_ceo_finance.sql', 'aiceo_goal_tasks' => '2026_10_29_000011_ai_ceo_finance.sql',
+            'aiceo_health_scores' => '2026_10_29_000012_ai_ceo_executive.sql', 'aiceo_competitors' => '2026_10_29_000012_ai_ceo_executive.sql'] as $table => $file) {
             if ($db->query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", [$table])) continue;
             // نفس تعريف الجدول من ملف الهجرة بالظبط (مصدر واحد للحقيقة)
             if (!preg_match('/CREATE TABLE IF NOT EXISTS ' . $table . ' \\(.*?\\) ENGINE=[^;]+;/s', (string) file_get_contents($dir . $file), $m)) throw new RuntimeException('Brain migration missing: ' . $table);

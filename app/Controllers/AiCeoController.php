@@ -10,6 +10,7 @@ require_once __DIR__ . '/../Services/AiCeo/BrandGrowth.php';
 require_once __DIR__ . '/../Services/AiCeo/CustomerSuccess.php';
 require_once __DIR__ . '/../Services/AiCeo/OpsAdvisor.php';
 require_once __DIR__ . '/../Services/AiCeo/FinanceStrategy.php';
+require_once __DIR__ . '/../Services/AiCeo/ExecutiveIntel.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -541,6 +542,73 @@ class AiCeoController extends Controller
         } catch (RuntimeException $e) {
             $m = $e->getMessage();
             return $this->error(str_starts_with($m, 'budget_') ? 'The AI CEO reached its ' . substr($m, 7) . ' AI budget. Raise it in AI Costs.' : ($m === 'invalid_plan' ? 'The AI returned an unusable answer. Try again.' : 'AI is not available right now.'), 503);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 9: الذكاء التنفيذي ومؤشر صحة الشركة
+
+    /** GET /api/admin/ai-ceo/executive */
+    public function executive(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            $x = new ExecutiveIntel($this->db);
+            [$snap] = $this->snapshot(false);
+            $health = $x->health($snap);
+            $decisions = (new AiCeoStore($this->db))->list();
+            $reports = $this->db->query("SELECT id, title, body, created_at FROM aiceo_memory WHERE kind = 'result' AND title LIKE 'Executive report%' ORDER BY id DESC LIMIT 10") ?: [];
+            $comp = $x->competitors();
+            return $this->success(['health' => $health, 'weights' => ExecutiveIntel::WEIGHTS, 'today' => $x->report('daily', $snap, $health, $decisions), 'reports' => $reports,
+                'review' => $x->decisionReview(30), 'lessons' => $x->lessons(), 'data_quality' => $x->dataQuality($snap), 'ai_quality' => $x->aiQuality(),
+                'competitors' => $comp, 'prices' => ExecutiveIntel::priceComparison($comp, $x->ourPlans()), 'requests' => $x->customerRequests(), 'signals' => $x->marketSignals(),
+                'knowledge' => $x->knowledge(), 'owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO executive failed', ['error' => $e->getMessage()]);
+            return $this->error('Executive data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/executive/{action}  competitor | competitor-delete | competitors-check | market-median | lesson | knowledge (صاحب المنصة) */
+    public function executiveAction(array $params = []): array
+    {
+        $action = (string) ($params['action'] ?? '');
+        if ($e = $this->guard(true)) return $e;
+        $x = new ExecutiveIntel($this->db);
+        $store = new AiCeoStore($this->db);
+        $uid = (int) $this->user['id'];
+        try {
+            switch ($action) {
+                case 'competitor':
+                    $id = $x->saveCompetitor((array) $this->get('item', []));
+                    $store->log($uid, 'competitor_saved', ['id' => $id]);
+                    return $this->success(['id' => $id]);
+                case 'competitor-delete':
+                    $x->deleteCompetitor((int) $this->get('id', 0));
+                    $store->log($uid, 'competitor_deleted', ['id' => (int) $this->get('id', 0)]);
+                    return $this->success([]);
+                case 'competitors-check':
+                    if ($e = $this->rateLimitGuard('user', 'ai_ceo_competitors_check', 4, 3600)) return $e;
+                    $n = $x->checkCompetitors();
+                    $store->log($uid, 'competitors_checked', ['changed' => $n]);
+                    return $this->success(['changed' => $n]);
+                case 'market-median':
+                    $p = ExecutiveIntel::priceComparison($x->competitors(), $x->ourPlans());
+                    if ($p['competitor_median'] === null) return $this->error('Add competitor prices first.', 422);
+                    $this->db->query("INSERT INTO system_settings (setting_key, setting_value, is_secret, category) VALUES ('cs_market_median_price', ?, 0, 'ai_ceo') ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)", [(string) $p['competitor_median']]);
+                    $store->log($uid, 'market_median_set', ['value' => $p['competitor_median']]);
+                    return $this->success(['value' => $p['competitor_median']]);
+                case 'lesson':
+                case 'knowledge':
+                    $title = trim((string) $this->get('title', ''));
+                    if ($title === '' || mb_strlen($title) > 200) return $this->error('Enter a short title.', 422);
+                    $store->remember('note', ($action === 'lesson' ? 'Lesson: ' : 'Knowledge: ') . $title, mb_substr((string) $this->get('body', ''), 0, 20000), null, $uid);
+                    $store->log($uid, $action . '_added', ['title' => mb_substr($title, 0, 120)]);
+                    return $this->success([]);
+            }
+            return $this->error('Unknown action', 404);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
         }
     }
 

@@ -220,6 +220,29 @@ final class PlatformDecisions
                 [[$sl['crm_pending'] . ' شركة ردت أو مهتمة', $sl['crm_pending'] . ' replied or interested companies']], '/admin/ai-ceo#sales', ['انقلهم للـ CRM', 'Move them to the CRM']);
         }
 
+        // المرحلة 9: مؤشر صحة الشركة وجودة البيانات
+        $ex = $snap['executive'] ?? null;
+        $exUrl = '/admin/ai-ceo#executive';
+        if ($ex && $ex['score'] === null && $ex['missing']) {
+            $add('exec_health_incomplete', 'strategy', 'low', ['impact' => 3, 'roi' => 3, 'urgency' => 2, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['مؤشر صحة الشركة ناقص بيانات', 'The business health score is missing data'],
+                ['مش بنخترع درجة: المكونات الناقصة محتاجة بيانات منك (مصاريف ثابتة، تقييمات Tourfecto، فحص الصفحات...).', 'No score is invented: the missing components need data (fixed costs, Tourfecto reviews, page checks...).'],
+                [['ناقص: ' . implode('، ', $ex['missing']) . ' · التغطية ' . $ex['coverage'] . '%', 'Missing: ' . implode(', ', $ex['missing']) . ' · coverage ' . $ex['coverage'] . '%']], $exUrl, ['شوف المؤشر', 'See the score']);
+        }
+        $hs = $ex['score'] ?? $ex['partial_score'] ?? null;
+        if ($ex && $hs !== null && $hs < 50) {
+            $add('exec_health_low', 'strategy', 'low', ['impact' => 5, 'roi' => 4, 'urgency' => 4, 'confidence' => 3, 'risk' => 1, 'cost' => 1, 'effort' => 3],
+                ['صحة الشركة ضعيفة', 'Business health is weak'],
+                ['الدرجة أقل من 50. المكونات الأضعف هي أولويتك.', 'The score is below 50. The weakest components are your priority.'],
+                [['الدرجة ' . $hs . '/100' . ($ex['score'] === null ? ' (جزئية)' : ''), 'Score ' . $hs . '/100' . ($ex['score'] === null ? ' (partial)' : '')]], $exUrl, ['شوف المكونات', 'See components']);
+        }
+        if ($ex && $ex['data_quality'] !== null && $ex['data_quality'] < 70) {
+            $add('exec_data_quality', 'platform', 'low', ['impact' => 3, 'roi' => 3, 'urgency' => 3, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 2],
+                ['بيانات قديمة أو ناقصة قبل القرارات', 'Stale or missing data behind decisions'],
+                ['القرارات المبنية على بيانات قديمة ممكن تبقى غلط. اتأكد إن الكرونات والمصادر شغالة.', 'Decisions on stale data can be wrong. Make sure the crons and sources run.'],
+                [[implode('، ', $ex['stale_sources']), implode(', ', $ex['stale_sources'])]], $exUrl, ['شوف جودة البيانات', 'See data quality']);
+        }
+
         // المرحلة 8: المالية والاستراتيجية
         $fi = $snap['finance'] ?? null;
         $fiUrl = '/admin/ai-ceo#finance';
