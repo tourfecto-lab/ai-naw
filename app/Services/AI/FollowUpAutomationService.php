@@ -275,7 +275,8 @@ class FollowUpAutomationService
                     "INSERT INTO chat_messages (website_id, conversation_id, user_id, session_id, platform,
                         customer_name, customer_phone, message_direction, message_text, bot_status,
                         is_auto_pilot, sent_at, created_at)
-                     SELECT website_id, id, user_id, CONCAT('followup_', id), channel,
+                     SELECT website_id, id, user_id, CONCAT('followup_', id),
+                        CASE channel WHEN 'website_chat' THEN 'webchat' WHEN 'whatsapp' THEN 'whatsapp' WHEN 'messenger' THEN 'messenger' ELSE 'other' END,
                         customer_name, customer_phone, 'outgoing', ?, 'sent', 1, NOW(), NOW()
                      FROM ai_conversations WHERE id = ?",
                     [$message, $conversationId]

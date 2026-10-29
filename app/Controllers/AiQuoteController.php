@@ -296,7 +296,7 @@ class AiQuoteController extends Controller
                 $conversationId,
                 (int) ($this->user['id'] ?? 0),
                 'agent_' . $conversationId,
-                $channel,
+                ChatManager::storedPlatform((string) $channel),
                 $conversation->getAttribute('customer_name'),
                 $conversation->getAttribute('customer_phone'),
                 $conversation->getAttribute('customer_email'),

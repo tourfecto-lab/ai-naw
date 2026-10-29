@@ -643,6 +643,9 @@ class ChatManager
      */
     public static function storedPlatform(string $platform): string
     {
+        if ($platform === 'website_chat') {
+            return 'webchat';
+        }
         return in_array($platform, ['whatsapp', 'telegram', 'messenger', 'webchat', 'other'], true) ? $platform : 'other';
     }
 

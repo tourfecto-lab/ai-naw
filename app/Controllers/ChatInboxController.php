@@ -1251,7 +1251,7 @@ class ChatInboxController extends Controller
                 $conversation->getAttribute('id'),
                 $this->user['id'],
                 'agent_' . $conversation->getAttribute('id'),
-                $channel === 'website_chat' ? 'webchat' : $channel, // اسم القناة في chat_messages
+                ChatManager::storedPlatform($channel), // chat_messages.platform is an ENUM without instagram / email
                 $wamid,
                 $conversation->getAttribute('customer_name'),
                 $conversation->getAttribute('customer_phone'),
