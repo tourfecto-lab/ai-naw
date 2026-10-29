@@ -42,15 +42,15 @@ return <<<HTML
                 <div class="p-card-head"><h3>☀️ ملخص الصبح على واتساب</h3><span class="p-card-sub">كل يوم الصبح: حجوزات وفلوس امبارح، رحلات النهارده، واللي مستنيك ترد عليه</span></div>
                 <label style="display:flex;align-items:center;gap:10px;margin:10px 0;font-weight:700;"><input type="checkbox" id="mbEnabled"> ابعتلي ملخص كل يوم الصبح</label>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <div style="flex:1;min-width:150px;"><label class="form-label">الساعة</label><select id="mbHour" class="form-control"></select></div>
-                    <div style="flex:1;min-width:150px;"><label class="form-label">يوصلني على</label>
+                    <div style="flex:1;min-width:150px;"><label for="mbHour" class="form-label">الساعة</label><select id="mbHour" class="form-control"></select></div>
+                    <div style="flex:1;min-width:150px;"><label for="mbChannel" class="form-label">يوصلني على</label>
                         <select id="mbChannel" class="form-control">
                             <option value="auto">واتساب، ولو ماوصلش إيميل</option>
                             <option value="whatsapp">واتساب بس</option>
                             <option value="email">إيميل بس</option>
                         </select></div>
-                    <div style="flex:1.3;min-width:180px;"><label class="form-label">رقم الواتساب (بكود الدولة)</label><input id="mbPhone" class="form-control" dir="ltr" placeholder="201001234567"></div>
-                    <div style="flex:.8;min-width:120px;"><label class="form-label">اللغة</label><select id="mbLang" class="form-control"><option value="ar">عربي</option><option value="en">English</option></select></div>
+                    <div style="flex:1.3;min-width:180px;"><label for="mbPhone" class="form-label">رقم الواتساب (بكود الدولة)</label><input id="mbPhone" class="form-control" dir="ltr" placeholder="201001234567"></div>
+                    <div style="flex:.8;min-width:120px;"><label for="mbLang" class="form-label">اللغة</label><select id="mbLang" class="form-control"><option value="ar">عربي</option><option value="en">English</option></select></div>
                 </div>
                 <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px;"><input type="checkbox" id="mbSkipQuiet" checked> ماتبعتش في الأيام اللي مفيهاش أي جديد</label>
                 <div id="mbWaHint" class="p-cell-muted" style="font-size:12px;display:none;margin-bottom:8px;">ℹ️ مفيش رقم واتساب مربوط لسه (لا للمنصة ولا لحسابك من التكاملات)، فالملخص هيوصلك على الإيميل لحد ما يتربط.</div>

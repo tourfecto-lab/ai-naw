@@ -1791,7 +1791,7 @@ HTML;
             case 'growth':
                 return <<<HTML
                 <div id="growthWebsitePicker" style="margin-bottom:16px;">
-                    <select id="growthWebsiteSelect" class="p-input" style="max-width:320px;" onchange="loadGrowth()"></select>
+                    <select id="growthWebsiteSelect" aria-label="Website" class="p-input" style="max-width:320px;" onchange="loadGrowth()"></select>
                 </div>
                 <div id="growthNoWebsite" class="p-card" style="display:none;padding:20px;text-align:center;color:var(--muted);">
                     {$this->tr('growth.select_website')}

@@ -710,7 +710,7 @@ class BookingController extends Controller
 
 <div id="bkList" class="p-card no-pad">
     <div class="p-toolbar" style="padding:14px 16px 0;flex-wrap:wrap;gap:8px;">
-        <select id="bkStatus" class="p-select" onchange="bkLoad()">
+        <select id="bkStatus" aria-label="حالة الحجز" class="p-select" onchange="bkLoad()">
             <option value="">كل الحالات</option>
             <option value="pending">مستني تأكيد/دفع</option>
             <option value="confirmed">مؤكد</option>
@@ -788,7 +788,7 @@ class BookingController extends Controller
                     <option value="full">الباقي كله</option>
                 </select>
                 <div id="plValueWrap" style="display:flex;gap:8px;align-items:center;margin-top:8px;">
-                    <input type="number" id="plValue" class="form-control" min="1" step="0.01" value="30" style="max-width:140px;">
+                    <input type="number" id="plValue" aria-label="القيمة" class="form-control" min="1" step="0.01" value="30" style="max-width:140px;">
                     <span id="plValueUnit">%</span>
                     <span id="plCalc" class="p-cell-muted" style="font-size:13px;"></span>
                 </div>
@@ -833,7 +833,7 @@ class BookingController extends Controller
             <label for="rmTemplate" class="form-label" style="margin-top:10px;">نص الرسالة (عربي)</label>
             <textarea id="rmTemplate" class="form-control" rows="8" dir="auto"></textarea>
             <details style="margin-top:8px;"><summary style="cursor:pointer;font-size:13px;">نص الرسالة (إنجليزي)</summary>
-                <textarea id="rmTemplateEn" class="form-control" rows="8" dir="ltr" style="margin-top:6px;"></textarea>
+                <textarea id="rmTemplateEn" aria-label="Message text (English)" class="form-control" rows="8" dir="ltr" style="margin-top:6px;"></textarea>
             </details>
             <p class="p-cell-muted" style="font-size:12px;">المتغيرات: {name} {trip} {when} {date} {time} {people} {meeting_point} {contact} {reference} - <a href="#" onclick="rmReset();return false;">رجّع النص الافتراضي</a></p>
             <button class="p-btn primary" onclick="rmSave()">💾 احفظ</button>

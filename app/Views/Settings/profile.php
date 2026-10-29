@@ -13,7 +13,7 @@ return <<<HTML
                         {$this->avatarInnerHtml($avatarUrl, $initials)}
                     </div>
                     <div>
-                        <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+                        <input type="file" id="avatarInput" aria-label="Profile picture" accept="image/png,image/jpeg,image/webp" style="display:none;">
                         <button type="button" class="p-btn outline xs" onclick="document.getElementById('avatarInput').click()">📷 {$tChangePhoto}</button>
                         <p class="p-cell-muted" style="font-size:12.5px;margin-top:6px;">{$tAvatarHint}</p>
                     </div>

@@ -16,7 +16,7 @@ return <<<HTML
                         <label class="form-label" for="ws_logo_preview">{$tWorkspaceLogo}</label>
                         <div style="display:flex;align-items:center;gap:14px;">
                             <img id="ws_logo_preview" src="" alt="" style="width:56px;height:56px;border-radius:10px;object-fit:cover;display:none;background:#222;">
-                            <input type="file" id="ws_logo_input" accept="image/png,image/jpeg,image/webp">
+                            <input type="file" id="ws_logo_input" aria-label="Logo" accept="image/png,image/jpeg,image/webp">
                         </div>
                     </div>
                     <div class="p-grid cols-2">
