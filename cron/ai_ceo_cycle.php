@@ -24,6 +24,12 @@ try {
     require_once __DIR__ . '/../app/Services/AiCeo/TourismBusinessDb.php';
     $tdb = new TourismBusinessDb($db);
     $tbi = ['reports' => $tdb->captureReports(), 'unsubscribes' => $tdb->backfillUnsubscribes()];
+    // المرحلة 4: اللي اتوافق عليه قبل البوابة ومش مسموح بيرجع "مستني موافقة" (حماية)، وتقارير المبيعات اليومية/الأسبوعية
+    require_once __DIR__ . '/../app/Services/AiCeo/SalesEngine.php';
+    $sales = new SalesEngine($db);
+    $tbi['unapproved'] = $sales->reevaluateApproved();
+    if ($tbi['unapproved']) $store->log(null, 'sales_reevaluated', ['unapproved' => $tbi['unapproved']]);
+    $tbi['sales_reports'] = implode('+', $sales->writeReports($store));
 } catch (Throwable $e) {
     echo gmdate('c') . ' tourism db: ' . $e->getMessage() . PHP_EOL;
 }

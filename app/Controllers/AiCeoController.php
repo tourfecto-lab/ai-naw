@@ -4,6 +4,7 @@ require_once __DIR__ . '/../Services/AiCeo/PlatformSnapshot.php';
 require_once __DIR__ . '/../Services/AiCeo/AiCeoChat.php';
 require_once __DIR__ . '/../Services/AiCeo/AiCostIntelligence.php';
 require_once __DIR__ . '/../Services/AiCeo/TourismBusinessDb.php';
+require_once __DIR__ . '/../Services/AiCeo/SalesEngine.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -231,6 +232,66 @@ class AiCeoController extends Controller
             return $this->success(['merge_id' => $id, 'groups' => $db->duplicates()]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 4: المبيعات
+
+    /** GET /api/admin/ai-ceo/sales */
+    public function sales(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            $e = new SalesEngine($this->db);
+            $reports = $this->db->query("SELECT title, body, created_at FROM aiceo_memory WHERE kind = 'result' AND title LIKE 'Sales %report%' ORDER BY id DESC LIMIT 8") ?: [];
+            return $this->success(['settings' => $e->settings(), 'pipeline' => $e->pipeline(), 'queue' => $e->approvalQueue(100), 'active_noncompliant' => $e->activeNonCompliant(100),
+                'today' => $e->periodReport(date('Y-m-d 00:00:00'), date('Y-m-d 00:00:00', strtotime('+1 day'))), 'reports' => $reports, 'owner' => $this->owner()]);
+        } catch (Throwable $ex) {
+            Logger::error('AI CEO sales failed', ['error' => $ex->getMessage()]);
+            return $this->error('Sales data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/sales/{action}  settings|approve|reevaluate|pause|crm */
+    public function salesAction(array $params = []): array
+    {
+        $action = (string) ($params['action'] ?? '');
+        // مراجعة الطابور حماية (بترجّع موافقات بس)، أي أدمن يقدر؛ الباقي لصاحب المنصة
+        if ($e = $this->guard($action !== 'reevaluate')) return $e;
+        try {
+            $eng = new SalesEngine($this->db);
+            $store = new AiCeoStore($this->db);
+            $actor = (int) $this->user['id'];
+            switch ($action) {
+                case 'settings':
+                    $out = $eng->saveSettings((array) $this->get('settings', []));
+                    $store->log($actor, 'sales_settings_changed', ['basis' => $out['basis'], 'targets' => $out['targets']]);
+                    return $this->success(['settings' => $out]);
+                case 'approve':
+                    $n = $eng->approveCompliant((array) $this->get('ids', []), filter_var($this->get('all', false), FILTER_VALIDATE_BOOLEAN));
+                    $store->log($actor, 'sales_approved', ['count' => $n]);
+                    return $this->success(['approved' => $n]);
+                case 'reevaluate':
+                    $n = $eng->reevaluateApproved();
+                    $store->log($actor, 'sales_reevaluated', ['unapproved' => $n]);
+                    return $this->success(['unapproved' => $n]);
+                case 'pause':
+                    $n = $eng->pauseSequences((array) $this->get('ids', []));
+                    $store->log($actor, 'sales_sequences_paused', ['count' => $n]);
+                    return $this->success(['paused' => $n]);
+                case 'crm':
+                    $owner = class_exists('AdminAccess') ? AdminAccess::primaryOwnerId() : 0;
+                    $n = $eng->handoffToCrm($owner ?: $actor, $actor);
+                    $store->log($actor, 'sales_crm_handoff', ['count' => $n, 'crm_user_id' => $owner ?: $actor]);
+                    return $this->success(['moved' => $n]);
+            }
+            return $this->error('Unknown action', 404);
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        } catch (Throwable $ex) {
+            Logger::error('AI CEO sales action failed', ['action' => $action, 'error' => $ex->getMessage()]);
+            return $this->error('The action failed.', 503);
         }
     }
 

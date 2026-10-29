@@ -1608,12 +1608,20 @@ class PlatformOutreachService
     {
         if ($allScanned) {
             $pending = "approved=0 AND step=0 AND status='new' AND track IS NOT NULL AND email IS NOT NULL" . ($toursOnly ? ' AND ' . self::TOUR_CATEGORY_SQL : '');
-            if (preg_match('/^[A-Z]{2}$/', $country)) {
-                return $this->q("UPDATE platform_leads SET approved=1 WHERE {$pending} AND country=?", [$country])->rowCount();
-            }
-            return $this->q("UPDATE platform_leads SET approved=1 WHERE {$pending}")->rowCount();
+            $ids = preg_match('/^[A-Z]{2}$/', $country)
+                ? $this->q("SELECT id FROM platform_leads WHERE {$pending} AND country=?", [$country])->fetchAll(PDO::FETCH_COLUMN)
+                : $this->q("SELECT id FROM platform_leads WHERE {$pending}")->fetchAll(PDO::FETCH_COLUMN);
         }
         $ids = array_values(array_filter(array_map('intval', $ids)));
+        // AI CEO: البوابة القانونية لكل سوق (SalesCompliance). أي خطأ = مفيش موافقة (نقفل مش نفتح)
+        if ($ids && class_exists('SalesEngine')) {
+            try {
+                $ids = (new SalesEngine())->compliantIds($ids);
+            } catch (Throwable $e) {
+                Logger::warning('Outreach approval blocked: compliance check failed', ['error' => $e->getMessage()]);
+                return 0;
+            }
+        }
         if (!$ids) {
             return 0;
         }

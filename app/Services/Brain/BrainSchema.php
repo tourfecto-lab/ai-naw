@@ -15,7 +15,8 @@ final class BrainSchema
             'brain_settings' => '2026_10_29_000005_brain_settings.sql',
             'aiceo_decisions' => '2026_10_29_000006_ai_ceo_foundation.sql', 'aiceo_memory' => '2026_10_29_000006_ai_ceo_foundation.sql', 'aiceo_activity' => '2026_10_29_000006_ai_ceo_foundation.sql',
             'tbi_reports' => '2026_10_29_000007_tourism_business_intelligence.sql', 'tbi_consent_events' => '2026_10_29_000007_tourism_business_intelligence.sql',
-            'tbi_suppression' => '2026_10_29_000007_tourism_business_intelligence.sql', 'tbi_merges' => '2026_10_29_000007_tourism_business_intelligence.sql'] as $table => $file) {
+            'tbi_suppression' => '2026_10_29_000007_tourism_business_intelligence.sql', 'tbi_merges' => '2026_10_29_000007_tourism_business_intelligence.sql',
+            'tbi_crm_handoffs' => '2026_10_29_000008_ai_ceo_sales.sql'] as $table => $file) {
             if ($db->query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", [$table])) continue;
             // نفس تعريف الجدول من ملف الهجرة بالظبط (مصدر واحد للحقيقة)
             if (!preg_match('/CREATE TABLE IF NOT EXISTS ' . $table . ' \\(.*?\\) ENGINE=[^;]+;/s', (string) file_get_contents($dir . $file), $m)) throw new RuntimeException('Brain migration missing: ' . $table);

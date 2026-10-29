@@ -14,7 +14,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 1 | AI Executive Foundation | **COMPLETED** (verified by the owner on tourfectoai.pro, 2026-10-29) |
 | 2 | AI Cost & Quality Intelligence | **Implemented** — see below (awaiting owner check of the cost section) |
 | 3 | Global Tourism Business Intelligence | **Implemented** — see below (awaiting owner check of the Companies tab) |
-| 4 | Autonomous Growth & Sales | Not started |
+| 4 | Autonomous Growth & Sales | **Implemented (partial scope, see below)** — awaiting owner setup and check |
 | 5 | Tourfecto Brand Growth Engine | Not started |
 | 6 | Customer Success & Revenue Intelligence | Not started |
 | 7 | AI Platform Operations & Development Advisor | Not started |
@@ -189,4 +189,59 @@ Approving a decision turns it into an in-progress task with a link to the existi
 - Use only the Apify accounts the owner is licensed to use. Multiple accounts must not be used to bypass provider limits. The platform's Apify token is configured in platform outreach.
 - The lawful basis per market (US CAN-SPAM, EU GDPR/ePrivacy, Gulf) is enforced in Phase 4 before any campaign.
 
-**Next: Phase 4** — Autonomous Growth & Sales.
+## Phase 4 — Autonomous Growth & Sales
+
+**Reused:** `PlatformOutreachService`. It already provides:
+- need-based email sequences per company;
+- admin approval before the first message;
+- a daily limit;
+- unsubscribe links and the company address in the footer;
+- open, click, report-view and WhatsApp-click tracking;
+- per-track and per-country stats;
+- `signed_up` matching.
+
+The owner's CRM is reused through `CrmLeadService`.
+
+**New**
+- `app/Services/AiCeo/SalesCompliance.php` is a pure, conservative lawful-basis gate. It is not legal advice.
+  - **Regions:** us, ca, eu (EU/EEA/UK/CH), gcc, other.
+  - **Always required:** an email address, no objection, unsubscribe or erasure on record, and a real postal address in outreach settings. The default "Tourfecto · Cairo, Egypt" is not accepted.
+  - **US:** CAN-SPAM opt-out, plus the owner's confirmation for the region.
+  - **CA:** needs a recorded opt-in.
+  - **EU, GCC and other:** the owner confirms the basis for the region, and only generic company addresses (info@, booking@ …) are used. Personal addresses need an opt-in.
+  - **DE and AT:** always need an opt-in.
+  - A recorded email opt-in passes any region. WhatsApp marketing only ever goes out with an opt-in on WhatsApp.
+  - **ICP fit (0–100):** a target market adds 40, a tour or travel category 20, the analysis score scaled to 30, and a website 10.
+- `PlatformOutreachService::approve()` now passes every approval through the gate, including the existing `/admin/growth` buttons. It fails closed: if the check errors, nothing is approved.
+- `app/Services/AiCeo/SalesEngine.php`:
+  - settings: basis per region, target markets, and monthly spend for CAC;
+  - the approval queue with the gate verdict and ICP fit;
+  - `approveCompliant`;
+  - `reevaluateApproved`: approvals made before the gate that are not compliant go back to the queue. It runs in the hourly cron;
+  - `activeNonCompliant` and `pauseSequences`, owner only;
+  - the pipeline (discovered → contactable → approved → contacted → engaged → interested → signed up → paying) by region and by source, with conversion rates and CAC (only when the owner enters spend);
+  - `handoffToCrm` moves replied or interested companies into the platform owner's CRM, once per company (`tbi_crm_handoffs`). It creates a contact and a deal with a follow-up the next day;
+  - daily and weekly sales reports (weekly on Mondays), written to memory by the cron.
+- Migration `2026_10_29_000008_ai_ceo_sales.sql` adds `tbi_crm_handoffs`.
+- **Decisions:**
+  - `sales_postal_address`
+  - `sales_basis_setup`
+  - `sales_compliant_ready` (medium)
+  - `sales_noncompliant_sequences` (medium)
+  - `sales_crm_handoff`
+- **API:** `GET /api/admin/ai-ceo/sales` and `POST /api/admin/ai-ceo/sales/{settings|approve|reevaluate|pause|crm}`. `reevaluate` is protective, so any admin can run it; the rest are owner only. Everything is audited.
+- **Mission Control:** a new **Leads & Sales** tab.
+- **Tests:**
+  - `tests/Unit/SalesComplianceTest.php`
+  - `tests/Integration/SalesEngineIntegrationTest.php`: approval from the outreach service goes through the gate; earlier non-compliant approvals return to the queue; the pipeline; the CRM handoff happens once; reports are written once.
+
+**Important behaviour change for the owner**
+Until the postal address is set and at least one region's basis is confirmed, **no new first messages are approved**. Sequences already running continue until the owner reviews them in "Running sequences the gate now rejects".
+
+**Not built in this phase (needs owner decisions, inputs or integrations)**
+- The AI sales assistant answering inbound replies and handling objections. It needs an inbound mailbox integration (IMAP or forwarding) and the owner's approval of the tone and limits.
+- A/B tests of templates. They need changes in the sender and a minimum sample per variant.
+- A referral program. It needs a product, pricing and billing decision.
+- Partnership discovery.
+
+**Next: Phase 5** — Tourfecto Brand Growth Engine.
