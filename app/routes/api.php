@@ -2060,6 +2060,8 @@ $router->post('/api/admin/ai-ceo/ops/run','AiCeoController','opsRun',['AuthMiddl
 $router->post('/api/admin/ai-ceo/ops/{action}','AiCeoController','opsAction',['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/ai-ceo/finance','AiCeoController','finance',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-ceo/finance/{action}','AiCeoController','financeAction',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/ai-ceo/executive','AiCeoController','executive',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/ai-ceo/executive/{action}','AiCeoController','executiveAction',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/settings','BrainAdminController','save',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/brain/market-refresh','BrainAdminController','marketRefresh',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);

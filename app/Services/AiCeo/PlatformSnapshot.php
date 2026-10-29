@@ -6,6 +6,7 @@ require_once __DIR__ . '/BrandGrowth.php';
 require_once __DIR__ . '/CustomerSuccess.php';
 require_once __DIR__ . '/OpsAdvisor.php';
 require_once __DIR__ . '/FinanceStrategy.php';
+require_once __DIR__ . '/ExecutiveIntel.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -34,7 +35,7 @@ final class PlatformSnapshot
 
     public function collect(): array
     {
-        return [
+        $snap = [
             'revenue' => $this->section('revenue', fn () => $this->revenue()),
             'signups' => $this->section('signups', fn () => $this->signups()),
             'trials' => $this->section('trials', fn () => $this->trials()),
@@ -50,6 +51,16 @@ final class PlatformSnapshot
             'finance' => $this->section('finance', fn () => $this->finance()),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
+        // المرحلة 9: مؤشر صحة الشركة وجودة البيانات (محسوبين من باقي الأقسام، فبيتعملوا في الآخر)
+        $snap['executive'] = $this->section('executive', function () use ($snap) {
+            $x = new ExecutiveIntel($this->db);
+            $h = $x->health($snap);
+            $dq = $x->dataQuality($snap);
+            $rv = $x->decisionReview(30);
+            return ['score' => $h['score'], 'partial_score' => $h['partial_score'], 'coverage' => $h['coverage'], 'missing' => $h['missing'], 'data_quality' => $dq['score'],
+                'stale_sources' => array_values(array_map(static fn ($c) => $c['source'], array_filter($dq['checks'], static fn ($c) => !$c['ok']))), 'recurring_decisions' => count($rv['recurring'])];
+        });
+        return $snap;
     }
 
     private function section(string $name, callable $fn): ?array

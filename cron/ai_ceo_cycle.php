@@ -55,6 +55,17 @@ $db->query("INSERT INTO system_settings (setting_key, setting_value, is_secret, 
     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)", [json_encode($snap, JSON_UNESCAPED_UNICODE)]);
 $decisions = $store->sync($snap);
 $auto = $store->autoExecute();
+// المرحلة 9: مؤشر صحة الشركة لليوم، والتقرير اليومي/الأسبوعي، والدروس المستفادة، وفحص صفحات المنافسين مرة في اليوم
+try {
+    require_once __DIR__ . '/../app/Services/AiCeo/ExecutiveIntel.php';
+    $ex = new ExecutiveIntel($db);
+    $written = $ex->writeReports($store, $snap, $store->list());
+    $lessons = $ex->learn($store, $ex->decisionReview(30));
+    if (gmdate('G') === '6') $ex->checkCompetitors();
+    if ($written || $lessons) $store->log(null, 'executive_reports', ['written' => $written, 'lessons' => $lessons]);
+} catch (Throwable $e) {
+    echo gmdate('c') . ' executive: ' . $e->getMessage() . PHP_EOL;
+}
 $open = count(array_filter($decisions, static fn ($d) => in_array($d['status'], ['proposed', 'approved'], true)));
 $missing = implode(',', array_keys(array_filter(array_diff_key($snap, ['generated_at' => 1]), static fn ($v) => $v === null)));
 $store->log(null, 'cycle', ['open' => $open, 'auto_approved' => $auto, 'missing_sections' => $missing]);

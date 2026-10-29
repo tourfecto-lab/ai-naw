@@ -19,7 +19,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 6 | Customer Success & Revenue Intelligence | **Implemented (partial scope, see below)** — awaiting owner check of the Customer Success tab |
 | 7 | AI Platform Operations & Development Advisor | **Implemented (partial scope, see below)** — awaiting owner check of the Platform & Dev Advisor tab |
 | 8 | Financial & Strategic Intelligence | **Implemented (partial scope, see below)** — awaiting owner costs entry and check of the Finance & Strategy tab |
-| 9 | Executive Intelligence & Continuous Learning | Not started |
+| 9 | Executive Intelligence & Continuous Learning | **Implemented (partial scope, see below)** — awaiting owner check of the Business Health & Reports tab |
 | 10 | Final Integration & Controlled Activation | Not started |
 
 ## Phase 1 — AI Executive Foundation
@@ -428,4 +428,57 @@ Until the postal address is set and at least one region's basis is confirmed, **
 - Competitor pricing analysis. That is Phase 9.
 - An AI-written quarterly plan. Use the Boardroom ("draft next quarter's plan") and turn its steps into goals and tasks.
 
-**Next: Phase 9** — Executive Intelligence & Continuous Learning.
+## Phase 9 — Executive Intelligence & Continuous Learning
+
+**Reused:**
+- the snapshot sections from Phases 1–8;
+- `aiceo_activity` (decision history) and `aiceo_memory` (reports, lessons, knowledge);
+- `market_signals` (Strategic Brain, free sources);
+- `contact_submissions`, `reviews`, `api_usage_logs`;
+- `SafeHttp` for competitor pages.
+
+**New:** `app/Services/AiCeo/ExecutiveIntel.php`, plus migration `2026_10_29_000012_ai_ceo_executive.sql` (`aiceo_health_scores`, `aiceo_competitors`).
+
+**TOURFECTO BUSINESS HEALTH SCORE (0–100): method and weights**
+
+| Component | Weight | Calculation (real data only) |
+|---|---|---|
+| Growth | 15 | MRR change vs 30 days ago (60 at 0%, +2 per 1%), averaged with sign-ups this week vs last week (50 when equal) |
+| Revenue & profitability | 15 | 50 + last full month margin % after AI, SEO data and fixed costs. **Needs fixed costs entered** |
+| Customer satisfaction | 10 | Average Google rating of the Tourfecto profile: 1★ = 0, 5★ = 100. **Needs reviews** |
+| Retention | 15 | 100 − 5 × monthly customer churn %. **Needs paying customers 30 days ago** |
+| Service quality | 10 | 100 − 20 per page down − 5 per slow page − 2 per unanswered support message (max 10). **Needs a page check** |
+| Platform stability | 15 | 100 − 15 per failing health check − 3 per warning − 10 per open high/critical incident |
+| Security | 10 | 100 − 30 per protected page open without login − 10 per IP attacking logins − 5 per customer with abnormal usage |
+| Operating efficiency | 10 | AI cost ÷ revenue over 30 days: ≤10% = 100, ≥100% = 0 (no revenue but AI cost = 0; neither = no data) |
+
+- If any component has no data, **the score is shown as incomplete**. The page then shows a partial score over the components that have data, the coverage %, and the list of missing components. No score is invented.
+- One row is kept per day, so the page can show a 30-day trend and what improved or declined against the previous day.
+
+**Also new**
+- **Daily and weekly executive report.** It covers what happened, what improved, what declined, the main problem, the priorities, what needs approval, the real results (resolved decisions, finished backlog items with before/after) and the next step. The hourly cron saves it in memory once a day, and a weekly report on Mondays. Today's report is always visible on the tab.
+- **AI CEO self-review (30 days).** It reports decisions proposed, approved, auto-approved, resolved, reopened and dismissed, and the resolution rate. It lists decisions that worked, those that keep coming back (reopened 2+ times) and those often dismissed. These become **lessons** saved once in memory. The owner can add lessons too.
+- **Data quality before decisions.** It checks snapshot age, sections that failed to load, and how fresh the visitor log, AI log, page checks, market sources and the companies import are. It gives a score, and a decision when it is below 70%.
+- **AI output quality.** It shows AI call errors and latency per feature over 7 days, review-reply statuses over 30 days, and promises removed from brand plans.
+- **Competitors.** The owner adds name, website, starting price, features, strengths and weaknesses.
+  - Their public page is checked once a day (cron at 06 UTC) or on demand with `SafeHttp` (SSRF-safe). A text fingerprint that ignores scripts and dates flags real changes.
+  - Price comparison against Tourfecto's plans (median, below/around/above market). One click sets the median as the market price used in the Phase 6 pricing suggestions.
+- **Customer requests and suggestions** found in contact messages (English and Arabic phrases), the latest market signals, and a tourism **knowledge base** (owner notes in memory).
+- **Snapshot section `executive` and decisions:**
+  - `exec_health_incomplete`
+  - `exec_health_low`
+  - `exec_data_quality`
+- **API:**
+  - `GET /api/admin/ai-ceo/executive`
+  - `POST /api/admin/ai-ceo/executive/{competitor|competitor-delete|competitors-check|market-median|lesson|knowledge}` (owner only, audited)
+- **Mission Control:** a new **Business Health & Reports** tab, placed after Approvals.
+- **Tests:**
+  - `tests/Unit/ExecutiveIntelTest.php`: weights, every component, incomplete instead of a score, changes, fingerprint, price comparison, report text.
+  - `tests/Integration/ExecutiveIntelIntegrationTest.php`: one score row per day; reports written once; Monday weekly; review and lessons once; data quality; competitors and page-change detection.
+
+**Not built in this phase**
+- Automatic monitoring of global competitors and AI news. There is no reliable free feed, and scraping third-party sites beyond their public page is avoided. The owner adds competitors, and their pages are checked.
+- Why customers prefer competitors. This needs exit surveys or interviews; today only cancellation reasons exist (Phase 6).
+- Social media and web mentions of Tourfecto (reputation beyond Google reviews). This needs a listening tool or API.
+
+**Next: Phase 10** — Final Integration & Controlled Activation.
