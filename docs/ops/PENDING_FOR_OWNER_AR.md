@@ -53,3 +53,6 @@
 - `AdminEmailReputationController::input()` غير معرّفة، فمسارات الأدمن الخمسة (إيقاف/استئناف الحساب، الحدود، مراجعة الاعتماد، إيقاف الحملة) كانت تنهار.
 - `POST /api/ai-visibility/llms` (مسودة `llms.txt`) كان يستدعي `SeoMarketService::owned()` غير الموجودة فيرد 422 دائمًا؛ صار يستدعي `site()`.
 - `TrialPlanService::adminProgress()` كانت ناقصة (استثناؤها يُبلع)، فعمود «التقدّم» في قائمة تجارب الأدمن كان فارغًا دائمًا؛ نُفّذت بنفس شكل البيانات الذي تتوقعه `admin-insights.js`.
+
+## 7) بيئة tourfectoai.pro (نشر تلقائي)
+مربوطة بـ GitHub عبر aaPanel (Deploy key للقراءة فقط + webhook على حدث push، فرع main، سكربت `git pull origin main`). كل push على `main` ينزل هناك تلقائيًا. الموقع الأساسي tourfecto.pro يدوي ومنفصل.

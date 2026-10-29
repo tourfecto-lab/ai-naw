@@ -304,7 +304,7 @@ body.ap-theme .af-btn { margin-inline-end: 6px; }
 .af-code pre { margin: 0; max-height: 200px; overflow: auto; background: #1e1e2e; color: #a6e3a1; padding: 12px; padding-right: 76px; border-radius: 8px; font-size: 11.5px; white-space: pre-wrap; word-break: break-all; text-align: left; }
 .af-copy { position: absolute; top: 6px; right: 6px; font: inherit; font-size: 11.5px; padding: 3px 9px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .12); color: #fff; cursor: pointer; }
 
-/* Touch targets: on touch screens the panel's small controls (topbar icon buttons, credits pills, currency select,
+/* Touch targets (auto-deploy check): on touch screens the panel's small controls (topbar icon buttons, credits pills, currency select,
    menu search, dismiss/view-all links) were 30-34px; 44px is the usual comfortable minimum. Layout-neutral on desktop. */
 @media (pointer: coarse) {
     body.ap-theme .panel-topbar-actions .icon-btn { width: 44px; height: 44px; }
