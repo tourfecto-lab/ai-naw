@@ -495,7 +495,13 @@ class ChatInboxController extends Controller
     private static function detectMime(string $path, string $name): string
     {
         if (class_exists('finfo')) {
-            return (string) (new finfo(FILEINFO_MIME_TYPE))->file($path);
+            $detected = (string) (new finfo(FILEINFO_MIME_TYPE))->file($path);
+            // A browser voice note (.m4a recorded by Chrome/Safari) is an MP4 container that libmagic calls video/mp4;
+            // sent as such WhatsApp would show it as a video, so the extension decides: it is audio.
+            if ($detected === 'video/mp4' && strtolower(pathinfo($name, PATHINFO_EXTENSION)) === 'm4a') {
+                return 'audio/mp4';
+            }
+            return $detected;
         }
         $img = @getimagesize($path);
         if ($img && in_array($img[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
