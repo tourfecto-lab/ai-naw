@@ -2000,6 +2000,10 @@ $router->get('/api/brain','BrainController','data',['AuthMiddleware']);
 $router->post('/api/brain/decisions/{id}','BrainController','decision',['AuthMiddleware']);
 $router->post('/api/brain/sharing','BrainController','sharing',['AuthMiddleware']);
 $router->post('/api/brain/autonomy','BrainController','autonomy',['AuthMiddleware']);
+// العقل الاستراتيجي — الإدارة
+$router->get('/api/admin/brain','BrainAdminController','data',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/brain/settings','BrainAdminController','save',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/brain/market-refresh','BrainAdminController','marketRefresh',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);
 $router->post('/api/ai-visibility/generate','AiVisibilityController','generate',['AuthMiddleware']);
 $router->post('/api/ai-visibility/llms','AiVisibilityController','llms',['AuthMiddleware']);

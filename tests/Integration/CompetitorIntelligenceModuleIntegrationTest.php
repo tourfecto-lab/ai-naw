@@ -94,6 +94,11 @@ final class CompetitorIntelligenceModuleIntegrationTest extends TestCase
             self::$userId = createTestUser();
             self::$websiteId = createTestWebsite(self::$userId);
         }
+        // الموقع ممكن يتمسح من اختبار تاني اشتغل قبله (الترتيب عشوائي): نعمله تاني بدل ما الإدخالات تقع على المفتاح الأجنبي
+        if (!$pdo->query('SELECT id FROM websites WHERE id = ' . (int) self::$websiteId . ' AND user_id = ' . (int) self::$userId . ' LIMIT 1')->fetch()) {
+            self::$websiteId = createTestWebsite((int) self::$userId);
+            self::$competitorIds = [];
+        }
         if (empty(self::$competitorIds)) {
             self::$competitorIds[] = $this->addCompetitor('rival' . uniqid() . '.example', 'Rival One');
             self::$competitorIds[] = $this->addCompetitor('rival2' . uniqid() . '.example', 'Rival Two');

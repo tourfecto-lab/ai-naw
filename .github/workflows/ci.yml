@@ -114,7 +114,8 @@ jobs:
           echo "known failing tests: $total (max $MAX_KNOWN_FAILURES)"
           # أسماء الاختبارات الفاشلة وأول سطر من سببها بتظهر كـ annotations في صفحة الـ check (من غير ما حد يفتح السجل)
           if [ "${total:-0}" -gt 0 ]; then
-            grep -E -A2 '^[0-9]+\) ' phpunit.out | grep -v '^--$' | head -60 | while IFS= read -r l; do echo "::error title=PHPUnit::$l"; done
+            # أقسام الأخطاء والإخفاقات بس (مش التحذيرات القديمة)
+            awk '/^There (was|were) [0-9]+ (error|failure)s?:/{on=1;next} /^There (was|were) [0-9]+ /{on=0} /^(FAILURES|ERRORS)!$/{on=0} on && NF' phpunit.out | head -80 | while IFS= read -r l; do echo "::error title=PHPUnit::$l"; done
           fi
           if [ -z "$line" ]; then echo 'PHPUnit did not finish (no summary line)'; exit 1; fi
           [ "$total" -le "$MAX_KNOWN_FAILURES" ]

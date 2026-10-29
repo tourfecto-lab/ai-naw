@@ -447,7 +447,7 @@ abstract class Controller
         $home = [
             'overview' => [t('sidebar.overview'), 'bar-chart-2', '/dashboard'],
             // العقل الاستراتيجي: صورة الشركة كلها وقراراتها المرتبة ونتيجة كل قرار
-            'brain' => [$L('العقل الاستراتيجي', 'Strategic brain'), 'zap', '/brain'],
+            'brain' => [$L('العقل الاستراتيجي', 'Strategic brain'), 'brain', '/brain'],
             'ai_assistant' => [t('sidebar.ai_assistant'), 'sparkles', '/ai-assistant'],
             'automation' => [$L('مركز الأتمتة', 'Automation Center'), 'zap', '/automation'],
         ];

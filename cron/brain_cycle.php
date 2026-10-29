@@ -18,6 +18,8 @@ require_once __DIR__ . '/../app/Services/Brain/BrainDecisionStore.php';
 require_once __DIR__ . '/../app/Services/Brain/SharedIntelligence.php';
 
 $db = Database::getInstance();
+require_once __DIR__ . '/../app/Services/Brain/BrainConfig.php';
+if (!BrainConfig::get('brain_enabled', $db)) { echo gmdate('c') . ' brain disabled by admin' . PHP_EOL; exit(0); }
 $store = new BrainDecisionStore($db);
 $brain = new CompanyBrainService($db);
 $sharing = new SharedIntelligence($db);
