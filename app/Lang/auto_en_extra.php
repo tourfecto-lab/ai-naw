@@ -4977,4 +4977,6 @@ return [
     'خارج أول 30' => 'Outside the top 30',
     'لسه مفيش كلمات بتتابعها. ضيف كلمة فوق أو استخدم زرار لاقي كلمات لموقعك' => 'You are not tracking any keywords yet. Add one above or use the Find keywords button',
     'لسه مفيش كلمات المنافسين بيظهروا فيها وأنت لأ. استخدم زرار المقارنة بالمنافسين عشان نقيسها' => 'No keywords yet where competitors appear and you do not. Use the compare button to measure them',
+    'موقعك متدار من مركز السيو' => 'Your website is managed by the SEO hub',
+    'الطيار الآلي في مركز السيو هو اللي بيفحص موقعك ويطبّق التحسينات كل أسبوع، فخطوات الربط هنا مش محتاجها' => 'The SEO hub autopilot checks your website and applies improvements every week, so you do not need the connection steps here',
 ];

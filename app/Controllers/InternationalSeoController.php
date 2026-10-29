@@ -3,19 +3,10 @@ class InternationalSeoController extends Controller
 {
     public function index(array $p=[]): void {
         if(!$this->isAuthenticated()){header('Location: /login');exit;}
-        $body=<<<'HTML'
-<section id="internationalSeo"><h2>اللغات والفهرسة</h2><p><a href="/website-builder">منشئ المواقع</a> · الترجمات مسودات أولًا. أكّد صحة المحتوى الأصلي، راجع كل النصوص والادعاءات ثم انشر. الأرقام والأسعار وبيانات التواصل لا تُترجم آليًا. تغيير الأصل يتطلب مراجعة الترجمة مجددًا.</p>
-<label>موقع المنشئ <select id="intlBuilder"></select></label><button id="intlLoad">تحميل المحتوى</button>
-<label>اللغة <input id="intlLanguage" value="de" maxlength="20" pattern="[a-z]{2,3}(-[a-z0-9]{2,8})?"></label><label><input type="checkbox" id="intlConfirmed"> أؤكد صحة بيانات وأسعار وادعاءات المحتوى الأصلي المعروض</label>
-<details><summary>المحتوى الأصلي للمقارنة</summary><pre id="intlSource" style="white-space:pre-wrap"></pre></details>
-<p>توليد المسودة يستهلك حصة توليد موقع أو سعرها الحالي من المحفظة. يمكنك أيضًا كتابة الترجمة يدويًا بلا طلب توليد.</p><button id="intlGenerate">توليد مسودة ترجمة مدفوعة</button>
-<label>حقول الترجمة JSON، حافظ على أسماء المفاتيح والأرقام<textarea id="intlFields" rows="15" dir="ltr" style="width:100%"></textarea></label>
-<label><input type="checkbox" id="intlReviewed"> راجعت الترجمة كاملة وأؤكد أنها تعكس الحقائق والأسعار والخدمات الأصلية دون إضافات</label><button id="intlDraft">حفظ مسودة</button><button id="intlPublish">اعتماد ونشر اللغة</button><pre id="intlVersions" style="white-space:pre-wrap"></pre>
-<h3>Search Console: السماح بإرسال خريطة الموقع</h3><p>اختياري: الربط المعتاد للقراءة فقط. إعادة الربط هنا تطلب webmasters من Google للسماح بإرسال الخرائط. اختر الموقع المؤكد نفسه بعد موافقة Google. لا يتم اعتبار إرسال الخريطة ضمانًا للفهرسة.</p>
-<label>الموقع <select id="intlSite"></select></label><form id="intlReconnect" method="post"><input type="hidden" name="csrf_token" id="intlCsrf"><input type="hidden" name="return_to" value="/international-seo"><label><input type="checkbox" name="allow_sitemap_submit" value="1" required> Allow sitemap submit — أوافق على إعادة الربط بصلاحية إرسال الخرائط</label><button>إعادة الربط الاختياري مع Google</button></form>
-<label>خريطة HTTPS على دومين موقعك <input id="intlSitemap" type="url" style="width:100%"></label><button id="intlSubmit">إرسال الخريطة بعد الموافقة</button><button id="intlSitemapLoad">عرض نتيجة الإرسال والأخطاء</button><button id="intlDisable">إيقاف الإرسال التلقائي</button><pre id="intlSitemapResult" style="white-space:pre-wrap"></pre><p id="intlStatus" role="status"></p></section>
-<script defer src="/assets/js/international-seo.js"></script>
-HTML;
+        // الواجهة كلها بتترسم من international-seo.js بلغة العميل؛ هنا الحاويات بس
+        $css=htmlspecialchars(asset_v('/assets/css/international-seo.css'),ENT_QUOTES,'UTF-8');$js=htmlspecialchars(asset_v('/assets/js/international-seo.js'),ENT_QUOTES,'UTF-8');
+        $csrf=htmlspecialchars(Csrf::token(),ENT_QUOTES,'UTF-8');
+        $body='<link rel="stylesheet" href="'.$css.'"><section id="internationalSeo" data-csrf="'.$csrf.'" aria-live="polite"></section><script defer src="'.$js.'"></script>';
         echo $this->renderPanelPage('seo_expert',current_lang()==='ar'?'اللغات والفهرسة':'Languages and indexing','ترجمات معتمدة وفهرسة على دومين العميل',$body);exit;
     }
     private function action(string $op): array {
