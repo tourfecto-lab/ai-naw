@@ -758,6 +758,15 @@ class WhatsAppCloudController extends Controller
         }
         $row = $this->db->query("SELECT * FROM platform_connections WHERE website_id = ? AND platform = 'whatsapp_cloud' AND status = 'connected' ORDER BY id DESC LIMIT 1", [$wid])[0] ?? null;
         if (!$row) {
+            $any = $this->db->query("SELECT status FROM platform_connections WHERE website_id = ? AND platform = 'whatsapp_cloud' ORDER BY id DESC LIMIT 1", [$wid])[0] ?? null;
+            if (self::shouldAskMetaToRetry($any['status'] ?? null)) {
+                // The connection exists but is broken for now (expired token, error): ask Meta to redeliver
+                // instead of acknowledging a message that nobody will store.
+                if (!headers_sent()) {
+                    header('Retry-After: 300');
+                }
+                return $this->error('WhatsApp connection is temporarily unavailable', 503);
+            }
             return $this->success([], 'not connected');
         }
         $raw = (string) file_get_contents('php://input');
@@ -768,6 +777,15 @@ class WhatsAppCloudController extends Controller
         $payload = json_decode($raw, true);
         if (!is_array($payload)) return $this->error('Invalid JSON', 400);
         return $this->respondThenProcess($this->success(self::processPayload($wid, (int) $row['user_id'], (string) $row['external_account_id'], $payload, (int) $row['id'])));
+    }
+
+    /**
+     * No connection row at all, or one the owner disconnected on purpose, is final (answer 200 so Meta never keeps
+     * retrying and never disables the subscription). Any other non-connected status is treated as temporary.
+     */
+    private static function shouldAskMetaToRetry(?string $status): bool
+    {
+        return $status !== null && $status !== '' && !in_array($status, ['connected', 'disconnected'], true);
     }
 
     /**
