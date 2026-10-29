@@ -3894,6 +3894,7 @@ HTML;
             $this->tr('admin.nav.general') => [
                 'overview' => [$this->tr('admin.nav.overview'), 'bar-chart-2', '/admin'],
                 'platform' => [$this->tr('admin.nav.platform_overview'), 'compass', '/admin/platform'],
+                'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
                 'metrics' => ['أرقام SaaS', 'trending-up', '/admin/metrics'],
                 'health' => ['صحة المنصة', 'activity', '/admin/health'],
                 'alerts' => ['التنبيهات', 'bell', '/admin/alerts'],
@@ -3931,7 +3932,6 @@ HTML;
                 'ai-usage' => [$this->tr('admin.nav.ai_usage'), 'brain', '/admin/ai-usage'],
                 'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
                 'ai-service-routing' => ['توزيع خدمات AI', 'settings', '/admin/ai-routing'],
-                'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
                 'creative-studio-ops' => ['استوديو الوسائط', 'image', '/admin/creative-studio'],
                 'team' => [$this->tr('admin.nav.team'), 'key', '/admin/team'],
                 'settings' => [$this->tr('admin.nav.settings'), 'settings', '/admin/settings'],

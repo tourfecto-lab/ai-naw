@@ -24,7 +24,7 @@ class BrainAdminController extends Controller
         if (!$this->allowed()) return $this->error('غير مصرح', 403);
         $js = htmlspecialchars(asset_v('/assets/js/admin-brain.js'), ENT_QUOTES, 'UTF-8');
         $css = htmlspecialchars(asset_v('/assets/css/brain.css'), ENT_QUOTES, 'UTF-8');
-        $body = '<link rel="stylesheet" href="' . $css . '"><section id="adminBrain" data-csrf="' . htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8') . '"></section><script defer src="' . $js . '"></script>';
+        $body = '<link rel="stylesheet" href="' . $css . '"><section id="adminBrain" dir="rtl" lang="ar" data-no-translate data-csrf="' . htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8') . '"></section><script defer src="' . $js . '"></script>';
         echo $this->renderPanelPage('admin-brain', 'العقل الاستراتيجي — الإدارة', 'الحالة، والمصادر، والإعدادات، وحدود الذكاء الاصطناعي', $body);
         exit;
     }
