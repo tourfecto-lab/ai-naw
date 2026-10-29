@@ -453,6 +453,60 @@
     }
     new MutationObserver(enhanceBubbles).observe(thread, { childList: true });
 
+    /* ---------- WhatsApp composer: [+] [ emoji | message | mic ] [attach] [send]; everything else lives in the + tray ---------- */
+    (function composerShell() {
+        var sendB = $('sendManualBtn'), attachB = $('attachBtn');
+        var rows = [].slice.call(replyCard.children);
+        var oldRow = rows.filter(function (n) { return n.contains(sendB); })[0];
+        if (!sendB || !oldRow) return;
+        var bar = el('div', 'wa-bar');
+        var plus = el('button', 'wa-plus', '+');
+        plus.type = 'button'; plus.title = 'More'; plus.setAttribute('aria-label', 'More actions'); plus.setAttribute('aria-expanded', 'false');
+        var tray = el('div', 'wa-tray');
+        tray.hidden = true;
+        // the quote / payment-link buttons from the old card header, and the secondary buttons from the old button row
+        var head = replyCard.querySelector('.p-card-head');
+        if (head) { [].slice.call(head.querySelectorAll('button,a')).forEach(function (b) { tray.appendChild(b); }); head.classList.add('wa-gone'); }
+        ['templateBtn', 'catalogBtn', 'interactiveBtn', 'suggestBtn'].forEach(function (id) { var b = $(id); if (b) tray.appendChild(b); });
+        var leads = oldRow.querySelector('a.p-btn');
+        if (leads) tray.appendChild(leads);
+        bar.appendChild(plus);
+        bar.appendChild(formGroup);
+        if (attachB) bar.appendChild(attachB);
+        bar.appendChild(sendB);
+        replyCard.insertBefore(bar, oldRow);
+        replyCard.insertBefore(tray, oldRow);
+        oldRow.classList.add('wa-gone');
+        plus.addEventListener('click', function (e) {
+            e.stopPropagation();
+            tray.hidden = !tray.hidden;
+            plus.setAttribute('aria-expanded', String(!tray.hidden));
+            plus.classList.toggle('on', !tray.hidden);
+        });
+        tray.addEventListener('click', function (e) { if (e.target.closest('button,a')) { tray.hidden = true; plus.classList.remove('on'); plus.setAttribute('aria-expanded', 'false'); } });
+        document.addEventListener('click', function (e) { if (!tray.hidden && !tray.contains(e.target) && e.target !== plus) { tray.hidden = true; plus.classList.remove('on'); } });
+        document.body.classList.add('wa-composer');
+    })();
+
+    /* ---------- chat top bar: back arrow, avatar, name (phone); tap for the rest ---------- */
+    (function headerShell() {
+        var back = panel.querySelector('.wa-back');
+        if (back) back.setAttribute('aria-label', 'Back to the conversations');
+        var h = $('convHeader');
+        if (!h) return;
+        function paint() {
+            var first = h.querySelector('.p-card-head');
+            if (!first || first.querySelector('.wa-hav')) return;
+            var name = (first.querySelector('h3') ? first.querySelector('h3').firstChild : null);
+            var label = name && name.textContent ? name.textContent.trim() : '?';
+            var av = el('span', 'wa-hav', (label.charAt(0) || '?').toUpperCase());
+            av.setAttribute('aria-hidden', 'true');
+            first.insertBefore(av, first.firstChild);
+        }
+        new MutationObserver(paint).observe(h, { childList: true });
+        paint();
+    })();
+
     /* ---------- keyboard shortcuts ---------- */
     document.addEventListener('keydown', function (e) {
         var tag = (e.target && e.target.tagName) || '';

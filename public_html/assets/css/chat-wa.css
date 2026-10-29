@@ -229,3 +229,43 @@ html:not([data-theme="dark"]) .wa-opts span{background:rgba(0,0,0,.05);color:#00
   html body.wa-app #ucReplyCard>div:last-child .p-btn{white-space:nowrap}
   html body.wa-app #ucReplyCard #manualMessage{height:46px;overflow-y:auto}
 }
+
+/* ============================================================
+   WhatsApp chat screen: top bar and one-row composer (chat-wa.js builds .wa-bar / .wa-tray / .wa-hav)
+   ============================================================ */
+.wa-gone{display:none!important}
+/* top bar: avatar + name, controls only when the header is opened */
+html body.wa-app #convHeader>.p-card-head{display:flex;align-items:center;gap:10px;margin:0;padding:0;border:0;background:transparent}
+html body.wa-app #convHeader>.p-card-head h3{margin:0;font-size:16px;font-weight:600;color:var(--wa-text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+html body.wa-app #convHeader>.p-card-head h3 .pill{font-size:11px;padding:1px 8px}
+html body.wa-app #convHeader>.p-card-head .p-card-sub{margin-inline-start:auto;font-size:12.5px;color:var(--wa-sub);padding-inline-end:70px}
+.wa-hav{flex:0 0 auto;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#00a884;color:#fff;font-weight:600;font-size:17px}
+html body.wa-app #convHeader:not(.wa-head-open)>*:not(.p-card-head){display:none!important}
+html body.wa-app #convHeader.wa-head-open>.ai-conv-head{margin-top:10px}
+
+/* composer */
+.wa-bar{display:flex;align-items:flex-end;gap:6px}
+.wa-bar .form-group{flex:1 1 auto;min-width:0;margin:0!important}
+.wa-bar #manualMessage{border-radius:22px!important}
+.wa-plus{flex:0 0 auto;width:42px;height:42px;border:0;border-radius:50%;background:transparent;color:var(--wa-sub);font-size:28px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.wa-plus:hover{background:var(--wa-active)}
+.wa-plus.on{transform:rotate(45deg);color:var(--wa-green-2)}
+.wa-bar #attachBtn,.wa-bar #sendManualBtn{flex:0 0 auto}
+.wa-tray{display:flex;flex-wrap:wrap;gap:8px;padding:10px 4px 4px}
+.wa-tray[hidden]{display:none!important}
+html body #ucReplyCard .wa-tray .p-btn,html body #ucReplyCard .wa-tray #templateBtn,html body #ucReplyCard .wa-tray #catalogBtn,html body #ucReplyCard .wa-tray #interactiveBtn{width:auto;height:auto;min-height:40px;border-radius:12px;padding:8px 14px;font-size:14px;background:var(--wa-panel);border:1px solid var(--wa-line);color:var(--wa-text);justify-content:flex-start}
+html body #ucReplyCard .wa-tray .wa-lbl{display:inline!important}
+html body #ucReplyCard .wa-tray .p-btn:hover{background:var(--wa-active)}
+/* the 24h notice becomes a slim line */
+#ucReplyCard .wa-window{margin:0 0 6px;padding:4px 10px;font-size:12px;border-radius:8px}
+
+/* phone: the back button is the arrow inside the top bar */
+@media (max-width:960px){
+  html body.wa-in-chat .wa-back{position:absolute;top:10px;inset-inline-start:6px;z-index:30;width:40px;height:40px;padding:0;border:0;background:transparent;font-size:0;display:flex;align-items:center;justify-content:center}
+  html body.wa-in-chat .wa-back::before{content:"←";font-size:24px;color:var(--wa-text)}
+  html body.wa-in-chat #convHeader{padding-inline-start:52px!important;padding-inline-end:46px;max-height:64px}
+  html body.wa-in-chat #convHeader::after{inset-inline-end:14px;top:20px}
+  html body.wa-in-chat #convHeader.wa-head-open{max-height:none}
+  html body.wa-in-chat .wa-find-btn{top:14px;inset-inline-end:44px}
+  html body.wa-in-chat #ucReplyCard{padding:6px 8px calc(8px + env(safe-area-inset-bottom))}
+}
