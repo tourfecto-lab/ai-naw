@@ -32,10 +32,13 @@ class AdBudgetCurrency
         return $converted >= 100 ? round($converted / 5) * 5 : round($converted, 2);
     }
 
-    /** أقل ميزانية يومية منطقية (~1$) بعملة الحساب - تحت كده المنصات بترفض أو متوصلش لحد */
+    /**
+     * أقل ميزانية يومية بعملة الحساب. 1.5$ مش 1$: Meta رفضت 50 جنيه فعليًا (الحد عندها كان 53.75 جنيه) والحد بيتغيّر
+     * مع سعر الصرف وهدف الإعلان، فهامش 50% بيمنع الرفض بعد ما الحملة تتعمل على Meta من غير مجموعة إعلانات.
+     */
     public static function minimumDaily(string $currency): float
     {
-        return self::convert(1.0, 'USD', $currency) ?? 1.0;
+        return self::convert(1.5, 'USD', $currency) ?? 1.5;
     }
 
     /** عدد الوحدات مقابل 1 دولار (السعر الأساسي بدون هامش الدفع) */

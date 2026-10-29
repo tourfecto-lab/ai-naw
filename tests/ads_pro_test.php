@@ -43,7 +43,7 @@ check('10 USD => 500 EGP (سعر احتياطي 50)', AdBudgetCurrency::convert(
 check('نفس العملة من غير تحويل', AdBudgetCurrency::convert(12.5, 'EGP', 'egp') === 12.5);
 check('عملة مش معروفة => null', AdBudgetCurrency::convert(10, 'USD', 'XYZ') === null);
 check('500 EGP => 10 USD', AdBudgetCurrency::convert(500, 'EGP', 'USD') === 10.0);
-check('أقل ميزانية بالجنيه ~ 50', AdBudgetCurrency::minimumDaily('EGP') === 50.0);
+check('أقل ميزانية بالجنيه ~ 75 (Meta رفضت 50 فعليًا)', AdBudgetCurrency::minimumDaily('EGP') === 75.0);
 
 // ============ 3) تحويلات Meta من غير عدّ مزدوج ============
 $actions = [
