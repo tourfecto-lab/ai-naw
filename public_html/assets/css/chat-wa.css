@@ -81,3 +81,13 @@ html body.wa-app .ai-chat-avatar.website_chat,html body.wa-app .ai-chat-avatar.w
   html body.wa-in-chat #ucBody>div:last-child{height:100dvh}
   html body.wa-in-chat #convThread{padding:14px 10px}
 }
+
+/* fixes from the first mobile pass */
+html body.wa-app #ucBody>*,html body.wa-app .ai-chat-list-card{min-width:0;max-width:100%}
+html body.wa-app .ai-chat-split .ai-chat-item .ub{position:absolute;inset-inline-end:16px;bottom:14px;display:inline-flex;width:auto}
+html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
+@media (max-width:960px){
+  html body.wa-app .tf-sec-tabs{flex-wrap:nowrap!important;overflow-x:auto}
+  html body.wa-app .ai-chat-list-card .p-toolbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  html body.wa-app .ai-chat-list-card .p-toolbar #ucSearch{flex:0 0 100%}
+}
