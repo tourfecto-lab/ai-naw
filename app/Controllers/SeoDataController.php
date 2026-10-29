@@ -162,9 +162,9 @@ class SeoDataController extends Controller
         if (!$this->isAuthenticated()) return $this->error('يجب تسجيل الدخول',401);
         $admin=str_starts_with((string)($_SERVER['REQUEST_URI']??''),'/admin/');
         $body=<<<'HTML'
+<style>.seo-kw-add{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0}.seo-kw-add label{flex:1 1 260px;display:grid;gap:4px}.seo-kw-actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 22px}.seo-kw-num{font-variant-numeric:tabular-nums;white-space:nowrap}.seo-kw-muted{color:var(--panel-text-muted,#6b7280)}.seo-kw-up{color:var(--panel-success,#16a34a);font-weight:700}.seo-kw-down{color:var(--panel-danger,#dc2626);font-weight:700}.seo-kw-diff{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:var(--panel-card-bg-2,#f3f4f6)}</style>
 <div class="p-card" dir="rtl">
-<h2>الكلمات المفتاحية والأسواق</h2>
-<p>الأرقام من DataForSEO حسب البلد واللغة. — معناها مش مقاس (not measured). بيانات البحث بتتخزن 30 يوم، وفحص الترتيب مرة يوميًا. البحث والفحص المدفوع بيتحسبوا من حصة الباقة وبعدها المحفظة.</p>
+<p>أرقام البحث دي من بيانات جوجل الفعلية لكل بلد ولغة. علامة — معناها إن الرقم لسه ما اتقاسش. بيانات البحث بتتحدث كل 30 يوم والترتيب بيتقاس مرة في اليوم، والقياس بيتحسب من باقتك الأول وبعدها من رصيدك.</p>
 <label>الموقع <select id="seoSite" class="form-control"></select></label>
 <label>السوق <select id="seoMarket" class="form-control"></select></label>
 <p id="seoStatus" role="status"></p>
@@ -176,16 +176,16 @@ class SeoDataController extends Controller
 </details><button class="p-btn" type="submit">إضافة السوق المختار</button><button id="seoReplaceMarket" class="p-btn" type="button">تصحيح السوق المختار إذا لم يبدأ قياسه</button><p>بلد الجمهور يختلف عن بلد نشاطك. لو باقتك تسمح بسوق واحد، يمكن تصحيح السوق الافتراضي قبل وجود قياسات أو إعدادات مرتبطة به؛ السجلات المقاسة لا نعيد تسميتها.</p></form>
 <button id="seoPrimary" class="p-btn">خلّي السوق المختار رئيسي</button><p id="seoMarketLimit"></p></details>
 <div id="seoCustomer">
-<label>كلمة تتابعها <input id="seoWord" maxlength="255"></label><button id="seoAdd" class="p-btn">إضافة للمتابعة</button>
+<div class="seo-kw-add"><label>كلمة تتابعها <input id="seoWord" class="form-control" maxlength="255" placeholder="luxor day tours"></label><button id="seoAdd" class="p-btn">إضافة للمتابعة</button></div>
 <section class="p-card"><h3>قياس الكلمات المحفوظة بميزانية واضحة</h3><p>نبدأ بما يصل إلى خمس كلمات تحتاج بيانات حديثة في السوق المختار. إذا لم تضف كلمات بعد، نبحث موقعك لدى المزود لاستخراج أول خمس كلمات حقيقية، دون اختلاق بيانات. عرض الاستخدام مجاني؛ تأكيد القياس يستهلك حصة SEO ثم المحفظة حتى السقف الذي تحدده.</p><button id="seoMeasureQuote" class="p-btn" type="button">عرض الكلمات والاستخدام قبل القياس</button><p id="seoMeasureStatus" role="status"></p><form id="seoMeasureForm" hidden><ul id="seoMeasureWords"></ul><p id="seoMeasureCost"></p><label>أقصى خصم للمحفظة بالدولار — صفر للباقة فقط<input id="seoMeasureCap" type="number" min="0" max="100" step="0.01" required></label><label><input id="seoMeasureConsent" type="checkbox">راجعت الكلمات والسوق والاستخدام وحد الخصم وأوافق على القياس</label><button class="p-btn" type="submit">بدء القياس الموافق عليه</button></form></section>
-<button id="seoResearch" class="p-btn primary">بحث كلمات الموقع — عرض الاستخدام</button>
-<button id="seoCheck" class="p-btn">ترتيب الكلمات — عرض الاستخدام</button>
-<button id="seoGap" class="p-btn">فجوة الكلمات مع المنافسين — عرض الاستخدام (حتى 50 كلمة)</button>
+<div class="seo-kw-actions"><button id="seoResearch" class="p-btn primary">لاقي كلمات لموقعك</button>
+<button id="seoCheck" class="p-btn outline">قيس ترتيبك</button>
+<button id="seoGap" class="p-btn outline">قارن بالمنافسين (حتى 50 كلمة)</button></div>
 <h3>حجم البحث الشهري والترتيب حسب السوق</h3>
-<div class="p-table-scroll"><table class="p-table"><thead><tr><th>الكلمة</th><th>حجم البحث</th><th>الصعوبة</th><th>CPC بالدولار</th><th>نية البحث</th><th>الترتيب</th><th>اتجاه 30 يوم</th><th>آخر قياس</th></tr></thead><tbody id="seoWords"></tbody></table></div>
-<h3>نتائج البحث من DataForSEO</h3><div id="seoResearchRows"></div>
+<div class="p-table-scroll"><table class="p-table"><thead><tr><th>الكلمة</th><th>حجم البحث</th><th>الصعوبة</th><th>تكلفة النقرة</th><th>الباحث عايز إيه</th><th>الترتيب</th><th>اتجاه 30 يوم</th><th>آخر قياس</th></tr></thead><tbody id="seoWords"></tbody></table></div>
+<h3>كلمات لقيناها لموقعك</h3><div id="seoResearchRows"></div>
 <h3>فجوة الكلمات مع المنافسين</h3><p>بنقارن السوق الرئيسي بس. الفجوة محتاجة ترتيب منافس من 1 لـ10، وحجم بحث حقيقي، وقياس حديث لموقعك خارج أول 20.</p>
-<div class="p-table-scroll"><table class="p-table"><thead><tr><th>الكلمة</th><th>المنافس</th><th>حجم البحث</th><th>ترتيب المنافس</th><th>ترتيبك</th><th>المصدر والتاريخ</th></tr></thead><tbody id="seoGaps"></tbody></table></div>
+<div class="p-table-scroll"><table class="p-table"><thead><tr><th>الكلمة</th><th>المنافس</th><th>حجم البحث</th><th>ترتيب المنافس</th><th>ترتيبك</th><th>تاريخ القياس</th></tr></thead><tbody id="seoGaps"></tbody></table></div>
 </div></div>
 HTML;
         $script=($admin?'const seoAdmin=true;':'const seoAdmin=false;').<<<'JS'
@@ -197,6 +197,13 @@ let wid=0,mid=0,marketRequest=0,wordRequest=0,measurementQuote=null;
 function clearMeasure(){measurementQuote=null;el('seoMeasureForm').hidden=true;el('seoMeasureConsent').checked=false;el('seoMeasureStatus').textContent='';}
 const measureReason=reason=>({'seo_wallet_limit_reached':'وصلنا لحد المحفظة الموافق عليه','seo_auto_wallet_limit_reached':'حد بيانات SEO الدورية لا يسمح بخصم إضافي','seo_monthly_budget_reached':'ميزانية مزود البحث تحتاج مراجعة الدعم','seo_quota_and_wallet_exhausted':'حصة SEO والرصيد المتاح لا يكفيان','seo_wallet_price_unavailable':'تسعير وحدة SEO يحتاج مراجعة الدعم','not_measured':'مزود البحث غير متاح','rank_check_busy':'فحص ترتيب للموقع يعمل بالفعل','research_busy':'بحث لهذه العينة يعمل بالفعل'})[reason]||'تعذر استكمال رد المزود؛ راجع البيانات المحفوظة قبل تكرار الطلب';
 const metric=v=>v===null||v===undefined?'—':esc(String(v));
+// تنسيق الأرقام للعميل بدل القيم الخام (5.7600 و2026-10-19 10:07:30)
+const none='<span class="seo-kw-muted">—</span>',num=v=>v===null||v===undefined||v===''?none:`<span class="seo-kw-num">${Number(v).toLocaleString('en-US')}</span>`;
+const money=v=>v===null||v===undefined||v===''?none:`<span class="seo-kw-num">$${Number(v).toFixed(2)}</span>`;
+const level=v=>{if(v===null||v===undefined||v==='')return none;const n=Math.round(Number(v));return `<span class="seo-kw-diff">${n} · ${n<30?'سهلة':n<60?'متوسطة':'صعبة'}</span>`;};
+const intent=v=>v?esc(({commercial:'مقارنة قبل الحجز',transactional:'جاهز يحجز',informational:'بيدوّر على معلومة',navigational:'بيدوّر على موقع معيّن'})[v]||v):none;
+const when=v=>{if(!v)return none;const d=new Date(String(v).replace(' ','T')+'Z');return isNaN(d)?esc(v):`<span class="seo-kw-num">${d.toLocaleDateString(document.documentElement.lang||'ar',{day:'numeric',month:'short',year:'numeric'})}</span>`;};
+const trend=v=>v===null||v===undefined||Number(v)===0?none:Number(v)>0?`<span class="seo-kw-up">▲ ${Math.abs(Number(v))}</span>`:`<span class="seo-kw-down">▼ ${Math.abs(Number(v))}</span>`;
 async function post(url,data={}){return fetchJSON(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({website_id:wid,market_id:mid,...data})});}
 function fail(r){if(!r.success){toast(r.error||'تعذر تنفيذ الطلب','error');return true;}return false;}
 async function markets(){
@@ -211,13 +218,13 @@ async function words(){
  const r=await fetchJSON('/api/seo/data/keywords?website_id='+siteId+'&market_id='+marketId);if(siteId!==wid||marketId!==mid||request!==wordRequest)return;if(fail(r))return;
  el('seoStatus').textContent=r.data.status.message||'المصدر مهيأ. الأرقام الناقصة مش مقاسة؛ حفظ الكلمات وحده لا يعني قياسها.';
  el('seoInputReview').hidden=!r.data.keywords.some(k=>k.suggested_phrase);
- el('seoWords').innerHTML=r.data.keywords.map(k=>`<tr><td>${esc(k.keyword)}${k.suggested_phrase?`<p>عبارة البحث المقترحة: <strong>${esc(k.suggested_phrase)}</strong></p><button class="p-btn" data-repair-keyword="${Number(k.id)}">راجعت العبارة — تنقية بدون قياس</button>`:''}</td><td>${metric(k.search_volume)}</td><td>${metric(k.difficulty)}</td><td>${metric(k.cpc)}</td><td>${metric(k.intent)}</td><td>${metric(k.current_position)}</td><td title="${esc(JSON.stringify(k.trend_30_days))}">${metric(k.trend)}</td><td>${metric(k.last_checked_at)}</td></tr>`).join('')||'<tr><td colspan="8">مفيش كلمات متابَعة — not measured</td></tr>';
+ el('seoWords').innerHTML=r.data.keywords.map(k=>`<tr><td>${esc(k.keyword)}${k.suggested_phrase?`<p>عبارة البحث المقترحة: <strong>${esc(k.suggested_phrase)}</strong></p><button class="p-btn" data-repair-keyword="${Number(k.id)}">راجعت العبارة — تنقية بدون قياس</button>`:''}</td><td>${num(k.search_volume)}</td><td>${level(k.difficulty)}</td><td>${money(k.cpc)}</td><td>${intent(k.intent)}</td><td>${num(k.current_position)}</td><td>${trend(k.trend)}</td><td>${when(k.last_checked_at)}</td></tr>`).join('')||'<tr><td colspan="8">لسه مفيش كلمات بتتابعها. ضيف كلمة فوق أو استخدم زرار لاقي كلمات لموقعك.</td></tr>';
  for(const button of el('seoWords').querySelectorAll('[data-repair-keyword]'))button.onclick=async()=>{
   const keyword=r.data.keywords.find(k=>Number(k.id)===Number(button.dataset.repairKeyword));
   if(!keyword||!confirm('تنقية عبارة البحث من:\n'+keyword.keyword+'\nإلى:\n'+keyword.suggested_phrase+'\nلن يبدأ بحث أو خصم رصيد.'))return;
   button.disabled=true;try{const result=await post('/api/seo/data/keywords/'+Number(keyword.id)+'/repair',{expected_keyword:keyword.keyword,reviewed:true});if(!fail(result))await words();}finally{if(button.isConnected)button.disabled=false;}
  };
- el('seoGaps').innerHTML=r.data.gaps.filter(g=>Number(g.market_id)===mid).map(g=>`<tr><td>${esc(g.keyword)}</td><td>${esc(g.competitor_domain)}</td><td>${metric(g.search_volume)}</td><td>${metric(g.position)}</td><td>${g.customer_position===null?'خارج أول 30':metric(g.customer_position)}</td><td>DataForSEO · ${esc(g.fetched_at)}</td></tr>`).join('')||'<tr><td colspan="6">لسه مفيش فجوة متحققة للسوق ده — not measured</td></tr>';
+ el('seoGaps').innerHTML=r.data.gaps.filter(g=>Number(g.market_id)===mid).map(g=>`<tr><td>${esc(g.keyword)}</td><td>${esc(g.competitor_domain)}</td><td>${num(g.search_volume)}</td><td>${num(g.position)}</td><td>${g.customer_position===null?'خارج أول 30':num(g.customer_position)}</td><td>${when(g.fetched_at)}</td></tr>`).join('')||'<tr><td colspan="6">لسه مفيش كلمات المنافسين بيظهروا فيها وأنت لأ. استخدم زرار المقارنة بالمنافسين عشان نقيسها.</td></tr>';
 }
 const marketInput=()=>({location_code:Number(el('seoLocation').value),language_code:el('seoLanguage').value.trim(),label:el('seoLabel').value.trim()});
 const marketValid=()=>{const data=marketInput();if(!data.location_code||!data.language_code||!data.label){toast('اختَر بلد الجمهور ولغته أو أكمل إعداد السوق المتقدم','error');return false;}return true;};

@@ -127,7 +127,7 @@
     function alerts() {
       const out = [], u = usage(), snap = run?.run?.snapshot || {}, failed = run?.run?.status === 'failed';
       const planCycles = Number(overview?.plan_limits?.cycles || 0);
-      if (u && u.max && u.used >= u.max && planCycles && u.max >= planCycles) out.push([t('استخدمت كل فحوصات باقتك الشهر ده (' + u.used + ' من ' + u.max + '). الطيار الآلي هيكمل أول الشهر الجاي، أو رقّي لباقة سيو فيها فحص كل أسبوع وأسواق أكتر.', 'You used all checks in your plan this month (' + u.used + ' of ' + u.max + '). Autopilot resumes next month, or upgrade to an SEO plan with weekly checks and more markets.'), t('شوف باقات السيو', 'See SEO plans'), () => { location.href = '/plans#seo'; }]);
+      if (u && u.max && u.used >= u.max && planCycles && u.max >= planCycles) out.push([t('مش عايز تستنى الشهر الجاي؟ باقات السيو الأعلى فيها فحص كل أسبوع وأسواق أكتر.', 'Don\'t want to wait until next month? Higher SEO plans include weekly checks and more markets.'), t('شوف باقات السيو', 'See SEO plans'), () => { location.href = '/plans#seo'; }]);
       else if (u && u.max && u.used >= u.max) out.push([t('وصلت لحد الفحوصات اللي اخترته (' + u.used + ' من ' + u.max + '). الطيار الآلي هيكمل أول الشهر الجاي، أو زوّد الحد من الإعدادات.', 'You reached the check limit you chose (' + u.used + ' of ' + u.max + '). Autopilot resumes next month, or raise it in settings.'), t('زوّد الحد', 'Raise limit'), () => setAdvanced(true, 'settings', false)]);
       else if (failed) out.push([t('آخر فحص ماكملش. ده مش بيتخصم منك، وتقدر تجرب تاني دلوقتي.', 'The last check did not finish. It was not charged; you can try again now.'), t('حاول تاني', 'Try again'), act(retryCycle)]);
       if (snap.tech?.sitemap_auto?.state === 'permission_required') out.push([t('اسمح للمنصة تبعت صفحاتك الجديدة لجوجل أول بأول: اربط جوجل تاني ووافق على صلاحية "خريطة الموقع".', 'Let the platform send your new pages to Google: reconnect Google and allow sitemap access.'), t('اربط جوجل', 'Reconnect Google'), () => { location.href = '/search-console/connect/' + wid() + '?return_to=%2Fseo-expert'; }]);
@@ -149,7 +149,7 @@
     function marketsCard() {
       const list = markets?.markets || [], limit = Number(markets?.limit || 0), u = usage();
       if (!list.length && !u) return '';
-      return `<section class="sg-card sg-plan"><div><h4>${t('أسواقك', 'Your markets')}</h4><p>${list.map(m => `<bdi>${esc(m.label)}</bdi>`).join(' · ') || '—'}</p>${limit > list.length ? `<a class="sg-link" href="/ai/keywords?website_id=${wid()}">+ ${t('أضف سوق', 'Add a market')} (${list.length} ${t('من', 'of')} ${limit})</a>` : `<span class="sg-muted">${t('كل الأسواق المتاحة في باقتك مستخدمة', 'All markets in your plan are in use')} (${list.length}/${limit || list.length})</span>`}</div>
+      return `<section class="sg-card sg-plan"><div><h4>${t('أسواقك', 'Your markets')}</h4>${list.length ? `<div class="sg-chips">${list.map(m => `<span dir="auto">${esc(m.label)}</span>`).join('')}</div>` : '<p>—</p>'}${limit > list.length ? `<a class="sg-link" href="/ai/keywords?website_id=${wid()}">+ ${t('أضف سوق', 'Add a market')} (${list.length} ${t('من', 'of')} ${limit})</a>` : `<span class="sg-muted">${t('كل الأسواق المتاحة في باقتك مستخدمة', 'All markets in your plan are in use')} (${list.length}/${limit || list.length})</span>`}</div>
         ${u ? `<div><h4>${t('الفحوصات الشهر ده', 'Checks this month')}</h4><div class="sg-meter" role="img" aria-label="${u.used} / ${u.max}"><span style="width:${u.max ? Math.min(100, Math.round(u.used / u.max * 100)) : 0}%"></span></div><p>${u.used} ${t('من', 'of')} ${u.max}</p></div>` : ''}</section>`;
     }
     // الرسالة بتتحفظ عشان إعادة الرسم بعد العملية ماتمسحهاش
@@ -158,6 +158,39 @@
     const message = (text, error = false) => { note = text ? { text, error } : null; showNote(); };
     const act = fn => async () => { if (busy) return; busy = true; note = null; render(); try { await fn(); } catch (e) { message(e.message, true); } finally { busy = false; render(); } };
 
+    // المطلوب من العميل: المهام اللي من نفس النوع بتتجمع في بند واحد، بشرح بسيط بلغة الواجهة وزرار للخطوة الجاية
+    // (المهام نفسها بتتكتب بلغة الموقع، فالعميل العربي على موقع إنجليزي كان بيشوف شرح تقني بالإنجليزي)
+    const TODO = {
+      keyword_conflict: { title: n => n > 1 ? t('فيه ' + n + ' كلمات بحث بتتنافس عليها أكتر من صفحة في موقعك', n + ' searches have more than one of your pages competing') : t('فيه كلمة بحث بتتنافس عليها أكتر من صفحة في موقعك', 'One search has more than one of your pages competing'), text: t('ده مش غلط في حد ذاته. افتح التفاصيل وشوف هل كل صفحة بتخدم بحث مختلف؛ لو لأ، اختار صفحة واحدة تبقى الأساسية للكلمة دي. المنصة مش بتدمج أو تمسح صفحات لوحدها.', 'This is not a problem by itself. Open the details and check whether each page serves a different search; if not, pick one main page for that search. The platform never merges or deletes pages on its own.'), go: 'plan', action: t('راجع الصفحات', 'Review pages') },
+      gsc_sitemap: { title: () => t('ابعت خريطة موقعك لجوجل', 'Submit your sitemap to Google'), text: t('عشان جوجل يلاقي صفحاتك الجديدة بسرعة. اربط جوجل تاني ووافق على صلاحية "خريطة الموقع"، والمنصة هتبعتها وتتابعها لوحدها.', 'So Google finds your new pages quickly. Reconnect Google and allow sitemap access; the platform submits and tracks it for you.'), gsc: true, action: t('اربط جوجل', 'Reconnect Google') },
+      gsc_indexing: { title: n => n > 1 ? t(n + ' صفحات لسه جوجل ما ضافهاش للبحث', n + ' pages are not on Google yet') : t('صفحة لسه جوجل ما ضافهاش للبحث', 'A page is not on Google yet'), text: t('افتح التفاصيل وشوف الصفحات، واطلب فهرستها من Google Search Console.', 'Open the details to see the pages, then request indexing in Google Search Console.'), go: 'plan', action: t('افتح التفاصيل', 'Open details') },
+      image_alt: { title: n => n > 1 ? t(n + ' صفحات فيها صور من غير وصف', n + ' pages have images without a description') : t('صفحة فيها صور من غير وصف', 'A page has images without a description'), text: t('جوجل مابيشوفش الصورة، بيقرا وصفها. اكتب جملة قصيرة توصف كل صورة (زي "رحلة نيلية في الأقصر عند الغروب").', 'Google reads an image\'s description, not the image. Add a short sentence describing each one (e.g. "Nile cruise in Luxor at sunset").'), go: 'plan', action: t('شوف الصور', 'See the images') },
+      broken_link: { title: n => n > 1 ? t(n + ' روابط مكسورة في موقعك', n + ' broken links on your site') : t('رابط مكسور في موقعك', 'A broken link on your site'), text: t('الزائر اللي بيدوس عليها بيوصل لصفحة مش موجودة. افتح التفاصيل وشوف الرابط الصح المقترح لكل واحد.', 'Visitors who click them land on a missing page. Open the details to see the suggested correct link for each.'), go: 'plan', action: t('صلّح الروابط', 'Fix the links') },
+      link_fix: { title: n => n > 1 ? t(n + ' روابط محتاجة تتحدّث', n + ' links need updating') : t('رابط محتاج يتحدّث', 'A link needs updating'), text: t('حدّث ملف الربط (نزّله تاني من الإعدادات) والمنصة هتصلح الروابط دي لوحدها، أو غيّرها بنفسك من التفاصيل.', 'Update the connector (download it again from settings) and the platform fixes these links itself, or change them yourself from the details.'), go: 'settings', action: t('افتح الإعدادات', 'Open settings') },
+    };
+    const todoGroups = list => {
+      const groups = [];
+      list.forEach(x => {
+        // مهام الخطة اللي الذكاء الاصطناعي كتبها مالهاش نوع؛ اللي بتتكلم عن خريطة الموقع ليها نفس الحل
+        const field = TODO[x.field_name] ? x.field_name : (/sitemap/i.test(String(x.title || '')) ? 'gsc_sitemap' : null);
+        const key = field || 'task:' + x.id;
+        let g = groups.find(y => y.key === key);
+        if (!g) groups.push(g = { key, def: field ? TODO[field] : null, items: [] });
+        g.items.push(x);
+      });
+      return groups;
+    };
+    const firstLine = s => String(s || '').split('\n')[0];
+    function todoItem(g) {
+      const d = g.def, n = g.items.length;
+      // اسم الكلمة أو الصفحة اللي البند بيتكلم عنها
+      const label = x => x.field_name === 'keyword_conflict' ? String(x.title || '').replace(/^[^:]*:\s*/, '') : (x.page_path || x.title);
+      const chips = d && !d.gsc && n ? `<div class="sg-chips">${g.items.slice(0, 8).map(x => `<span dir="auto">${esc(label(x))}</span>`).join('')}${n > 8 ? `<span>+${n - 8}</span>` : ''}</div>` : '';
+      const btn = d?.gsc ? `<a class="p-btn xs" href="/search-console/connect/${wid()}?return_to=%2Fseo-expert">${esc(d.action)}</a>` : `<button type="button" class="p-btn xs" data-go="${d?.go || 'plan'}">${esc(d?.action || t('افتح التفاصيل', 'Open details'))}</button>`;
+      const title = d ? d.title(n) : g.items[0].title, text = d ? d.text : firstLine(g.items[0].instructions);
+      return `<li class="sg-task"><div><b dir="auto">${esc(title)}</b>${text ? `<p dir="auto">${esc(text)}</p>` : ''}${chips}</div>${btn}</li>`;
+    }
+
     function summary() {
       if (!run) return '';
       const tasks = run.tasks || [], [text, tone] = runText(run.run?.status);
@@ -165,19 +198,18 @@
       if (tone === 'bad' && !tasks.length) return `<section class="sg-card sg-week"><div class="sg-week-head"><h3>${t('الأسبوع ده', 'This week')}</h3><span class="sg-pill bad">${esc(text)}</span></div><div class="sg-links"><button type="button" class="p-btn outline" data-go="results">${t('شوف النتايج والزيارات', 'See results and visits')}</button><a class="p-btn outline" href="/ai-visibility">${t('ظهورك في ChatGPT', 'Your visibility in ChatGPT')}</a></div></section>`;
       const auto = tasks.filter(x => ['approved', 'active', 'verified', 'publishing'].includes(x.status)).length;
       const pendingList = tasks.filter(x => x.status === 'pending'), approve = pendingList.length;
-      const mine = tasks.filter(x => x.status === 'needs_client');
+      const mine = tasks.filter(x => x.status === 'needs_client'), todo = todoGroups(mine);
       const u = usage(), paused = overview?.config?.status && overview.config.status !== 'active';
       // الفحوصات خلصت: الفحص الجاي أول الشهر الجاي مش الموعد الأسبوعي المحفوظ؛ والطيار المتوقف مالوش فحص جاي
       const next = paused ? '' : u?.exhausted ? longDate(u.resumes) : overview?.config?.next_due_at ? longDate(new Date(String(overview.config.next_due_at).replace(' ', 'T') + 'Z')) : '';
-      const short = s => { const one = String(s || '').split('\n')[0]; return one.length > 170 ? one.slice(0, 167) + '…' : one; };
       return `<section class="sg-card sg-week"><div class="sg-week-head"><h3>${t('الأسبوع ده', 'This week')}</h3><span class="sg-pill ${tone}">${esc(text)}</span></div>
         ${tone === 'busy' && !tasks.length ? `<div class="sg-progress"><span class="sg-bar"></span><p>${t('المنصة شغالة على موقعك دلوقتي. الصفحة دي بتتحدث لوحدها، ومش محتاج تفضل فاتحها.', 'The platform is working on your website now. This page updates itself; you do not need to keep it open.')}</p></div>` : `
         <div class="sg-stats"><div><b>${auto}</b><span>${t('تحسين المنصة عملته لوحدها', 'improvements done automatically')}</span></div>
         <div class="${approve ? 'warn' : ''}"><b>${approve}</b><span>${t('محتاج موافقتك (فيه معلومة عن شركتك)', 'need your approval (company facts)')}</span></div>
-        <div class="${mine.length ? 'warn' : ''}"><b>${mine.length}</b><span>${t('محتاج منك خطوة', 'need a step from you')}</span></div></div>`}
+        <div class="${todo.length ? 'warn' : ''}"><b>${todo.length}</b><span>${t('محتاج منك خطوة', 'need a step from you')}</span></div></div>`}
         ${approve ? `<div class="sg-row"><p>${t('فيه تعديلات بتذكر معلومات عن شركتك (زي سعر أو سياسة). راجعها ووافق على الصح بس.', 'Some changes mention facts about your company (like a price or policy). Review and approve only what is correct.')}</p><button type="button" class="p-btn" data-go="plan">${t('راجع ووافق', 'Review and approve')}</button></div>
         <h4>${t('مستني موافقتك', 'Waiting for your approval')}</h4><ol class="sg-todo">${pendingList.slice(0, 5).map(x => `<li><b>${esc(x.title)}</b>${x.page_path ? `<span dir="ltr">${esc(x.page_path)}</span>` : ''}</li>`).join('')}</ol>${approve > 5 ? `<button type="button" class="p-btn outline" data-go="plan">${t('عرض الكل', 'Show all')} (${approve})</button>` : ''}` : ''}
-        ${mine.length ? `<h4>${t('المطلوب منك', 'What we need from you')}</h4><ol class="sg-todo">${mine.slice(0, 5).map(x => `<li><b>${esc(x.title)}</b><span>${esc(x.field_name === 'link_fix' ? t('حدّث ملف الربط (نزّله تاني من الإعدادات) والمنصة هتصلح الروابط دي لوحدها، أو غيّرها بنفسك: ', 'Update the connector (download it again from settings) and the platform fixes these links itself, or change them yourself: ') + String(x.instructions || '').split('\n').slice(1, 3).join(' · ') : short(x.instructions))}</span></li>`).join('')}</ol>${mine.length > 5 ? `<button type="button" class="p-btn outline" data-go="plan">${t('عرض الكل', 'Show all')} (${mine.length})</button>` : ''}` : (!approve && tone !== 'busy' ? `<p class="sg-done">✓ ${t('مش مطلوب منك أي حاجة الأسبوع ده.', 'Nothing is needed from you this week.')}</p>` : '')}
+        ${todo.length ? `<h4>${t('المطلوب منك', 'What we need from you')}</h4><ol class="sg-tasks">${todo.map(todoItem).join('')}</ol>` : (!approve && tone !== 'busy' ? `<p class="sg-done">✓ ${t('مش مطلوب منك أي حاجة الأسبوع ده.', 'Nothing is needed from you this week.')}</p>` : '')}
         ${next ? `<p class="sg-muted">${t('الفحص الجاي: ', 'Next check: ')}${esc(next)}</p>` : ''}
         <div class="sg-links"><button type="button" class="p-btn outline" data-go="results">${t('شوف النتايج والزيارات', 'See results and visits')}</button><a class="p-btn outline" href="/ai-visibility">${t('ظهورك في ChatGPT', 'Your visibility in ChatGPT')}</a></div></section>`;
     }
