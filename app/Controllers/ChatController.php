@@ -795,6 +795,8 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             #ucReplyCard .p-card-head{flex-wrap:wrap;gap:6px}
             #ucReplyCard .p-card-head h3{flex:1 1 100%}
             #ucReplyCard .p-card-head .p-btn{white-space:nowrap}
+            .wa-back{display:none}
+            @media (max-width:960px){.ai-chat-split:not(.wa-chat-open)>div:last-child{display:none}.ai-chat-split.wa-chat-open .ai-chat-list-card{display:none}.wa-back{display:flex;align-items:center;gap:6px;width:100%;padding:10px 14px;background:var(--wa-header);border:0;border-bottom:1px solid var(--wa-line);color:var(--wa-accent);font:inherit;font-weight:600;cursor:pointer}.ai-chat-split.wa-chat-open #convThread{max-height:calc(100vh - 340px)!important}}
         </style>
 
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
@@ -878,6 +880,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                 </div>
 
                 <div id="ucThreadPanel" style="display:none;">
+                    <button type="button" class="wa-back" onclick="document.getElementById('ucBody').classList.remove('wa-chat-open')">&#8592; Conversations</button>
                     <div class="p-card" id="convHeader" style="margin-bottom:14px;"></div>
                     <div class="p-card" id="leadPanel" style="margin-bottom:14px;"></div>
                     <div class="p-card" id="convThread" style="max-height:calc(100vh - 420px);min-height:260px;overflow-y:auto;"></div>
@@ -1049,6 +1052,7 @@ HTML;
 
         document.getElementById('ucEmptyState').style.display = 'none';
         document.getElementById('ucThreadPanel').style.display = 'block';
+        if (silent !== true) document.getElementById('ucBody').classList.add('wa-chat-open');
         const threadEl = document.getElementById('convThread');
         const nearBottom = threadEl.scrollHeight - threadEl.scrollTop - threadEl.clientHeight < 80;
         if (silent !== true) {
@@ -1844,6 +1848,7 @@ HTML;
         currentConversation = null;
         document.getElementById('ucEmptyState').style.display = 'block';
         document.getElementById('ucThreadPanel').style.display = 'none';
+        document.getElementById('ucBody').classList.remove('wa-chat-open');
         loadList();
     });
 
