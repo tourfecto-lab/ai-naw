@@ -25,6 +25,8 @@ final class MarketIntelligenceService
     /** وجهات بتسعّر باليورو غالبًا */
     public const EUROZONE = ['IT', 'ES', 'FR', 'GR', 'PT', 'HR', 'DE', 'NL', 'AT', 'BE', 'MT', 'CY', 'IE', 'SI', 'SK', 'EE', 'LV', 'LT', 'LU', 'FI'];
     private const TIMEOUT = 8;
+    /** المصدر اللي فشل بيتعاد بعد نص ساعة، مش بعد مدته الكاملة (يوم كامل لـ ECB) */
+    public const ERROR_RETRY = 1800;
     private const GOVUK_SLUGS = ['EG' => 'egypt', 'JO' => 'jordan', 'MA' => 'morocco', 'TR' => 'turkey', 'AE' => 'united-arab-emirates', 'TN' => 'tunisia', 'GR' => 'greece',
         'IT' => 'italy', 'ES' => 'spain', 'FR' => 'france', 'PT' => 'portugal', 'HR' => 'croatia', 'DE' => 'germany', 'NL' => 'netherlands', 'AT' => 'austria', 'CZ' => 'czech-republic',
         'HU' => 'hungary', 'MT' => 'malta', 'CY' => 'cyprus', 'CH' => 'switzerland', 'IS' => 'iceland', 'NO' => 'norway', 'SA' => 'saudi-arabia', 'GE' => 'georgia', 'TZ' => 'tanzania', 'KE' => 'kenya'];
@@ -159,8 +161,8 @@ final class MarketIntelligenceService
     public function refreshOne(string $dest, array $markets): ?string
     {
         foreach (self::TTL as $src => $ttl) {
-            $at = $this->db->query('SELECT fetched_at FROM market_fetch_log WHERE source = ? LIMIT 1', [self::scope($src, $dest, $markets)])[0]['fetched_at'] ?? null;
-            if ($at && strtotime($at . ' UTC') > time() - $ttl) continue;
+            $log = $this->db->query('SELECT fetched_at, status FROM market_fetch_log WHERE source = ? LIMIT 1', [self::scope($src, $dest, $markets)])[0] ?? null;
+            if (!self::isDue($log['fetched_at'] ?? null, $log['status'] ?? null, $ttl, time())) continue;
             // مصادر مالهاش بيانات للوجهة دي (Eurostat برّة أوروبا، أو وجهة مالهاش صفحة GOV.UK) مابنطلبهاش
             if ($src === 'eurostat' && !in_array($dest, self::EUROSTAT_GEO, true)) continue;
             if ($src === 'govuk' && !isset(self::GOVUK_SLUGS[$dest])) continue;
@@ -168,6 +170,14 @@ final class MarketIntelligenceService
             return $src;
         }
         return null;
+    }
+
+    /** المصدر محتاج يتجاب تاني؟ لو آخر محاولة فشلت، بيتعاد بعد ERROR_RETRY بدل المدة الكاملة */
+    public static function isDue(?string $fetchedAt, ?string $status, int $ttl, int $now): bool
+    {
+        if (!$fetchedAt) return true;
+        $wait = $status === 'error' ? min($ttl, self::ERROR_RETRY) : $ttl;
+        return strtotime($fetchedAt . ' UTC') <= $now - $wait;
     }
 
     /** يجيب مصدر ويحفظه. بيرجع عدد الصفوف، أو بيرمي استثناء ويسجّله */
@@ -328,13 +338,20 @@ final class MarketIntelligenceService
     /** GET بسيط لروابط ثابتة معروفة (مش روابط من العميل) */
     public static function get(string $url): ?string
     {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_TIMEOUT => self::TIMEOUT,
-            CURLOPT_HTTPHEADER => ['Accept: application/json, text/csv'], CURLOPT_USERAGENT => 'TourfectoMarketIntelligence/1.0 (+https://tourfecto.pro)']);
-        $body = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
-        if (!is_string($body) || $code < 200 || $code >= 300) throw new RuntimeException('HTTP ' . $code . ' from ' . parse_url($url, PHP_URL_HOST));
-        return $body;
+        // الكرون مش مستني حد، فبياخد وقت أطول ومحاولة تانية للأخطاء المؤقتة (اتصال، 429، 5xx).
+        // صفحة العقل بتفضل على 8 ثواني ومحاولة واحدة عشان ماتستناش.
+        $cli = PHP_SAPI === 'cli';
+        for ($try = 1; ; $try++) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => $cli ? 10 : 4, CURLOPT_TIMEOUT => $cli ? 30 : self::TIMEOUT,
+                CURLOPT_HTTPHEADER => ['Accept: application/json, text/csv'], CURLOPT_USERAGENT => 'TourfectoMarketIntelligence/1.0 (+https://tourfecto.pro)']);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            if (is_string($body) && $code >= 200 && $code < 300) return $body;
+            if ($cli && $try < 2 && ($code === 0 || $code === 429 || $code >= 500)) { sleep(3); continue; }
+            throw new RuntimeException('HTTP ' . $code . ' from ' . parse_url($url, PHP_URL_HOST) . ($code === 0 && $curlError !== '' ? ' (' . mb_substr($curlError, 0, 120) . ')' : ''));
+        }
     }
 }

@@ -94,4 +94,14 @@ class MarketIntelligenceTest extends TestCase
         $this->assertSame(33.6, $d['priority']);
         $this->assertSame(true, str_contains(end($d['evidence'])['en'], '80% of 5 measured cases across 5 companies'));
     }
+
+    public function testFailedSourceIsRetriedAfterHalfAnHourNotItsFullTtl(): void
+    {
+        $now = strtotime('2026-10-29 15:00:00 UTC');
+        $this->assertSame(true, MarketIntelligenceService::isDue(null, null, 86400, $now));
+        $this->assertSame(false, MarketIntelligenceService::isDue('2026-10-29 14:15:00', 'ok', 86400, $now));
+        $this->assertSame(true, MarketIntelligenceService::isDue('2026-10-29 14:15:00', 'error', 86400, $now));
+        $this->assertSame(false, MarketIntelligenceService::isDue('2026-10-29 14:45:00', 'error', 86400, $now));
+        $this->assertSame(true, MarketIntelligenceService::isDue('2026-10-28 14:00:00', 'ok', 86400, $now));
+    }
 }
