@@ -327,3 +327,9 @@ html body .ai-chat-split[data-ch="instagram"] #ucReplyCard #sendManualBtn{backgr
 .ai-chat-split[data-ch="messenger"] .ai-chat-item .ub,.ai-chat-split[data-ch="instagram"] .ai-chat-item .ub{background:var(--wa-accent);color:#fff}
 .ai-chat-split[data-ch="messenger"] .wa-level i,.ai-chat-split[data-ch="instagram"] .wa-level i{background:var(--wa-accent)}
 @media (max-width:640px){.wa-ch-tabs{padding:6px 10px 0}}
+
+/* the section buttons, focus rings and chips of the whole chat page follow the channel tab too */
+html body.tab-chat.ch-messenger{--wa-green:#0084ff;--wa-green-2:#2d9cff}
+html body.tab-chat.ch-instagram{--wa-green:#c13584;--wa-green-2:#e1306c}
+html body.tab-chat.ch-messenger .p-input:focus,html body.tab-chat.ch-messenger .p-select:focus,html body.tab-chat.ch-messenger .form-control:focus{box-shadow:0 0 0 2px rgba(0,132,255,.25)}
+html body.tab-chat.ch-instagram .p-input:focus,html body.tab-chat.ch-instagram .p-select:focus,html body.tab-chat.ch-instagram .form-control:focus{box-shadow:0 0 0 2px rgba(225,48,108,.25)}
