@@ -818,7 +818,7 @@
         HIDE.forEach(function (h) {
             var el = document.querySelector(h[0]);
             if (!el || el.querySelector('.tf-fab-x')) return;
-            var x = document.createElement('span');
+            var x = document.createElement('i'); // not a span: the bubbles hide their <span> label on phones
             x.className = 'tf-fab-x';
             x.setAttribute('role', 'button');
             x.setAttribute('tabindex', '0');

@@ -922,6 +922,6 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 /* floating helpers: the small "x" that hides them, and the hidden state */
 html.tf-no-help .tf-help-fab,html.tf-no-install-fab .pwa-install-fab{display:none!important}
 .tf-help-fab,.pwa-install-fab{overflow:visible}
-.tf-fab-x{position:absolute;top:-8px;inset-inline-end:-6px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(20,24,32,.92);color:#fff;font-size:15px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.25)}
+.tf-fab-x{font-style:normal;position:absolute;top:-8px;inset-inline-end:-6px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(20,24,32,.92);color:#fff;font-size:15px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.25)}
 .tf-fab-x:hover{background:#e53935}
 #pwaInstallHdr{cursor:pointer}
