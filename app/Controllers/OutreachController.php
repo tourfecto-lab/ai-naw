@@ -36,7 +36,7 @@ class OutreachController extends Controller
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);
         $csrf=htmlspecialchars(Csrf::token(),ENT_QUOTES,'UTF-8');
         $options='';foreach($this->db->query('SELECT id,company_name,domain FROM websites WHERE user_id=? ORDER BY id',[(int)$this->user['id']]) as $site){$options.='<option value="'.(int)$site['id'].'">'.htmlspecialchars((string)($site['company_name']?:$site['domain']),ENT_QUOTES,'UTF-8').'</option>';}
-        $body='<link rel="stylesheet" href="/assets/css/service-center.css"><div id="outreachCenter" data-csrf="'.$csrf.'"><label>Website<select id="outreachSite">'.$options.'</select></label><p id="outreachStatus" role="status" aria-live="polite"></p><div id="outreachTools"></div></div><script src="/assets/js/outreach-center.js"></script>';
+        $body='<link rel="stylesheet" href="/assets/css/service-center.css"><div id="outreachCenter" data-csrf="'.$csrf.'"><label>Website<select id="outreachSite">'.$options.'</select></label><p id="outreachStatus" role="status" aria-live="polite"></p><div id="outreachTools"></div></div><script src="'.htmlspecialchars(asset_v('/assets/js/outreach-center.js'),ENT_QUOTES,'UTF-8').'"></script>';
         echo $this->renderPanelPage('outreach','Outreach and backlinks','Research prospects, review individual emails and verify acquired links',$body,'');exit;
     }
 

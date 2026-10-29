@@ -801,6 +801,11 @@ abstract class Controller
                 ['/auto-seo', $L('التنفيذ التلقائي على الموقع', 'Auto publishing to your site'), 'auto_seo'],
                 ['/seo-expert?page=execute', $L('تعديل صفحات ووردبريس', 'Edit WordPress pages'), 'seo_expert'],
             ]],
+            // البحث المحلي واللغات كانوا بيتفتحوا من غير تبويبات المركز فالعميل مكانش عارف يرجع
+            'local' => ['📍', $L('المحلي واللغات', 'Local and languages'), [
+                ['/local-seo', $L('بياناتك والخرائط', 'Listings and maps'), 'seo_expert'],
+                ['/international-seo', $L('اللغات والفهرسة', 'Languages and indexing'), 'seo_expert'],
+            ]],
             'ai' => ['✨', $L('الظهور في الذكاء الاصطناعي', 'AI visibility'), [
                 ['/ai-visibility', $L('ظهورك في الإجابات', 'Your visibility in answers'), 'ai_visibility'],
                 ['/ai-insights', $L('المصادر والانطباع', 'Sources and sentiment'), 'ai_insights'],
@@ -854,7 +859,7 @@ abstract class Controller
         $on = static fn (string $k): bool => !isset($flags[$k]) || (bool) $flags[$k];
         $site = (int) ($_GET['website_id'] ?? 0);
         $withSite = static function (string $href) use ($site): string {
-            if ($site <= 0 || !preg_match('#^/(seo-expert|ai/keywords|ai-visibility|ai-insights)#', $href)) {
+            if ($site <= 0 || !preg_match('#^/(seo-expert|ai/keywords|ai-visibility|ai-insights|local-seo)#', $href)) {
                 return $href;
             }
             return $href . (str_contains($href, '?') ? '&' : '?') . 'website_id=' . $site;

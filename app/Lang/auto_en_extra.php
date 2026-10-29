@@ -4951,4 +4951,11 @@ return [
     'لسه مفيش كفاية تقييمات مكتوبة.' => 'Not enough written reviews yet.',
     'عاجل' => 'Urgent',
     'مهم' => 'Important',
+    // صفحات السيو (مراجعة تجربة العميل)
+    'أدوات إضافية' => 'More tools',
+    'عنوان النشاط' => 'Business address',
+    'التحسين شغال من مركز السيو (الطيار الآلي)' => 'Optimization runs from the SEO hub (autopilot)',
+    'الطيار الآلي في مركز السيو متوقف' => 'SEO hub autopilot is paused',
+    'موقعك متدار من مركز السيو، ومش محتاج تربط أو تشغّل حاجة من الصفحة دي' => 'Your website is managed by the SEO hub; nothing needs to be connected or started on this page',
+    'افتح مركز السيو' => 'Open the SEO hub',
 ];

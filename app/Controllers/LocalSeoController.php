@@ -3,7 +3,8 @@ class LocalSeoController extends Controller
 {
     public function index(array $p=[]): void {
         if(!$this->isAuthenticated()){header('Location: /login');exit;}
-        $body='<section id="localSeo" dir="rtl"><h2>ظهور نشاطك وبياناته على الإنترنت</h2>
+        $ar=current_lang()==='ar';
+        $body='<section id="localSeo" dir="'.($ar?'rtl':'ltr').'"><h2>ظهور نشاطك وبياناته على الإنترنت</h2>
 <p>راجع بيانات شركتك مرة واحدة. المنصة تقارنها بالموقع والأدلة التي تختارها، وتحفظ الاختلافات للمراجعة.</p>
 <div class="local-toolbar"><label>الموقع <select id="localSite"></select></label><button id="localLoad">تحديث النتائج</button></div>
 <p id="localStatus" role="status" aria-live="polite"></p>
@@ -23,7 +24,7 @@ class LocalSeoController extends Controller
 <section class="local-step"><h3>أدوات إضافية</h3><p>بحث فجوة الروابط يستخدم مزودًا مدفوعًا عند غياب نتائج محفوظة حديثة. تشغيله اختيار مستقل.</p><button id="localLinks">بحث فجوة الروابط الحقيقي — مدفوع</button><div id="localLinkGap"></div>
 <h3>تقريرك الشهري</h3><p>افتح التقرير لمراجعة البيانات المتاحة وحالة العمل والخطوات القادمة، أو احفظه PDF من نافذة الطباعة. إرسال البريد يحتاج جدولًا مفعلًا في إعدادات تقارير SEO.</p><button id="localReport">فتح التقرير / حفظ PDF</button></section></section><script defer src="'.htmlspecialchars(asset_v('/assets/js/local-seo.js'),ENT_QUOTES,'UTF-8').'"></script>';
         $css='<link rel="stylesheet" href="'.htmlspecialchars(asset_v('/assets/css/local-seo.css'),ENT_QUOTES,'UTF-8').'">';
-        echo $this->renderPanelPage('seo_expert','Local SEO','بيانات واضحة، فحص تلقائي، ونتائج للمراجعة',$css.$body);exit;
+        echo $this->renderPanelPage('seo_expert',$ar?'البحث المحلي والخرائط':'Local search and maps','بيانات واضحة، فحص تلقائي، ونتائج للمراجعة',$css.$body);exit;
     }
     private function action(string $op): array {
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);header('Cache-Control: no-store, private');
