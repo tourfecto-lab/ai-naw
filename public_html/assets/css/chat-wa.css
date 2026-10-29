@@ -171,3 +171,13 @@ html:not([data-theme="dark"]) .wa-reply-chip b{color:#006e5a}
 .wa-react-menu{position:fixed;z-index:2100;display:flex;gap:2px;padding:6px;border-radius:999px;background:var(--wa-header,#202c33);box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .wa-react-menu button{width:36px;height:36px;border:0;border-radius:50%;background:transparent;font-size:21px;cursor:pointer;color:inherit}
 .wa-react-menu button:hover{background:rgba(134,150,160,.25)}
+
+/* phone chat screen: slim header like the WhatsApp app; tap it for the assignment/status controls and the lead card */
+@media (max-width:960px){
+  html body.wa-in-chat #convHeader{max-height:60px;overflow:hidden;cursor:pointer;position:relative}
+  html body.wa-in-chat #convHeader::after{content:"⌄";position:absolute;inset-inline-end:54px;top:14px;color:var(--wa-sub);font-size:18px}
+  html body.wa-in-chat #convHeader.wa-head-open{max-height:none;overflow:visible}
+  html body.wa-in-chat #convHeader.wa-head-open::after{content:"⌃"}
+  html body.wa-in-chat #leadPanel{display:none}
+  html body.wa-in-chat #convHeader.wa-head-open+#leadPanel{display:block}
+}

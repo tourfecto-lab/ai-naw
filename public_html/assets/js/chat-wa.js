@@ -310,6 +310,17 @@
     }).observe(thread, { childList: true });
     window.addEventListener('resize', updateDown);
 
+    /* ---------- phone: the chat header shows only the name; tap it to open the controls ---------- */
+    var head = $('convHeader');
+    if (head) {
+        head.addEventListener('click', function (e) {
+            if (!document.body.classList.contains('wa-in-chat')) return;
+            if (e.target.closest && e.target.closest('select,button,a,input,textarea')) return;
+            head.classList.toggle('wa-head-open');
+        });
+        new MutationObserver(function () { head.classList.remove('wa-head-open'); }).observe(panel, { attributes: true, attributeFilter: ['style'] });
+    }
+
     /* ---------- keyboard shortcuts ---------- */
     document.addEventListener('keydown', function (e) {
         var tag = (e.target && e.target.tagName) || '';
