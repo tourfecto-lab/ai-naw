@@ -2733,10 +2733,6 @@ JS;
         $body = <<<HTML
         {ICON_SPRITE}
         {CHAT_UI_CSS}
-        <div class="p-toolbar">
-            <a href="/chat" class="p-btn outline xs">← Inbox</a>
-            <a href="/chat/knowledge-base" class="p-btn outline xs">📚 Knowledge base</a>
-        </div>
         <div class="p-card">
             <div class="form-group">
                 <label class="form-label" for="websiteSelect">{$tSelectWebsite}</label>
