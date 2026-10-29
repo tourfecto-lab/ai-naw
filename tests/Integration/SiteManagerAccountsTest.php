@@ -32,6 +32,7 @@ final class SiteManagerAccountsTest extends TestCase
     private function cleanup(): void
     {
         $this->pdo->exec('DELETE FROM site_manager_accounts WHERE website_id IN (' . self::SITE . ',' . self::OTHER_SITE . ')');
+        $this->pdo->exec('DELETE FROM site_manager_activity WHERE website_id IN (' . self::SITE . ',' . self::OTHER_SITE . ')');
         $this->pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
         try {
             $this->pdo->exec('DELETE FROM generated_websites WHERE id IN (' . self::SITE . ',' . self::OTHER_SITE . ')');
@@ -243,5 +244,41 @@ Tea", 'price' => '1 EGP'], ['slug' => 'unknown', 'short_description' => 'x']],
             $this->assertFalse((bool) ($r['success'] ?? false), $role);
         }
         $this->assertNotSame('Hacked', $this->savedContent()['business_name'] ?? '');
+    }
+
+    public function testOwnPasswordChangeNeedsTheCurrentPasswordAndThePolicy(): void
+    {
+        $id = $this->make('self.change');
+        $this->assertFalse($this->svc->changeOwnPassword($id, self::SITE, 'wrong-current-1', 'Brand-new-pass-5')['ok']);
+        $this->assertFalse($this->svc->changeOwnPassword($id, self::SITE, 'Strong-pass-77', 'short1')['ok']);
+        $this->assertFalse($this->svc->changeOwnPassword($id, self::SITE, 'Strong-pass-77', 'Strong-pass-77')['ok'], 'must differ');
+        $this->assertFalse($this->svc->changeOwnPassword($id, self::OTHER_SITE, 'Strong-pass-77', 'Brand-new-pass-5')['ok'], 'pinned to its own site');
+        $this->assertTrue($this->svc->changeOwnPassword($id, self::SITE, 'Strong-pass-77', 'Brand-new-pass-5')['ok']);
+        $this->assertFalse($this->svc->authenticate('self.change', 'Strong-pass-77', '')['ok']);
+        $this->assertTrue($this->svc->authenticate('self.change', 'Brand-new-pass-5', '')['ok']);
+    }
+
+    public function testActivityIsLoggedAndOnlyTheOwnerCanReadIt(): void
+    {
+        $id = $this->make('logger.one');
+        $this->svc->log($id, self::SITE, 'booking_confirm', '#5');
+        $this->svc->log($id, self::SITE, 'login');
+        $rows = $this->svc->activityFor(self::OWNER, self::SITE);
+        $this->assertSame(['login', 'booking_confirm'], array_column($rows, 'action'), 'newest first');
+        $this->assertSame('logger.one', $rows[0]['username']);
+        $this->assertSame([], $this->svc->activityFor(self::OTHER_OWNER, self::SITE));
+    }
+
+    public function testLoginThroughTheControllerIsRecorded(): void
+    {
+        $this->make('ctl.login');
+        $_SESSION['csrf_token'] = 'tok-9';
+        $_POST = ['csrf_token' => 'tok-9', 'username' => 'ctl.login', 'password' => 'Strong-pass-77'];
+        $_SERVER['CONTENT_TYPE'] = 'application/x-www-form-urlencoded';
+        $r = (new SiteManagerController())->login([]);
+        $_POST = [];
+        $this->assertTrue((bool) ($r['success'] ?? false));
+        $this->assertSame(['login'], array_column($this->svc->activityFor(self::OWNER, self::SITE), 'action'));
+        unset($_SESSION['site_manager']);
     }
 }

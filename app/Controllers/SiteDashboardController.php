@@ -116,6 +116,8 @@ class SiteDashboardController extends Controller
                 <p style="margin-top:8px;font-size:13px;">كلمة السر بتظهر هنا مرة واحدة بس - انسخها وابعتها للشخص. تقدر تغيّرها أو توقف الحساب في أي وقت.</p>
             </div>
             <div id="sdTeamList" class="p-list">جاري التحميل...</div>
+            <h4 style="margin:16px 0 8px;">آخر النشاط</h4>
+            <div id="sdTeamActivity" class="p-list"></div>
         </div>
 
         <div id="sdTabAnalytics" style="display:none;">
@@ -332,7 +334,15 @@ HTML;
         crypto.getRandomValues(r);
         document.getElementById('sdTmPass').value = Array.from(r, n => a[n % a.length]).join('') + '7' + String(Math.floor(Math.random() * 9) + 1);
     };
+    const actLabel = { login: 'دخول', booking_confirm: 'تأكيد حجز', booking_cancel: 'إلغاء حجز', lead_update: 'تحديث طلب تواصل', review_update: 'مراجعة تقييم', content_save: 'تعديل محتوى الموقع', password_change: 'تغيير كلمة السر' };
+    async function sdLoadTeamActivity() {
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers/activity`);
+        const box = document.getElementById('sdTeamActivity');
+        if (!res.success || !res.data.activity.length) { box.innerHTML = '<p>لا يوجد نشاط بعد</p>'; return; }
+        box.innerHTML = res.data.activity.map(a => `<div class="p-card" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span><strong dir="ltr">\${esc(a.username || '-')}</strong> · \${esc(actLabel[a.action] || a.action)} \${esc(a.detail || '')}</span><small>\${esc(a.created_at)}</small></div>`).join('');
+    }
     async function sdLoadTeam() {
+        sdLoadTeamActivity();
         const res = await fetchJSON(`/api/site-dashboard/\${siteId}/managers`);
         const list = document.getElementById('sdTeamList');
         if (!res.success) { list.innerHTML = '<p>تعذّر التحميل</p>'; return; }
@@ -753,6 +763,19 @@ JS;
             return $this->error('غير موجود', 404);
         }
         return $this->success(['managers' => (new SiteManagerService())->listFor((int) $this->user['id'], (int) $website->getAttribute('id'))]);
+    }
+
+    /** GET /api/site-dashboard/{id}/managers/activity - آخر إجراءات مديري الموقع */
+    public function managerActivity(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        return $this->success(['activity' => (new SiteManagerService())->activityFor((int) $this->user['id'], (int) $website->getAttribute('id'))]);
     }
 
     /** POST /api/site-dashboard/{id}/managers */

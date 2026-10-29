@@ -106,6 +106,7 @@ HTML;
             session_regenerate_id(true);
         }
         $_SESSION['site_manager'] = ['id' => (int) $result['account']['id'], 'website_id' => (int) $result['account']['website_id'], 'at' => time()];
+        (new SiteManagerService())->log((int) $result['account']['id'], (int) $result['account']['website_id'], 'login');
         return $this->success(['redirect' => '/site-admin'], 'تم الدخول');
     }
 
@@ -161,7 +162,7 @@ main{padding:16px 18px;max-width:980px;margin:0 auto}
 button.act{border:0;border-radius:8px;padding:8px 14px;cursor:pointer;background:#0f172a;color:#fff;margin-inline-end:6px}button.act.out{background:#e2e8f0;color:#0f172a}
 input,select{padding:9px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px}p{margin:6px 0;color:#334155;word-break:break-word}.muted{color:#64748b;font-size:13px}
 </style></head><body>
-<header><div><h1>{$name}</h1><small>{$who} · {$roleLabel}</small></div><button id="out">خروج</button></header>
+<header><div><h1>{$name}</h1><small>{$who} · {$roleLabel}</small></div><div><button id="pw">كلمة السر</button> <button id="out">خروج</button></div></header>
 <nav id="tabs"></nav><main id="main"></main>
 <script>
 (function(){
@@ -199,6 +200,14 @@ main.querySelectorAll('select[data-id]').forEach(function(s,i){s.value=r.data.le
 async function reviews(){var r=await api('/api/site-admin/reviews');if(!r.success){main.innerHTML='<p>تعذّر التحميل</p>';return;}
 main.innerHTML=r.data.reviews.length?r.data.reviews.map(function(v){return '<div class="card"><div class="row"><b>'+esc(v.visitor_name)+' · '+'★'.repeat(Math.max(0,Math.min(5,v.rating)))+'</b><span class="badge">'+esc(ST[v.status]||v.status)+'</span></div><p>'+esc(v.comment||'')+'</p>'+(CAPS.reviews?'<button class="act" data-s="approved" data-id="'+v.id+'">اعتماد</button><button class="act out" data-s="rejected" data-id="'+v.id+'">رفض</button>':'')+'</div>';}).join(''):'<p class="muted">لا توجد تقييمات بعد</p>';
 main.querySelectorAll('button[data-s]').forEach(function(b){b.onclick=async function(){var x=await api('/api/site-admin/reviews/'+b.dataset.id,{method:'PUT',body:JSON.stringify({status:b.dataset.s})});if(!x.success)alert(x.error||'حصل خطأ');load();};});}
+document.getElementById('pw').onclick=function(){main.innerHTML='<div class="card"><b>تغيير كلمة السر</b><p class="muted">10 حروف على الأقل، فيها حروف وأرقام.</p>'
++'<label class="muted" for="pw0">كلمة السر الحالية</label><input id="pw0" type="password" autocomplete="current-password" style="width:100%" dir="ltr">'
++'<label class="muted" for="pw1">الجديدة</label><input id="pw1" type="password" autocomplete="new-password" style="width:100%" dir="ltr">'
++'<label class="muted" for="pw2">تأكيد الجديدة</label><input id="pw2" type="password" autocomplete="new-password" style="width:100%" dir="ltr">'
++'<p><button class="act" id="pws">حفظ</button> <span id="pwm" class="muted"></span></p></div>';
+document.getElementById('pws').onclick=async function(){var m=document.getElementById('pwm'),a=document.getElementById('pw0').value,b=document.getElementById('pw1').value;
+if(b!==document.getElementById('pw2').value){m.textContent='التأكيد مش مطابق';return;}
+var x=await api('/api/site-admin/password',{method:'POST',body:JSON.stringify({current_password:a,new_password:b})});m.textContent=x.success?'تم التغيير ✅':(x.error||x.message||'حصل خطأ');if(x.success){document.getElementById('pw0').value='';document.getElementById('pw1').value='';document.getElementById('pw2').value='';}};};
 document.getElementById('out').onclick=async function(){await api('/api/site-admin/logout',{method:'POST',body:'{}'});location.href='/site-admin/login';};
 tabs();load();
 })();
@@ -221,7 +230,39 @@ HTML;
 
     public function bookingAction(array $params = []): array
     {
-        return $this->allowed('bookings') ?? parent::updateBooking($this->pinned(['bookingId' => (int) ($params['bookingId'] ?? 0)]));
+        if ($e = $this->allowed('bookings')) {
+            return $e;
+        }
+        $bookingId = (int) ($params['bookingId'] ?? 0);
+        $r = parent::updateBooking($this->pinned(['bookingId' => $bookingId]));
+        $this->record($r, 'booking_' . ((string) $this->get('action') === 'cancel' ? 'cancel' : 'confirm'), '#' . $bookingId);
+        return $r;
+    }
+
+    /** يسجّل الإجراء الناجح في سجل النشاط اللي صاحب الموقع بيشوفه */
+    private function record(array $result, string $action, string $detail = ''): void
+    {
+        if ($this->account && !empty($result['success'])) {
+            (new SiteManagerService())->log((int) $this->account['id'], (int) $this->account['website_id'], $action, $detail);
+        }
+    }
+
+    /** POST /api/site-admin/password - the manager changes their own password */
+    public function passwordChange(array $params = []): array
+    {
+        if (!$this->account) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('ip', 'site_manager_password', 10, 600))) {
+            return $e;
+        }
+        $r = (new SiteManagerService())->changeOwnPassword((int) $this->account['id'], (int) $this->account['website_id'], (string) $this->get('current_password', ''), (string) $this->get('new_password', ''));
+        if (!$r['ok']) {
+            return $this->error($r['error'], 422);
+        }
+        $out = $this->success([], 'تم تغيير كلمة السر');
+        $this->record($out, 'password_change');
+        return $out;
     }
 
     public function analyticsData(array $params = []): array
@@ -348,7 +389,9 @@ HTML;
             }
         }
         $this->saveContent($site, $c);
-        return $this->success([], 'اتحفظ');
+        $out = $this->success([], 'اتحفظ');
+        $this->record($out, 'content_save');
+        return $out;
     }
 
     public function leadsList(array $params = []): array
@@ -361,7 +404,10 @@ HTML;
         if ($e = $this->allowed('leads') ?? $this->verifyCsrf()) {
             return $e;
         }
-        return parent::updateLead($this->pinned(['leadId' => (int) ($params['leadId'] ?? 0)]));
+        $leadId = (int) ($params['leadId'] ?? 0);
+        $r = parent::updateLead($this->pinned(['leadId' => $leadId]));
+        $this->record($r, 'lead_update', '#' . $leadId . ' → ' . mb_substr((string) $this->get('status'), 0, 20));
+        return $r;
     }
 
     public function reviewsList(array $params = []): array
@@ -374,6 +420,9 @@ HTML;
         if ($e = $this->allowed('reviews') ?? $this->verifyCsrf()) {
             return $e;
         }
-        return parent::updateReview($this->pinned(['reviewId' => (int) ($params['reviewId'] ?? 0)]));
+        $reviewId = (int) ($params['reviewId'] ?? 0);
+        $r = parent::updateReview($this->pinned(['reviewId' => $reviewId]));
+        $this->record($r, 'review_update', '#' . $reviewId . ' → ' . mb_substr((string) $this->get('status'), 0, 20));
+        return $r;
     }
 }

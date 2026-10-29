@@ -212,6 +212,56 @@ class SiteManagerService
         return $r[0] ?? null;
     }
 
+    /** Record something a manager did. Never throws: the action itself matters more than its log line. */
+    public function log(int $accountId, int $websiteId, string $action, string $detail = ''): void
+    {
+        try {
+            $this->db->query(
+                'INSERT INTO site_manager_activity (website_id, account_id, action, detail) VALUES (?, ?, ?, ?)',
+                [$websiteId, $accountId, mb_substr($action, 0, 40), mb_substr($detail, 0, 190)]
+            );
+            if (random_int(1, 100) === 1) {
+                $this->db->query('DELETE FROM site_manager_activity WHERE created_at < DATE_SUB(NOW(), INTERVAL 180 DAY)');
+            }
+        } catch (Throwable $e) {
+            // table not applied yet / transient error
+        }
+    }
+
+    /** @return array[] latest actions of a site (owner view) */
+    public function activityFor(int $ownerId, int $websiteId, int $limit = 30): array
+    {
+        if (!$this->ownsSite($ownerId, $websiteId)) {
+            return [];
+        }
+        return $this->db->query(
+            'SELECT a.action, a.detail, a.created_at, m.username FROM site_manager_activity a LEFT JOIN site_manager_accounts m ON m.id = a.account_id
+             WHERE a.website_id = ? ORDER BY a.id DESC LIMIT ' . max(1, min(100, $limit)),
+            [$websiteId]
+        ) ?: [];
+    }
+
+    /** The manager changes their own password; the current one must be right (and counts as a failed attempt when it is not). */
+    public function changeOwnPassword(int $accountId, int $websiteId, string $current, string $new): array
+    {
+        $row = $this->db->query('SELECT id, username, password_hash FROM site_manager_accounts WHERE id = ? AND website_id = ? AND is_active = 1 LIMIT 1', [$accountId, $websiteId])[0] ?? null;
+        if (!$row) {
+            return ['ok' => false, 'error' => 'الحساب مش موجود'];
+        }
+        if (!password_verify($current, (string) $row['password_hash'])) {
+            $this->db->query('UPDATE site_manager_accounts SET failed_attempts = failed_attempts + 1 WHERE id = ?', [$accountId]);
+            return ['ok' => false, 'error' => 'كلمة السر الحالية غلط'];
+        }
+        if ($problems = self::passwordProblems($new, (string) $row['username'])) {
+            return ['ok' => false, 'error' => $problems[0]];
+        }
+        if (hash_equals($current, $new)) {
+            return ['ok' => false, 'error' => 'اختار كلمة سر مختلفة عن الحالية'];
+        }
+        $this->db->query('UPDATE site_manager_accounts SET password_hash = ?, failed_attempts = 0 WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $accountId]);
+        return ['ok' => true];
+    }
+
     /** What each role may do inside /site-admin */
     public static function can(string $role, string $action): bool
     {
