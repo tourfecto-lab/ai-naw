@@ -327,3 +327,13 @@ html[data-theme="dark"] body.ap-theme .p-btn.primary,
 html[data-theme="dark"] body.ap-theme .p-btn:not(.primary):not(.outline):not(.danger):not(.success):not(.ghost),
 html[data-theme="dark"] body.ap-theme .seo-hub-tab.on { background: #3F4DDB; color: #fff; }
 html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #3441C2; }
+
+/* Contrast, part 3: style.css gives every h1-h6 var(--dark-gray) (#343A40), so headings outside .p-card were 1.55:1 on the
+   dark navy surface (subscription plans, add-ons...). :where() keeps specificity at a bare element selector, so any
+   component that sets its own heading colour still wins; only the unstyled headings change. */
+:where(html[data-theme="dark"] body.ap-theme) h1,
+:where(html[data-theme="dark"] body.ap-theme) h2,
+:where(html[data-theme="dark"] body.ap-theme) h3,
+:where(html[data-theme="dark"] body.ap-theme) h4,
+:where(html[data-theme="dark"] body.ap-theme) h5,
+:where(html[data-theme="dark"] body.ap-theme) h6 { color: var(--panel-text); }
