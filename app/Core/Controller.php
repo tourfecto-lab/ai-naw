@@ -705,6 +705,7 @@ abstract class Controller
                 ['/chat/knowledge-base', $L('📚 معلومات المساعد', '📚 Assistant knowledge'), 'ai_chat_knowledge'],
                 ['/chat/learning', $L('✨ تحسين الردود', '✨ Improve replies'), 'ai_chat_learning'],
                 ['/chat/analytics', $L('📊 أداء الشات', '📊 Chat performance'), 'ai_chat_analytics'],
+                ['/whatsapp-marketing', $L('📣 حملات واتساب', '📣 WhatsApp campaigns'), 'whatsapp_marketing'],
                 ['/chat/settings', $L('⚙️ الإعدادات والربط', '⚙️ Settings'), 'ai_chat_settings'],
             ],
             'results' => [
