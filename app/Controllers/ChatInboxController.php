@@ -141,12 +141,15 @@ class ChatInboxController extends Controller
         $db = Database::getInstance();
         $websiteId = (int) $website->getAttribute('id');
         // Newest 200 messages, shown oldest-first (ASC + LIMIT used to hide new messages in long conversations).
+        // ?before=<message id> returns the 200 messages before that one, so the inbox can load earlier history.
+        $before = max(0, (int) $this->get('before', 0));
         $rows = $db->query(
             "SELECT id, user_id, session_id, message_direction, message_text, ai_reply_generated, ai_confidence_score,
                     bot_status, is_auto_pilot, sent_at, created_at, platform_message_id, webhook_raw_data
-             FROM chat_messages WHERE conversation_id = ? AND website_id = ? ORDER BY id DESC LIMIT 200",
-            [$conversation->getAttribute('id'), $websiteId]
+             FROM chat_messages WHERE conversation_id = ? AND website_id = ?" . ($before > 0 ? ' AND id < ?' : '') . " ORDER BY id DESC LIMIT 200",
+            $before > 0 ? [$conversation->getAttribute('id'), $websiteId, $before] : [$conversation->getAttribute('id'), $websiteId]
         );
+        $hasMore = count($rows ?: []) >= 200;
         $rows = array_reverse($rows ?: []);
 
         $wamids = [];
@@ -214,6 +217,7 @@ class ChatInboxController extends Controller
         return $this->success([
             'conversation' => $data,
             'messages' => $rows,
+            'has_more' => $hasMore,
         ]);
     }
 

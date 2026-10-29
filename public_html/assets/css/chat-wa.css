@@ -181,3 +181,25 @@ html:not([data-theme="dark"]) .wa-reply-chip b{color:#006e5a}
   html body.wa-in-chat #leadPanel{display:none}
   html body.wa-in-chat #convHeader.wa-head-open+#leadPanel{display:block}
 }
+
+/* ---- image viewer, voice speed, link chips, "load earlier" ---- */
+.wa-lb[hidden]{display:none!important}
+.wa-lb{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92)}
+.wa-lb img{max-width:92vw;max-height:84vh;border-radius:6px;object-fit:contain}
+.wa-lb button,.wa-lb a{position:absolute;border:0;background:rgba(255,255,255,.12);color:#fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;cursor:pointer}
+.wa-lb button:hover,.wa-lb a:hover{background:rgba(255,255,255,.25)}
+.wa-lb-x{top:14px;inset-inline-end:14px}
+.wa-lb-dl{top:14px;inset-inline-end:68px}
+.wa-lb-nav{top:50%;transform:translateY(-50%);font-size:30px!important}
+.wa-lb-prev{inset-inline-start:14px}
+.wa-lb-next{inset-inline-end:14px}
+.wa-lb-count{position:absolute;top:24px;inset-inline-start:18px;color:#fff;font-size:14px;opacity:.85}
+.ai-media-img{cursor:zoom-in}
+.wa-speed{margin-inline-start:6px;border:0;border-radius:999px;padding:3px 9px;background:rgba(134,150,160,.25);color:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.wa-link{display:block;margin:6px 0 2px;padding:7px 10px;border-radius:8px;border-inline-start:4px solid var(--wa-green-2);background:rgba(11,20,26,.18);text-decoration:none;color:inherit;font-size:12.5px;overflow:hidden}
+html:not([data-theme="dark"]) .wa-link{background:rgba(11,20,26,.06)}
+.wa-link b{display:block;color:var(--wa-green-2)}
+html:not([data-theme="dark"]) .wa-link b{color:#006e5a}
+.wa-link span{display:block;color:var(--wa-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-older{display:block;margin:4px auto 10px;padding:6px 14px;border:0;border-radius:999px;background:var(--wa-pill);color:var(--wa-green-2);font:inherit;font-size:13px;box-shadow:var(--wa-shadow);cursor:pointer}
+.wa-older:disabled{opacity:.6;cursor:default}

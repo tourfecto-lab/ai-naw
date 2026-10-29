@@ -329,6 +329,85 @@
         if (b) b.classList.toggle('wa-tap');
     });
 
+    /* ---------- image viewer (gallery of the conversation's pictures) ---------- */
+    var lb = el('div', 'wa-lb');
+    lb.hidden = true;
+    var lbImg = el('img');
+    lbImg.alt = '';
+    var lbCount = el('span', 'wa-lb-count');
+    var lbClose = el('button', 'wa-lb-x', '✕'); lbClose.type = 'button'; lbClose.setAttribute('aria-label', 'Close');
+    var lbPrev = el('button', 'wa-lb-nav wa-lb-prev', '‹'); lbPrev.type = 'button'; lbPrev.setAttribute('aria-label', 'Previous picture');
+    var lbNext = el('button', 'wa-lb-nav wa-lb-next', '›'); lbNext.type = 'button'; lbNext.setAttribute('aria-label', 'Next picture');
+    var lbDl = el('a', 'wa-lb-dl', '⬇'); lbDl.setAttribute('download', ''); lbDl.setAttribute('aria-label', 'Download'); lbDl.rel = 'noopener';
+    [lbImg, lbCount, lbDl, lbClose, lbPrev, lbNext].forEach(function (n) { lb.appendChild(n); });
+    document.body.appendChild(lb);
+    var gallery = [], gi = 0;
+    function showPic(i) {
+        if (!gallery.length) return;
+        gi = (i + gallery.length) % gallery.length;
+        lbImg.src = gallery[gi].src;
+        lbDl.href = gallery[gi].src;
+        lbCount.textContent = (gi + 1) + ' / ' + gallery.length;
+        lbPrev.style.display = lbNext.style.display = gallery.length > 1 ? '' : 'none';
+    }
+    function closeLb() { lb.hidden = true; lbImg.removeAttribute('src'); }
+    thread.addEventListener('click', function (e) {
+        var img = e.target.closest && e.target.closest('img.ai-media-img');
+        if (!img || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        gallery = [].slice.call(thread.querySelectorAll('img.ai-media-img')).filter(function (i) { return i.naturalWidth > 0; });
+        var at0 = gallery.indexOf(img);
+        if (at0 < 0) return;
+        lb.hidden = false;
+        showPic(at0);
+    });
+    lbClose.addEventListener('click', closeLb);
+    lb.addEventListener('click', function (e) { if (e.target === lb) closeLb(); });
+    lbPrev.addEventListener('click', function () { showPic(gi - 1); });
+    lbNext.addEventListener('click', function () { showPic(gi + 1); });
+    document.addEventListener('keydown', function (e) {
+        if (lb.hidden) return;
+        if (e.key === 'Escape') { closeLb(); e.stopPropagation(); }
+        else if (e.key === 'ArrowLeft') showPic(gi - 1);
+        else if (e.key === 'ArrowRight') showPic(gi + 1);
+    }, true);
+
+    /* ---------- voice-note speed and link chips (added after every render) ---------- */
+    var URL_RE = /https?:\/\/[^\s<>"']+/g;
+    function enhanceBubbles() {
+        thread.querySelectorAll('audio.ai-media-audio').forEach(function (a) {
+            if (a.nextElementSibling && a.nextElementSibling.classList.contains('wa-speed')) return;
+            var b = el('button', 'wa-speed', '1×');
+            b.type = 'button'; b.title = 'Playback speed'; b.setAttribute('aria-label', 'Playback speed');
+            b.addEventListener('click', function () {
+                var next = a.playbackRate >= 2 ? 1 : (a.playbackRate >= 1.5 ? 2 : 1.5);
+                a.playbackRate = next;
+                b.textContent = (next === 1 ? '1' : String(next)) + '×';
+            });
+            a.insertAdjacentElement('afterend', b);
+        });
+        thread.querySelectorAll('.ai-bubble').forEach(function (bub) {
+            if (bub.dataset.waLinks) return;
+            bub.dataset.waLinks = '1';
+            var seen = {};
+            bub.querySelectorAll(':scope > span:not(.who):not(.ai-tag):not(.wa-react-badge)').forEach(function (sp) {
+                (sp.textContent.match(URL_RE) || []).slice(0, 2).forEach(function (raw) {
+                    var u;
+                    try { u = new URL(raw.replace(/[).,;!?]+$/, '')); } catch (e) { return; }
+                    if ((u.protocol !== 'https:' && u.protocol !== 'http:') || seen[u.href]) return;
+                    seen[u.href] = 1;
+                    var a = el('a', 'wa-link');
+                    a.href = u.href; a.target = '_blank'; a.rel = 'noopener noreferrer nofollow';
+                    a.appendChild(el('b', '', u.hostname.replace(/^www\./, '')));
+                    var path = u.pathname + u.search;
+                    a.appendChild(el('span', '', path.length > 1 ? path.slice(0, 60) : ''));
+                    bub.insertBefore(a, bub.querySelector(':scope > .bt') || null);
+                });
+            });
+        });
+    }
+    new MutationObserver(enhanceBubbles).observe(thread, { childList: true });
+
     /* ---------- keyboard shortcuts ---------- */
     document.addEventListener('keydown', function (e) {
         var tag = (e.target && e.target.tagName) || '';

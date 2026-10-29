@@ -1152,7 +1152,7 @@ HTML;
     window.selectConversation = async function (id, silent) {
         if (!websiteId) websiteId = P.getCurrentWebsiteId();
         if (!websiteId) return;
-        if (silent !== true) waClearReply();
+        if (silent !== true) { waClearReply(); waOlder = []; waOlderConv = null; }
         activeConvId = id;
         document.querySelectorAll('.ai-chat-item').forEach(el => {
             el.classList.toggle('active', el.dataset.id === String(id));
@@ -1182,6 +1182,7 @@ HTML;
         renderHeader(currentConversation);
         renderComposer(currentConversation);
         const prevScroll = threadEl.scrollTop;
+        waHasMore = !!res.data.has_more;
         renderThread(res.data.messages || []);
         if (silent === true) {
             // تحديث تلقائي: لو كنت تحت ننزل للجديد، لو بتقرا فوق نسيبك مكانك
@@ -1247,6 +1248,22 @@ HTML;
     }
 
     let sending = false;
+    window.waLoadOlder = async function () {
+        const first = threadMessages[0];
+        if (!first || !currentConversation) return;
+        const btn = document.querySelector('.wa-older');
+        if (btn) btn.disabled = true;
+        const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '?before=' + encodeURIComponent(first.id));
+        if (!res.success) { toast(res.error || 'Could not load earlier messages', 'error'); if (btn) btn.disabled = false; return; }
+        waOlder = (res.data.messages || []).concat(waOlder);
+        waOlderConv = activeConvId;
+        waHasMore = !!res.data.has_more;
+        const t = document.getElementById('convThread');
+        const prev = t.scrollHeight;
+        renderThread(waLastRaw);
+        t.scrollTop = t.scrollHeight - prev; // stay on the message you were reading
+    };
+
     // ===== Reply to a message and react (WhatsApp official API) =====
     let replyTo = null;
     function waClearReply() {
@@ -1507,7 +1524,7 @@ HTML;
         }
         return '<div class="ai-bubble ' + dir + (cls ? ' ' + cls : '') + '"' + attr + '>' + pre + inner + '<div class="bt">' + (extra || '') + '<span>' + esc(time) + '</span></div>' + post + '</div>';
     }
-    let threadMessages = [];
+    let threadMessages = [], waOlder = [], waOlderConv = null, waHasMore = false, waLastRaw = [];
     function metaOf(m, canAct, canReact) {
         return { id: m.id, quote: m.quote || null, reaction: m.our_reaction || '', canAct: !!canAct && !!m.id, canReact: !!canReact && !!m.id };
     }
@@ -1521,9 +1538,12 @@ HTML;
             return;
         }
         const isWa = currentConversation && currentConversation.channel === 'whatsapp';
+        waLastRaw = messages;
+        if (waOlder.length && waOlderConv === activeConvId) messages = waOlder.concat(messages);
         threadMessages = messages;
         let lastDay = '';
         const out = [];
+        if (waHasMore) out.push('<button type="button" class="wa-older" onclick="waLoadOlder()">Load earlier messages</button>');
         messages.forEach(m => {
             const day = dayLabel(m.created_at);
             if (day && day !== lastDay) { out.push('<div class="ai-day-sep">' + esc(day) + '</div>'); lastDay = day; }
