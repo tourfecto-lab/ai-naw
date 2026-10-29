@@ -10,10 +10,12 @@
     var siteSel = document.getElementById('woWebsiteSelect');
     if (!list) return;
 
-    var AR = false; // Customer installation instructions use English.
+    // الواجهة بلغة العميل؛ خطوات التركيب على ووردبريس بتفضل إنجليزي لأن لوحة ووردبريس نفسها إنجليزي
+    var AR = (document.documentElement.lang || '').toLowerCase().indexOf('ar') === 0;
+    var INSTALL_KEYS = ['snippet_title', 'snippet_desc', 's1', 's2', 's3', 's4', 'plugin_title', 'p1', 'p2', 'plugin_btn', 'or_snippet', 'conn_wait'];
     var D = {
         ar: {
-            auto: '⚡ نفّذ تلقائياً', undo: '↩ تراجع', auto_applied: 'اتنفّذ تلقائياً', not_wp: 'التنفيذ التلقائي بيشتغل على مواقع WordPress. باقي المواقع بتنفّذ الكود الجاهز يدوياً.',
+            auto: '⚡ نفّذ تلقائياً', undo: '↩ تراجع', auto_applied: 'اتحفظ — لسه ما اتأكدش إنه ظاهر', not_wp: 'التنفيذ التلقائي بيشتغل على مواقع WordPress. باقي المواقع بتنفّذ الكود الجاهز يدوياً.',
             bar_title: 'التنفيذ التلقائي', connected: 'متصل ✓', not_connected: 'غير متصل', connect_btn: 'تثبيت كود Tourfecto Edge', check_btn: 'تحقق من الاتصال',
             run_all: 'نفّذ كل الإصلاحات الآمنة', run_all_n: 'نفّذ الآمنة ({n})', confirm_all: 'هنجهّز قيم حقيقية من صفحتك وننفّذها. HSTS مش بيتنفّذ هنا (له تأكيد لوحده). تكمّل؟',
             preview_title: 'القيمة اللي هتتنفّذ', editable: 'تقدر تعدّلها قبل التنفيذ.', apply: 'تنفيذ', cancel: 'إلغاء', loading: 'بنجهّز القيمة من صفحتك…',
@@ -52,7 +54,7 @@
         }
     };
     var T = AR ? D.ar : D.en;
-    function t(k, v) { var s = T[k] != null ? T[k] : k; if (v) Object.keys(v).forEach(function (x) { s = s.replace('{' + x + '}', v[x]); }); return s; }
+    function t(k, v) { var src = INSTALL_KEYS.indexOf(k) !== -1 ? D.en : T, s = src[k] != null ? src[k] : (T[k] != null ? T[k] : k); if (v) Object.keys(v).forEach(function (x) { s = s.replace('{' + x + '}', v[x]); }); return s; }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
     function toast(m, type) { if (window.Panel && window.Panel.toast) window.Panel.toast(m, type); else if (type === 'error') alert(m); }
 
@@ -103,7 +105,7 @@
             actions.insertBefore(b, actions.firstChild);
             if (applied && byEdge) {
                 var template = card.querySelector('.wo-fix-code'); if (template) template.hidden = true;
-                var pill = card.querySelector('[data-fix-status]'); if (pill && !card.dataset.verificationState) { pill.className = 'pill orange'; pill.textContent = 'Saved — not verified'; }
+                var pill = card.querySelector('[data-fix-status]'); if (pill && !card.dataset.verificationState) { pill.className = 'pill orange'; pill.textContent = t('auto_applied'); }
                 if (!actions.querySelector('.af-verify')) { var verify = document.createElement('button'); verify.type='button'; verify.className='p-btn xs outline af-verify'; verify.textContent='Verify on website'; verify.onclick=function(){ verifyCard(card,verify); }; actions.appendChild(verify); }
             } else { var template = card.querySelector('.wo-fix-code'); if(template)template.hidden=false; var verify=actions.querySelector('.af-verify');if(verify)verify.remove();var report=card.querySelector('.af-report');if(report)report.remove();delete card.dataset.verificationState; }
 
@@ -120,7 +122,7 @@
             '<span class="af-pill ' + (state.connected ? 'ok' : 'warn') + '">' + esc(state.connected ? t('connected') : t('not_connected')) + '</span>' +
             '<span class="af-spacer"></span>' +
             (n ? '<button type="button" class="p-btn xs primary" id="afAll">' + esc(t('run_all_n', { n: n })) + '</button>' : '') +
-            '<button type="button" class="p-btn xs outline" id="afHistory">Execution report</button><button type="button" class="p-btn xs outline" id="afConn">' + esc(state.connected ? t('check_btn') : t('connect_btn')) + '</button></div>';
+            '<button type="button" class="p-btn xs outline" id="afHistory">' + esc(AR ? 'تقرير التنفيذ' : 'Execution report') + '</button><button type="button" class="p-btn xs outline" id="afConn">' + esc(state.connected ? t('check_btn') : t('connect_btn')) + '</button></div>';
         var all = document.getElementById('afAll'); if (all) all.onclick = runAll;
         document.getElementById('afConn').onclick = openConnect;
         document.getElementById('afHistory').onclick = openHistory;

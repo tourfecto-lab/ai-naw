@@ -88,7 +88,7 @@ class WebsiteOptimizerController extends Controller
                 <span class="p-card-sub">{$this->tr('wo.fixes.subtitle')}</span>
             </div>
             <div class="wo-fixes-grid" id="woFixesList" style="padding:6px 20px 20px;"></div>
-            <script src="/assets/js/autofix.js?v=20261012-verified-report" defer></script>
+            <script src="/assets/js/autofix.js?v=20261029-ui-language" defer></script>
         </div>
 
         <div class="p-card no-pad" style="margin-top:18px;">
