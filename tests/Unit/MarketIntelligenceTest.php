@@ -61,11 +61,12 @@ class MarketIntelligenceTest extends TestCase
     {
         $m = ['destination' => 'EG', 'lead_time_days' => 40, 'eurozone' => false,
             'travel_advice' => ['updated_at' => '2026-10-25', 'change' => 'Updated safety section', 'recent' => true],
-            'holidays' => [['country' => 'GB', 'date' => '2026-12-25', 'name' => 'Christmas Day', 'days_away' => 57], ['country' => 'GB', 'date' => '2026-11-05', 'name' => 'X', 'days_away' => 7]],
+            'holidays' => [['country' => 'GB', 'date' => '2026-12-25', 'name' => 'Christmas Day', 'days_away' => 57], ['country' => 'US', 'date' => '2026-12-25', 'name' => 'Christmas Day', 'days_away' => 57], ['country' => 'GB', 'date' => '2026-11-05', 'name' => 'X', 'days_away' => 7]],
             'fx' => ['latest' => 1.23, 'base' => 1.15, 'from' => '2026-07-30', 'to' => '2026-10-28', 'change_pct' => 7.0], 'fx_gbp' => ['change_pct' => 1.0],
             'economy' => ['DE' => ['gdp_growth' => -0.3, 'year' => '2025'], 'GB' => ['gdp_growth' => 1.1, 'year' => '2025']]];
         $keys = array_column(StrategicDecisions::marketDecisions($m), 'key');
-        $this->assertSame(['travel_advice_EG', 'holiday_GB_20261225', 'fx_eur_usd', 'economy_DE'], $keys);
+        $this->assertSame(['travel_advice_EG', 'holiday_20261225', 'fx_eur_usd', 'economy_DE'], $keys);
+        $this->assertSame(true, str_contains(StrategicDecisions::marketDecisions($m)[1]['title']['en'], 'the UK and the US'));
         $this->assertSame([], StrategicDecisions::marketDecisions(null));
 
         $eu = StrategicDecisions::marketDecisions(['destination' => 'IT', 'eurozone' => true, 'fx' => ['latest' => 1.05, 'base' => 1.12, 'from' => 'a', 'to' => 'b', 'change_pct' => -6.3],
