@@ -1152,6 +1152,7 @@ HTML;
     window.selectConversation = async function (id, silent) {
         if (!websiteId) websiteId = P.getCurrentWebsiteId();
         if (!websiteId) return;
+        if (silent !== true) waClearReply();
         activeConvId = id;
         document.querySelectorAll('.ai-chat-item').forEach(el => {
             el.classList.toggle('active', el.dataset.id === String(id));
@@ -1246,6 +1247,65 @@ HTML;
     }
 
     let sending = false;
+    // ===== Reply to a message and react (WhatsApp official API) =====
+    let replyTo = null;
+    function waClearReply() {
+        replyTo = null;
+        const chip = document.getElementById('waReplyChip');
+        if (chip) chip.remove();
+    }
+    window.waReply = function (id) {
+        const m = threadMessages.find(x => x.id === id);
+        if (!m) return;
+        waClearReply();
+        const text = (m.message_text || '').trim() || '📎';
+        replyTo = { id: id };
+        const chip = document.createElement('div');
+        chip.id = 'waReplyChip';
+        chip.className = 'wa-reply-chip';
+        const body = document.createElement('div');
+        const who = document.createElement('b');
+        who.textContent = m.message_direction === 'outgoing' ? 'You' : 'Customer';
+        const t = document.createElement('span');
+        t.textContent = text.length > 140 ? text.slice(0, 140) + '…' : text;
+        body.appendChild(who); body.appendChild(t);
+        const x = document.createElement('button');
+        x.type = 'button'; x.setAttribute('aria-label', 'Cancel reply'); x.textContent = '✕';
+        x.onclick = waClearReply;
+        chip.appendChild(body); chip.appendChild(x);
+        const card = document.getElementById('ucReplyCard');
+        card.insertBefore(chip, card.querySelector('.form-group'));
+        document.getElementById('manualMessage').focus();
+    };
+    window.waReactMenu = function (id, btn) {
+        const old = document.getElementById('waReactMenu');
+        if (old) { old.remove(); if (old.dataset.id === String(id)) return; }
+        const menu = document.createElement('div');
+        menu.id = 'waReactMenu';
+        menu.className = 'wa-react-menu';
+        menu.dataset.id = String(id);
+        ['👍', '❤️', '😂', '😮', '😢', '🙏', ''].forEach(function (em) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = em || '✕';
+            b.title = em ? 'React' : 'Remove reaction';
+            b.onclick = async function () {
+                menu.remove();
+                const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/messages/' + id + '/react', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emoji: em }),
+                });
+                if (!res.success) toast(res.error || 'The reaction was not delivered', 'error');
+                selectConversation(currentConversation.id, true);
+            };
+            menu.appendChild(b);
+        });
+        const r = btn.getBoundingClientRect();
+        menu.style.top = Math.max(8, r.top - 46) + 'px';
+        menu.style.left = Math.min(window.innerWidth - 270, Math.max(8, r.left - 100)) + 'px';
+        document.body.appendChild(menu);
+        setTimeout(function () { document.addEventListener('click', function close() { menu.remove(); document.removeEventListener('click', close); }, { once: true }); }, 0);
+    };
+
     window.sendManual = async function () {
         const msgEl = document.getElementById('manualMessage');
         const message = msgEl.value.trim();
@@ -1262,8 +1322,9 @@ HTML;
         const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + convId + '/reply', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: message }),
+            body: JSON.stringify(replyTo ? { message: message, reply_to_message_id: replyTo.id } : { message: message }),
         });
+        waClearReply();
         sending = false;
         btn.disabled = false;
         if (res.success) {
@@ -1430,9 +1491,27 @@ HTML;
         if (m.media.type === 'document' && t === (m.media.filename || '')) t = '';
         return t;
     }
-    function bubble(dir, inner, time, extra, cls) {
-        return '<div class="ai-bubble ' + dir + (cls ? ' ' + cls : '') + '">' + inner + '<div class="bt">' + (extra || '') + '<span>' + esc(time) + '</span></div></div>';
+    function bubble(dir, inner, time, extra, cls, meta) {
+        let pre = '', post = '', attr = '';
+        if (meta) {
+            attr = ' data-mid="' + meta.id + '"';
+            if (meta.quote && meta.quote.text) {
+                pre += '<div class="ai-quote" data-qid="' + meta.quote.id + '"><b>' + esc(meta.quote.who === 'you' ? 'You' : 'Customer') + '</b><span>' + esc(meta.quote.text) + '</span></div>';
+            }
+            if (meta.reaction) post += '<span class="wa-react-badge" title="Your reaction">' + esc(meta.reaction) + '</span>';
+            if (meta.canAct) {
+                pre = '<div class="wa-actions"><button type="button" class="wa-act" title="Reply" aria-label="Reply" onclick="waReply(' + meta.id + ')">&#8617;</button>'
+                    + (meta.canReact ? '<button type="button" class="wa-act" title="React" aria-label="React" onclick="waReactMenu(' + meta.id + ', this)">&#128578;</button>' : '')
+                    + '</div>' + pre;
+            }
+        }
+        return '<div class="ai-bubble ' + dir + (cls ? ' ' + cls : '') + '"' + attr + '>' + pre + inner + '<div class="bt">' + (extra || '') + '<span>' + esc(time) + '</span></div>' + post + '</div>';
     }
+    let threadMessages = [];
+    function metaOf(m, canAct, canReact) {
+        return { id: m.id, quote: m.quote || null, reaction: m.our_reaction || '', canAct: !!canAct && !!m.id, canReact: !!canReact && !!m.id };
+    }
+
 
     const RETRY_LABEL = 'Retry', AI_REPLY_LABEL = 'AI reply';
     function renderThread(messages) {
@@ -1442,6 +1521,7 @@ HTML;
             return;
         }
         const isWa = currentConversation && currentConversation.channel === 'whatsapp';
+        threadMessages = messages;
         let lastDay = '';
         const out = [];
         messages.forEach(m => {
@@ -1455,11 +1535,11 @@ HTML;
                 const who = m.template ? '📋 Template' : m.catalog ? '🛍 Catalog' : (m.by_me ? 'You' : (m.sender_name || 'Team'));
                 let extra = ticks(status, m.delivery_error);
                 if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">' + esc(RETRY_LABEL) + '</button>' + extra;
-                out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : ''));
+                out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : '', metaOf(m, isWa && !failed, false)));
                 return;
             }
             const text = bodyText(m, m.message_text || '');
-            out.push(bubble('in', media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at)));
+            out.push(bubble('in', media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), '', '', metaOf(m, isWa, isWa)));
             // The AI reply is stored on the customer's message row; show it as its own bubble.
             const reply = (m.ai_reply_generated || '').trim();
             if (!reply) return;

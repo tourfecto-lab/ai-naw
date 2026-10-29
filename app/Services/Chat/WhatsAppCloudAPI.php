@@ -226,24 +226,78 @@ class WhatsAppCloudAPI
 
     // ------------------------------------------------------------------ الإرسال
 
-    /** رسالة نصية: وجهة رقم هاتف أو BSUID محفوظ من Webhook موثوق. */
-    public function sendText(string $to, string $text): array
+    /** رسالة نصية: وجهة رقم هاتف أو BSUID محفوظ من Webhook موثوق. $replyToWamid = رسالة العميل اللي بنرد عليها (Reply). */
+    public function sendText(string $to, string $text, ?string $replyToWamid = null): array
     {
-        $to = trim($to);
-        $isBsuid = preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $to) === 1;
-        $destination = $isBsuid ? $to : self::normalizePhone($to);
-        if ($destination === '' || (!$isBsuid && preg_match('/^[1-9][0-9]{7,14}$/D', $destination) !== 1)) {
+        $body = self::textBody($to, $text, $replyToWamid);
+        if ($body === null) {
             return ['ok'=>false, 'id'=>null, 'error'=>'Invalid WhatsApp recipient', 'error_code'=>null, 'http_code'=>0, 'window'=>false];
         }
-        // For Meta Cloud API, BSUID goes in recipient, phone numbers go in to.
+        return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
+    }
+
+    /** Reaction (emoji) on a customer message. An empty emoji removes the reaction. */
+    public function sendReaction(string $to, string $wamid, string $emoji): array
+    {
+        $body = self::reactionBody($to, $wamid, $emoji);
+        if ($body === null) {
+            return ['ok'=>false, 'id'=>null, 'error'=>'Invalid WhatsApp reaction', 'error_code'=>null, 'http_code'=>0, 'window'=>false];
+        }
+        return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
+    }
+
+    /** @return array|null request body, or null when the recipient is invalid (pure: no network). */
+    public static function textBody(string $to, string $text, ?string $replyToWamid = null): ?array
+    {
+        $dest = self::destination($to);
+        if ($dest === null) return null;
+        [$destination, $isBsuid] = $dest;
         $body = [
             'messaging_product' => 'whatsapp',
             'type' => 'text',
             'text' => ['preview_url' => true, 'body' => mb_substr($text, 0, 4096)],
         ];
-        if ($isBsuid) $body['recipient'] = $destination;
-        else { $body['recipient_type'] = 'individual'; $body['to'] = $destination; }
-        return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
+        if (self::validWamid($replyToWamid)) {
+            $body['context'] = ['message_id' => $replyToWamid];
+        }
+        return $body + self::recipientFields($destination, $isBsuid);
+    }
+
+    /** @return array|null */
+    public static function reactionBody(string $to, string $wamid, string $emoji): ?array
+    {
+        $dest = self::destination($to);
+        if ($dest === null || !self::validWamid($wamid)) return null;
+        // One emoji at most (an empty string clears the reaction); anything long is rejected rather than truncated.
+        if ($emoji !== '' && (mb_strlen($emoji) > 8 || preg_match('/[\p{L}\p{N}\s<>&"\x27]/u', $emoji))) return null;
+        [$destination, $isBsuid] = $dest;
+        return ['messaging_product' => 'whatsapp', 'type' => 'reaction', 'reaction' => ['message_id' => $wamid, 'emoji' => $emoji]]
+            + self::recipientFields($destination, $isBsuid);
+    }
+
+    private static function validWamid(?string $id): bool
+    {
+        return $id !== null && preg_match('/^[A-Za-z0-9._=+\/-]{10,255}$/D', $id) === 1;
+    }
+
+    /** @return array{0:string,1:bool}|null phone (digits) or BSUID */
+    private static function destination(string $to): ?array
+    {
+        $to = trim($to);
+        $isBsuid = preg_match('/^[A-Z]{2}\.(?:ENT\.)?[A-Za-z0-9._-]{8,128}$/D', $to) === 1;
+        try {
+            $destination = $isBsuid ? $to : self::normalizePhone($to);
+        } catch (InvalidArgumentException $e) {
+            return null;
+        }
+        if ($destination === '' || (!$isBsuid && preg_match('/^[1-9][0-9]{7,14}$/D', $destination) !== 1)) return null;
+        return [$destination, $isBsuid];
+    }
+
+    /** For Meta Cloud API, a BSUID goes in "recipient" and a phone number in "to". */
+    private static function recipientFields(string $destination, bool $isBsuid): array
+    {
+        return $isBsuid ? ['recipient' => $destination] : ['recipient_type' => 'individual', 'to' => $destination];
     }
 
     /**

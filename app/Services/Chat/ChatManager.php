@@ -393,7 +393,7 @@ class ChatManager
      * @param string $channel whatsapp|website_chat|messenger|instagram|email (افتراضيًا whatsapp للتوافق مع الكود القديم)
      * @return bool
      */
-    public function sendMessageForWebsite(int $websiteId, string $recipient, string $message, string $channel = 'whatsapp'): bool
+    public function sendMessageForWebsite(int $websiteId, string $recipient, string $message, string $channel = 'whatsapp', ?string $replyToWamid = null): bool
     {
         $this->lastSendError = null;
         $this->lastSendMessageId = null;
@@ -429,7 +429,7 @@ class ChatManager
                             $this->lastSendError = 'outside_24h';
                             return false;
                         }
-                        $result=$cloud->sendText($recipient,$message);
+                        $result=$cloud->sendText($recipient,$message,$replyToWamid); // Reply context only exists on the official API
                         if (empty($result['ok'])) $this->lastSendError = !empty($result['window']) ? 'outside_24h' : 'provider_rejected';
                         else $this->lastSendMessageId = is_string($result['id'] ?? null) ? $result['id'] : null;
                         if (empty($result['ok'])) Logger::warning('Official WhatsApp send failed',['website_id'=>$websiteId,'http_code'=>(int)($result['http_code']??0),'error_code'=>$result['error_code']??null,'error_type'=>!empty($result['window'])?'outside_24h':'provider_rejected']);

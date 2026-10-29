@@ -148,3 +148,26 @@ html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
 .wa-arch-chip{display:block;width:100%;padding:12px 16px;border:0;border-bottom:1px solid var(--wa-line);background:transparent;color:var(--wa-green-2);font:inherit;font-size:14px;text-align:start;cursor:pointer}
 @media (max-width:960px){.wa-emoji-pop{grid-template-columns:repeat(7,1fr)}}
 .wa-find:not([hidden])~.wa-find-btn{display:none}
+
+/* ---- reply to a message, quoted block, reactions ---- */
+.ai-chat-split .ai-bubble .wa-actions{position:absolute;top:-14px;inset-inline-end:8px;display:none;gap:2px;padding:2px;border-radius:999px;background:var(--wa-header);box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:5}
+.ai-chat-split .ai-bubble:hover .wa-actions,.ai-chat-split .ai-bubble:focus-within .wa-actions{display:flex}
+@media (pointer:coarse){.ai-chat-split .ai-bubble .wa-actions{display:flex;top:-12px;opacity:.9}}
+.wa-act{width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--wa-text);font-size:15px;line-height:1;cursor:pointer}
+.wa-act:hover{background:var(--wa-active)}
+.ai-quote{margin:0 0 5px;padding:5px 8px;border-radius:6px;border-inline-start:4px solid var(--wa-green-2);background:rgba(11,20,26,.18);font-size:12.5px;line-height:1.35;cursor:default}
+html:not([data-theme="dark"]) .ai-quote{background:rgba(11,20,26,.06)}
+.ai-quote b{display:block;color:var(--wa-green-2);font-size:12px}
+html:not([data-theme="dark"]) .ai-quote b{color:#006e5a}
+.ai-quote span{display:block;color:var(--wa-sub);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.wa-react-badge{position:absolute;bottom:-12px;inset-inline-start:10px;padding:1px 5px;border-radius:999px;background:var(--wa-header);box-shadow:0 1px 4px rgba(0,0,0,.35);font-size:14px;line-height:1.4}
+.ai-chat-split .ai-bubble:has(.wa-react-badge){margin-bottom:12px}
+.wa-reply-chip{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 10px;border-radius:10px;border-inline-start:4px solid var(--wa-green-2);background:var(--wa-panel);color:var(--wa-text)}
+.wa-reply-chip>div{flex:1;min-width:0}
+.wa-reply-chip b{display:block;font-size:12px;color:var(--wa-green-2)}
+html:not([data-theme="dark"]) .wa-reply-chip b{color:#006e5a}
+.wa-reply-chip span{display:block;font-size:13px;color:var(--wa-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-reply-chip button{border:0;background:transparent;color:var(--wa-sub);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:8px}
+.wa-react-menu{position:fixed;z-index:2100;display:flex;gap:2px;padding:6px;border-radius:999px;background:var(--wa-header,#202c33);box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.wa-react-menu button{width:36px;height:36px;border:0;border-radius:50%;background:transparent;font-size:21px;cursor:pointer;color:inherit}
+.wa-react-menu button:hover{background:rgba(134,150,160,.25)}

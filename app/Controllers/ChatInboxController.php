@@ -165,6 +165,8 @@ class ChatInboxController extends Controller
             $m['template'] = is_array($raw) && !empty($raw['template']) ? (string) $raw['template'] : null;
             $m['catalog'] = is_array($raw) && !empty($raw['catalog']) ? (string) $raw['catalog'] : null;
             $m['reply_wamid'] = is_array($raw) && is_string($raw['reply_wamid'] ?? null) ? $raw['reply_wamid'] : null;
+            $m['quote'] = is_array($raw) && is_array($raw['quote'] ?? null) ? ['id' => (int) ($raw['quote']['id'] ?? 0), 'text' => (string) ($raw['quote']['text'] ?? ''), 'who' => (string) ($raw['quote']['who'] ?? '')] : null;
+            $m['our_reaction'] = is_array($raw) && is_string($raw['our_reaction'] ?? null) ? $raw['our_reaction'] : null;
             if ($m['message_direction'] === 'outgoing' && !empty($m['platform_message_id'])) $wamids[] = (string) $m['platform_message_id'];
             if ($m['reply_wamid'] !== null) $wamids[] = $m['reply_wamid'];
         }
@@ -244,8 +246,9 @@ class ChatInboxController extends Controller
             return $this->error('message is required', 422);
         }
 
-        [$sent, $failReason, $wamid] = $this->deliverText($website, $conversation, $message);
-        $agentMessageId = $this->insertOutgoing($website, $conversation, $message, $sent, $wamid);
+        [$replyWamid, $quote] = $this->quotedMessage($conversation, (int) $this->get('reply_to_message_id', 0));
+        [$sent, $failReason, $wamid] = $this->deliverText($website, $conversation, $message, $replyWamid);
+        $agentMessageId = $this->insertOutgoing($website, $conversation, $message, $sent, $wamid, $quote ? ['quote' => $quote] : []);
 
         // مركز الأتمتة: رد الموظف اليدوي بيبقى مثال لأسلوب الردود الآلية
         if (class_exists('AutomationEngine')) {
@@ -812,10 +815,103 @@ class ChatInboxController extends Controller
     }
 
     /**
+     * The customer message the agent is replying to (WhatsApp only): its WhatsApp id for the "context" field and a short
+     * snippet kept with our outgoing row so the bubble can show the quote.
+     * @return array{0:?string,1:?array}
+     */
+    private function quotedMessage(AiChatConversation $conversation, int $messageId): array
+    {
+        if ($messageId <= 0 || (string) $conversation->getAttribute('channel') !== 'whatsapp') {
+            return [null, null];
+        }
+        $row = Database::getInstance()->query(
+            'SELECT id, message_direction, message_text, platform_message_id FROM chat_messages WHERE id = ? AND conversation_id = ? AND website_id = ? LIMIT 1',
+            [$messageId, (int) $conversation->getAttribute('id'), (int) $conversation->getAttribute('website_id')]
+        )[0] ?? null;
+        if (!$row) {
+            return [null, null];
+        }
+        $wamid = (string) ($row['platform_message_id'] ?? '');
+        $text = trim((string) ($row['message_text'] ?? ''));
+        return [
+            $wamid !== '' ? $wamid : null,
+            ['id' => (int) $row['id'], 'text' => mb_substr($text !== '' ? $text : '📎', 0, 120), 'who' => $row['message_direction'] === 'outgoing' ? 'you' : 'customer'],
+        ];
+    }
+
+    private const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', ''];
+
+    /**
+     * Emoji reaction on a customer's WhatsApp message (official API only, inside the 24-hour window). An empty emoji removes it.
+     * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/react
+     */
+    public function react(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), (int) $website->getAttribute('id'));
+        if (!$conversation) {
+            return $this->error('Conversation not found', 404);
+        }
+        if ((string) $conversation->getAttribute('channel') !== 'whatsapp') {
+            return $this->error('Reactions are only available on WhatsApp', 422);
+        }
+        $emoji = (string) $this->get('emoji', '');
+        if (!in_array($emoji, self::REACTIONS, true)) {
+            return $this->error('Unsupported reaction', 422);
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $db = Database::getInstance();
+        $row = $db->query(
+            "SELECT id, platform_message_id, webhook_raw_data FROM chat_messages WHERE id = ? AND conversation_id = ? AND website_id = ? AND message_direction = 'incoming' LIMIT 1",
+            [(int) ($params['messageId'] ?? 0), (int) $conversation->getAttribute('id'), $websiteId]
+        )[0] ?? null;
+        if (!$row || (string) ($row['platform_message_id'] ?? '') === '') {
+            return $this->error('Message not found', 404);
+        }
+        if ((int) $this->windowSecondsLeft((int) $conversation->getAttribute('id'), $websiteId) <= 0) {
+            return $this->error('The 24-hour window is closed', 422);
+        }
+        [$to, $reason] = $this->whatsappRecipient($conversation);
+        if ($to === '') {
+            return $this->error('No recipient for this conversation', 422);
+        }
+        $api = WhatsAppCloudAPI::forWebsite($websiteId);
+        if (!$api) {
+            return $this->error('The official WhatsApp number is not connected', 422);
+        }
+        $result = $api->sendReaction($to, (string) $row['platform_message_id'], $emoji);
+        if (empty($result['ok'])) {
+            Logger::error('WhatsApp reaction failed', ['website_id' => $websiteId, 'http_code' => (int) ($result['http_code'] ?? 0), 'error_code' => $result['error_code'] ?? null]);
+            return $this->error('The reaction was not delivered', 502);
+        }
+        $raw = json_decode((string) ($row['webhook_raw_data'] ?? ''), true);
+        $raw = is_array($raw) ? $raw : [];
+        if ($emoji === '') {
+            unset($raw['our_reaction']);
+        } else {
+            $raw['our_reaction'] = $emoji;
+        }
+        $db->query('UPDATE chat_messages SET webhook_raw_data = ? WHERE id = ?', [$raw ? json_encode($raw, JSON_UNESCAPED_UNICODE) : null, (int) $row['id']]);
+        return $this->success(['emoji' => $emoji], $emoji === '' ? 'Reaction removed' : 'Reaction sent');
+    }
+
+    /**
      * Send a text on the conversation's channel.
      * @return array{0:bool,1:?string,2:?string} [sent, failure reason, WhatsApp message ID]
      */
-    private function deliverText(Website $website, AiChatConversation $conversation, string $message): array
+    private function deliverText(Website $website, AiChatConversation $conversation, string $message, ?string $replyToWamid = null): array
     {
         $websiteId = (int) $website->getAttribute('id');
         $channel = (string) $conversation->getAttribute('channel');
@@ -830,7 +926,7 @@ class ChatInboxController extends Controller
             if ((int) $this->windowSecondsLeft((int) $conversation->getAttribute('id'), $websiteId) <= 0) return [false, 'outside_24h', null];
             $api = WhatsAppCloudAPI::forWebsite($websiteId);
             if (!$api) return [false, 'not_connected', null];
-            $result = $api->sendText($bsuid, $message);
+            $result = $api->sendText($bsuid, $message, $replyToWamid);
             if (!empty($result['ok'])) return [true, null, is_string($result['id'] ?? null) ? $result['id'] : null];
             $failReason = !empty($result['window']) ? 'outside_24h' : 'provider_rejected';
             Logger::error('WhatsApp manual BSUID send failed', [
@@ -845,7 +941,7 @@ class ChatInboxController extends Controller
             return [false, 'no_recipient', null];
         }
         $chatManager = new ChatManager();
-        $sent = $chatManager->sendMessageForWebsite($websiteId, (string) $recipient, $message, $channel);
+        $sent = $chatManager->sendMessageForWebsite($websiteId, (string) $recipient, $message, $channel, $replyToWamid);
         return [$sent, $sent ? null : ($chatManager->lastSendError ?? 'send_failed'), $sent ? $chatManager->lastSendMessageId : null];
     }
 

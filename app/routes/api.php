@@ -1604,6 +1604,7 @@ $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/handoff
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/resume-ai', 'ChatInboxController', 'resumeAI', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/reply-suggestions', 'ChatInboxController', 'suggestReplies', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/retry', 'ChatInboxController', 'retry', ['AuthMiddleware']);
+$router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/react', 'ChatInboxController', 'react', ['AuthMiddleware']);
 $router->get('/api/ai-chat/websites/{id}/conversations/{conversationId}/messages/{messageId}/media', 'ChatInboxController', 'media', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/media', 'ChatInboxController', 'sendMedia', ['AuthMiddleware']);
 $router->post('/api/ai-chat/websites/{id}/conversations/{conversationId}/template', 'ChatInboxController', 'sendTemplate', ['AuthMiddleware']);
