@@ -881,9 +881,9 @@ abstract class Controller
             }
         }
         $gearOn = $active[0] === 'settings';
-        $gear = $on('seo_expert') ? '<a href="' . $esc($withSite('/seo-expert?page=settings')) . '" class="seo-hub-tab seo-hub-gear' . ($gearOn ? ' on' : '') . '" title="' . $esc($ar ? 'ربط الموقع وجوجل وبيانات الشركة' : 'Website, Google and company settings') . '"><span aria-hidden="true">⚙️</span> ' . $esc($ar ? 'الإعدادات والربط' : 'Settings') . '</a>' : '';
+        $gear = $on('seo_expert') ? '<a href="' . $esc($withSite('/seo-expert?page=settings')) . '" class="seo-hub-tab seo-hub-gear' . ($gearOn ? ' on' : '') . '" title="' . $esc($ar ? 'ربط الموقع وجوجل وبيانات الشركة' : 'Website, Google and company settings') . '"><span aria-hidden="true">⚙️</span> ' . $esc($ar ? 'الإعدادات' : 'Settings') . '</a>' : '';
         return '<style>.seo-hub{margin:0 0 18px}.seo-hub-main{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid rgba(127,127,127,.25);padding-bottom:8px}'
-            . '.seo-hub-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;font-weight:600;font-size:14px;color:inherit;text-decoration:none;opacity:.8}'
+            . '.seo-hub-tab{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border-radius:10px;font-weight:600;font-size:14px;color:inherit;text-decoration:none;opacity:.8}'
             . '.seo-hub-tab:hover{background:rgba(127,127,127,.1);opacity:1}.seo-hub-tab.on{background:var(--panel-accent,#6366f1);color:#fff;opacity:1}'
             . '.seo-hub-gear{margin-inline-start:auto}.seo-hub-sub{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}'
             . '@media(max-width:700px){.seo-hub-main{flex-wrap:nowrap;overflow-x:auto}.seo-hub-tab{white-space:nowrap}.seo-hub-gear{margin-inline-start:0}}</style>'

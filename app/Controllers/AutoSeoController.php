@@ -86,6 +86,7 @@ class AutoSeoController extends Controller
         .aseo-mode-card:hover { border-color: var(--panel-accent); }
         .aseo-mode-card.selected { border-color: var(--panel-accent); background: var(--panel-accent-light); }
         .aseo-mode-card .emoji { font-size: 18px; }
+        .aseo-mode-card .desc { font-size: 12px; color: var(--panel-text-muted); margin-top: 4px; line-height: 1.5; }
         .aseo-mode-card .name { font-size: 12px; font-weight: 800; margin-top: 2px; }
         .aseo-mode-card .badge { font-size: 9.5px; color: var(--panel-accent); font-weight: 700; }
         @media (max-width: 560px) { .aseo-mode-cards { grid-template-columns: 1fr; } }
@@ -162,15 +163,18 @@ class AutoSeoController extends Controller
                                     <div class="aseo-mode-card" data-mode="conservative">
                                         <div class="emoji">🐢</div>
                                         <div class="name">آمن وبطيء</div>
+                                        <div class="desc">الإصلاحات المهمة جدًا بس</div>
                                     </div>
                                     <div class="aseo-mode-card selected" data-mode="balanced">
                                         <div class="emoji">⚖️</div>
                                         <div class="name">متوازن</div>
+                                        <div class="desc">المهمة والمتوسطة</div>
                                         <div class="badge">موصى به</div>
                                     </div>
                                     <div class="aseo-mode-card" data-mode="aggressive">
                                         <div class="emoji">🚀</div>
                                         <div class="name">سريع وجريء</div>
+                                        <div class="desc">كل الإصلاحات حتى الصغيرة</div>
                                     </div>
                                 </div>
                             </div>

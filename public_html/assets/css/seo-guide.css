@@ -65,3 +65,13 @@
 .sg-facts { display: grid; gap: 10px; margin: 0 0 12px; }
 .sg-facts label { display: grid; gap: 4px; font-weight: 600; font-size: 14px; }
 .sg-facts textarea { width: 100%; resize: vertical; font-weight: 400; line-height: 1.7; }
+.sg-tasks { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 10px; counter-reset: sg-task; }
+.sg-task { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--panel-border, #e5e7eb); border-radius: 12px; counter-increment: sg-task; }
+.sg-task > div { flex: 1 1 280px; min-width: 0; }
+.sg-task b { display: block; font-size: 15px; line-height: 1.6; }
+.sg-task b::before { content: counter(sg-task) ". "; color: var(--panel-text-muted, #6b7280); font-weight: 600; }
+.sg-task p { margin: 4px 0 0; font-size: 14px; line-height: 1.75; }
+.sg-task .p-btn { flex: 0 0 auto; white-space: nowrap; }
+.sg-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sg-chips span { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--panel-card-bg-2, #f3f4f6); color: var(--panel-text, #111827); }
+@media (max-width: 640px) { .sg-task { flex-direction: column; } .sg-task > div { flex: 0 0 auto; width: 100%; } .sg-task .p-btn { width: 100%; text-align: center; } }
