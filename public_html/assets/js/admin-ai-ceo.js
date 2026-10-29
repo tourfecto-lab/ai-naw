@@ -10,9 +10,11 @@
     const esc = P.esc;
     let data = null, note = null, busy = false, chatBusy = false, costs = null, costsError = null;
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
-    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
+    const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['costs', 'AI Costs'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
     let sales = null, salesError = null, salesLoading = false;
+    // نمو علامة Tourfecto (المرحلة 5)
+    let brand = null, brandError = null, brandLoading = false, brandPlan = null;
     let co = null, coError = null, coFilters = { page: 1 }, coProfile = null, coDups = null, coLoading = false;
     let tab = TABS.some(t => t[0] === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -191,6 +193,65 @@
           ${owner && pl.crm_pending ? '<button type="button" class="p-btn primary xs" id="slCrm">Move to CRM</button>' : ''}<p class="br-muted">Not built yet (needs your decision): reading inbound replies by email, A/B tests of templates, a referral program and partnership discovery.</p></section>`;
     }
 
+    const SEV = { critical: '🔴', warn: '🟠', info: '⚪' };
+    const convTable = (rows, label) => rows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>${esc(label)}</th><th>Visitors</th><th>Sign-ups</th><th>Conversion</th></tr></thead><tbody>${rows.map(r => `<tr><td dir="ltr">${esc(r.key)}</td><td>${num(r.visitors)}</td><td>${num(r.signups)}</td><td>${r.conversion === null ? '—' : num(r.conversion) + '%'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="br-muted">No data in the last 30 days.</p>';
+    function planView(p, warnings) {
+      if (!p) return '';
+      const w = warnings || p._warnings || [];
+      return `${w.length ? `<p class="br-note error">Remove before publishing: ${w.map(esc).join('; ')}</p>` : ''}${p.positioning ? `<p><b>Positioning:</b> ${esc(p.positioning)}</p>` : ''}
+        ${(p.markets || []).map(m => `<details class="br-past"><summary>${esc(String(m.market || '').toUpperCase())} · ${esc(m.language || '')} · ${(m.posts || []).length} posts, ${(m.articles || []).length} articles, ${(m.videos || []).length} videos</summary>
+          <ol>${(m.posts || []).map(x => `<li dir="auto"><b>${esc(x.channel || '')} · ${esc(x.format || '')}</b> — ${esc(x.topic || '')}<br><small>${esc(x.hook || '')} · feature: ${esc(x.feature || '')} · ${esc(x.landing_page || '')}</small></li>`).join('')}</ol>
+          ${(m.articles || []).map(a => `<p dir="auto"><b>Article:</b> ${esc(a.title || '')} <small>(${esc(a.keyword || '')})</small></p>`).join('')}
+          ${(m.videos || []).map(v => `<p dir="auto"><b>Video:</b> ${esc(v.title || '')} <small>${(v.script_outline || []).map(esc).join(' → ')}</small></p>`).join('')}</details>`).join('')}
+        ${p.ad_drafts ? `<details class="br-past"><summary>Ad drafts (not running; paid ads are off)</summary>${(p.ad_drafts.google || []).map(g => `<p dir="auto"><b>Google · ${esc(g.market || '')}</b>: ${(g.headlines || []).map(esc).join(' | ')}<br><small>${(g.keywords || []).map(esc).join(', ')} → ${esc(g.landing_page || '')}</small></p>`).join('')}
+          ${(p.ad_drafts.meta || []).map(g => `<p dir="auto"><b>Meta · ${esc(g.market || '')}</b> (${esc(g.audience || '')}): ${esc(g.primary_text || '')} → ${esc(g.landing_page || '')}</p>`).join('')}</details>` : ''}
+        ${(p.kpis || []).length ? `<p class="br-muted">KPIs: ${p.kpis.map(esc).join(' · ')}</p>` : ''}`;
+    }
+    function brandTab() {
+      if (brandError) return `<section class="br-card"><h3>Brand Growth</h3><p class="br-muted">${esc(brandError)}</p></section>`;
+      if (!brand) return '<section class="br-card"><h3>Brand Growth</h3><p class="br-muted">Loading…</p></section>';
+      const a = brand.audit, acq = brand.acquisition, pr = brand.presence, owner = brand.owner;
+      const delta = a && a.previous_score !== null ? ` (${a.score - a.previous_score >= 0 ? '+' : ''}${a.score - a.previous_score} since last)` : '';
+      const issueRows = a ? Object.entries(a.summary.issue_counts || {}).sort((x, y) => y[1] - x[1]).map(([k, n]) => `<li>${esc(k.replace(/_/g, ' '))}: ${num(n)}</li>`).join('') : '';
+      const pageRows = a ? (a.pages || []).filter(p => p.issues.length).sort((x, y) => y.issues.filter(i => i[0] === 'critical').length - x.issues.filter(i => i[0] === 'critical').length).slice(0, 40)
+        .map(p => `<tr><td dir="ltr"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\/[^/]+/, '') || '/')}</a></td><td>${p.code}</td><td>${num(p.ms)} ms</td><td>${p.issues.map(i => `${SEV[i[0]] || ''} ${esc(i[2])}`).join('<br>')}</td></tr>`).join('') : '';
+      const conns = pr.website ? (pr.connections === null ? '<p class="br-muted">Connections unavailable.</p>' : `<p>Connected: ${pr.connections.length ? pr.connections.map(c => `${esc(c.platform)} (${esc(c.status)})`).join(' · ') : 'nothing yet'}</p>`) : '';
+      return `<section class="br-card"><div class="br-head"><div><h3>Tourfecto website SEO / AEO</h3><p class="br-muted">${esc(brand.site_url)} · free check of up to 40 pages from the sitemap (titles, descriptions, indexing, canonical, structured data, speed, llms.txt). It runs weekly from the cron.</p></div>
+          <div class="br-actions"><button type="button" class="p-btn primary xs" id="bgAudit">Run audit now</button></div></div>
+        ${a ? `<div class="br-tiles">${tile(a.score + '/100', 'SEO score', delta)}${tile(num(a.summary.pages), 'Pages checked', num(a.summary.ok_pages) + ' OK')}${tile(num(a.summary.critical), 'Critical issues')}${tile(a.summary.avg_ms === null ? '—' : num(a.summary.avg_ms) + ' ms', 'Avg load')}</div>
+          <p class="br-muted">Last run ${esc(a.run_at)} UTC</p>
+          ${(a.summary.site_issues || []).length ? `<ul class="br-proof">${a.summary.site_issues.map(i => `<li>${SEV[i[0]] || ''} ${esc(i[2])}</li>`).join('')}</ul>` : ''}
+          ${issueRows ? `<details class="br-past"><summary>Issues by type</summary><ul class="br-proof">${issueRows}</ul></details>` : ''}
+          ${pageRows ? `<details class="br-past"><summary>Pages with issues</summary><div class="p-table-scroll"><table class="p-table"><thead><tr><th>Page</th><th>HTTP</th><th>Load</th><th>Issues</th></tr></thead><tbody>${pageRows}</tbody></table></div></details>` : '<p class="br-done">✓ No page issues.</p>'}`
+        : '<p class="br-muted">No audit yet. Run one now (free, about a minute).</p>'}</section>
+
+        <section class="br-card"><h3>Where visitors and sign-ups come from (30 days)</h3>
+        <div class="br-tiles">${tile(num(acq.visitors), 'Visitors (public pages)')}${tile(num(acq.signups), 'Customer sign-ups')}${tile(num(acq.signups_unattributed), 'Sign-ups without a tracked visit')}</div>
+        <p class="br-muted">A sign-up is credited to the first page and referrer of the visitor who signed up. From the platform's own visitor log; logged-in, admin and API pages are excluded.</p>
+        <details class="br-past" open><summary>Landing pages</summary>${convTable(acq.landing_pages, 'Page')}</details>
+        <details class="br-past"><summary>Referrers</summary>${convTable(acq.referrers, 'Source')}</details>
+        <details class="br-past"><summary>Countries</summary>${convTable(acq.countries, 'Country')}</details></section>
+
+        <section class="br-card"><h3>Tourfecto on its own platform</h3>
+        ${pr.website ? `<p>Website #${pr.website.id} <b dir="auto">${esc(pr.website.name || '')}</b> (${esc(pr.website.url)}) in the owner account.</p>${conns}
+          ${pr.reviews ? `<p>Google reviews ${num(pr.reviews.total)} · average ${pr.reviews.avg_rating ?? '—'} · unanswered 1–3★ ${num(pr.reviews.unanswered_negative)}</p>` : ''}
+          ${pr.social ? `<p>Social posts: ${num(pr.social.scheduled)} scheduled · ${num(pr.social.published_30d)} published in 30 days</p>` : ''}`
+        : `<p>⚠️ ${esc(pr.note)}</p><a class="p-btn outline xs" href="/websites">Add the website</a>`}</section>
+
+        <section class="br-card"><div class="br-head"><div><h3>Monthly content & ads plan</h3><p class="br-muted">AI writes posts, articles, a video and ad drafts per market, using only the ${num(brand.features)} features on the public feature pages and the sign-up data above. Uses the AI CEO budget. Nothing is published and no ad money is spent.</p></div></div>
+        ${owner ? `<div class="br-facts"><label class="br-field">Month<input class="p-select" type="month" id="bgMonth" value="${esc(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 7))}"></label>
+          <label class="br-field">Markets<span>${['us', 'eu', 'gcc', 'other'].map(r => `<label class="br-muted"><input type="checkbox" data-bgm="${r}" ${r !== 'other' ? 'checked' : ''}> ${esc(REGION[r])}</label>`).join(' ')}</span></label></div>
+          <div class="br-actions"><button type="button" class="p-btn primary" id="bgPlan">Write the plan</button></div>` : '<p class="br-muted">Only the platform owner can create a plan.</p>'}
+        ${brandPlan ? `<h4>${esc(brandPlan.title)}</h4>${planView(brandPlan.plan, brandPlan.warnings)}` : ''}
+        ${brand.plans.length ? `<details class="br-past"><summary>Saved plans (${brand.plans.length})</summary>${brand.plans.map(x => `<h4>${esc(x.title)} <small class="br-muted">${esc(x.created_at)}</small></h4>${planView(x.plan)}`).join('')}</details>` : ''}</section>`;
+    }
+
+    async function loadBrand() {
+      brandLoading = true;
+      try { brand = await req('/api/admin/ai-ceo/brand'); brandError = null; } catch (e) { brandError = e.message; } finally { brandLoading = false; }
+      render();
+    }
+
     async function loadSales() {
       salesLoading = true;
       try { sales = await req('/api/admin/ai-ceo/sales'); salesError = null; } catch (e) { salesError = e.message; } finally { salesLoading = false; }
@@ -262,6 +323,7 @@
         case 'costs': return costSection();
         case 'companies': if (!co && !coError && !coLoading) loadCompanies(); return companiesTab();
         case 'sales': if (!sales && !salesError && !salesLoading) loadSales(); return salesTab();
+        case 'brand': if (!brand && !brandError && !brandLoading) loadBrand(); return brandTab();
         case 'memory': return memory();
         case 'log': return activity();
         default: return overviewTab();
@@ -293,6 +355,9 @@
       root.querySelectorAll('[data-sapprove]').forEach(b => b.onclick = () => sAct('approve', { ids: [Number(b.dataset.sapprove)] }, 'Approved ✓'));
       root.querySelector('#slReeval')?.addEventListener('click', () => sAct('reevaluate', {}, 'Re-checked ✓'));
       root.querySelector('#slPause')?.addEventListener('click', () => { if (confirm('Pause these sequences? No more emails go to them.')) sAct('pause', { ids: sales.active_noncompliant.map(x => x.id) }, 'Paused ✓'); });
+      root.querySelector('#bgAudit')?.addEventListener('click', () => { note = { text: 'Auditing the site… this can take a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/brand/audit', {}); await loadBrand(); }, 'Audit done ✓'); });
+      root.querySelector('#bgPlan')?.addEventListener('click', () => { const markets = [...root.querySelectorAll('[data-bgm]:checked')].map(x => x.dataset.bgm), month = root.querySelector('#bgMonth').value;
+        note = { text: 'Writing the plan… this can take a minute.' }; render(); act(async () => { brandPlan = await req('/api/admin/ai-ceo/brand/plan', { month, markets }); await loadBrand(); }, 'Plan saved to memory ✓'); });
       root.querySelector('#slCrm')?.addEventListener('click', () => sAct('crm', {}, 'Moved to CRM ✓'));
       root.querySelector('#coForm')?.addEventListener('submit', ev => { ev.preventDefault(); const fd = new FormData(ev.target); coFilters = { page: 1 };
         for (const [k, v] of fd.entries()) coFilters[k] = k === 'has_email' || k === 'converted' ? true : v; loadCompanies(); });

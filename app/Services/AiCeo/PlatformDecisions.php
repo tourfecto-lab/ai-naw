@@ -220,6 +220,33 @@ final class PlatformDecisions
                 [[$sl['crm_pending'] . ' شركة ردت أو مهتمة', $sl['crm_pending'] . ' replied or interested companies']], '/admin/ai-ceo#sales', ['انقلهم للـ CRM', 'Move them to the CRM']);
         }
 
+        // المرحلة 5: موقع Tourfecto نفسه
+        $br = $snap['brand'] ?? null;
+        if ($br && $br['audit_at'] === null) {
+            $add('brand_audit_first', 'brand', 'low', ['impact' => 3, 'roi' => 4, 'urgency' => 2, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['افحص سيو موقع Tourfecto', 'Audit the SEO of the Tourfecto website'],
+                ['فحص ببلاش للعناوين والوصف والفهرسة والبيانات المنظمة والسرعة، عشان نعرف نقط الضعف قبل خطة المحتوى.', 'A free check of titles, descriptions, indexing, structured data and speed before the content plan.'],
+                [['مفيش فحص لسه', 'No audit yet']], '/admin/ai-ceo#brand', ['افتح نمو العلامة', 'Open Brand Growth']);
+        } elseif ($br && $br['audit_critical'] > 0) {
+            $add('brand_site_critical', 'brand', 'low', ['impact' => 4, 'roi' => 4, 'urgency' => 4, 'confidence' => 5, 'risk' => 1, 'cost' => 2, 'effort' => 2],
+                ['مشاكل خطيرة في سيو موقع Tourfecto', 'Critical SEO problems on the Tourfecto website'],
+                ['صفحات واقعة أو ممنوعة من الفهرسة أو مالهاش عنوان بتضيع زيارات وتسجيلات.', 'Broken, non-indexable or untitled pages lose traffic and sign-ups.'],
+                [[$br['audit_critical'] . ' مشكلة خطيرة · الدرجة ' . ($br['audit_score'] ?? '—') . '/100', $br['audit_critical'] . ' critical issues · score ' . ($br['audit_score'] ?? '—') . '/100']],
+                '/admin/ai-ceo#brand', ['شوف المشاكل', 'See the issues']);
+        }
+        if ($br && $br['visitors_30d'] >= 50 && $br['signups_30d'] === 0) {
+            $add('brand_no_conversions', 'growth', 'low', ['impact' => 5, 'roi' => 4, 'urgency' => 4, 'confidence' => 4, 'risk' => 1, 'cost' => 2, 'effort' => 3],
+                ['زوار من غير تسجيلات', 'Visitors but no sign-ups'],
+                ['الموقع بيجيب زيارات ومفيش حد بيسجل: راجع صفحات الدخول ودعوة التسجيل.', 'The site gets visits but nobody signs up: review the landing pages and the sign-up call to action.'],
+                [[$br['visitors_30d'] . ' زائر في 30 يوم · 0 تسجيل', $br['visitors_30d'] . ' visitors in 30 days · 0 sign-ups']], '/admin/ai-ceo#brand', ['افتح نمو العلامة', 'Open Brand Growth']);
+        }
+        if ($br && !$br['brand_site_in_platform']) {
+            $add('brand_site_not_in_platform', 'brand', 'low', ['impact' => 3, 'roi' => 4, 'urgency' => 2, 'confidence' => 5, 'risk' => 1, 'cost' => 1, 'effort' => 1],
+                ['استخدم المنصة نفسها لتسويق Tourfecto', 'Use the platform itself to market Tourfecto'],
+                ['ضيف tourfecto.pro كموقع في حساب صاحب المنصة عشان السيو والسوشيال والتقييمات واستوديو التصميم يشتغلوا لـ Tourfecto.', 'Add tourfecto.pro as a website in the owner account so SEO, social, reviews and the studio work for Tourfecto.'],
+                [['مفيش موقع لـ Tourfecto في حساب أدمن', 'No Tourfecto website in an admin account']], '/websites', ['ضيف الموقع', 'Add the website']);
+        }
+
         $o = $snap['outreach'] ?? null;
         if ($o && $o['awaiting_approval'] > 0 && !$sl) {
             $add('outreach_awaiting_approval', 'sales', 'medium', ['impact' => 4, 'roi' => 4, 'urgency' => 3, 'confidence' => 4, 'risk' => 3, 'cost' => 2, 'effort' => 2],

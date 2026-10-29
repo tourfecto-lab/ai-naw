@@ -30,6 +30,14 @@ try {
     $tbi['unapproved'] = $sales->reevaluateApproved();
     if ($tbi['unapproved']) $store->log(null, 'sales_reevaluated', ['unapproved' => $tbi['unapproved']]);
     $tbi['sales_reports'] = implode('+', $sales->writeReports($store));
+    // المرحلة 5: فحص موقع Tourfecto مرة كل أسبوع (ببلاش)
+    require_once __DIR__ . '/../app/Services/AiCeo/BrandSiteAudit.php';
+    $ba = new BrandSiteAudit($db);
+    $last = $ba->latest();
+    if (!$last || strtotime($last['run_at'] . ' UTC') < time() - 7 * 86400) {
+        $r = $ba->run();
+        $store->log(null, 'brand_audit', ['score' => $r['summary']['score'], 'pages' => $r['summary']['pages']]);
+    }
 } catch (Throwable $e) {
     echo gmdate('c') . ' tourism db: ' . $e->getMessage() . PHP_EOL;
 }
