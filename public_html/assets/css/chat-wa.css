@@ -147,3 +147,4 @@ html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
 .ai-chat-item.wa-marked-unread::after{border-bottom-color:var(--wa-line)}
 .wa-arch-chip{display:block;width:100%;padding:12px 16px;border:0;border-bottom:1px solid var(--wa-line);background:transparent;color:var(--wa-green-2);font:inherit;font-size:14px;text-align:start;cursor:pointer}
 @media (max-width:960px){.wa-emoji-pop{grid-template-columns:repeat(7,1fr)}}
+.wa-find:not([hidden])~.wa-find-btn{display:none}
