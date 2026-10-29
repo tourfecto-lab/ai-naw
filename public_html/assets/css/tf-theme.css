@@ -337,3 +337,8 @@ html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #3441C2
 :where(html[data-theme="dark"] body.ap-theme) h4,
 :where(html[data-theme="dark"] body.ap-theme) h5,
 :where(html[data-theme="dark"] body.ap-theme) h6 { color: var(--panel-text); }
+
+/* Contrast, part 4: active tab pills (CRM, reputation, chat, review inbox) were white on the light accent (3.07:1). */
+html[data-theme="dark"] body.ap-theme .p-tab.active,
+html[data-theme="dark"] body.ap-theme .ch-tab.active,
+html[data-theme="dark"] body.ap-theme .ri-tab.active { background: #3F4DDB; border-color: #3F4DDB; color: #fff; }
