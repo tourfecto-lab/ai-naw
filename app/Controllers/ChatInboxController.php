@@ -170,6 +170,7 @@ class ChatInboxController extends Controller
             $m['reply_wamid'] = is_array($raw) && is_string($raw['reply_wamid'] ?? null) ? $raw['reply_wamid'] : null;
             $m['quote'] = is_array($raw) && is_array($raw['quote'] ?? null) ? ['id' => (int) ($raw['quote']['id'] ?? 0), 'text' => (string) ($raw['quote']['text'] ?? ''), 'who' => (string) ($raw['quote']['who'] ?? '')] : null;
             $m['our_reaction'] = is_array($raw) && is_string($raw['our_reaction'] ?? null) ? $raw['our_reaction'] : null;
+            $m['interactive'] = is_array($raw) && is_array($raw['interactive'] ?? null) ? ['kind' => (string) ($raw['interactive']['kind'] ?? ''), 'options' => array_slice(array_map('strval', (array) ($raw['interactive']['options'] ?? [])), 0, 10)] : null;
             $m['customer_reaction'] = is_array($raw) && is_string($raw['customer_reaction'] ?? null) ? $raw['customer_reaction'] : null;
             $m['customer_reaction_reply'] = is_array($raw) && is_string($raw['customer_reaction_reply'] ?? null) ? $raw['customer_reaction_reply'] : null;
             $m['reply_to_wamid'] = is_array($raw) && is_string($raw['reply_to_wamid'] ?? null) ? $raw['reply_to_wamid'] : null;
@@ -830,6 +831,71 @@ class ChatInboxController extends Controller
         }
         $c = $api->linkedCatalogs();
         return (string) ($c['items'][0]['id'] ?? '');
+    }
+
+    /**
+     * Send quick-reply buttons (up to 3) or an option list (up to 10) to a WhatsApp customer (official API, 24-hour window).
+     * POST /api/ai-chat/websites/{id}/conversations/{conversationId}/interactive
+     * Body: kind = buttons|list, body, buttons[] | rows[] + button_label, footer?
+     */
+    public function sendInteractive(array $params = []): array
+    {
+        if (!$this->authenticated) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->authorizedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('Website not found', 404);
+        }
+        if ($deny = $this->denyReadOnly()) {
+            return $deny;
+        }
+        $websiteId = (int) $website->getAttribute('id');
+        $conversation = $this->authorizedConversation((int) ($params['conversationId'] ?? 0), $websiteId);
+        if (!$conversation || $conversation->getAttribute('channel') !== 'whatsapp') {
+            return $this->error('Buttons can only be sent in WhatsApp conversations', 422);
+        }
+        $spec = [
+            'kind' => (string) $this->get('kind', ''),
+            'body' => (string) $this->get('body', ''),
+            'buttons' => (array) $this->get('buttons', []),
+            'rows' => (array) $this->get('rows', []),
+            'button_label' => (string) $this->get('button_label', ''),
+            'footer' => (string) $this->get('footer', ''),
+        ];
+        // Validate against WhatsApp's limits before touching the network.
+        if (WhatsAppCloudAPI::interactiveBody('201000000000', $spec) === null) {
+            return $this->error('Check the message and the options: up to 3 buttons (20 characters each) or 10 list rows (24 characters each)', 422);
+        }
+        $api = WhatsAppCloudAPI::forWebsite($websiteId);
+        if (!$api) {
+            return $this->error('Buttons need the official WhatsApp connection (Cloud API)', 409);
+        }
+        [$to, $reason] = $this->whatsappRecipient($conversation);
+        if ($to === '') {
+            return $this->success(['sent' => false, 'reason' => $reason], 'Not sent');
+        }
+        if ((int) $this->windowSecondsLeft((int) $conversation->getAttribute('id'), $websiteId) <= 0) {
+            return $this->success(['sent' => false, 'reason' => 'outside_24h'], 'Not sent');
+        }
+        $r = $api->sendInteractive($to, $spec);
+        $sent = !empty($r['ok']);
+        if (!$sent) {
+            Logger::warning('WhatsApp interactive send failed', ['website_id' => $websiteId, 'http_code' => (int) ($r['http_code'] ?? 0), 'error_code' => $r['error_code'] ?? null]);
+        }
+        $options = $spec['kind'] === 'list'
+            ? array_map(static fn ($x) => trim((string) (is_array($x) ? ($x['title'] ?? '') : $x)), $spec['rows'])
+            : array_map(static fn ($x) => trim((string) (is_array($x) ? ($x['title'] ?? '') : $x)), $spec['buttons']);
+        $id = $this->insertOutgoing($website, $conversation, trim($spec['body']), $sent, $sent ? (string) ($r['id'] ?? '') : null, [
+            'interactive' => ['kind' => $spec['kind'], 'options' => array_values($options)],
+        ]);
+        return $this->success([
+            'sent' => $sent, 'message_id' => (int) $id,
+            'reason' => $sent ? null : (!empty($r['window']) ? 'outside_24h' : 'provider_rejected'),
+        ], $sent ? 'Sent' : 'Saved but not delivered');
     }
 
     /**

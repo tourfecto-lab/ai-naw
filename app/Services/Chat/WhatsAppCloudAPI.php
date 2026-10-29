@@ -275,6 +275,79 @@ class WhatsAppCloudAPI
             + self::recipientFields($destination, $isBsuid);
     }
 
+    /**
+     * Interactive message: up to 3 quick-reply buttons, or a list of up to 10 options. Free-form, so only inside the
+     * 24-hour window. The customer's choice comes back as an ordinary text message with the option's title.
+     *
+     * @param array{kind?:string,body?:string,buttons?:array,rows?:array,button_label?:string,footer?:string} $spec
+     */
+    public function sendInteractive(string $to, array $spec): array
+    {
+        $body = self::interactiveBody($to, $spec);
+        if ($body === null) {
+            return ['ok'=>false, 'id'=>null, 'error'=>'Invalid interactive message', 'error_code'=>null, 'http_code'=>0, 'window'=>false];
+        }
+        return $this->sendResult($this->call('POST', $this->phoneNumberId . '/messages', $body));
+    }
+
+    /**
+     * Request body for an interactive message, or null when anything breaks WhatsApp's limits (pure: no network).
+     * Limits: body 1024, footer 60, button title 20 (max 3), list button 20, row title 24 (max 10), row description 72.
+     *
+     * @return array|null
+     */
+    public static function interactiveBody(string $to, array $spec): ?array
+    {
+        $dest = self::destination($to);
+        if ($dest === null) return null;
+        [$destination, $isBsuid] = $dest;
+        $clean = static function ($v, int $max): string {
+            $v = trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', (string) $v));
+            return mb_strlen($v) > $max ? '' : $v;
+        };
+        $text = $clean($spec['body'] ?? '', 1024);
+        if ($text === '') return null;
+        $interactive = ['body' => ['text' => $text]];
+        $footer = $clean($spec['footer'] ?? '', 60);
+        if ($footer !== '') $interactive['footer'] = ['text' => $footer];
+
+        $kind = (string) ($spec['kind'] ?? '');
+        if ($kind === 'buttons') {
+            $titles = [];
+            foreach ((array) ($spec['buttons'] ?? []) as $t) {
+                $t = $clean(is_array($t) ? ($t['title'] ?? '') : $t, 20);
+                if ($t === '') return null;
+                $titles[] = $t;
+            }
+            if (count($titles) < 1 || count($titles) > 3 || count(array_unique(array_map('mb_strtolower', $titles))) !== count($titles)) return null;
+            $buttons = [];
+            foreach ($titles as $i => $t) {
+                $buttons[] = ['type' => 'reply', 'reply' => ['id' => 'btn_' . ($i + 1), 'title' => $t]];
+            }
+            $interactive['type'] = 'button';
+            $interactive['action'] = ['buttons' => $buttons];
+        } elseif ($kind === 'list') {
+            $label = $clean($spec['button_label'] ?? '', 20);
+            if ($label === '') return null;
+            $rows = [];
+            foreach ((array) ($spec['rows'] ?? []) as $r) {
+                $title = $clean(is_array($r) ? ($r['title'] ?? '') : $r, 24);
+                if ($title === '') return null;
+                $row = ['id' => 'row_' . (count($rows) + 1), 'title' => $title];
+                $desc = $clean(is_array($r) ? ($r['description'] ?? '') : '', 72);
+                if ($desc !== '') $row['description'] = $desc;
+                $rows[] = $row;
+            }
+            if (count($rows) < 1 || count($rows) > 10) return null;
+            $interactive['type'] = 'list';
+            $interactive['action'] = ['button' => $label, 'sections' => [['title' => 'Options', 'rows' => $rows]]];
+        } else {
+            return null;
+        }
+        return ['messaging_product' => 'whatsapp', 'type' => 'interactive', 'interactive' => $interactive]
+            + self::recipientFields($destination, $isBsuid);
+    }
+
     private static function validWamid(?string $id): bool
     {
         return $id !== null && preg_match('/^[A-Za-z0-9._=+\/-]{10,255}$/D', $id) === 1;

@@ -843,7 +843,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             #ucReplyCard #manualMessage{background:var(--wa-panel);color:var(--wa-text);border:0;border-radius:22px;padding:11px 18px;min-height:44px;resize:none;box-shadow:none;font-size:15px}
             #ucReplyCard #manualMessage:focus{outline:none;box-shadow:0 0 0 2px rgba(0,168,132,.35)}
             #ucReplyCard .form-group{margin-bottom:8px}
-            #ucReplyCard #sendManualBtn{background:#008069;color:#fff;border:0;border-radius:50%;width:46px;height:46px;padding:0;justify-content:center}#ucReplyCard #sendManualBtn .wa-lbl{display:none}#ucReplyCard #sendManualBtn .ic{width:20px;height:20px}#ucReplyCard #sendManualBtn{order:9;margin-inline-start:auto}#ucReplyCard #suggestBtn{order:5}#ucReplyCard #attachBtn,#ucReplyCard #templateBtn,#ucReplyCard #catalogBtn{border-radius:50%;width:42px;height:42px;padding:0;justify-content:center;font-size:18px}#ucReplyCard #attachBtn .wa-lbl,#ucReplyCard #templateBtn .wa-lbl,#ucReplyCard #catalogBtn .wa-lbl{display:none}
+            #ucReplyCard #sendManualBtn{background:#008069;color:#fff;border:0;border-radius:50%;width:46px;height:46px;padding:0;justify-content:center}#ucReplyCard #sendManualBtn .wa-lbl{display:none}#ucReplyCard #sendManualBtn .ic{width:20px;height:20px}#ucReplyCard #sendManualBtn{order:9;margin-inline-start:auto}#ucReplyCard #suggestBtn{order:5}#ucReplyCard #attachBtn,#ucReplyCard #templateBtn,#ucReplyCard #catalogBtn,#ucReplyCard #interactiveBtn{border-radius:50%;width:42px;height:42px;padding:0;justify-content:center;font-size:18px}#ucReplyCard #attachBtn .wa-lbl,#ucReplyCard #templateBtn .wa-lbl,#ucReplyCard #catalogBtn .wa-lbl,#ucReplyCard #interactiveBtn .wa-lbl{display:none}
             #ucReplyCard #sendManualBtn:hover{filter:brightness(1.08)}
             #ucReplyCard .p-btn.outline{background:transparent;border-color:transparent;color:var(--wa-sub)}
             #ucReplyCard .p-btn.outline:hover{background:var(--wa-active);color:var(--wa-text)}
@@ -962,6 +962,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                         <div id="waWindow" class="wa-window" style="display:none;"></div>
                         <div id="templateBox" style="display:none;margin-bottom:12px;"></div>
                         <div id="catalogBox" style="display:none;margin-bottom:12px;"></div>
+                        <div id="interactiveBox" style="display:none;margin-bottom:12px;"></div>
                         <div class="form-group">
                             <textarea id="manualMessage" class="form-control" rows="3" placeholder="Write your reply here... (Enter to send, Shift+Enter for a new line)"></textarea>
                         </div>
@@ -970,6 +971,7 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
                             <button class="p-btn primary" id="sendManualBtn" onclick="sendManual()" aria-label="Send" title="Send">{IC_SEND}<span class="wa-lbl">Send</span></button>
                             <button class="p-btn outline" id="attachBtn" style="display:none;" onclick="document.getElementById('attachInput').click()" title="Send an image, voice note, video or file" aria-label="File">📎<span class="wa-lbl"> File</span></button>
                             <button class="p-btn outline" id="templateBtn" style="display:none;" onclick="templateToggle()" title="Approved WhatsApp templates can be sent any time" aria-label="Template">📋<span class="wa-lbl"> Template</span></button>
+                            <button class="p-btn outline" id="interactiveBtn" style="display:none;" onclick="interactiveToggle()" title="Send quick-reply buttons or an option list" aria-label="Buttons">&#128280;<span class="wa-lbl"> Buttons</span></button>
                             <button class="p-btn outline" id="catalogBtn" style="display:none;" onclick="catalogToggle()" title="Send your WhatsApp catalog or one trip" aria-label="Catalog">🛍<span class="wa-lbl"> Catalog</span></button>
                             <button class="p-btn outline" id="suggestBtn" onclick="loadSuggestions()">{IC_SPARKLES}Suggest a reply AI</button>
                             <div style="flex:1;"></div>
@@ -1551,13 +1553,14 @@ HTML;
             if (day && day !== lastDay) { out.push('<div class="ai-day-sep">' + esc(day) + '</div>'); lastDay = day; }
             const media = mediaHtml(m);
             if (m.message_direction === 'outgoing') {
-                const text = bodyText(m, m.message_text || '');
+                let text = bodyText(m, m.message_text || '');
                 const failed = m.bot_status === 'failed';
                 const status = failed ? 'failed' : (isWa ? (m.delivery || 'accepted') : 'sent');
                 const who = m.template ? '📋 Template' : m.catalog ? '🛍 Catalog' : (m.by_me ? 'You' : (m.sender_name || 'Team'));
                 let extra = ticks(status, m.delivery_error);
                 if (failed && !m.media && !m.template && !m.catalog) extra = '<button type="button" class="ai-retry" onclick="retryMessage(' + m.id + ')">' + esc(RETRY_LABEL) + '</button>' + extra;
-                out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : ''), timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : '', metaOf(m, isWa && !failed, false)));
+                const opts = m.interactive && m.interactive.options && m.interactive.options.length ? '<div class="wa-opts">' + m.interactive.options.map(o => '<span>' + (m.interactive.kind === 'list' ? '&#9776; ' : '') + esc(o) + '</span>').join('') + '</div>' : '';
+                out.push(bubble('out', '<span class="who">' + esc(who) + '</span>' + media + (text ? '<span>' + esc(text) + '</span>' : '') + opts, timeOnly(m.created_at), extra, failed || m.delivery === 'failed' ? 'failed' : '', metaOf(m, isWa && !failed, false)));
                 return;
             }
             const text = bodyText(m, m.message_text || '');
@@ -1601,6 +1604,7 @@ HTML;
         document.getElementById('attachBtn').style.display = wa ? '' : 'none';
         document.getElementById('templateBtn').style.display = wa ? '' : 'none';
         document.getElementById('catalogBtn').style.display = wa ? '' : 'none';
+        document.getElementById('interactiveBtn').style.display = wa ? '' : 'none';
         if (!wa) { document.getElementById('templateBox').style.display = 'none'; document.getElementById('catalogBox').style.display = 'none'; }
         windowDeadline = wa ? Date.now() + (c.whatsapp.window_seconds_left || 0) * 1000 : null;
         renderWindowBar();
@@ -1621,11 +1625,11 @@ HTML;
             const h = Math.floor(left / 3600), mnt = Math.floor((left % 3600) / 60);
             bar.className = 'wa-window ' + (left < 7200 ? 'warn' : 'ok');
             bar.innerHTML = '<span>⏱ ' + esc('Free reply window:') + ' <b dir="ltr">' + (h ? h + 'h ' : '') + mnt + 'm</b> ' + esc('left. After that WhatsApp only allows an approved template.') + '</span>';
-            msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false; document.getElementById('catalogBtn').disabled = false;
+            msg.disabled = false; sendBtn.disabled = false; attachBtn.disabled = false; document.getElementById('catalogBtn').disabled = false; document.getElementById('interactiveBtn').disabled = false;
         } else {
             bar.className = 'wa-window closed';
             bar.innerHTML = '<span>🔒 ' + esc('The 24-hour window is closed: the customer has not written in the last 24 hours. WhatsApp only allows an approved template until they reply.') + '</span> <button type="button" class="p-btn primary xs" onclick="templateToggle(true)">📋 ' + esc('Send a template') + '</button>';
-            msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; document.getElementById('catalogBtn').disabled = true;
+            msg.disabled = true; sendBtn.disabled = true; attachBtn.disabled = true; document.getElementById('catalogBtn').disabled = true; document.getElementById('interactiveBtn').disabled = true;
         }
     }
     setInterval(function () { if (windowDeadline !== null) renderWindowBar(); }, 30000);
@@ -1723,6 +1727,62 @@ HTML;
         selectConversation(currentConversation.id, true).then(() => { const t = document.getElementById('convThread'); t.scrollTop = t.scrollHeight; });
     };
 
+
+    // ===== Quick-reply buttons / option list (official WhatsApp, inside the 24-hour window) =====
+    window.interactiveToggle = function () {
+        const box = document.getElementById('interactiveBox');
+        if (box.style.display === 'block') { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        box.textContent = '';
+        const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+        const wrap = mk('div', 'wa-inter');
+        const head = mk('div', 'wa-inter-head');
+        const kind = document.createElement('select');
+        kind.className = 'p-select';
+        [['buttons', 'Buttons (up to 3)'], ['list', 'Option list (up to 10)']].forEach(function (o) { const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; kind.appendChild(op); });
+        head.appendChild(kind);
+        const body = document.createElement('textarea');
+        body.className = 'form-control'; body.rows = 2; body.maxLength = 1024; body.placeholder = 'Message shown above the options';
+        body.setAttribute('aria-label', 'Message');
+        const opts = mk('div', 'wa-inter-opts');
+        const label = document.createElement('input');
+        label.className = 'form-control'; label.maxLength = 20; label.placeholder = 'List button text (e.g. Choose)'; label.setAttribute('aria-label', 'List button text'); label.style.display = 'none';
+        const inputs = [];
+        function addOption() {
+            const max = kind.value === 'list' ? 10 : 3;
+            if (inputs.length >= max) return;
+            const i = document.createElement('input');
+            i.className = 'form-control'; i.maxLength = kind.value === 'list' ? 24 : 20;
+            i.placeholder = (kind.value === 'list' ? 'Option ' : 'Button ') + (inputs.length + 1);
+            i.setAttribute('aria-label', i.placeholder);
+            inputs.push(i); opts.appendChild(i);
+        }
+        function reset() { inputs.length = 0; opts.textContent = ''; label.style.display = kind.value === 'list' ? '' : 'none'; addOption(); addOption(); }
+        kind.onchange = reset;
+        const add = mk('button', 'p-btn outline xs', '+ Add option'); add.type = 'button'; add.onclick = addOption;
+        const send = mk('button', 'p-btn primary xs', 'Send'); send.type = 'button';
+        const cancel = mk('button', 'p-btn outline xs', 'Cancel'); cancel.type = 'button'; cancel.onclick = function () { box.style.display = 'none'; };
+        const row = mk('div', 'wa-inter-actions'); [add, cancel, send].forEach(function (b) { row.appendChild(b); });
+        send.onclick = async function () {
+            if (!currentConversation) return;
+            const values = inputs.map(function (i) { return i.value.trim(); }).filter(Boolean);
+            if (!body.value.trim() || !values.length) { toast('Write the message and at least one option', 'error'); return; }
+            const payload = { kind: kind.value, body: body.value.trim() };
+            if (kind.value === 'list') { payload.rows = values; payload.button_label = label.value.trim(); } else { payload.buttons = values; }
+            send.disabled = true;
+            const res = await fetchJSON('/api/ai-chat/websites/' + websiteId + '/conversations/' + currentConversation.id + '/interactive', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            });
+            send.disabled = false;
+            if (!res.success) { toast(res.error || 'Submission failed', 'error'); return; }
+            if (res.data && res.data.sent === false) toast('The buttons were not delivered' + sendFailReason(res.data.reason), 'error');
+            else box.style.display = 'none';
+            selectConversation(currentConversation.id, true).then(function () { const t = document.getElementById('convThread'); t.scrollTop = t.scrollHeight; });
+        };
+        [head, body, label, opts, row].forEach(function (n) { wrap.appendChild(n); });
+        box.appendChild(wrap);
+        reset();
+    };
 
     // ===== WhatsApp catalog and blocking =====
     let catalogCache = null, catalogSite = null;

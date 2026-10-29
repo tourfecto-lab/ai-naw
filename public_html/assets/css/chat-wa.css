@@ -203,3 +203,11 @@ html:not([data-theme="dark"]) .wa-link b{color:#006e5a}
 .wa-link span{display:block;color:var(--wa-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wa-older{display:block;margin:4px auto 10px;padding:6px 14px;border:0;border-radius:999px;background:var(--wa-pill);color:var(--wa-green-2);font:inherit;font-size:13px;box-shadow:var(--wa-shadow);cursor:pointer}
 .wa-older:disabled{opacity:.6;cursor:default}
+
+/* ---- quick-reply buttons / option list composer, and the options shown on our bubbles ---- */
+.wa-inter{padding:10px;border-radius:12px;background:var(--wa-panel);border:1px solid var(--wa-line);display:flex;flex-direction:column;gap:8px}
+.wa-inter-opts{display:flex;flex-direction:column;gap:6px}
+.wa-inter-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.wa-opts{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.wa-opts span{display:block;text-align:center;padding:7px 10px;border-radius:8px;background:rgba(11,20,26,.16);color:var(--wa-green-2);font-size:13.5px;font-weight:600}
+html:not([data-theme="dark"]) .wa-opts span{background:rgba(0,0,0,.05);color:#006e5a}
