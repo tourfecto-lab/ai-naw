@@ -11,7 +11,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 ## Phase status
 | # | Phase | Status |
 |---|---|---|
-| 1 | AI Executive Foundation | **Done** — see below |
+| 1 | AI Executive Foundation | **COMPLETED** (verified by the owner on tourfectoai.pro, 2026-10-29) |
 | 2 | AI Cost & Quality Intelligence | Not started |
 | 3 | Global Tourism Business Intelligence | Not started |
 | 4 | Autonomous Growth & Sales | Not started |
@@ -87,7 +87,18 @@ Approving a decision turns it into an in-progress task with a link to the existi
 - Live on tourfectoai.pro with a customer account:
   - `/admin/ai-ceo`, `GET /api/admin/ai-ceo` and `POST /api/admin/ai-ceo/chat` → **403**.
   - The customer brain `/api/brain` → 200 with 9 decisions, **unaffected**.
-- **Not verified yet:** the Mission Control page with real platform data. It needs the owner's admin account, so the owner must open `/admin/ai-ceo` and report. The hourly cron is not installed yet.
+- **Verified by the owner (admin account):**
+  - `/admin/ai-ceo` loads with real data: every tile has a value and no source is missing.
+  - The chat answered "إيه اللي حصل النهارده؟" from the numbers.
+- **Hourly cron:** installed in aaPanel as `tourfecto-ai-ceo-cycle` (user www, minute 40). First run: `7 open decisions, 0 auto-approved`, with no unavailable sections.
+- **Fix after review (PR #29):** the page root is now `dir=ltr`. English lines rendered reversed inside the RTL admin shell.
+- **Real figures at the time** (not invented):
+  - MRR $0 (it was $573.17 thirty days earlier) and 0 paying customers (2 before), so 30-day churn shows 100%.
+  - 1 customer at risk, with $374.17 MRR (`past_due`).
+  - 2 active trials, both ending within 24 hours.
+  - Platform health FAIL: 8 failing checks and 4 warnings.
+  - 86 errors in 24 hours.
+  - 637 outreach companies, 115 of them waiting for approval.
 
 **Owner actions after Phase 1**
 1. Open `/admin/ai-ceo`. Check the overview tiles, then ask the six questions in the chat. Any tile showing "—" means that source failed to load; report which one.
