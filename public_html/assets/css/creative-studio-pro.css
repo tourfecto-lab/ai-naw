@@ -9,3 +9,9 @@
 .cs-more-actions{margin-top:10px}.cs-more-actions>summary{cursor:pointer;font-size:12px;color:var(--panel-text-muted);list-style:none;text-align:center;padding:6px;border:1px dashed var(--panel-border,#d6dce6);border-radius:8px}.cs-more-actions>summary::-webkit-details-marker{display:none}
 .cs-file-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}.cs-file-btn input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .cs-enhance-note{font-size:12px;color:var(--panel-text-muted);margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* Phones: compact hero, the three create actions as a 2-column grid, library tabs in one scrollable row */
+@media (max-width:640px){
+.cs-hero{padding:18px;border-radius:18px;margin-bottom:14px;gap:12px}.cs-hero h2{font-size:24px;margin:6px 0}.cs-hero p{font-size:13px;line-height:1.7}
+.p-toolbar:has(+ #csTabs){display:grid;grid-template-columns:1fr 1fr;gap:8px}.p-toolbar:has(+ #csTabs)>.p-btn{width:100%;justify-content:center;margin:0}.p-toolbar:has(+ #csTabs)>.p-btn:last-child{grid-column:1/-1}
+#csTabs{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}#csTabs::-webkit-scrollbar{display:none}#csTabs .p-tab{flex:0 0 auto;white-space:nowrap}
+}
