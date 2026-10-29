@@ -46,6 +46,7 @@ class GenerateVideoJob implements QueueJobInterface
             $item->setAttribute('width',$size['width']);$item->setAttribute('height',$size['height']);
             try{$poster=VideoEditing::poster(PrivateMedia::resolve($path),$id);if($poster)$item->setAttribute('thumbnail_path',$poster);}catch(Throwable $e){Logger::warning('Video poster unavailable',['media_item_id'=>$id]);}
             GenerationLifecycle::stage($item,'billing');GenerationLifecycle::complete($item,'media_video');
+            if(class_exists('BrandVideoFinisher'))BrandVideoFinisher::queue($item);
         }catch(Throwable $e){
             if(isset($item)&&$item->getAttribute('status')!=='completed'&&!empty($providerCompleted)) {
                 $item->setAttribute('error_message','Video created; local download/storage requires retry');GenerationLifecycle::stage($item,$item->getAttribute('file_path')?'billing':'download_failed');

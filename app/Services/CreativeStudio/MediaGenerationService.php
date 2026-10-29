@@ -99,7 +99,7 @@ class MediaGenerationService
         // مشهد السكربت: العميل يشوف وصف المشهد بلغته، وتعليمات الموديل الداخلية تفضل في final_prompt بس
         $display=isset($storyboard['label'])&&is_string($storyboard['label'])&&trim($storyboard['label'])!==''?trim($storyboard['label']):$prompt;unset($storyboard['label']);
         $finalPrompt=$this->buildVideoPrompt($prompt,$style).' '.GenerationOptions::direction($options,true);
-        if($brand){$colors=BrandPromptBuilder::paletteNames($brand);if($colors)$finalPrompt.=' Brand mood: subtle '.implode(', ',$colors).' color accents in wardrobe, props or light, keeping natural realism.';}
+        $finalPrompt.=' '.BrandPromptBuilder::videoBrief($brand);
         return $this->enqueue($userId,[
             'type'=>'short_video','prompt'=>$display,'aspect_ratio'=>$aspectRatio,'duration_seconds'=>$durationSeconds,
             'brand_profile_id'=>$brand?(int)$brand->getAttribute('id'):null,'final_prompt'=>$finalPrompt,

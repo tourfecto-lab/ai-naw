@@ -73,6 +73,43 @@ class BrandPromptBuilder
         return $out;
     }
 
+    /**
+     * Video counterpart of build(): the company's identity (business, art direction, mood, palette, do / avoid, what its client liked)
+     * plus guardrails every clip needs so it comes out clean for any company: one continuous shot, believable motion, no text or logos.
+     */
+    public static function videoBrief(?BrandProfile $bp): string
+    {
+        $parts = [
+            'One continuous shot with smooth, natural camera motion: no cuts, no scene changes, no morphing or warping, believable physics, natural faces, hands and proportions.',
+            'No text, captions, subtitles, logos, brand names, watermarks or interface elements anywhere in the frame (no signage, sails, shirts or boats with writing).',
+        ];
+        $avoid = ['distorted hands or faces', 'flickering or warping objects', 'generic stock-footage look', 'oversaturated colors'];
+        if ($bp) {
+            $d = self::profileData($bp);
+            $learn = self::learnings((int) $bp->getAttribute('id'));
+            array_unshift($parts, 'Made for a ' . mb_substr((string) ($d['business_type'] ?? 'travel business'), 0, 80) . '.');
+            if (!empty($d['visual_style'])) {
+                $parts[] = 'Art direction: ' . mb_substr((string) $d['visual_style'], 0, 300) . '.';
+            }
+            if (!empty($d['mood_keywords']) && is_array($d['mood_keywords'])) {
+                $parts[] = 'Mood: ' . implode(', ', array_slice(array_map('strval', $d['mood_keywords']), 0, 6)) . '.';
+            }
+            $colors = self::paletteNames($bp);
+            if ($colors) {
+                $parts[] = 'Color grading harmonizes with the brand palette (' . implode(', ', $colors) . '): use these colors as subtle accents in props, wardrobe, light or environment, keeping natural realism.';
+            }
+            foreach (array_slice((array) ($d['do'] ?? []), 0, 4) as $x) {
+                $parts[] = 'Do: ' . mb_substr((string) $x, 0, 160) . '.';
+            }
+            foreach (array_slice($learn['do'], 0, 3) as $x) {
+                $parts[] = 'Client liked: ' . mb_substr((string) $x, 0, 160) . '.';
+            }
+            $avoid = array_merge($avoid, array_map('strval', (array) ($d['avoid'] ?? [])), $learn['avoid']);
+        }
+        $parts[] = 'Avoid: ' . implode('; ', array_slice(array_unique($avoid), 0, 8)) . '.';
+        return implode(' ', $parts);
+    }
+
     public static function build(string $idea, string $style, ?BrandProfile $bp, string $aspectRatio): string
     {
         $base = trim($idea);
