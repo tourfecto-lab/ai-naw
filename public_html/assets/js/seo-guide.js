@@ -116,7 +116,8 @@
       message(silent ? t('خلصت الإعداد ✓ الطيار الآلي اشتغل لوحده (الفحوصات من ضمن باقتك) والمنصة بدأت تفحص موقعك. هيوصلك إيميل بالملخص بعد كل دورة، وتقدر توقفه من الإعدادات.', 'Setup complete ✓ Autopilot turned on (checks are included in your plan) and the platform started checking your website. You will get an email summary after each cycle; pause anytime in settings.') : t('الطيار الآلي اشتغل ✓ المنصة بدأت تفحص موقعك دلوقتي، وهتشوف النتيجة هنا خلال دقايق.', 'Autopilot is on ✓ The platform started checking your website; results appear here in a few minutes.'));
     }
 
-    const usage = () => { const cfg = overview?.config; if (!cfg) return null; const month = new Date().toISOString().slice(0, 7); const used = cfg.budget_month === month ? Number(cfg.cycles_used || 0) : 0; return { used, max: Number(cfg.policy?.max_cycles || 0) }; };
+    const usage = () => { const cfg = overview?.config; if (!cfg) return null; const month = new Date().toISOString().slice(0, 7); const used = cfg.budget_month === month ? Number(cfg.cycles_used || 0) : 0; const max = Number(cfg.policy?.max_cycles || 0), now = new Date(); return { used, max, exhausted: !!(max && used >= max), resumes: new Date(now.getFullYear(), now.getMonth() + 1, 1) }; };
+    const longDate = d => d.toLocaleDateString(ar ? 'ar-EG' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     async function retryCycle() {
       overview = await req(base + '/sites/' + wid());
       await req(base + '/sites/' + wid() + '/start', { request_key: 'retry_' + wid() + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10), quote_hash: overview.quote.hash, research_wallet_cap: 0 });
@@ -148,7 +149,7 @@
     function marketsCard() {
       const list = markets?.markets || [], limit = Number(markets?.limit || 0), u = usage();
       if (!list.length && !u) return '';
-      return `<section class="sg-card sg-plan"><div><h4>${t('أسواقك', 'Your markets')}</h4><p>${list.map(m => esc(m.label)).join(' · ') || '—'}</p>${limit > list.length ? `<a class="sg-link" href="/ai/keywords?website_id=${wid()}">+ ${t('أضف سوق', 'Add a market')} (${list.length} ${t('من', 'of')} ${limit})</a>` : `<span class="sg-muted">${t('كل الأسواق المتاحة في باقتك مستخدمة', 'All markets in your plan are in use')} (${list.length}/${limit || list.length})</span>`}</div>
+      return `<section class="sg-card sg-plan"><div><h4>${t('أسواقك', 'Your markets')}</h4><p>${list.map(m => `<bdi>${esc(m.label)}</bdi>`).join(' · ') || '—'}</p>${limit > list.length ? `<a class="sg-link" href="/ai/keywords?website_id=${wid()}">+ ${t('أضف سوق', 'Add a market')} (${list.length} ${t('من', 'of')} ${limit})</a>` : `<span class="sg-muted">${t('كل الأسواق المتاحة في باقتك مستخدمة', 'All markets in your plan are in use')} (${list.length}/${limit || list.length})</span>`}</div>
         ${u ? `<div><h4>${t('الفحوصات الشهر ده', 'Checks this month')}</h4><div class="sg-meter" role="img" aria-label="${u.used} / ${u.max}"><span style="width:${u.max ? Math.min(100, Math.round(u.used / u.max * 100)) : 0}%"></span></div><p>${u.used} ${t('من', 'of')} ${u.max}</p></div>` : ''}</section>`;
     }
     // الرسالة بتتحفظ عشان إعادة الرسم بعد العملية ماتمسحهاش
@@ -165,7 +166,9 @@
       const auto = tasks.filter(x => ['approved', 'active', 'verified', 'publishing'].includes(x.status)).length;
       const pendingList = tasks.filter(x => x.status === 'pending'), approve = pendingList.length;
       const mine = tasks.filter(x => x.status === 'needs_client');
-      const next = overview?.config?.next_due_at ? new Date(String(overview.config.next_due_at).replace(' ', 'T') + 'Z').toLocaleDateString(ar ? 'ar-EG' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+      const u = usage(), paused = overview?.config?.status && overview.config.status !== 'active';
+      // الفحوصات خلصت: الفحص الجاي أول الشهر الجاي مش الموعد الأسبوعي المحفوظ؛ والطيار المتوقف مالوش فحص جاي
+      const next = paused ? '' : u?.exhausted ? longDate(u.resumes) : overview?.config?.next_due_at ? longDate(new Date(String(overview.config.next_due_at).replace(' ', 'T') + 'Z')) : '';
       const short = s => { const one = String(s || '').split('\n')[0]; return one.length > 170 ? one.slice(0, 167) + '…' : one; };
       return `<section class="sg-card sg-week"><div class="sg-week-head"><h3>${t('الأسبوع ده', 'This week')}</h3><span class="sg-pill ${tone}">${esc(text)}</span></div>
         ${tone === 'busy' && !tasks.length ? `<div class="sg-progress"><span class="sg-bar"></span><p>${t('المنصة شغالة على موقعك دلوقتي. الصفحة دي بتتحدث لوحدها، ومش محتاج تفضل فاتحها.', 'The platform is working on your website now. This page updates itself; you do not need to keep it open.')}</p></div>` : `
@@ -181,8 +184,8 @@
 
     function render() {
       const list = steps(), sites = setup?.websites || [], firstOpen = list.findIndex(s => !s.done), allDone = firstOpen === -1, alertsHtml = sites.length ? alerts() : '';
-      root.innerHTML = `<section class="sg-card sg-hero ${allDone && !alertHandlers.length ? 'ok' : ''}"><div><h2>${allDone && alertHandlers.length ? t('الطيار الآلي متفعّل، وفيه حاجة محتاجة منك تحت', 'Autopilot is on; something below needs you') : allDone ? t('خدمة السيو شغالة لوحدها ✓', 'Your SEO runs on its own ✓') : t('فاضل ', '') + (list.length - list.filter(s => s.done).length) + t(' خطوة وخدمة السيو تشتغل لوحدها', ' step(s) left until your SEO runs on its own')}</h2>
-          <p>${allDone ? t('المنصة بتفحص موقعك وتحسّنه كل أسبوع. هنبلغك لو احتجنا منك حاجة.', 'The platform checks and improves your site every week. We will tell you if we need anything.') : t('كل خطوة بتاخد دقيقة. خلّصها بالترتيب، وبعدها المنصة بتكمل الباقي.', 'Each step takes a minute. Finish them in order and the platform does the rest.')}</p></div>
+      root.innerHTML = `<section class="sg-card sg-hero ${allDone && !alertHandlers.length ? 'ok' : ''}"><div><h2>${allDone && usage()?.exhausted ? t('الطيار الآلي واقف لحد ', 'Autopilot is paused until ') + esc(longDate(usage().resumes)) : allDone && alertHandlers.length ? t('الطيار الآلي متفعّل، وفيه حاجة محتاجة منك تحت', 'Autopilot is on; something below needs you') : allDone ? t('خدمة السيو شغالة لوحدها ✓', 'Your SEO runs on its own ✓') : t('فاضل ', '') + (list.length - list.filter(s => s.done).length) + t(' خطوة وخدمة السيو تشتغل لوحدها', ' step(s) left until your SEO runs on its own')}</h2>
+          <p>${allDone && usage()?.exhausted ? t('استخدمت كل فحوصات الشهر ده. التحسينات اللي اتطبقت لسه شغالة على موقعك، والفحص بيرجع لوحده أول الشهر.', 'You used all checks this month. Applied improvements stay live on your site, and checks restart automatically next month.') : allDone ? t('المنصة بتفحص موقعك وتحسّنه كل أسبوع. هنبلغك لو احتجنا منك حاجة.', 'The platform checks and improves your site every week. We will tell you if we need anything.') : t('كل خطوة بتاخد دقيقة. خلّصها بالترتيب، وبعدها المنصة بتكمل الباقي.', 'Each step takes a minute. Finish them in order and the platform does the rest.')}</p></div>
           ${sites.length > 1 ? `<label class="sg-site">${t('الموقع', 'Website')} <select id="sgSite" class="p-select">${sites.map(s => `<option value="${s.id}">${esc(s.domain || s.company_name || s.id)}</option>`).join('')}</select></label>` : `<input type="hidden" id="sgSite" value="${sites[0]?.id || ''}">`}</section>
         <p id="sgMessage" class="sg-message" role="status" hidden></p>
         ${!sites.length ? `<section class="sg-card"><h3>${t('ضيف موقعك الأول', 'Add your website first')}</h3><p>${t('اكتب رابط موقعك عشان نبدأ.', 'Enter your website link to start.')}</p><a class="p-btn" href="/websites">${t('ضيف موقع', 'Add website')}</a></section>` : `

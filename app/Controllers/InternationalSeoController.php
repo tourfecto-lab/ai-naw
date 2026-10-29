@@ -16,7 +16,7 @@ class InternationalSeoController extends Controller
 <label>خريطة HTTPS على دومين موقعك <input id="intlSitemap" type="url" style="width:100%"></label><button id="intlSubmit">إرسال الخريطة بعد الموافقة</button><button id="intlSitemapLoad">عرض نتيجة الإرسال والأخطاء</button><button id="intlDisable">إيقاف الإرسال التلقائي</button><pre id="intlSitemapResult" style="white-space:pre-wrap"></pre><p id="intlStatus" role="status"></p></section>
 <script defer src="/assets/js/international-seo.js"></script>
 HTML;
-        echo $this->renderPanelPage('seo_expert','International SEO','ترجمات معتمدة وفهرسة على دومين العميل',$body);exit;
+        echo $this->renderPanelPage('seo_expert',current_lang()==='ar'?'اللغات والفهرسة':'Languages and indexing','ترجمات معتمدة وفهرسة على دومين العميل',$body);exit;
     }
     private function action(string $op): array {
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);

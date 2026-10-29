@@ -81,5 +81,5 @@ final class AiVisibilityController extends Controller
     }
     /** Compatibility with deployed web routes that still dispatch to index. */
     public function index(array $params=[]): array {return $this->page($params);}
-    public function page(array $params=[]): array {if(!$this->isAuthenticated())return $this->error('Unauthorized',401);ob_start();require dirname(__DIR__).'/Views/AiVisibility/index.php';$body=ob_get_clean();echo $this->renderPanelPage('ai_analyze','ظهورك في الذكاء الصناعي','قياسات فعلية للأسئلة والمصادر، بدون تقديرات',$body);exit;}
+    public function page(array $params=[]): array {if(!$this->isAuthenticated())return $this->error('Unauthorized',401);ob_start();require dirname(__DIR__).'/Views/AiVisibility/index.php';$body=ob_get_clean();echo $this->renderPanelPage('ai_analyze',current_lang()==='ar'?'ظهورك في الذكاء الاصطناعي':'Your visibility in AI','قياسات فعلية للأسئلة والمصادر، بدون تقديرات',$body);exit;}
 }

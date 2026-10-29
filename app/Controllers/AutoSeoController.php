@@ -317,6 +317,7 @@ class AutoSeoController extends Controller
         const site = d.website || {};
         const connected = !!(site && site.is_connected == 1);
         const mode = site.auto_pilot_mode || 'off';
+        const hub = d.seo_hub === 'active' ? 'active' : (d.seo_hub ? 'set' : null);
 
         const issuesHtml = (d.top_issues && d.top_issues.length)
             ? d.top_issues.map(i => `<li><span class="dot ${esc(i.severity)}"></span><span>${esc(i.title)}</span></li>`).join('')
@@ -328,7 +329,8 @@ class AutoSeoController extends Controller
                 <span class="l">من 100</span>
             </div>
             <div style="flex:1;min-width:200px;">
-                <span class="aseo-status-pill ${connected ? 'on' : 'off'}">${connected ? '● التحسين شغال (' + esc(MODE_LABELS[mode] || mode) + ')' : '○ الموقع مش مربوط لسه'}</span>
+                <span class="aseo-status-pill ${connected || hub === 'active' ? 'on' : 'off'}">${hub === 'active' ? '● التحسين شغال من مركز السيو (الطيار الآلي)' : connected ? '● التحسين شغال (' + esc(MODE_LABELS[mode] || mode) + ')' : hub ? '○ الطيار الآلي في مركز السيو متوقف' : '○ الموقع مش مربوط لسه'}</span>
+                ${hub ? `<p class="p-cell-muted" style="font-size:12.5px;margin:8px 0;">موقعك متدار من مركز السيو، ومش محتاج تربط أو تشغّل حاجة من الصفحة دي</p><a class="p-btn outline xs" href="/seo-expert?website_id=${currentWebsiteId}">افتح مركز السيو</a>` : ''}
                 <ul class="aseo-issues">${issuesHtml}</ul>
             </div>`;
 
@@ -956,8 +958,20 @@ JS;
             [$websiteId]
         );
 
+        // مركز السيو بيقفل Auto SEO لما الطيار الآلي بتاعه يتفعّل (SeoExpertService::configure)، فالصفحة دي
+        // لازم تعرف إن الموقع متدار من هناك بدل ما تقول للعميل "الموقع مش مربوط"
+        try {
+            $hubRow = $this->db->query(
+                "SELECT status FROM seo_expert_sites WHERE website_id = ? LIMIT 1",
+                [$websiteId]
+            );
+        } catch (Throwable $e) {
+            $hubRow = [];
+        }
+
         return $this->success([
             'website'      => $siteRow[0] ?? null,
+            'seo_hub'      => isset($hubRow[0]['status']) ? (string) $hubRow[0]['status'] : null,
             'history'      => $perf->history($websiteId, 30),
             'audits'       => $audits,
             'top_issues'   => $this->topIssues($websiteId),
