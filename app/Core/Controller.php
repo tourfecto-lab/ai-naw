@@ -1045,7 +1045,12 @@ abstract class Controller
             $chatAssetsHead = '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat.css') . '">' . "\n";
             $chatAssetsFoot = '    <script src="' . asset_v('/assets/js/chat-panel.js') . '"></script>' . "\n";
         }
-        $bodyTabClass = $activeTab === 'chat' ? ' tab-chat' : '';
+        $isChatModule = $activeTab === 'chat' || strpos((string) $activeTab, 'ai_chat') === 0 || $activeTab === 'whatsapp_marketing';
+        $bodyTabClass = $isChatModule ? ' tab-chat' : '';
+        if ($isChatModule) {
+            $chatAssetsHead .= '    <link rel="stylesheet" href="' . asset_v('/assets/css/chat-wa.css') . '">' . "
+";
+        }
         // نفس باغ asset_v بالظبط - site_brand_html() لازم يتحسب في متغير
         $brandHtml = site_brand_html();
         // تخصيص الوكالات (White-Label): حقن ألوان براندنج الوكالة كـ CSS

@@ -1,0 +1,26 @@
+/* ============================================================
+   WhatsApp skin for every page of the chat module (body.tab-chat is added by Core\Controller for the chat tab).
+   Same palette as the inbox. White-on-green uses #008069 (5:1); the brighter #00a884 is only used for accents.
+   ============================================================ */
+body.tab-chat{--wa-page:#f0f2f5;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e9edef;--wa-text:#111b21;--wa-sub:#667781;--wa-green:#008069;--wa-green-2:#00a884;--wa-active:#f0f2f5}
+html[data-theme="dark"] body.tab-chat{--wa-page:#0b141a;--wa-panel:#111b21;--wa-header:#202c33;--wa-line:#222d34;--wa-text:#e9edef;--wa-sub:#8696a0;--wa-green:#008069;--wa-green-2:#00a884;--wa-active:#2a3942}
+body.tab-chat .panel-content{background:var(--wa-page)}
+body.tab-chat .p-card{background:var(--wa-panel);border-color:var(--wa-line);border-radius:12px;box-shadow:none}
+body.tab-chat .p-card-head h3,body.tab-chat .p-card h3{color:var(--wa-text)}
+body.tab-chat .p-card-sub,body.tab-chat .p-cell-muted{color:var(--wa-sub)}
+body.tab-chat .tf-sec-tabs{border-bottom-color:var(--wa-line)!important}
+body.tab-chat .tf-sec-tabs .p-btn{border-radius:999px;min-height:36px;font-weight:500}
+body.tab-chat .tf-sec-tabs .p-btn.primary{background:var(--wa-green);color:#fff;border-color:var(--wa-green)}
+body.tab-chat .tf-sec-tabs .p-btn.outline{background:var(--wa-header);border-color:transparent;color:var(--wa-text)}
+body.tab-chat .tf-sec-tabs .p-btn.outline:hover{background:var(--wa-active);color:var(--wa-text)}
+body.tab-chat .p-btn.primary{background:var(--wa-green);color:#fff;border-color:var(--wa-green)}
+body.tab-chat .p-btn.primary:hover{background:#006e5a}
+body.tab-chat .p-input,body.tab-chat .p-select,body.tab-chat .form-control{background:var(--wa-header);border:1px solid transparent;color:var(--wa-text);border-radius:10px}
+body.tab-chat .p-input:focus,body.tab-chat .p-select:focus,body.tab-chat .form-control:focus{border-color:var(--wa-green-2);box-shadow:0 0 0 2px rgba(0,168,132,.25);outline:none}
+body.tab-chat input[type="checkbox"],body.tab-chat input[type="radio"]{accent-color:var(--wa-green-2)}
+body.tab-chat .pill.green,body.tab-chat .p-badge.green{background:rgba(0,168,132,.16);color:var(--wa-green-2)}
+html:not([data-theme="dark"]) body.tab-chat .pill.green,html:not([data-theme="dark"]) body.tab-chat .p-badge.green{color:#006e5a}
+body.tab-chat table.p-table th{color:var(--wa-sub);background:var(--wa-header)}
+body.tab-chat table.p-table td{border-color:var(--wa-line)}
+body.tab-chat .panel-content a:not([class]){color:var(--wa-green-2)}
+html:not([data-theme="dark"]) body.tab-chat .panel-content a:not([class]){color:#006e5a}
