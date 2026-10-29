@@ -11,7 +11,8 @@ final class BrainSchema
         if ($pdo->inTransaction()) throw new RuntimeException('Install brain schema before starting transactions');
         $dir = dirname(__DIR__, 3) . '/database/migrations/';
         foreach (['brain_decisions' => '2026_10_29_000003_strategic_brain.sql', 'brain_sharing' => '2026_10_29_000004_brain_shared_market.sql',
-            'market_signals' => '2026_10_29_000004_brain_shared_market.sql', 'market_fetch_log' => '2026_10_29_000004_brain_shared_market.sql'] as $table => $file) {
+            'market_signals' => '2026_10_29_000004_brain_shared_market.sql', 'market_fetch_log' => '2026_10_29_000004_brain_shared_market.sql',
+            'brain_settings' => '2026_10_29_000005_brain_settings.sql'] as $table => $file) {
             if ($db->query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", [$table])) continue;
             // نفس تعريف الجدول من ملف الهجرة بالظبط (مصدر واحد للحقيقة)
             if (!preg_match('/CREATE TABLE IF NOT EXISTS ' . $table . ' \\(.*?\\) ENGINE=[^;]+;/s', (string) file_get_contents($dir . $file), $m)) throw new RuntimeException('Brain migration missing: ' . $table);

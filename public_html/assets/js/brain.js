@@ -76,6 +76,14 @@
         ${failed.length ? `<p class="br-muted">${t('مصادر ماقدرناش نقراها آخر مرة: ', 'Sources we could not read last time: ')}${failed.map(x => esc(SRC[x.source] || x.source)).join('، ')}</p>` : ''}</section>`;
     }
 
+    function autonomy() {
+      const on = !!data.autonomy;
+      return `<section class="br-card br-share ${on ? 'br-on' : ''}"><div><h3>${t('التشغيل الذاتي', 'Autopilot for the brain')}</h3>
+        <p class="br-muted">${t('لما يبقى شغال، العقل بيوافق لوحده على القرارات الجديدة اللي مافيهاش صرف، ويحوّلها لمهام في CRM بمواعيد، ويبعتلك تنبيه للمهم منها، ويحطها في فرص ومخاطر اللوحة التنفيذية. أي حاجة فيها صرف فلوس (إعلانات، بيانات مدفوعة) بتفضل مستنية موافقتك.', 'When on, the brain approves new decisions that involve no spending by itself, turns them into dated CRM tasks, alerts you about the important ones and adds them to the executive opportunities and risks. Anything that spends money (ads, paid data) still waits for your approval.')}</p>
+        ${on ? `<p class="br-done">✓ ${t('شغال', 'On')}</p>` : ''}</div>
+        <button type="button" class="p-btn ${on ? 'outline' : 'primary'}" id="brAuto">${on ? t('وقّف التشغيل الذاتي', 'Turn off') : t('شغّل التشغيل الذاتي', 'Turn on')}</button></section>`;
+    }
+
     function sharing() {
       const sh = data.sharing || {};
       return `<section class="br-card br-share"><div><h3>${t('اتعلّم من الشركات التانية', 'Learn from other companies')}</h3>
@@ -88,7 +96,7 @@
       const st = STATUS[d.status] || [d.status, d.status], area = AREA[d.area] || [d.area, d.area];
       const measured = d.outcome ? `<p class="br-outcome ${esc(d.outcome)}">${t('النتيجة: ', 'Result: ')}${esc(t(...(OUTCOME[d.outcome] || [d.outcome, d.outcome])))}${d.baseline != null && d.result != null ? ` <span dir="ltr">(${num(d.baseline)} → ${num(d.result)})</span>` : ''}</p>` : '';
       const buttons = d.status === 'proposed' ? `<button type="button" class="p-btn xs primary" data-set="approved" data-id="${d.id}">${t('موافق، نشتغل عليه', 'Approve')}</button><button type="button" class="p-btn xs outline" data-set="dismissed" data-id="${d.id}">${t('مش دلوقتي', 'Not now')}</button>`
-        : d.status === 'approved' ? `<button type="button" class="p-btn xs primary" data-set="done" data-id="${d.id}">${t('اتنفّذ', 'Mark done')}</button>`
+        : d.status === 'approved' ? `${d.requires_spend ? '' : `<span class="br-task">✓ ${t('اتعمل مهمة في CRM', 'Added as a CRM task')}</span>`}<button type="button" class="p-btn xs primary" data-set="done" data-id="${d.id}">${t('اتنفّذ', 'Mark done')}</button>`
         : d.status === 'dismissed' ? `<button type="button" class="p-btn xs outline" data-set="proposed" data-id="${d.id}">${t('رجّعه للمقترحات', 'Restore')}</button>` : '';
       return `<li class="br-decision ${esc(d.status)}"><div class="br-dhead"><span class="br-area">${esc(t(...area))}</span><span class="br-status">${esc(t(...st))}</span>${d.requires_spend ? `<span class="br-spend">${t('فيه صرف — بموافقتك بس', 'Involves spend — only with your approval')}</span>` : ''}</div>
         <h4 dir="auto">${esc(L(d.title))}</h4><p dir="auto">${esc(L(d.why))}</p>
@@ -113,8 +121,15 @@
       const s = data.snapshot;
       root.innerHTML = `${sites.length > 1 ? `<label class="br-site">${t('الموقع', 'Website')} <select id="brSite" class="p-select">${sites.map(x => `<option value="${x.id}" ${Number(x.id) === Number(data.website_id) ? 'selected' : ''}>${esc(x.company_name || x.main_url)}</option>`).join('')}</select></label>` : ''}
         ${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}
-        ${decisions(data.decisions || [], data.results || {})}${signals(s)}${market(s)}${understanding(s)}${sharing()}`;
+        ${decisions(data.decisions || [], data.results || {})}${signals(s)}${market(s)}${understanding(s)}${autonomy()}${sharing()}`;
       const sel = root.querySelector('#brSite'); if (sel) sel.onchange = () => load();
+      const au = root.querySelector('#brAuto'); if (au) au.onclick = async () => {
+        if (busy) return; busy = true; au.disabled = true;
+        try { await req('/api/brain/autonomy', { on: !data.autonomy }); await load(); return; }
+        catch (e) { note = { text: e.message, error: true }; }
+        finally { busy = false; }
+        render();
+      };
       const sh = root.querySelector('#brShare'); if (sh) sh.onclick = async () => {
         if (busy) return; busy = true; sh.disabled = true;
         try { await req('/api/brain/sharing', { on: !data.sharing?.opted_in }); await load(); return; }

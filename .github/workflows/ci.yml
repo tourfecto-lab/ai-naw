@@ -112,5 +112,9 @@ jobs:
           failures=$(echo "$line" | grep -oE 'Failures: [0-9]+' | grep -oE '[0-9]+')
           total=$(( ${errors:-0} + ${failures:-0} ))
           echo "known failing tests: $total (max $MAX_KNOWN_FAILURES)"
+          # أسماء الاختبارات الفاشلة وأول سطر من سببها بتظهر كـ annotations في صفحة الـ check (من غير ما حد يفتح السجل)
+          if [ "${total:-0}" -gt 0 ]; then
+            grep -E -A2 '^[0-9]+\) ' phpunit.out | grep -v '^--$' | head -60 | while IFS= read -r l; do echo "::error title=PHPUnit::$l"; done
+          fi
           if [ -z "$line" ]; then echo 'PHPUnit did not finish (no summary line)'; exit 1; fi
           [ "$total" -le "$MAX_KNOWN_FAILURES" ]
