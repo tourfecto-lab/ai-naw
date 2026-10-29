@@ -17,9 +17,10 @@ final class StrategicDecisions
     /**
      * @param array $s صورة الشركة
      * @param array<string,float> $learned أوزان المجالات من نتايج القرارات السابقة (1 = محايد)
+     * @param array<string,array{companies:int,measured:int,improved_rate:float}> $shared نتايج أنواع القرارات عند الشركات المشارِكة (SharedIntelligence)
      * @return array<int,array<string,mixed>>
      */
-    public static function decide(array $s, array $learned = []): array
+    public static function decide(array $s, array $learned = [], array $shared = []): array
     {
         $out = [];
         $add = static function (array $d) use (&$out): void { $out[] = $d; };
@@ -155,14 +156,102 @@ final class StrategicDecisions
                 '/ai/keywords', ['حدد الأسواق', 'Set markets'], null, null, null));
         }
 
-        // الأولوية: الأثر × وزن الهدف × وزن التعلّم
+        // 8) السوق: إشارات عامة من مصادر رسمية (MarketIntelligenceService)، كل واحدة بمصدرها وتاريخها
+        foreach (self::marketDecisions($s['market'] ?? null) as $d) $add($d);
+
+        // الأولوية: الأثر × وزن الهدف × وزن التعلّم × وزن نتايج الشركات التانية (لو فيه 5 شركات أو أكتر)
         $goal = self::goalWeights((string) ($u['goal'] ?? ''));
         foreach ($out as &$d) {
             $w = ($goal[$d['area']] ?? 1.0) * max(0.5, min(1.5, (float) ($learned[$d['area']] ?? 1.0)));
+            $p = $shared[(string) preg_replace('/_\d+$/', '', $d['key'])] ?? null;
+            if ($p && (int) $p['companies'] >= 5) {
+                $w *= round(0.8 + 0.4 * max(0.0, min(1.0, (float) $p['improved_rate'])), 2);
+                $pct = (int) round((float) $p['improved_rate'] * 100);
+                $d['evidence'][] = ['ar' => 'القرار ده نفع عند ' . $pct . '% من ' . (int) $p['measured'] . ' مرة اتقاس فيها عند ' . (int) $p['companies'] . ' شركة شاركت نتايجها', 'en' => 'This decision worked in ' . $pct . '% of ' . (int) $p['measured'] . ' measured cases across ' . (int) $p['companies'] . ' companies that share results'];
+                $d['shared'] = $p;
+            }
             $d['priority'] = round($d['impact'] * 10 * $w, 2);
         }
         unset($d);
         usort($out, static fn ($a, $b) => $b['priority'] <=> $a['priority'] ?: strcmp($a['key'], $b['key']));
+        return $out;
+    }
+
+    /** قرارات من إشارات السوق. $m = null لو ذكاء السوق مش متاح (مفيش قرار من غير بيانات) */
+    public static function marketDecisions(?array $m): array
+    {
+        if (!$m) return [];
+        $out = [];
+        $names = ['PT' => ['البرتغال', 'Portugal'], 'GR' => ['اليونان', 'Greece'], 'HR' => ['كرواتيا', 'Croatia'], 'CZ' => ['التشيك', 'Czechia'], 'HU' => ['المجر', 'Hungary'], 'MT' => ['مالطا', 'Malta'], 'CY' => ['قبرص', 'Cyprus'], 'IS' => ['أيسلندا', 'Iceland'], 'NO' => ['النرويج', 'Norway'], 'GE' => ['جورجيا', 'Georgia'], 'TZ' => ['تنزانيا', 'Tanzania'], 'KE' => ['كينيا', 'Kenya'],
+            'GB' => ['بريطانيا', 'the UK'], 'US' => ['أمريكا', 'the US'], 'DE' => ['ألمانيا', 'Germany'], 'FR' => ['فرنسا', 'France'], 'IT' => ['إيطاليا', 'Italy'], 'ES' => ['إسبانيا', 'Spain'],
+            'NL' => ['هولندا', 'the Netherlands'], 'PL' => ['بولندا', 'Poland'], 'CA' => ['كندا', 'Canada'], 'AU' => ['أستراليا', 'Australia'], 'SA' => ['السعودية', 'Saudi Arabia'], 'AE' => ['الإمارات', 'the UAE'],
+            'EG' => ['مصر', 'Egypt'], 'JO' => ['الأردن', 'Jordan'], 'MA' => ['المغرب', 'Morocco'], 'TR' => ['تركيا', 'Turkey'], 'RU' => ['روسيا', 'Russia'], 'CN' => ['الصين', 'China'], 'JP' => ['اليابان', 'Japan'], 'IN' => ['الهند', 'India'], 'BE' => ['بلجيكا', 'Belgium'], 'CH' => ['سويسرا', 'Switzerland'], 'AT' => ['النمسا', 'Austria'], 'IE' => ['أيرلندا', 'Ireland']];
+        $n = static fn (string $cc, int $i) => $names[$cc][$i] ?? $cc;
+        $dest = (string) ($m['destination'] ?? 'EG');
+
+        $adv = $m['travel_advice'] ?? null;
+        if ($adv && !empty($adv['recent'])) {
+            $out[] = self::d('travel_advice_' . $dest, 'market', 3,
+                ['تحذيرات السفر البريطانية عن ' . $n($dest, 0) . ' اتحدثت', 'UK travel advice for ' . $n($dest, 1) . ' was updated'],
+                ['المسافرين بيقروها قبل ما يحجزوا. حدّث معلومات المساعد عشان يرد على أسئلة الأمان بدقة، وراجع الإعلانات اللي شغالة.', 'Travellers read it before booking. Update your assistant\'s knowledge so it answers safety questions accurately, and review running ads.'],
+                [['آخر تحديث: ' . substr((string) $adv['updated_at'], 0, 10) . ' — ' . (string) $adv['change'], 'Updated: ' . substr((string) $adv['updated_at'], 0, 10) . ' — ' . (string) $adv['change']], ['المصدر: GOV.UK Foreign travel advice', 'Source: GOV.UK Foreign travel advice']],
+                '/chat/knowledge-base', ['حدّث معلومات المساعد', 'Update assistant knowledge'], null, null, null);
+        }
+
+        $lead = max(14, (int) ($m['lead_time_days'] ?? 45));
+        $byMarket = [];
+        foreach (($m['holidays'] ?? []) as $h) {
+            $days = (int) $h['days_away'];
+            // الإجازة لازم تكون بعد مهلة الحجز بشوية: نبدأ الترويج دلوقتي عشان نلحق اللي بيحجزوا بدري
+            if ($days < $lead || $days > $lead + 30 || isset($byMarket[$h['country']])) continue;
+            $byMarket[$h['country']] = true;
+            $out[] = self::d('holiday_' . $h['country'] . '_' . str_replace('-', '', (string) $h['date']), 'social', 2,
+                ['إجازة في ' . $n($h['country'], 0) . ' بعد ' . $days . ' يوم: ابدأ الترويج دلوقتي', 'A holiday in ' . $n($h['country'], 1) . ' in ' . $days . ' days: start promoting now'],
+                ['عملاءك بيحجزوا قبل الرحلة بحوالي ' . $lead . ' يوم، فده وقت البوستات والعروض الموجهة للسوق ده.', 'Your guests book about ' . $lead . ' days ahead, so now is the time for posts and offers aimed at this market.'],
+                [[(string) $h['name'] . ' — ' . (string) $h['date'], (string) $h['name'] . ' — ' . (string) $h['date']], ['المصدر: Nager.Date (الإجازات الرسمية)', 'Source: Nager.Date public holidays']],
+                '/social#plan', ['جهّز بوستات للسوق ده', 'Prepare posts for this market'], null, null, null);
+            if (count($byMarket) >= 2) break;
+        }
+
+        // العملة: وجهة أوروبية بتسعّر باليورو → يهمنا اليورو قدام الدولار والإسترليني (المسافر الأمريكي والبريطاني).
+        // وجهة برّة منطقة اليورو (زي مصر، أسعار بالدولار غالبًا) → يهمنا الدولار قدام اليورو (المسافر الأوروبي).
+        $fxDecision = static function (?array $fx, string $cur, array $marketName) use ($m): ?array {
+            if (!$fx || !isset($fx['change_pct']) || abs((float) $fx['change_pct']) < 5) return null;
+            $eurStronger = (float) $fx['change_pct'] > 0;
+            $ev = [[$cur . ' لكل يورو: ' . $fx['base'] . ' ← ' . $fx['latest'] . ' (' . ($eurStronger ? '+' : '') . $fx['change_pct'] . '%) من ' . $fx['from'] . ' لـ ' . $fx['to'], $cur . ' per EUR: ' . $fx['base'] . ' → ' . $fx['latest'] . ' (' . ($eurStronger ? '+' : '') . $fx['change_pct'] . '%) from ' . $fx['from'] . ' to ' . $fx['to']], ['المصدر: البنك المركزي الأوروبي (ECB)', 'Source: European Central Bank (ECB)']];
+            if (!empty($m['eurozone'])) {
+                // اليورو أضعف = الوجهة الأوروبية أرخص للمسافر اللي عملته الدولار/الإسترليني
+                return $eurStronger
+                    ? self::d('fx_' . strtolower($cur), 'market', 1, ['اليورو قوي: رحلاتك أغلى على المسافرين من ' . $marketName[0], 'The euro is strong: your trips cost more for travellers from ' . $marketName[1]], ['فكّر في عروض قيمة أو أسعار ثابتة بعملتهم للسوق ده.', 'Consider value offers or fixed prices in their currency for this market.'], $ev, '/ai/keywords', ['راجع أسواقك', 'Review your markets'], null, null, null)
+                    : self::d('fx_' . strtolower($cur), 'market', 2, ['اليورو ضعف: رحلاتك بقت أرخص للمسافرين من ' . $marketName[0], 'The euro weakened: your trips are cheaper for travellers from ' . $marketName[1]], ['ده وقت مناسب تزوّد الترويج للسوق ده.', 'This is a good time to promote more to this market.'], $ev, '/ai/keywords', ['راجع أسواقك', 'Review your markets'], null, null, null);
+            }
+            if ($cur !== 'USD') return null;
+            return self::d('fx_eur_usd', 'market', 1,
+                $eurStronger ? ['اليورو قوي: رحلاتك بالدولار بقت أرخص للأوروبيين', 'The euro is strong: your USD prices are cheaper for Europeans'] : ['اليورو ضعف: رحلاتك بالدولار بقت أغلى على الأوروبيين', 'The euro weakened: your USD prices cost Europeans more'],
+                $eurStronger ? ['لو أسعارك بالدولار، ده وقت مناسب تركّز على ألمانيا وفرنسا وإيطاليا وإسبانيا.', 'If you price in dollars, this is a good time to focus on Germany, France, Italy and Spain.'] : ['لو أسعارك بالدولار، فكّر في عرض باليورو أو ركّز على أسواق الدولار والإسترليني.', 'If you price in dollars, consider a euro offer or focus on USD and GBP markets.'],
+                $ev, '/ai/keywords', ['راجع أسواقك', 'Review your markets'], null, null, null);
+        };
+        foreach ([$fxDecision($m['fx'] ?? null, 'USD', ['أمريكا', 'the US']), $fxDecision($m['fx_gbp'] ?? null, 'GBP', ['بريطانيا', 'the UK'])] as $d) if ($d) $out[] = $d;
+
+        // الطلب على الوجهة الأوروبية (Eurostat): تغيّر ليالي الأجانب عن نفس الشهر السنة اللي فاتت
+        $dm = $m['demand'] ?? null;
+        if ($dm && isset($dm['change_pct']) && abs((float) $dm['change_pct']) >= 5) {
+            $up = (float) $dm['change_pct'] > 0;
+            $ev = [['ليالي الزوار الأجانب في ' . $n($dest, 0) . ': ' . number_format((float) $dm['nights']) . ' في ' . $dm['period'] . ' مقابل ' . number_format((float) $dm['previous']) . ' في ' . $dm['previous_period'] . ' (' . ($up ? '+' : '') . $dm['change_pct'] . '%)',
+                'Foreign guest nights in ' . $n($dest, 1) . ': ' . number_format((float) $dm['nights']) . ' in ' . $dm['period'] . ' vs ' . number_format((float) $dm['previous']) . ' in ' . $dm['previous_period'] . ' (' . ($up ? '+' : '') . $dm['change_pct'] . '%)'], ['المصدر: Eurostat (tour_occ_nim)', 'Source: Eurostat (tour_occ_nim)']];
+            $out[] = $up
+                ? self::d('demand_up_' . $dest, 'acquisition', 2, ['الطلب على ' . $n($dest, 0) . ' بيزيد: استغله', 'Demand for ' . $n($dest, 1) . ' is rising: capture it'], ['السياح الأجانب بيزيدوا عن السنة اللي فاتت. زوّد المحتوى والظهور لرحلاتك الأكثر طلبًا، وراجع أسعار المواسم.', 'Foreign visitors are up on last year. Increase content and visibility for your best-selling trips and review seasonal prices.'], $ev, '/seo-content', ['جهّز محتوى', 'Prepare content'], null, null, null)
+                : self::d('demand_down_' . $dest, 'market', 2, ['الطلب على ' . $n($dest, 0) . ' بيقل: احمي حجوزاتك', 'Demand for ' . $n($dest, 1) . ' is falling: protect your bookings'], ['السياح الأجانب أقل من السنة اللي فاتت. ركّز على الأسواق اللي لسه بتحجز وخلّي عروضك واضحة القيمة.', 'Foreign visitors are down on last year. Focus on markets still booking and make your offers clearly good value.'], $ev, '/ai/keywords', ['راجع أسواقك', 'Review your markets'], null, null, null);
+        }
+
+        foreach (($m['economy'] ?? []) as $cc => $e) {
+            if (!isset($e['gdp_growth']) || (float) $e['gdp_growth'] >= 0) continue;
+            $out[] = self::d('economy_' . $cc, 'market', 1,
+                ['اقتصاد ' . $n($cc, 0) . ' بينكمش: خلّي عروضك فيها قيمة واضحة', $n($cc, 1) . '\'s economy is shrinking: make your offers clearly good value'],
+                ['المسافرين من السوق ده غالبًا هيدوروا على أسعار أقل أو رحلات أقصر.', 'Travellers from this market will likely look for lower prices or shorter trips.'],
+                [['نمو الناتج المحلي ' . $e['gdp_growth'] . '% في ' . $e['year'], 'GDP growth ' . $e['gdp_growth'] . '% in ' . $e['year']], ['المصدر: World Bank', 'Source: World Bank']],
+                '/ai/keywords', ['راجع أسواقك', 'Review your markets'], null, null, null);
+        }
         return $out;
     }
 

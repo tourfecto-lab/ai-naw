@@ -52,6 +52,37 @@
       </div>${(g.evidence || []).length ? `<details class="br-evidence"><summary>${t('إشارات الحجوزات اللي العقل شايفها', 'Booking signals the brain sees')}</summary><ul>${g.evidence.map(e => `<li dir="ltr">${esc(e)}</li>`).join('')}</ul></details>` : ''}</section>`;
     }
 
+    const CC = { EG: ['مصر', 'Egypt'], GB: ['بريطانيا', 'UK'], US: ['أمريكا', 'US'], DE: ['ألمانيا', 'Germany'], FR: ['فرنسا', 'France'], IT: ['إيطاليا', 'Italy'], ES: ['إسبانيا', 'Spain'], CA: ['كندا', 'Canada'], AU: ['أستراليا', 'Australia'], NL: ['هولندا', 'Netherlands'], PL: ['بولندا', 'Poland'], GR: ['اليونان', 'Greece'], PT: ['البرتغال', 'Portugal'], AE: ['الإمارات', 'UAE'], SA: ['السعودية', 'Saudi Arabia'], JO: ['الأردن', 'Jordan'], MA: ['المغرب', 'Morocco'], TR: ['تركيا', 'Turkey'] };
+    const cn = c => esc(CC[c] ? t(...CC[c]) : c);
+    const SRC = { govuk: 'GOV.UK', ecb: 'ECB', eurostat: 'Eurostat', nager: 'Nager.Date', worldbank: 'World Bank' };
+    // ذكاء السوق: كل رقم بمصدره وتاريخه، والمصدر اللي فشل بيظهر كده بدل رقم
+    function market(s) {
+      const m = s.market;
+      if (!m) return '';
+      const rows = [];
+      if (m.travel_advice) rows.push([t('تحذيرات السفر البريطانية عن ', 'UK travel advice for ') + cn(m.destination), esc(m.travel_advice.updated_at) + (m.travel_advice.recent ? ` <b class="br-new">${t('جديد', 'New')}</b>` : '') + (m.travel_advice.change ? `<br><span dir="ltr">${esc(m.travel_advice.change)}</span>` : ''), 'GOV.UK', m.travel_advice.url]);
+      if (m.demand) rows.push([t('ليالي الزوار الأجانب في ', 'Foreign guest nights in ') + cn(m.demand.country), num(m.demand.nights) + ' (' + esc(m.demand.period) + ')' + (m.demand.change_pct != null ? ` · <b dir="ltr">${m.demand.change_pct > 0 ? '+' : ''}${m.demand.change_pct}%</b> ${t('عن السنة اللي فاتت', 'vs last year')}` : ''), 'Eurostat']);
+      if (m.arrivals) rows.push([t('السياح الداخلين ', 'International arrivals to ') + cn(m.arrivals.country), num(m.arrivals.latest.value) + ' (' + esc(m.arrivals.latest.year) + ')' + (m.arrivals.previous ? ` · ${num(m.arrivals.previous.value)} (${esc(m.arrivals.previous.year)})` : ''), 'World Bank']);
+      if (m.fx) rows.push([t('الدولار لكل يورو', 'USD per EUR'), `<span dir="ltr">${m.fx.latest} (${m.fx.change_pct > 0 ? '+' : ''}${m.fx.change_pct}% ${t('في 90 يوم', 'in 90 days')})</span>`, 'ECB']);
+      if (m.fx_gbp) rows.push([t('الإسترليني لكل يورو', 'GBP per EUR'), `<span dir="ltr">${m.fx_gbp.latest} (${m.fx_gbp.change_pct > 0 ? '+' : ''}${m.fx_gbp.change_pct}% ${t('في 90 يوم', 'in 90 days')})</span>`, 'ECB']);
+      Object.entries(m.economy || {}).forEach(([cc, e]) => rows.push([t('نمو اقتصاد ', 'GDP growth, ') + cn(cc), `<span dir="ltr">${e.gdp_growth}%</span> (${esc(e.year)})`, 'World Bank']));
+      const hol = (m.holidays || []).slice(0, 6).map(h => `<li>${cn(h.country)}: ${esc(h.name)} — ${esc(h.date)} <span class="br-muted">(${t('بعد ', 'in ')}${h.days_away} ${t('يوم', 'days')})</span></li>`).join('');
+      const failed = Object.values(m.sources || {}).filter(x => x.status === 'error');
+      return `<section class="br-card"><div class="br-head"><div><h3>${t('ذكاء السوق', 'Market intelligence')}</h3>
+        <p class="br-muted">${t('الوجهة: ', 'Destination: ') + cn(m.destination)} · ${t('الأسواق: ', 'Markets: ') + (m.markets || []).map(cn).join('، ')}${m.markets_default ? ' ' + t('(أسواق افتراضية لحد ما تحدد أسواقك)', '(default markets until you set yours)') : ''}</p></div></div>
+        ${rows.length ? `<div class="p-table-scroll"><table class="p-table br-market"><tbody>${rows.map(r => `<tr><th scope="row">${r[0]}</th><td>${r[1]}</td><td class="br-src">${r[3] ? `<a href="${esc(r[3])}" target="_blank" rel="noopener">${esc(r[2])}</a>` : esc(r[2])}</td></tr>`).join('')}</tbody></table></div>` : `<p class="br-muted">${t('بنجمع بيانات السوق من المصادر الرسمية؛ بتظهر هنا بعد أول تحديث.', 'Collecting market data from official sources; it appears here after the first update.')}</p>`}
+        ${hol ? `<h4>${t('إجازات رسمية قريبة في أسواقك', 'Upcoming public holidays in your markets')}</h4><ul class="br-proof">${hol}</ul>` : ''}
+        ${failed.length ? `<p class="br-muted">${t('مصادر ماقدرناش نقراها آخر مرة: ', 'Sources we could not read last time: ')}${failed.map(x => esc(SRC[x.source] || x.source)).join('، ')}</p>` : ''}</section>`;
+    }
+
+    function sharing() {
+      const sh = data.sharing || {};
+      return `<section class="br-card br-share"><div><h3>${t('اتعلّم من الشركات التانية', 'Learn from other companies')}</h3>
+        <p class="br-muted">${t('لو وافقت، نتيجة قراراتك (نفع ولا لأ) بتدخل في نسب مجمّعة من غير اسمك ولا موقعك ولا أرقامك، ومقابلها بتشوف القرار نفع عند كام في المية من الشركات. أي نسبة مابتظهرش غير لو جاية من ', 'If you agree, whether your decisions worked joins anonymous totals — never your name, site or numbers — and in return you see how often each decision worked for others. A figure only appears when it comes from ')}${sh.min_companies || 5}${t(' شركات أو أكتر.', ' or more companies.')}</p>
+        ${sh.opted_in ? `<p class="br-done">✓ ${t('بتشارك وبتستفيد', 'You share and benefit')}${sh.patterns ? ' · ' + sh.patterns + t(' نوع قرار ليه نتايج مجمّعة', ' decision types with pooled results') : ' · ' + t('لسه مفيش شركات كفاية للنتايج المجمّعة', 'not enough companies yet for pooled results')}</p>` : ''}</div>
+        <button type="button" class="p-btn ${sh.opted_in ? 'outline' : 'primary'}" id="brShare">${sh.opted_in ? t('أوقف المشاركة', 'Stop sharing') : t('شارك واستفيد', 'Share and benefit')}</button></section>`;
+    }
+
     function decisionCard(d) {
       const st = STATUS[d.status] || [d.status, d.status], area = AREA[d.area] || [d.area, d.area];
       const measured = d.outcome ? `<p class="br-outcome ${esc(d.outcome)}">${t('النتيجة: ', 'Result: ')}${esc(t(...(OUTCOME[d.outcome] || [d.outcome, d.outcome])))}${d.baseline != null && d.result != null ? ` <span dir="ltr">(${num(d.baseline)} → ${num(d.result)})</span>` : ''}</p>` : '';
@@ -81,8 +112,15 @@
       const s = data.snapshot;
       root.innerHTML = `${sites.length > 1 ? `<label class="br-site">${t('الموقع', 'Website')} <select id="brSite" class="p-select">${sites.map(x => `<option value="${x.id}" ${Number(x.id) === Number(data.website_id) ? 'selected' : ''}>${esc(x.company_name || x.main_url)}</option>`).join('')}</select></label>` : ''}
         ${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}
-        ${decisions(data.decisions || [], data.results || {})}${signals(s)}${understanding(s)}`;
+        ${decisions(data.decisions || [], data.results || {})}${signals(s)}${market(s)}${understanding(s)}${sharing()}`;
       const sel = root.querySelector('#brSite'); if (sel) sel.onchange = () => load();
+      const sh = root.querySelector('#brShare'); if (sh) sh.onclick = async () => {
+        if (busy) return; busy = true; sh.disabled = true;
+        try { await req('/api/brain/sharing', { on: !data.sharing?.opted_in }); await load(); return; }
+        catch (e) { note = { text: e.message, error: true }; }
+        finally { busy = false; }
+        render();
+      };
       root.querySelectorAll('[data-set]').forEach(b => { b.onclick = async () => {
         if (busy) return; busy = true; b.disabled = true;
         try { const r = await req('/api/brain/decisions/' + b.dataset.id + '?website_id=' + wid(), { status: b.dataset.set, website_id: wid() }); data.decisions = r.decisions; data.results = r.results; note = { text: t('اتحفظ ✓', 'Saved ✓') }; }

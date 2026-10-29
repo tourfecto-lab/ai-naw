@@ -47,3 +47,10 @@
 .br-note.error { background: var(--panel-danger-light, #fef2f2); }
 .br-site { display: flex; gap: 8px; align-items: center; font-weight: 600; }
 @media (max-width: 640px) { .br-card { padding: 14px; } .br-actions .p-btn { flex: 1 1 auto; text-align: center; } }
+.br-market th { text-align: start; font-weight: 600; width: 38%; }
+.br-market td { line-height: 1.7; }
+.br-src { white-space: nowrap; font-size: 12px; color: var(--panel-text-muted, #6b7280); }
+.br-new { color: var(--panel-danger, #dc2626); font-size: 12px; }
+.br-card h4 { margin: 14px 0 6px; font-size: 14.5px; }
+.br-share { display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.br-share > div { flex: 1 1 320px; }
