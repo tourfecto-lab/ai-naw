@@ -901,7 +901,9 @@ pre, code { white-space: pre-wrap; word-break: break-word; overflow-wrap: break-
 .panel-topbar h1{font-size:18px;line-height:1.2;margin:0}
 .panel-topbar .subtitle{display:none}
 .panel-topbar-actions{gap:6px}
-.panel-topbar-actions a.icon-btn,.panel-topbar-actions #panelWebsiteSelect{display:none!important}
+.panel-topbar-actions a.icon-btn{display:none!important}
+/* the website switcher decides WHICH website's inbox / data a page shows: it stays (the script shows it when the account has more than one website) */
+.panel-topbar-actions .panel-website-select{max-width:170px;min-height:34px;padding:2px 8px;font-size:12.5px}
 .panel-topbar-actions .icon-btn,.panel-topbar-actions .ap-icon-btn{width:34px;height:34px;min-width:0;padding:0}
 .panel-sidebar-footer{display:flex;flex-direction:column;gap:8px}
 .tf-side-tools{display:flex;flex-direction:column;gap:8px}
