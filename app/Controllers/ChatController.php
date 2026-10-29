@@ -792,6 +792,9 @@ $creditsCheck = $this->subscription->reserveChatCredits((int) $this->user['id'],
             .ai-chat-split .ai-chat-item .ch{font-size:10px;max-width:64px;overflow:hidden}
             #ucThreadPanel[style*="block"]{display:flex!important;flex-direction:column;height:100%}
             #ucThreadPanel{height:100%}
+            #ucReplyCard .p-card-head{flex-wrap:wrap;gap:6px}
+            #ucReplyCard .p-card-head h3{flex:1 1 100%}
+            #ucReplyCard .p-card-head .p-btn{white-space:nowrap}
         </style>
 
         <div class="p-toolbar" style="flex-wrap:wrap;gap:8px;align-items:center;">
