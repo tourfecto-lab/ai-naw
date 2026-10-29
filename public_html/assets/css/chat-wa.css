@@ -333,3 +333,6 @@ html body.tab-chat.ch-messenger{--wa-green:#0084ff;--wa-green-2:#2d9cff}
 html body.tab-chat.ch-instagram{--wa-green:#c13584;--wa-green-2:#e1306c}
 html body.tab-chat.ch-messenger .p-input:focus,html body.tab-chat.ch-messenger .p-select:focus,html body.tab-chat.ch-messenger .form-control:focus{box-shadow:0 0 0 2px rgba(0,132,255,.25)}
 html body.tab-chat.ch-instagram .p-input:focus,html body.tab-chat.ch-instagram .p-select:focus,html body.tab-chat.ch-instagram .form-control:focus{box-shadow:0 0 0 2px rgba(225,48,108,.25)}
+
+.wa-ch-tabs .wa-ch-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;text-align:center;background:#e53935;color:#fff;font-weight:700}
+.wa-ch-tabs button[aria-selected="true"] .wa-ch-n{background:#fff;color:#14100a}

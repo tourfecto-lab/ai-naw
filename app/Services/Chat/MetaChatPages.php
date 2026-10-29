@@ -43,7 +43,24 @@ final class MetaChatPages
             'missing_permissions' => (bool) $missing && !array_filter($out, static fn ($p) => ($p['via'] ?? '') === 'messaging_app'),
             'connect_url' => '/ads/connect/meta?for=chat&website_id=' . $wid,
             'messaging_app' => ['configured' => MetaMessagingApp::configured(), 'connect_url' => '/chat/connect/meta?website_id=' . $wid],
+            'health' => $this->health($wid),
         ];
+    }
+
+    /**
+     * Channels whose Facebook token stopped working (see MetaChannelHealth): the inbox shows a "reconnect" bar for them.
+     * @return array<int,array{channel:string,error:string}>
+     */
+    public function health(int $wid): array
+    {
+        $out = [];
+        foreach ($this->db->query("SELECT platform, last_error FROM platform_connections WHERE website_id = ? AND platform IN ('messenger', 'instagram_dm', 'instagram') AND status = 'token_expired' ORDER BY id DESC", [$wid]) as $r) {
+            $ch = $r['platform'] === 'messenger' ? 'messenger' : 'instagram';
+            if (!isset($out[$ch])) {
+                $out[$ch] = ['channel' => $ch, 'error' => mb_substr((string) ($r['last_error'] ?? ''), 0, 160)];
+            }
+        }
+        return array_values($out);
     }
 
     /** تشغيل/إيقاف رد الشات بوت على صفحة. صفحة واحدة بس لكل موقع. */

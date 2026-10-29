@@ -4403,6 +4403,19 @@ JS;
         }
     }
 
+    /** GET /api/chat/channel-counts?website_id=N - open conversations with unread messages per channel (badges on the inbox tabs). */
+    public function channelCounts(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Not logged in', 401);
+        $wid = (int) $this->get('website_id');
+        if (!$this->ownsChatWebsite($wid)) return $this->error('Website not found', 404);
+        $counts = ['whatsapp' => 0, 'messenger' => 0, 'instagram' => 0];
+        foreach ($this->db->query("SELECT channel, COUNT(*) AS n FROM ai_conversations WHERE website_id = ? AND unread_count > 0 AND status NOT IN ('closed', 'resolved') GROUP BY channel", [$wid]) as $r) {
+            if (isset($counts[$r['channel']])) $counts[$r['channel']] = (int) $r['n'];
+        }
+        return $this->success(['counts' => $counts, 'all' => array_sum($counts)]);
+    }
+
     /** GET /api/chat/meta-pages/events?website_id=N - what Meta last posted to the shared webhook and what we did with it (no message text). */
     public function metaWebhookEvents(array $params = []): array
     {

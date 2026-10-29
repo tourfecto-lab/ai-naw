@@ -34,6 +34,8 @@ final class MetaChannelHealthTest extends TestCase
             $this->assertSame('token_expired', $row['status']);
             $this->assertSame('Error validating access token', $row['last_error']);
             $this->assertFalse(MetaChannelHealth::note($wid, 'messenger', 190, 'again'), 'the owner is told once');
+            $health = (new MetaChatPages($db))->health($wid);
+            $this->assertContains('messenger', array_column($health, 'channel'), 'the inbox shows a reconnect bar');
         } finally {
             $db->query('DELETE FROM platform_connections WHERE external_location_id = ?', [$page]);
         }

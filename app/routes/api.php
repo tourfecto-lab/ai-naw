@@ -1756,6 +1756,7 @@ $router->post('/api/ai-chat/websites/{id}/learning/gaps/scan', 'AiLearningContro
 $router->get('/api/chat/meta-pages', 'ChatController', 'metaPages', ['AuthMiddleware']);
 $router->post('/api/chat/meta-pages/messaging', 'ChatController', 'metaPageMessaging', ['AuthMiddleware']);
 $router->get('/api/chat/meta-pages/events', 'ChatController', 'metaWebhookEvents', ['AuthMiddleware']);
+$router->get('/api/chat/channel-counts', 'ChatController', 'channelCounts', ['AuthMiddleware']);
 $router->post('/api/chat/connect/messenger', 'ChatController', 'connectMessenger', ['AuthMiddleware']);
 $router->post('/api/chat/connect/instagram', 'ChatController', 'connectInstagram', ['AuthMiddleware']);
 // Webhooks للقنوات الجديدة - من غير AuthMiddleware (بتتيجي من Meta/SMTP servers)

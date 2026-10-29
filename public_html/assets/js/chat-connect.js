@@ -86,6 +86,14 @@
         var c = document.getElementById('metaChatCard'); if (!c) return;
         c.style.display = 'block';
         var head = '<div class="p-card-head"><h3>📘 ' + L('رسايل فيسبوك وإنستجرام', 'Facebook & Instagram messages') + '</h3><span class="p-card-sub">' + L('بتسجيل الدخول بفيسبوك', 'With Facebook sign-in') + '</span></div>';
+        // A channel whose Facebook token stopped working: say so and offer the way back.
+        var warn = (d.health || []).map(function (h) {
+            var re = d.messaging_app && d.messaging_app.configured ? d.messaging_app.connect_url : d.connect_url;
+            return '<div class="p-alert" style="margin:0 0 10px;padding:10px 12px;border-radius:10px;background:rgba(220,53,69,.14);border:1px solid rgba(220,53,69,.4)"><b>' + (h.channel === 'instagram' ? 'Instagram' : 'Messenger') + '</b> — '
+                + L('فيسبوك مبقاش بيقبل الربط، فالردود مش بتتسلّم. سجّل دخول تاني.', 'Facebook no longer accepts the connection, so replies are not delivered. Sign in again.')
+                + ' <a class="p-btn primary xs" href="' + esc(re) + '">' + L('إعادة الربط', 'Reconnect') + '</a></div>';
+        }).join('');
+        head += warn;
         if (!d.meta_ready) { c.innerHTML = head + '<p class="p-cell-muted">' + L('الربط بفيسبوك لسه بيتجهز من المنصة.', 'Facebook connection is being prepared by the platform.') + '</p>'; return; }
         var signIn = '<a class="p-btn ' + (d.pages.length ? 'outline xs' : 'primary') + '" href="' + esc(d.connect_url) + '"><b>f</b> ' + (d.pages.length ? L('سجّل دخول تاني / ضيف صفحات', 'Sign in again / add pages') : L('سجّل دخول بفيسبوك', 'Sign in with Facebook')) + '</a>';
         // The separate messaging-only Meta app (test/dev app): shown only once the platform has its credentials.

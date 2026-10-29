@@ -688,6 +688,30 @@
         document.body.classList.toggle('ch-messenger', ch === 'messenger');
         document.body.classList.toggle('ch-instagram', ch === 'instagram');
     }
+    // unread badge per tab (conversations with unread messages), refreshed while the inbox is open
+    function paintCounts(j) {
+        var c = j && j.data && j.data.counts;
+        if (!c) return;
+        [].forEach.call(bar.children, function (b) {
+            var key = b.getAttribute('data-ch');
+            var n = key === 'all' ? (j.data.all || 0) : (c[key] || 0);
+            var badge = b.querySelector('.wa-ch-n');
+            if (!n) { if (badge) badge.remove(); return; }
+            if (!badge) { badge = document.createElement('b'); badge.className = 'wa-ch-n'; b.appendChild(badge); }
+            badge.textContent = n > 99 ? '99+' : String(n);
+        });
+    }
+    function loadCounts() {
+        var id = 0;
+        try { id = (window.Panel && Panel.getCurrentWebsiteId && Panel.getCurrentWebsiteId()) || 0; } catch (e) { id = 0; }
+        if (!id || document.hidden) return;
+        fetch('/api/chat/channel-counts?website_id=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; }).then(paintCounts).catch(function () { /* optional */ });
+    }
+    setInterval(loadCounts, 30000);
+    setTimeout(loadCounts, 1500);
+    window.addEventListener('tourfecto:website-changed', loadCounts);
+
     function choose(v, reload) {
         select.value = v;
         if (select.value !== v) select.value = ''; // the option does not exist
@@ -757,4 +781,47 @@
         window.sendAttachment = wrapped;
     }
     if (document.readyState === 'complete') install(); else window.addEventListener('load', install);
+})();
+
+/*
+ * A dead Facebook token (changed password, removed app, expired) makes every reply to that channel fail. When the server has
+ * marked a channel that way, show a bar above the conversation list with the way back instead of failing quietly.
+ */
+(function () {
+    'use strict';
+    var card = document.querySelector('.ai-chat-list-card');
+    if (!card) return;
+    var ar = /^ar/i.test(document.documentElement.lang || '');
+    function wid() { try { return (window.Panel && Panel.getCurrentWebsiteId && Panel.getCurrentWebsiteId()) || 0; } catch (e) { return 0; } }
+    function check() {
+        var id = wid();
+        if (!id) return;
+        fetch('/api/chat/meta-pages?website_id=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+                var old = document.getElementById('waHealthBar');
+                if (old) old.remove();
+                var h = j && j.data && j.data.health;
+                if (!h || !h.length) return;
+                var d = j.data;
+                var link = d.messaging_app && d.messaging_app.configured ? d.messaging_app.connect_url : '/chat/settings';
+                var bar = document.createElement('div');
+                bar.id = 'waHealthBar';
+                bar.setAttribute('role', 'alert');
+                bar.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:rgba(220,53,69,.16);border-bottom:1px solid rgba(220,53,69,.45);font-size:12.5px';
+                var names = h.map(function (x) { return x.channel === 'instagram' ? 'Instagram' : 'Messenger'; }).join(' + ');
+                var t = document.createElement('span');
+                t.textContent = (ar ? 'الربط مقطوع: ' : 'Disconnected: ') + names + (ar ? ' — الردود مش بتتسلّم.' : ' — replies are not delivered.');
+                var a = document.createElement('a');
+                a.className = 'p-btn primary xs';
+                a.href = link;
+                a.textContent = ar ? 'إعادة الربط' : 'Reconnect';
+                bar.appendChild(t);
+                bar.appendChild(a);
+                card.insertBefore(bar, card.firstChild);
+            })
+            .catch(function () { /* optional */ });
+    }
+    check();
+    window.addEventListener('tourfecto:website-changed', check);
 })();
