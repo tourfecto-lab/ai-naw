@@ -60,7 +60,7 @@ class BookingEngine
         $extraIds=(array)($data['extra_ids']??[]);
         foreach($extraIds as $id)if(filter_var($id,FILTER_VALIDATE_INT)===false||(int)$id<1)throw new InvalidArgumentException('إضافة غير صالحة');
         $extraIds=array_values(array_unique(array_map('intval',$extraIds)));sort($extraIds);
-        $fingerprint=$requestToken ? hash('sha256',json_encode([$productId,$startDate,$endDate,(int)($data['rooms_count']??1),(int)($data['adults_count']??1),(int)($data['children_count']??0),$extraIds,trim((string)($data['customer_name']??'')),trim((string)($data['customer_email']??'')),trim((string)($data['customer_phone']??''))],JSON_THROW_ON_ERROR)) : null;
+        $fingerprint=$requestToken ? hash('sha256',json_encode([$productId,$startDate,$endDate,(int)($data['rooms_count']??1),(int)($data['adults_count']??1),(int)($data['children_count']??0),$extraIds,trim((string)($data['customer_name']??'')),trim((string)($data['customer_email']??'')),trim((string)($data['customer_phone']??''))]+(!empty($data['coupon_code'])?[10=>strtoupper(trim((string)$data['coupon_code']))]:[]),JSON_THROW_ON_ERROR)) : null;
         $result = $this->db->transaction(function (Database $db) use ($userId, $productId, $startDate, $data, $requestToken, $fingerprint,$endDate) {
             // 1) تأكد إن الخدمة مملوكة للحساب فعلاً
             $product = $db->query(
@@ -109,9 +109,15 @@ class BookingEngine
             if ((int) $inv['booked_count'] + $units > (int) $inv['capacity']) { throw new Exception('الأماكن المتاحة أقل من العدد المطلوب'); }
             $extras = $operations->extraTotal($userId, $productId, (array) ($data['extra_ids'] ?? []), $adults + $children);
             $calculated = ($stay!==null?$stay['total']:BookingOperationsService::baseTotal($unitPrice, $settings, $adults, $children)) + $extras['total'];
+            // كود خصم (اختياري): بيتحسب هنا على السيرفر من إجمالي الحجز نفسه، ومعاه بيتحسب الاستخدام تحت قفل صف الكوبون
+            $couponInfo=null;
+            if(!empty($data['coupon_code'])){
+                $couponInfo=SiteCouponService::redeem($db,(int)($product['website_id']??0),$data['coupon_code'],round($calculated,2));
+                $calculated=round($calculated-$couponInfo['discount'],2);
+            }
             if(isset($data['expected_total']) && (!is_numeric($data['expected_total']) || !is_finite((float)$data['expected_total']) || abs(round((float)$data['expected_total'],2)-$calculated)>0.001))throw new InvalidArgumentException('السعر اتغير؛ راجع السعر والتوفر ثم أكد الحجز مرة أخرى');
             $totalAmount = round((float) ($data['total_amount'] ?? $calculated), 2);
-            $pricing = json_encode(['end_date'=>$endDate,'rooms_count'=>$endDate!==null?$units:null,'nights'=>$stay['nights']??1,'nightly_breakdown'=>$stay['nightly_breakdown']??null,'adult_price'=>$unitPrice,'child_price'=>(float)$settings['child_price'],'extras'=>$extras['items'],'capacity_mode'=>$settings['capacity_mode'],'inventory_units'=>$units,'cancellation_hours'=>(int)$settings['cancellation_hours'],'refund_percent'=>(float)$settings['refund_percent'],'calculated_total'=>$calculated,'manual_override'=>isset($data['total_amount'])], JSON_THROW_ON_ERROR);
+            $pricing = json_encode(['end_date'=>$endDate,'rooms_count'=>$endDate!==null?$units:null,'nights'=>$stay['nights']??1,'nightly_breakdown'=>$stay['nightly_breakdown']??null,'adult_price'=>$unitPrice,'child_price'=>(float)$settings['child_price'],'extras'=>$extras['items'],'capacity_mode'=>$settings['capacity_mode'],'inventory_units'=>$units,'cancellation_hours'=>(int)$settings['cancellation_hours'],'refund_percent'=>(float)$settings['refund_percent'],'calculated_total'=>$calculated,'manual_override'=>isset($data['total_amount'])]+($couponInfo?['coupon'=>['code'=>$couponInfo['code'],'discount'=>$couponInfo['discount']]]:[]), JSON_THROW_ON_ERROR);
             if (!is_finite($totalAmount) || $totalAmount < 0) {
                 throw new InvalidArgumentException('سعر الخدمة غير صالح');
             }

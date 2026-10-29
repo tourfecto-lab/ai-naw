@@ -51,6 +51,7 @@ class SiteDashboardController extends Controller
             <button class="p-tab" onclick="sdSwitchTab('bookings')" id="sdTabBookingsBtn">🧾 الحجوزات <span id="sdBookingsCount" class="p-badge-dot" style="display:none;"></span></button>
             <button class="p-tab" onclick="sdSwitchTab('team')" id="sdTabTeamBtn">👥 فريق الموقع</button>
             <button class="p-tab" onclick="sdSwitchTab('analytics')" id="sdTabAnalyticsBtn">📈 التحليلات</button>
+            <button class="p-tab" onclick="sdSwitchTab('coupons')" id="sdTabCouponsBtn">🎟️ كوبونات</button>
             <button class="p-tab" onclick="sdSwitchTab('reviews')" id="sdTabReviewsBtn">⭐ التقييمات</button>
             <button class="p-tab" onclick="sdSwitchTab('leads')" id="sdTabLeadsBtn">📩 طلبات التواصل <span id="sdLeadsCount" class="p-badge-dot" style="display:none;"></span></button>
         </div>
@@ -128,6 +129,24 @@ class SiteDashboardController extends Controller
             <div id="sdAnBody">جاري التحميل...</div>
         </div>
 
+        <div id="sdTabCoupons" style="display:none;">
+            <div class="p-card" style="margin-bottom:12px;">
+                <h4 style="margin:0 0 6px;">إنشاء كود خصم للحجز الأونلاين</h4>
+                <p style="margin:0 0 10px;">الزائر يكتب الكود في نموذج الحجز، والخصم بيتحسب على السيرفر ويظهر في الإجمالي قبل ما يأكد. الخصم لا يتعدى 90% من الحجز.</p>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+                    <div><label for="sdCpCode" class="form-label">الكود</label><input id="sdCpCode" class="form-control" dir="ltr" autocomplete="off" placeholder="SUMMER10" style="text-transform:uppercase"></div>
+                    <div><label for="sdCpType" class="form-label">النوع</label><select id="sdCpType" class="form-control"><option value="percent">نسبة %</option><option value="fixed">مبلغ ثابت</option></select></div>
+                    <div><label for="sdCpValue" class="form-label">القيمة</label><input id="sdCpValue" type="number" min="1" step="0.01" class="form-control"></div>
+                    <div><label for="sdCpMin" class="form-label">أقل إجمالي للحجز (اختياري)</label><input id="sdCpMin" type="number" min="0" step="0.01" class="form-control"></div>
+                    <div><label for="sdCpMax" class="form-label">أقصى عدد استخدامات (اختياري)</label><input id="sdCpMax" type="number" min="1" class="form-control"></div>
+                    <div><label for="sdCpFrom" class="form-label">يبدأ (اختياري)</label><input id="sdCpFrom" type="date" class="form-control"></div>
+                    <div><label for="sdCpUntil" class="form-label">ينتهي (اختياري)</label><input id="sdCpUntil" type="date" class="form-control"></div>
+                </div>
+                <div style="margin-top:10px;"><button class="p-btn primary" type="button" onclick="sdCpCreate()">إنشاء الكود</button></div>
+            </div>
+            <div id="sdCouponList" class="p-list">جاري التحميل...</div>
+        </div>
+
         <div id="sdTabReviews" style="display:none;">
             <div id="sdReviewsList" class="p-list">جاري التحميل...</div>
         </div>
@@ -150,6 +169,7 @@ HTML;
         });
         if (tab === 'design' && window.SdStudio) SdStudio.open();
         if (tab === 'reviews') sdLoadReviews();
+        if (tab === 'coupons') sdLoadCoupons();
         if (tab === 'analytics') sdLoadAnalytics();
         if (tab === 'team') sdLoadTeam();
         if (tab === 'bookings') sdLoadBookings();
@@ -418,6 +438,45 @@ HTML;
                 <div class="p-card"><h4 style="margin:0 0 8px;">مصادر الزيارات</h4>\${d.sources.length ? d.sources.map(x => `<div style="display:flex;justify-content:space-between;gap:8px;"><span>\${esc(srcLabel[x.source] || x.source)}</span><b>\${Math.round(x.views / total * 100)}%</b></div>`).join('') : '<p>لا توجد بيانات بعد</p>'}</div>
             </div>
             <p style="font-size:13px;margin-top:10px;">الأرقام تجميعية يومية بدون تخزين IP أو كوكيز. زيارات الروبوتات وزياراتك أنت للموقع مش محسوبة.</p>`;
+    };
+
+    async function sdLoadCoupons() {
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/coupons`);
+        const list = document.getElementById('sdCouponList');
+        if (!res.success) { list.innerHTML = '<p>تعذّر التحميل</p>'; return; }
+        if (!res.data.coupons.length) { list.innerHTML = '<p>لا توجد أكواد بعد</p>'; return; }
+        list.innerHTML = res.data.coupons.map(c => `
+            <div class="p-card" style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                    <strong dir="ltr">\${esc(c.code)}</strong>
+                    <span class="p-badge \${c.is_active == 1 ? '' : 'gold'}">\${c.is_active == 1 ? 'شغّال' : 'موقوف'}</span>
+                </div>
+                <p>\${c.type === 'percent' ? esc(c.value) + '%' : esc(c.value)} · استُخدم \${c.used_count}\${c.max_uses ? ' من ' + c.max_uses : ''} مرة\${c.min_total > 0 ? ' · أقل حجز ' + esc(c.min_total) : ''}\${c.valid_from || c.valid_until ? ' · ' + esc(c.valid_from || '...') + ' → ' + esc(c.valid_until || '...') : ''}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="p-btn outline xs" onclick="sdCpToggle(\${c.id}, \${c.is_active == 1 ? 0 : 1})">\${c.is_active == 1 ? 'إيقاف' : 'تشغيل'}</button>
+                    <button class="p-btn outline xs" onclick="sdCpDelete(\${c.id})">حذف</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    window.sdCpCreate = async function () {
+        const v = id => document.getElementById(id).value;
+        const body = { code: v('sdCpCode'), type: v('sdCpType'), value: v('sdCpValue'), min_total: v('sdCpMin'), max_uses: v('sdCpMax'), valid_from: v('sdCpFrom'), valid_until: v('sdCpUntil') };
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/coupons`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!res.success) { toast(res.error || res.message || 'حصل خطأ', 'error'); return; }
+        ['sdCpCode', 'sdCpValue', 'sdCpMin', 'sdCpMax', 'sdCpFrom', 'sdCpUntil'].forEach(i => document.getElementById(i).value = '');
+        sdLoadCoupons();
+    };
+    window.sdCpToggle = async function (id, active) {
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/coupons/\${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: active }) });
+        if (!res.success) toast(res.error || 'حصل خطأ', 'error');
+        sdLoadCoupons();
+    };
+    window.sdCpDelete = async function (id) {
+        if (!confirm('حذف الكود ده؟ الحجوزات اللي اتعملت بيه ما بتتأثرش.')) return;
+        const res = await fetchJSON(`/api/site-dashboard/\${siteId}/coupons/\${id}`, { method: 'DELETE' });
+        if (!res.success) toast(res.error || 'حصل خطأ', 'error');
+        sdLoadCoupons();
     };
 
     sdLoadOverview();
@@ -849,6 +908,76 @@ JS;
             return $this->error('غير موجود', 404);
         }
         return $this->success(SiteAnalytics::report((int) $website->getAttribute('id'), (int) $website->getAttribute('user_id'), (int) $this->get('days', 30)));
+    }
+
+
+    // ================================================================ كوبونات الحجز
+
+    /** GET /api/site-dashboard/{id}/coupons */
+    public function coupons(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        return $this->success(['coupons' => (new SiteCouponService())->listFor((int) $this->user['id'], (int) $website->getAttribute('id'))]);
+    }
+
+    /** POST /api/site-dashboard/{id}/coupons */
+    public function createCoupon(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (($e = $this->verifyCsrf()) || ($e = $this->rateLimitGuard('user', 'site_coupon_admin', 60, 3600))) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $r = (new SiteCouponService())->create((int) $this->user['id'], (int) $website->getAttribute('id'), [
+            'code' => $this->get('code'), 'type' => $this->get('type', 'percent'), 'value' => $this->get('value'), 'min_total' => $this->get('min_total'),
+            'max_uses' => $this->get('max_uses'), 'valid_from' => $this->get('valid_from'), 'valid_until' => $this->get('valid_until'),
+        ]);
+        return $r['ok'] ? $this->success(['id' => $r['id']], 'تم إنشاء الكود') : $this->error($r['error'], 422);
+    }
+
+    /** PUT /api/site-dashboard/{id}/coupons/{couponId}  body: is_active */
+    public function updateCoupon(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        $ok = (new SiteCouponService())->setActive((int) $this->user['id'], (int) $website->getAttribute('id'), (int) ($params['couponId'] ?? 0), (bool) $this->get('is_active'));
+        return $ok ? $this->success([], 'تم التحديث') : $this->error('الكود مش موجود', 404);
+    }
+
+    /** DELETE /api/site-dashboard/{id}/coupons/{couponId} */
+    public function deleteCoupon(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $website = $this->ownedWebsite((int) ($params['id'] ?? 0));
+        if (!$website) {
+            return $this->error('غير موجود', 404);
+        }
+        return (new SiteCouponService())->delete((int) $this->user['id'], (int) $website->getAttribute('id'), (int) ($params['couponId'] ?? 0))
+            ? $this->success([], 'تم الحذف') : $this->error('الكود مش موجود', 404);
     }
 
     // ================================================================ استوديو التصميم

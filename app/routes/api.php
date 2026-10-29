@@ -1291,6 +1291,10 @@ $router->put('/api/site-dashboard/{id}/bookings/{bookingId}', 'SiteDashboardCont
 $router->get('/api/site-dashboard/{id}/managers', 'SiteDashboardController', 'managers', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/managers/activity', 'SiteDashboardController', 'managerActivity', ['AuthMiddleware']);
 $router->get('/api/site-dashboard/{id}/analytics', 'SiteDashboardController', 'analytics', ['AuthMiddleware']);
+$router->get('/api/site-dashboard/{id}/coupons', 'SiteDashboardController', 'coupons', ['AuthMiddleware']);
+$router->post('/api/site-dashboard/{id}/coupons', 'SiteDashboardController', 'createCoupon', ['AuthMiddleware']);
+$router->put('/api/site-dashboard/{id}/coupons/{couponId}', 'SiteDashboardController', 'updateCoupon', ['AuthMiddleware']);
+$router->delete('/api/site-dashboard/{id}/coupons/{couponId}', 'SiteDashboardController', 'deleteCoupon', ['AuthMiddleware']);
 $router->post('/api/site-dashboard/{id}/managers', 'SiteDashboardController', 'createManager', ['AuthMiddleware']);
 $router->put('/api/site-dashboard/{id}/managers/{managerId}', 'SiteDashboardController', 'updateManager', ['AuthMiddleware']);
 $router->delete('/api/site-dashboard/{id}/managers/{managerId}', 'SiteDashboardController', 'deleteManager', ['AuthMiddleware']);

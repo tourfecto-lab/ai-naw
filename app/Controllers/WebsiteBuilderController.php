@@ -2290,6 +2290,28 @@ HTML;
 
     public function quoteSiteTour(array $params=[]): array { return $this->quoteSiteItem($params,'tour'); }
     public function quoteSiteRoom(array $params=[]): array { return $this->quoteSiteItem($params,'room'); }
+    /** كود الخصم في عرض السعر: نفس حسابات السيرفر اللي بيستخدمها الحجز (BookingEngine) عشان الرقم المعروض هو الرقم المدفوع */
+    private function withCoupon(GeneratedWebsite $website, array $quote): array
+    {
+        $code = trim((string) $this->get('coupon_code', ''));
+        if ($code === '') {
+            return $quote;
+        }
+        try {
+            $r = (new SiteCouponService())->evaluate((int) $website->getAttribute('id'), $code, (float) $quote['total']);
+        } catch (Throwable $e) {
+            $r = ['ok' => false, 'error' => 'كود الخصم غير صحيح'];
+        }
+        if (!$r['ok']) {
+            $quote['coupon_error'] = $this->siteUi((string) $r['error']);
+            return $quote;
+        }
+        $quote['total_before_discount'] = (float) $quote['total'];
+        $quote['total'] = round((float) $quote['total'] - $r['discount'], 2);
+        $quote['coupon'] = ['code' => $r['code'], 'discount' => $r['discount']];
+        return $quote;
+    }
+
     private function quoteSiteItem(array $params,string $type): array
     {
         if($guard=$this->rateLimitGuard('ip','site_booking_quote',120,60))return $guard;
@@ -2313,13 +2335,13 @@ HTML;
                 $departure=(string)$this->get('end_date','');$rooms=filter_var($this->get('rooms_count',1),FILTER_VALIDATE_INT);if($rooms===false)return $this->error($this->siteUi('عدد الغرف غير صالح'),422);
                 $stay=HotelStayService::quote((int)$product['id'],(float)$product['price'],$date,$departure,$rooms);
                 $extras=(new BookingOperationsService($this->db))->extraTotal($owner,(int)$product['id'],(array)$this->get('extra_ids',[]),$adults+$children);
-                return $this->success(['total'=>round($stay['total']+$extras['total'],2),'currency'=>$product['currency'],'nights'=>$stay['nights'],'rooms_count'=>$rooms,'adult_price'=>(float)$product['price'],'child_price'=>0,'extras'=>$extras['items'],'inventory_units'=>$rooms]);
+                return $this->success($this->withCoupon($website,['total'=>round($stay['total']+$extras['total'],2),'currency'=>$product['currency'],'nights'=>$stay['nights'],'rooms_count'=>$rooms,'adult_price'=>(float)$product['price'],'child_price'=>0,'extras'=>$extras['items'],'inventory_units'=>$rooms]));
             }
             $ops=new BookingOperationsService($this->db);$settings=$ops->productSettings($owner,(int)$product['id']);$inv=$this->db->query('SELECT capacity,booked_count,price_override,is_blocked FROM inventory WHERE product_id=? AND date=?',[(int)$product['id'],$date])[0]??null;
             $units=BookingOperationsService::units($settings,$adults,$children);$capacity=$inv?(int)$inv['capacity']- (int)$inv['booked_count']:($settings['capacity_mode']==='booking'?$this->defaultSiteCapacity():0);
             if(($inv&&!empty($inv['is_blocked']))||$capacity<$units)return $this->error($this->siteUi('الأماكن المطلوبة غير متاحة في هذا التاريخ'),422);
             $price=$inv&&$inv['price_override']!==null?(float)$inv['price_override']:(float)$product['price'];$extras=$ops->extraTotal($owner,(int)$product['id'],(array)$this->get('extra_ids',[]),$adults+$children);
-            return $this->success(['total'=>round(BookingOperationsService::baseTotal($price,$settings,$adults,$children)+$extras['total'],2),'currency'=>$product['currency'],'adult_price'=>$price,'child_price'=>(float)$settings['child_price'],'extras'=>$extras['items'],'inventory_units'=>$units]);
+            return $this->success($this->withCoupon($website,['total'=>round(BookingOperationsService::baseTotal($price,$settings,$adults,$children)+$extras['total'],2),'currency'=>$product['currency'],'adult_price'=>$price,'child_price'=>(float)$settings['child_price'],'extras'=>$extras['items'],'inventory_units'=>$units]));
         }catch(Throwable $e){return $this->error(CustomerError::message($e->getMessage()),422);}
     }
 
@@ -2440,6 +2462,7 @@ HTML;
                 'source' => $bookingSource,
                 'extra_ids' => (array) $this->get('extra_ids', []),
                 'expected_total' => $this->get('quoted_total'),
+                'coupon_code' => trim((string) $this->get('coupon_code', '')) ?: null,
                 'request_token' => $this->get('request_token'),
                 'wa_token' => $this->get('wa_token') ?: WhatsAppStudioService::cookieToken($websiteId),
                 'notes' => $this->siteUi('حجز مباشر من ') . ($itemType === 'room' ? $this->siteUi('صفحة الغرفة') : $this->siteUi('صفحة الرحلة')) . ': /sites/' . $slug . '/' . $itemsKey . '/' . $itemSlug,
@@ -2458,6 +2481,9 @@ HTML;
                 try{(new AdTrackingService())->clearAttribution();}catch(Throwable $ignored){Logger::warning('Booking attribution cookie cleanup failed',['booking_id'=>$booking['id']]);}
             }
         } catch (Exception $e) {
+            if ($e instanceof InvalidArgumentException && str_contains($e->getMessage(), 'كود الخصم')) {
+                return $this->error($this->siteUi($e->getMessage()), 422);
+            }
             Logger::warning('Website booking failed', ['website_id' => $websiteId, 'product_id' => $productId, 'error' => CustomerError::message($e->getMessage(), 500)]);
             return $this->error($this->siteUi('ما قدرناش نأكد الحجز للتاريخ ده حاليًا - جرب تاريخ تاني أو تواصل عبر واتساب'), 422, ['whatsapp_fallback' => true]);
         }
@@ -2722,6 +2748,15 @@ HTML;
         $policyHtml=$this->siteUi('<p class="ws-bf-label">سعر الطفل: ').$esc($settings['child_price']).$this->siteUi('. مهلة الإلغاء: ').$esc($settings['cancellation_hours']).$this->siteUi(' ساعة. نسبة الاسترداد وفق السياسة: ').$esc($settings['refund_percent']).$this->siteUi('%. الاسترداد بعد مراجعة الطلب.</p>');
 
         $stayFields=$itemType==='room'?$this->siteUi('<label class="ws-bf-label">تاريخ المغادرة<input type="date" name="end_date" min="').$today.$this->siteUi('" required class="ws-bf-input"></label><label class="ws-bf-label">عدد الغرف<input type="number" name="rooms_count" min="1" max="20" value="1" required class="ws-bf-input"></label>'):'';
+        $couponHtml = '';
+        try {
+            $wid = (int) ($this->db->query('SELECT website_id FROM crm_products WHERE id = ? LIMIT 1', [$productId])[0]['website_id'] ?? 0);
+            if ($wid > 0 && (new SiteCouponService())->hasActive($wid)) {
+                $couponHtml = '<label class="ws-bf-label">🎟️ ' . $this->siteUi('كود الخصم') . ' (' . $this->siteUi('اختياري') . ')<input type="text" name="coupon_code" maxlength="30" autocomplete="off" dir="ltr" class="ws-bf-input" style="text-transform:uppercase"></label>';
+            }
+        } catch (Throwable $e) {
+            $couponHtml = '';
+        }
         return <<<HTML
 <form id="wsBookingForm" class="ws-booking-form" data-action="{$esc($action)}" data-slug="{$esc($slug)}">
     {$this->spamTrapHtml()}
@@ -2739,6 +2774,7 @@ HTML;
     </div>
     {$policyHtml}
     {$extrasHtml}
+    {$couponHtml}
     <label class="ws-bf-label">👤 {$this->siteUi('الاسم')}
         <input type="text" name="customer_name" required placeholder="{$this->siteUi('اسمك الكامل')}" class="ws-bf-input">
     </label>
@@ -2759,9 +2795,9 @@ HTML;
     var msg = document.getElementById('wsBookingMsg');
     var bookingSubmitting=false;
     var quoteEl=document.getElementById('wsBookingQuote'), quote=null, quoteVersion=0, quoteTimer;
-    function quoteParams(){var p=new URLSearchParams();['start_date','end_date','rooms_count','adults_count','children_count'].forEach(function(k){if(form.elements[k])p.set(k,form.elements[k].value);});new FormData(form).forEach(function(v,k){if(k==='extra_ids[]')p.append('extra_ids[]',v);});return p.toString();}
-    function updateQuote(requestToken){var version=++quoteVersion;quote=null;if(!form.elements.start_date.value)return Promise.resolve(false);quoteEl.textContent='{$this->siteJs('جاري حساب السعر…')}';var params=quoteParams();var requestParams=params+(typeof requestToken==='string'?'&request_token='+encodeURIComponent(requestToken):'');return fetch(form.getAttribute('data-action').replace(/\/book$/, '/quote')+'?'+requestParams,{headers:{Accept:'application/json'}}).then(function(r){return r.json();}).then(function(r){if(version!==quoteVersion)return false;if(!r.success||!r.data){quoteEl.textContent=r.error||'{$this->siteJs('تعذر حساب السعر')}';return false;}quote={params:params,total:r.data.total};quoteEl.textContent='{$this->siteJs('الإجمالي')}: '+r.data.total+' '+r.data.currency+' ({$this->siteJs('البالغ')} '+r.data.adult_price+'{$this->siteJs('، الطفل')} '+r.data.child_price+'{$this->siteJs('، مع الإضافات المختارة')})';return true;}).catch(function(){if(version===quoteVersion)quoteEl.textContent='{$this->siteJs('تعذر حساب السعر؛ حاول بعد التحقق من الاتصال')}.';return false;});}
-    form.addEventListener('input',function(e){if(['start_date','end_date','rooms_count','adults_count','children_count','extra_ids[]'].indexOf(e.target.name)<0)return;quote=null;++quoteVersion;clearTimeout(quoteTimer);quoteTimer=setTimeout(updateQuote,300);});
+    function quoteParams(){var p=new URLSearchParams();['start_date','end_date','rooms_count','adults_count','children_count','coupon_code'].forEach(function(k){if(form.elements[k])p.set(k,form.elements[k].value);});new FormData(form).forEach(function(v,k){if(k==='extra_ids[]')p.append('extra_ids[]',v);});return p.toString();}
+    function updateQuote(requestToken){var version=++quoteVersion;quote=null;if(!form.elements.start_date.value)return Promise.resolve(false);quoteEl.textContent='{$this->siteJs('جاري حساب السعر…')}';var params=quoteParams();var requestParams=params+(typeof requestToken==='string'?'&request_token='+encodeURIComponent(requestToken):'');return fetch(form.getAttribute('data-action').replace(/\/book$/, '/quote')+'?'+requestParams,{headers:{Accept:'application/json'}}).then(function(r){return r.json();}).then(function(r){if(version!==quoteVersion)return false;if(!r.success||!r.data){quoteEl.textContent=r.error||'{$this->siteJs('تعذر حساب السعر')}';return false;}quote={params:params,total:r.data.total};quoteEl.textContent='{$this->siteJs('الإجمالي')}: '+r.data.total+' '+r.data.currency+' ({$this->siteJs('البالغ')} '+r.data.adult_price+'{$this->siteJs('، الطفل')} '+r.data.child_price+'{$this->siteJs('، مع الإضافات المختارة')})'+(r.data.coupon?' — {$this->siteJs('تم تطبيق الخصم')}: -'+r.data.coupon.discount+' '+r.data.currency:'')+(r.data.coupon_error?' — '+r.data.coupon_error:'');return true;}).catch(function(){if(version===quoteVersion)quoteEl.textContent='{$this->siteJs('تعذر حساب السعر؛ حاول بعد التحقق من الاتصال')}.';return false;});}
+    form.addEventListener('input',function(e){if(['start_date','end_date','rooms_count','adults_count','children_count','coupon_code','extra_ids[]'].indexOf(e.target.name)<0)return;quote=null;++quoteVersion;clearTimeout(quoteTimer);quoteTimer=setTimeout(updateQuote,300);});
 
     var requestStorageKey='tfBookingRequest:'+form.getAttribute('data-action');
     async function requestToken(payload){
