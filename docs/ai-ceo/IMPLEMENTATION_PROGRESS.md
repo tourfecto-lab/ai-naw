@@ -15,7 +15,7 @@ Read this first when resuming. The directive is 10 controlled phases: one phase 
 | 2 | AI Cost & Quality Intelligence | **Implemented** — see below (awaiting owner check of the cost section) |
 | 3 | Global Tourism Business Intelligence | **Implemented** — see below (awaiting owner check of the Companies tab) |
 | 4 | Autonomous Growth & Sales | **Implemented (partial scope, see below)** — awaiting owner setup and check |
-| 5 | Tourfecto Brand Growth Engine | Not started |
+| 5 | Tourfecto Brand Growth Engine | **Implemented (partial scope, see below)** — awaiting owner check of the Brand Growth tab |
 | 6 | Customer Success & Revenue Intelligence | Not started |
 | 7 | AI Platform Operations & Development Advisor | Not started |
 | 8 | Financial & Strategic Intelligence | Not started |
@@ -244,4 +244,45 @@ Until the postal address is set and at least one region's basis is confirmed, **
 - A referral program. It needs a product, pricing and billing decision.
 - Partnership discovery.
 
-**Next: Phase 5** — Tourfecto Brand Growth Engine.
+## Phase 5 — Tourfecto Brand Growth Engine
+
+**Reused:**
+- `visitor_logs` (from `VisitorTrackingMiddleware`) for traffic and sign-up sources;
+- `MarketingContent::features()`: the public feature pages are the only list of services the AI may mention;
+- the platform's own websites, reviews, connections and social posts (for Tourfecto's presence on its own platform);
+- `AIOrchestrator` with the AI CEO budget guard from Phase 2.
+
+**New**
+- `app/Services/AiCeo/BrandSiteAudit.php`: a free SEO/AEO check of the Tourfecto website itself (`brand_site_url` setting, otherwise `APP_URL`).
+  - It reads robots.txt and the sitemap (one level of sitemap index) and checks up to 40 pages on the same host. Redirects are followed only on the same host.
+  - **Per page:** HTTP status, speed, title, meta description, H1, canonical, noindex, JSON-LD, Open Graph, word count and internal links.
+  - **Site level:** sitemap, robots → sitemap, `/llms.txt`, and duplicate titles.
+  - **Score (0–100):** each critical issue costs 25, each warning 8 and each info 2, averaged per page; site issues are subtracted in full.
+  - Every run is saved in `aiceo_brand_audits` (migration `2026_10_29_000009_ai_ceo_brand.sql`) so improvement is measured against the previous score.
+  - It runs weekly from `cron/ai_ceo_cycle.php` and on demand ("Run audit now", any admin, twice per hour).
+- `app/Services/AiCeo/BrandGrowth.php`:
+  - `acquisition(30)`: visitors by landing page, referrer and country, from public pages only. A customer sign-up is credited to the first page and referrer of the visitor who signed up. Sign-ups with no tracked visit are counted separately.
+  - `presence()`: the Tourfecto website inside an admin account (connections, Google reviews, social posts).
+  - `monthlyPlan()`: an AI plan per market (8 posts, 2 articles, 1 video, plus Google/Meta ad **drafts**). It is owner only and runs on the AI CEO budget (task `ai_ceo_brand_plan`). It uses only listed features plus the sign-up data. Promises such as "guaranteed", "#1", "first page" and "نضمن" are flagged for removal. The plan is saved in memory (kind `plan`). Nothing is published, and no ad money is spent.
+- **Snapshot section `brand` and decisions** (all low risk):
+  - `brand_audit_first`
+  - `brand_site_critical`
+  - `brand_no_conversions` (50 or more visitors and 0 sign-ups in 30 days)
+  - `brand_site_not_in_platform`
+- **API:**
+  - `GET /api/admin/ai-ceo/brand`
+  - `POST /api/admin/ai-ceo/brand/audit`
+  - `POST /api/admin/ai-ceo/brand/plan` (owner only)
+  - Everything is audited.
+- **Mission Control:** a new **Brand Growth** tab.
+- **Tests:**
+  - `tests/Unit/BrandGrowthTest.php`: page analysis, score, path/host, promise warnings.
+  - `tests/Integration/BrandGrowthIntegrationTest.php`: sign-up attribution and admin-page exclusion; audit on a fake site (other hosts skipped, improvement measured); decisions; the plan with a fake AI and rejection of non-JSON output and bad months.
+
+**Not built in this phase (needs owner decisions, accounts or integrations)**
+- Publishing the plan automatically to Tourfecto's own social accounts. It needs the Tourfecto pages connected in the owner account; until then the plan is a draft for the owner.
+- Running paid ads. Paid ads stay off; only drafts are written.
+- Search Console and GA4 data for tourfecto.pro (queries, impressions). This needs the Google verification to finish and a connection for the owner's own property.
+- Measuring AI answer engines (ChatGPT, Perplexity, Gemini) mentioning Tourfecto. The platform's AI visibility service could do it, but it costs API credits and needs the owner's approval of a budget.
+
+**Next: Phase 6** — Customer Success & Revenue Intelligence.

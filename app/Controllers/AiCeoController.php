@@ -5,6 +5,8 @@ require_once __DIR__ . '/../Services/AiCeo/AiCeoChat.php';
 require_once __DIR__ . '/../Services/AiCeo/AiCostIntelligence.php';
 require_once __DIR__ . '/../Services/AiCeo/TourismBusinessDb.php';
 require_once __DIR__ . '/../Services/AiCeo/SalesEngine.php';
+require_once __DIR__ . '/../Services/AiCeo/BrandSiteAudit.php';
+require_once __DIR__ . '/../Services/AiCeo/BrandGrowth.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -292,6 +294,64 @@ class AiCeoController extends Controller
         } catch (Throwable $ex) {
             Logger::error('AI CEO sales action failed', ['action' => $action, 'error' => $ex->getMessage()]);
             return $this->error('The action failed.', 503);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 5: نمو علامة Tourfecto
+
+    /** GET /api/admin/ai-ceo/brand */
+    public function brand(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            $audit = new BrandSiteAudit($this->db);
+            $bg = new BrandGrowth($this->db);
+            $plans = $this->db->query("SELECT id, title, body, created_at FROM aiceo_memory WHERE kind = 'plan' AND title LIKE 'Brand content plan %' ORDER BY id DESC LIMIT 3") ?: [];
+            return $this->success(['site_url' => $audit->siteUrl(), 'audit' => $audit->latest(), 'acquisition' => $bg->acquisition(30), 'presence' => $bg->presence($audit->siteUrl()),
+                'plans' => array_map(static fn ($p) => ['id' => (int) $p['id'], 'title' => $p['title'], 'created_at' => $p['created_at'], 'plan' => json_decode((string) $p['body'], true)], $plans),
+                'features' => count(BrandGrowth::verifiedFeatures()), 'owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO brand failed', ['error' => $e->getMessage()]);
+            return $this->error('Brand data could not load right now.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/brand/audit — فحص موقع Tourfecto دلوقتي (ببلاش، أي أدمن، مرتين في الساعة) */
+    public function brandAudit(array $params = []): array
+    {
+        if ($e = $this->guard(false)) return $e;
+        if ($e = $this->rateLimitGuard('user', 'ai_ceo_brand_audit', 2, 3600)) return $e;
+        if (function_exists('set_time_limit')) @set_time_limit(300);
+        try {
+            $r = (new BrandSiteAudit($this->db))->run();
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'brand_audit', ['score' => $r['summary']['score'], 'pages' => $r['summary']['pages']]);
+            return $this->success(['audit' => (new BrandSiteAudit($this->db))->latest()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO brand audit failed', ['error' => $e->getMessage()]);
+            return $this->error('The site audit failed.', 503);
+        }
+    }
+
+    /** POST /api/admin/ai-ceo/brand/plan  {month, markets[]} — خطة المحتوى الشهرية (ذكاء اصطناعي على ميزانية AI CEO، صاحب المنصة بس) */
+    public function brandPlan(array $params = []): array
+    {
+        if ($e = $this->guard(true)) return $e;
+        if ((new AiCeoStore($this->db))->settings()['paused']) return $this->error('The AI CEO is on emergency stop.', 409);
+        if (function_exists('set_time_limit')) @set_time_limit(180);
+        try {
+            $bg = new BrandGrowth($this->db);
+            $out = $bg->monthlyPlan((int) $this->user['id'], (string) $this->get('month', date('Y-m', strtotime('first day of next month'))), (array) $this->get('markets', ['us', 'eu', 'gcc']), $bg->acquisition(30), new AiCostIntelligence($this->db));
+            $store = new AiCeoStore($this->db);
+            $store->remember('plan', $out['title'], json_encode($out['plan'] + ['_warnings' => $out['warnings']], JSON_UNESCAPED_UNICODE), null, (int) $this->user['id']);
+            $store->log((int) $this->user['id'], 'brand_plan_created', ['title' => $out['title'], 'warnings' => count($out['warnings'])]);
+            return $this->success($out);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (RuntimeException $e) {
+            $m = $e->getMessage();
+            $msg = str_starts_with($m, 'budget_') ? 'The AI CEO reached its ' . substr($m, 7) . ' AI budget. Raise it in AI Costs.' : ($m === 'invalid_plan' ? 'The AI returned an unusable plan. Try again.' : 'AI is not available right now.');
+            return $this->error($msg, 503);
         }
     }
 

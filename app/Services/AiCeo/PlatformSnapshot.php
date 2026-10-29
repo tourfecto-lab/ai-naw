@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/AiCostIntelligence.php';
 require_once __DIR__ . '/SalesEngine.php';
+require_once __DIR__ . '/BrandSiteAudit.php';
+require_once __DIR__ . '/BrandGrowth.php';
 
 /**
  * TOURFECTO AI CEO — صورة شركة Tourfecto نفسها (مش شركة عميل).
@@ -39,6 +41,7 @@ final class PlatformSnapshot
             'ai_cost' => $this->section('ai_cost', fn () => $this->aiCost()),
             'outreach' => $this->section('outreach', fn () => $this->outreach()),
             'sales' => $this->section('sales', fn () => $this->sales()),
+            'brand' => $this->section('brand', fn () => $this->brand()),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
     }
@@ -117,6 +120,18 @@ final class PlatformSnapshot
         $r = (new AiCostIntelligence($this->db))->report();
         return $out + ['projected_month_usd' => $r['totals']['projected_month'], 'platform_budget' => $r['platform_budget'], 'aiceo' => $r['aiceo'],
             'anomalies' => array_slice($r['anomalies'], 0, 5), 'routing_review' => array_slice($r['routing_review'], 0, 5)];
+    }
+
+    /** المرحلة 5: آخر فحص لموقع Tourfecto، والتسجيلات منين، وحضور Tourfecto في خدماتها */
+    private function brand(): array
+    {
+        $audit = new BrandSiteAudit($this->db);
+        $a = $audit->latest();
+        $acq = (new BrandGrowth($this->db))->acquisition(30);
+        $presence = (new BrandGrowth($this->db))->presence($audit->siteUrl());
+        return ['audit_score' => $a['score'] ?? null, 'audit_previous' => $a['previous_score'] ?? null, 'audit_at' => $a['run_at'] ?? null, 'audit_critical' => (int) ($a['summary']['critical'] ?? 0),
+            'audit_issue_counts' => $a['summary']['issue_counts'] ?? [], 'visitors_30d' => $acq['visitors'], 'signups_30d' => $acq['signups'], 'top_signup_page' => $acq['landing_pages'][0] ?? null,
+            'brand_site_in_platform' => $presence['website'] !== null, 'brand_unanswered_negative' => $presence['reviews']['unanswered_negative'] ?? null];
     }
 
     /** المرحلة 4: البوابة القانونية والمسار والـ CRM */

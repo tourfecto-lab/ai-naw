@@ -16,6 +16,8 @@ return [
     'TourismBusinessDb' => dirname(__DIR__,2).'/app/Services/AiCeo/TourismBusinessDb.php',
     'SalesCompliance' => dirname(__DIR__,2).'/app/Services/AiCeo/SalesCompliance.php',
     'SalesEngine' => dirname(__DIR__,2).'/app/Services/AiCeo/SalesEngine.php',
+    'BrandSiteAudit' => dirname(__DIR__,2).'/app/Services/AiCeo/BrandSiteAudit.php',
+    'BrandGrowth' => dirname(__DIR__,2).'/app/Services/AiCeo/BrandGrowth.php',
     'BrainSchema' => dirname(__DIR__,2).'/app/Services/Brain/BrainSchema.php',
     'CompanyBrainService' => dirname(__DIR__,2).'/app/Services/Brain/CompanyBrainService.php',
     'GrowthAdvisor' => dirname(__DIR__,2).'/app/Services/Brain/GrowthAdvisor.php',
