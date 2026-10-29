@@ -38,6 +38,10 @@ final class BrainDecisionStoreIntegrationTest extends TestCase
             if (!class_exists('Logger') && file_exists($app . '/Core/Logger.php')) require_once $app . '/Core/Logger.php';
             $this->db = Database::getInstance();
             BrainSchema::ensure($this->db);
+            // جداول اللوحة التنفيذية مربوطة بـ users، فالمستخدمين التجريبيين لازم يكونوا موجودين
+            foreach ([self::USER_ID, self::OTHER_USER_ID] as $uid) {
+                $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Brain Test Travel', NOW()) ON DUPLICATE KEY UPDATE email = email", [$uid, 'brain-' . $uid . '@tourfecto.test']);
+            }
         } catch (Throwable $e) {
             $this->markTestSkipped('DB غير متاحة: ' . $e->getMessage());
         }

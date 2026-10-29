@@ -70,7 +70,7 @@ final class BrainExecutor extends ActionExecutor
                     $this->db->query('INSERT INTO ceo_risk_alerts (user_id, title, description, severity, source_module, is_resolved, created_at) VALUES (?, ?, ?, ?, ?, 0, NOW())',
                         [$userId, $title, $action['reason'], $action['severity'], 'brain']);
             } elseif (!$this->db->query("SELECT id FROM ceo_growth_opportunities WHERE user_id = ? AND title = ? AND status NOT IN ('done','dismissed') LIMIT 1", [$userId, $title])) {
-                $this->db->query("INSERT INTO ceo_growth_opportunities (user_id, title, description, estimated_impact, status, created_at) VALUES (?, ?, ?, ?, 'open', NOW())",
+                $this->db->query("INSERT INTO ceo_growth_opportunities (user_id, title, description, estimated_impact, status, created_at) VALUES (?, ?, ?, ?, 'new', NOW())",
                     [$userId, $title, $action['reason'], $action['severity']]);
             }
             if (!$this->db->query("SELECT id FROM cc_ai_tasks WHERE user_id = ? AND title = ? AND status = 'open' LIMIT 1", [$userId, $title]))
