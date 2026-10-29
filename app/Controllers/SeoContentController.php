@@ -54,7 +54,7 @@ class SeoContentController extends Controller
             <select id="sccWebsiteSelect" class="p-select"><option value="">اختر موقعًا</option></select>
             <span class="p-cell-muted" id="sccConnStatus" style="font-size:12px;"></span>
             <span style="flex:1;"></span>
-            <button class="p-btn" id="sccRunEngineBtn">تشغيل دورة المحرك</button>
+            <span class="p-cell-muted" style="font-size:12px;">المقالات بتتجهّز وتتنشر لوحدها كل ربع ساعة</span>
         </div>
 
         <div class="scc-grid" style="margin-top:14px;">
@@ -143,7 +143,13 @@ class SeoContentController extends Controller
         function sccRenderItems(items) {
             const box = document.getElementById('sccItems');
             if (!items.success || !items.data.items.length) { box.textContent = 'مفيش عناصر'; return; }
-            box.innerHTML = items.data.items.map(it => `<div class="scc-item"><div class="scc-item-head"><span class="scc-item-title">${sccEsc(it.topic || it.title || '')}</span><span class="scc-pill ${it.status==='generated'||it.status==='indexed'?'green':(it.status==='testing'?'orange':(it.status==='failed'?'red':'gray'))}">${sccSt(it.status)}</span></div><div class="scc-item-meta">${it.title ? ('العنوان: '+sccEsc(it.title)) : ''} ${it.indexnow_code ? ('| IndexNow '+sccEsc(it.indexnow_code)) : ''}${it.status==='failed' && it.error_message ? ('<br><span style="color:#d92d20">'+sccEsc(it.error_message)+'</span>') : ''}</div><div class="scc-row" style="margin-top:6px;">${it.status==='queued'||it.status==='failed'?`<button class="p-btn" onclick="sccGenerateItem(${+it.id}, this)">توليد</button>`:''}${it.status==='generated'?`<button class="p-btn" onclick="sccIndexItem(${+it.id}, this)">فهرسة</button>`:''}${it.status==='indexed'?`<button class="p-btn" onclick="sccAbTest(${+it.id}, this)">A/B عنوان</button>`:''}</div></div>`).join('');
+            const sccWhy = m => { const s = String(m || '');
+                if (/duration or family/i.test(s)) return 'المقال ذكر مدة رحلة أو إنها مناسبة للعائلات، والمعلومة دي مش مكتوبة في بيانات شركتك. ضيف مدد رحلاتك في بيانات الشركة وجرّب تاني. <a href="/seo-expert?page=settings">بيانات الشركة</a>';
+                if (/price is not in confirmed/i.test(s)) return 'المقال ذكر سعر مش موجود في بيانات شركتك. ضيف أسعارك في بيانات الشركة وجرّب تاني. <a href="/seo-expert?page=settings">بيانات الشركة</a>';
+                if (/budget|SERP brief unavailable/i.test(s)) return 'مصدر بيانات البحث مكانش متاح وقت التجهيز، فالمقال اتأجل. جرّب تاني بعد شوية.';
+                if (/Internal article link/i.test(s)) return 'المقال فيه رابط لصفحة في موقعك ما قدرناش نتأكد إنها موجودة. جرّب تاني.';
+                return sccEsc(s); };
+            box.innerHTML = items.data.items.map(it => `<div class="scc-item"><div class="scc-item-head"><span class="scc-item-title">${sccEsc(it.topic || it.title || '')}</span><span class="scc-pill ${it.status==='generated'||it.status==='indexed'?'green':(it.status==='testing'?'orange':(it.status==='failed'?'red':'gray'))}">${sccSt(it.status)}</span></div><div class="scc-item-meta">${it.title ? ('العنوان: '+sccEsc(it.title)) : ''} ${it.indexnow_code ? ('| IndexNow '+sccEsc(it.indexnow_code)) : ''}${it.status==='failed' && it.error_message ? ('<br><span style="color:#d92d20">'+sccWhy(it.error_message)+'</span>') : ''}</div><div class="scc-row" style="margin-top:6px;">${it.status==='queued'||it.status==='failed'?`<button class="p-btn" onclick="sccGenerateItem(${+it.id}, this)">توليد</button>`:''}${it.status==='generated'?`<button class="p-btn" onclick="sccIndexItem(${+it.id}, this)">فهرسة</button>`:''}${it.status==='indexed'?`<button class="p-btn" onclick="sccAbTest(${+it.id}, this)">A/B عنوان</button>`:''}</div></div>`).join('');
         }
         async function sccGenerateItem(id, btn) { await sccAct(btn, `/api/seo-content/items/${id}/generate`, 'تم توليد المقال'); sccSelectCampaign(sccCampaign); }
         async function sccIndexItem(id, btn) { await sccAct(btn, `/api/seo-content/items/${id}/index`, 'تمت الفهرسة'); sccSelectCampaign(sccCampaign); }
@@ -176,7 +182,7 @@ class SeoContentController extends Controller
         }
         document.getElementById('sccDiscoverBtn').onclick = sccLoadDiscover;
         document.getElementById('sccCreateBtn').onclick = sccCreateCampaign;
-        document.getElementById('sccRunEngineBtn').onclick = async function () {
+        if (document.getElementById('sccRunEngineBtn')) document.getElementById('sccRunEngineBtn').onclick = async function () {
             const btn = this; btn.disabled = true; btn.textContent = 'جارٍ التشغيل...';
             const res = await sccApi('/api/seo-content/engine/run', { method: 'POST' });
             btn.disabled = false; btn.textContent = 'تشغيل دورة المحرك';
@@ -190,7 +196,7 @@ class SeoContentController extends Controller
         sccLoadWebsites();
         JS;
 
-        echo $this->renderPanelPage('seo_content', 'محرك محتوى SEO', 'تحويل الفرص إلى مقالات مفهرسة ومختبَرة A/B', $body, $script);
+        echo $this->renderPanelPage('seo_content', 'حملات المحتوى', 'تحويل الفرص إلى مقالات مفهرسة ومختبَرة A/B', $body, $script);
     }
 
     /** GET /api/seo-content/discover/{website_id}?source=keywords|gsc */

@@ -201,9 +201,12 @@ class ArticleGenerator
         foreach($parts as $part)foreach(preg_split('/(?<=[.!?])\s+|(?<=[。！？])|\R/u',$part) as $sentence){
             $sentence=trim($sentence);if($sentence===''||str_ends_with(rtrim($sentence,'*_ '),'?')||preg_match('/^(?:[#*\s-]*)(?:confirm|check|ask|verify|تأكد|اسأل|راجع)\b/iu',$sentence))continue;
             // مدة الرحلة بأي لغة سوق: "3 hours" / "3 Stunden" / "3 heures" / "3 часа" / "3小时"
-            $duration=preg_match('/\b[0-9]+(?:\s*(?:-|–|to|إلى|bis|à|a|al|до|到)\s*[0-9]+)?[\s-]*(?:hours?|hrs?|days?|nights?|ساعات|ساعة|أيام|ليال|stunden?|tage?n?|nächte|übernachtung\w*|heures?|jours?|nuits?|horas?|d[ií]as?|noches?|ore|giorni|giorno|notti|notte|uur|dagen|nachten|час\w*|дн\w*|сут\w*|ноч\w*|saat|gün|gece|godzin\w*|dni|noc\w*)(?!\p{L})|[0-9]+\s*(?:小时|个小时|天|晚|時間|日間|泊|시간|일|박)/iu',$sentence);
+            $duration=preg_match_all('/\b[0-9]+(?:\s*(?:-|–|to|إلى|bis|à|a|al|до|到)\s*[0-9]+)?[\s-]*(?:hours?|hrs?|days?|nights?|ساعات|ساعة|أيام|ليال|stunden?|tage?n?|nächte|übernachtung\w*|heures?|jours?|nuits?|horas?|d[ií]as?|noches?|ore|giorni|giorno|notti|notte|uur|dagen|nachten|час\w*|дн\w*|сут\w*|ноч\w*|saat|gün|gece|godzin\w*|dni|noc\w*)(?!\p{L})|[0-9]+\s*(?:小时|个小时|天|晚|時間|日間|泊|시간|일|박)/iu',$sentence,$durations);
             $family=preg_match('/\b(?:our|the|these)\s+tours?\b.{0,180}\b(?:families|all ages)\b|\b(?:suitable|safe|ideal|perfect)\s+for\s+(?:families|children)\b|مناسب.{0,30}(?:للعائلات|للأطفال)|(?:geeignet|ideal|perfekt)\s+für\s+(?:familien|kinder)|familienfreundlich|(?:adapté|idéal|parfait)e?s?\s+(?:aux|pour\s+les)\s+(?:familles|enfants)|(?:apt|ideal|perfect)[oa]s?\s+para\s+(?:familias|niños|famílias|crianças)|(?:adatt|ideal|perfett)[aoie]\s+(?:alle|per\s+le|per\s+i)\s+(?:famiglie|bambini)|(?:подходит|идеально)\s+для\s+(?:семей|детей)|适合(?:家庭|儿童|亲子)|家族(?:向け|連れ)|aileler\s+için\s+(?:uygun|ideal)/iu',$sentence);
-            if(($duration||$family)&&!str_contains($claimFacts,$normalizeClaim($sentence)))return 'Confirm the exact duration or family-suitability statement in business facts before publishing.';
+            // المدة بتعدّي لو نفس المدة (زي "4 days" أو "4-Day") مكتوبة في بيانات الشركة المؤكدة؛ قبل كده الجملة كلها
+            // كان لازم تتكتب حرفيًا في البيانات، فأي موضوع زي "4-Day Itinerary" كان بيفشل دايمًا
+            $durationOk=$duration&&!array_filter($durations[0],static fn($d)=>!str_contains(' '.$claimFacts.' ',' '.$normalizeClaim($d)));
+            if(($family||($duration&&!$durationOk))&&!str_contains($claimFacts,$normalizeClaim($sentence)))return 'Confirm the exact duration or family-suitability statement in business facts before publishing.';
         }
         if(isset($brief['verified_internal_urls'])&&is_array($brief['verified_internal_urls'])){
             $home=(string)($confirmed['source_site_url']??'');$host=strtolower((string)parse_url($home,PHP_URL_HOST));
