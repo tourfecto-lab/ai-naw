@@ -1987,6 +1987,7 @@ $router->post('/api/admin/seo-data/markets','SeoDataController','adminAddMarket'
 $router->get('/api/ai-visibility/data','AiVisibilityController','data',['AuthMiddleware']);
 $router->get('/api/ai-visibility/overview','AiVisibilityController','data',['AuthMiddleware']);
 $router->post('/api/ai-visibility/question','AiVisibilityController','question',['AuthMiddleware']);
+$router->post('/api/ai-visibility/questions','AiVisibilityController','questions',['AuthMiddleware']);
 $router->post('/api/ai-visibility/identity','AiVisibilityController','identity',['AuthMiddleware']);
 $router->post('/api/ai-visibility/generate','AiVisibilityController','generate',['AuthMiddleware']);
 $router->post('/api/ai-visibility/llms','AiVisibilityController','llms',['AuthMiddleware']);

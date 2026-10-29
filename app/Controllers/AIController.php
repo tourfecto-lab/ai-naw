@@ -972,11 +972,13 @@ HTML;
     const reportId = __REPORT_ID__;
     const L = __LABELS_JSON__;
 
+    // عنصر جاي كـ object من الذكاء الاصطناعي بيتعرض كنص مقروء بدل JSON
+    const readable = i => i && typeof i === 'object' ? Object.values(i).filter(v => v !== null && typeof v !== 'object' && String(v).trim() !== '').join(' — ') || JSON.stringify(i) : String(i ?? '');
     function section(title, icon, items) {
         if (!items || (Array.isArray(items) && !items.length)) return '';
         const rows = Array.isArray(items)
-            ? items.map(i => `<li>${typeof i === 'object' ? esc(JSON.stringify(i)) : esc(i)}</li>`).join('')
-            : `<li>${esc(items)}</li>`;
+            ? items.map(i => `<li dir="auto">${esc(readable(i))}</li>`).join('')
+            : `<li dir="auto">${esc(items)}</li>`;
         return `
             <div class="p-card" style="margin-top:14px;">
                 <div class="p-card-head"><h3>${icon} ${esc(title)}</h3></div>

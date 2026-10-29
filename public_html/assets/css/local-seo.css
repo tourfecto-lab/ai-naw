@@ -15,3 +15,10 @@
 #localSeo .local-comparison ul{padding-inline-start:20px}
 #localSeo [hidden]{display:none!important}
 @media(max-width:600px){#localSeo .local-step{padding:14px}#localSeo button{max-width:100%;white-space:normal}#localSeo [role=cell]{padding:9px 2px!important;font-size:12px}}
+
+.local-comparison h4 { margin: 0 0 6px; font-size: 15px; }
+.local-table td { vertical-align: top; }
+.local-table tr.mismatch td { background: var(--panel-warning-light, #fffbeb); }
+.local-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--panel-card-bg-2, #f3f4f6); white-space: nowrap; }
+.local-badge.match { background: var(--panel-success-light, #ecfdf5); color: var(--panel-success, #16a34a); }
+.local-badge.mismatch { background: var(--panel-warning-light, #fffbeb); color: var(--panel-warning, #b45309); }
