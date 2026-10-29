@@ -56,3 +56,9 @@
 
 ## 7) بيئة tourfectoai.pro (نشر تلقائي)
 مربوطة بـ GitHub عبر aaPanel (Deploy key للقراءة فقط + webhook على حدث push، فرع main، سكربت `git pull origin main`). كل push على `main` ينزل هناك تلقائيًا. الموقع الأساسي tourfecto.pro يدوي ومنفصل.
+
+## 8) تطويرات الواتساب (على tourfectoai.pro فقط، لم تُرفع إلى tourfecto.pro)
+- ملفات تلمس مسار Meta/واتساب (لا تُرفع قبل رد المراجعة): `WhatsAppCloudAPI` (رد/تفاعل/أزرار)، `ChatManager`، `ChatInboxController`، `WhatsAppCloudController` (تفاعلات العميل وسياق الرد)، `ChatController`.
+- **لم تُجرَّب إرسالًا حقيقيًا:** الرد على رسالة، التفاعل، الأزرار/القوائم، الرسائل الصوتية. جرّبها بنفسك على رقم اختبار قبل النشر.
+- هجرة **اختيارية** `2026_10_29_000001_chat_conversation_prefs.sql` (تثبيت/أرشفة/غير مقروء لكل موظف على الخادم). من غيرها الواجهة تحفظها في المتصفح ولا يحدث أي خطأ. خذ نسخة احتياطية قبل تشغيلها.
+- الإدخال الجديد في `app/Config/project_classmap.php`: `ChatConversationPrefs` (سطر واحد).
