@@ -17,22 +17,21 @@
 | صفحات `/privacy` و`/terms` و`/data-deletion` على tourfectoai.pro | بترد 200 |
 | Business Verification للـportfolio **tourfecto** | **مكتملة** (ظاهر في Meta) |
 | التطبيق | **Unpublished (Development)** |
-| App settings ← Basic | **اتحفظ:** Privacy URL وTerms وApp domains وCategory. **ناقص:** Data deletion URL (محجوب بسبب الـ403) وApp icon |
+| App settings ← Basic | **اتحفظ:** Privacy / Terms / Data deletion (على tourfecto.pro) وApp domains وCategory. **ناقص:** App icon فقط |
 
-## 1.1) عائق مكتشف: Meta بتاخد 403 من tourfectoai.pro
+## 1.1) زاحف Meta و tourfectoai.pro
 
-- **Sharing Debugger** (`developers.facebook.com/tools/debug/?q=https://tourfectoai.pro/data-deletion`) بيقول: Response Code **403**، والـscraper بيشوف رد فاضي. نفس الصفحة بترد 200 للمتصفح ولـcurl حتى بنفس الـUser-Agent بتاع Meta (يعني الحظر على عناوين Meta مش على الاسم).
-- ده السبب إن Meta بترفض حقل **User data deletion** («should represent a valid URL»)، وإن جلب الملفات برابط كان بيفشل (`Upload failed`)، ومراجع Meta مش هيقدر يفتح سياسة الخصوصية.
-- **لازم يتصلّح في الاستضافة قبل التقديم:** aaPanel ← Website ← الموقع ← الجدار الناري/WAF أو «Anti-CC / Bot protection / UA filter»: اسمح لـ`facebookexternalhit` و`Facebot` و`meta-externalagent` و`meta-externalfetcher`، أو وقّف حظر البوتس لصفحات `/privacy` و`/terms` و`/data-deletion` و`/media/out/`. (لو عندك Cloudflare: Allow لـAS32934 = Meta.)
-- اتأكد بعد التعديل: أعد فحص نفس الرابط في Sharing Debugger (لازم 200)، وبعدها احفظ الحقل في Basic.
+- **Sharing Debugger** بيرجّع 403 لصفحات `tourfectoai.pro`، ومفيش أي طلب منه بيظهر في لوج nginx (لوج الموقع بيسجّل طلبات Meta التانية بـ200). يعني الحجب غالباً قبل السيرفر (جدار شبكة Hostinger)، ولسه ما اتأكدش (محتاج ناتج `tcpdump`).
+- **ما بيأثر على المراجعة:** المراجع بيدخل بمتصفح عادي (شغّال). الأثر الوحيد إن Meta ما بتقدرش *تجلب* روابط من tourfectoai.pro، فرفع الصور للرسايل بيتم مباشرة لـMeta (شغّال).
+- **الحل المطبّق:** روابط الخصوصية والشروط وحذف البيانات في التطبيق بقت على **tourfecto.pro** (Meta بتجلبه 200)، وده بيشاور على صفحات موجودة وما غيّرناش فيها حاجة.
 - أصلحنا في الكود: طلبات HEAD كانت بترجّع 404 على كل الصفحات (دلوقتي 200).
 
 ## 2) قبل ما تقدّم (Checklist — الترتيب مهم)
 
 1. **App settings ← Basic** واملا الاتنين دول وسجّل (Save Changes):
-   - Privacy policy URL: `https://tourfectoai.pro/privacy`
-   - Terms of Service URL: `https://tourfectoai.pro/terms`
-   - User data deletion: *Data deletion instructions URL* = `https://tourfectoai.pro/data-deletion`
+   - Privacy policy URL: `https://tourfecto.pro/privacy` *(اتحفظ)*
+   - Terms of Service URL: `https://tourfecto.pro/terms` *(اتحفظ)*
+   - User data deletion: *Data deletion instructions URL* = `https://tourfecto.pro/data-deletion` *(اتحفظ)*
    - App domains: `tourfectoai.pro`
    - Category: Business and pages
    - App icon: لوجو Tourfecto 1024×1024.
