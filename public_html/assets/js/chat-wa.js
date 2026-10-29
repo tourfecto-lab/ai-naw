@@ -116,7 +116,8 @@
         mic.title = 'Voice note';
         mic.setAttribute('aria-label', 'Voice note');
         formGroup.appendChild(mic);
-        var rec = null, chunks = [], timer = null, started = 0, cancelled = false;
+        var rec = null, chunks = [], timer = null, started = 0, cancelled = false, sendNow = false;
+        function say(msg) { if (window.Panel && Panel.toast) Panel.toast(msg, 'error'); else alert(msg); }
         var bar = el('div', 'wa-rec-bar');
         bar.hidden = true;
         var dot = el('span', 'wa-rec-dot');
@@ -129,9 +130,10 @@
         replyCard.insertBefore(bar, replyCard.firstChild);
         function endRec() { clearInterval(timer); bar.hidden = true; mic.classList.remove('on'); }
         mic.addEventListener('click', function () {
-            if (rec) return;
+            // a second tap on the microphone finishes the recording and sends it, like WhatsApp
+            if (rec) { sendNow = true; rec.stop(); return; }
             navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-                chunks = []; cancelled = false;
+                chunks = []; cancelled = false; sendNow = false;
                 rec = new MediaRecorder(stream, { mimeType: voiceType });
                 rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
                 rec.onstop = function () {
@@ -140,15 +142,22 @@
                     rec = null; endRec();
                     if (wasCancelled || !chunks.length) return;
                     var ext = voiceType.indexOf('ogg') !== -1 ? 'ogg' : 'm4a';
-                    stage(new File(chunks, 'voice-note.' + ext, { type: voiceType.split(';')[0] }));
+                    var note = new File(chunks, 'voice-note.' + ext, { type: voiceType.split(';')[0] });
+                    if (sendNow && typeof window.sendAttachment === 'function') window.sendAttachment({ files: [note], value: '' });
+                    else stage(note);
                 };
                 rec.start();
                 started = Date.now();
                 bar.hidden = false; mic.classList.add('on');
                 timer = setInterval(function () { var s = Math.floor((Date.now() - started) / 1000); clock.textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }, 500);
-            }).catch(function () { /* microphone blocked: nothing to do */ });
+            }).catch(function (err) {
+                var name = err && err.name;
+                if (name === 'NotAllowedError' || name === 'SecurityError') say('The microphone is blocked for this site. Click the lock icon next to the address, allow the microphone, then try again.');
+                else if (name === 'NotFoundError' || name === 'OverconstrainedError') say('No microphone was found on this device.');
+                else say('The microphone could not be started.');
+            });
         });
-        stopRec.addEventListener('click', function () { if (rec) rec.stop(); });
+        stopRec.addEventListener('click', function () { if (rec) { sendNow = true; rec.stop(); } });
         cancelRec.addEventListener('click', function () { cancelled = true; if (rec) rec.stop(); });
     }
 
