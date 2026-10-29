@@ -19,6 +19,12 @@
     if (!panel || !thread || !msgBox || !replyCard) return;
     panel.style.position = 'relative';
 
+    /* ---------- the reply box grows with the text (up to ~5 lines), like WhatsApp ---------- */
+    function grow() { msgBox.style.height = 'auto'; msgBox.style.height = Math.min(140, Math.max(46, msgBox.scrollHeight)) + 'px'; }
+    msgBox.addEventListener('input', grow);
+    new MutationObserver(function () { if (!msgBox.value) msgBox.style.height = ''; }).observe(msgBox, { attributes: true, attributeFilter: ['style'] });
+    msgBox.addEventListener('blur', function () { if (!msgBox.value) msgBox.style.height = ''; });
+
     /* ---------- emoji picker ---------- */
     var EMOJI = ('😀 😃 😄 😁 😆 😅 😂 🤣 🙂 😉 😊 😇 🥰 😍 🤩 😘 😋 😜 🤪 😎 🤗 🤔 😐 😴 😢 😭 😡 🥳 🙏 👍 👎 👏 🙌 💪 👌 ✌️ 🤝 ❤️ 🧡 💛 💚 💙 💜 🔥 ✨ ⭐ 🎉 💯 ✅ ❌ ⚠️ ❓ ❗ ' +
         '☀️ 🌅 🌄 🏜️ 🏖️ 🌴 ⛰️ 🗺️ 🧭 ⛵ 🚤 🚌 🚗 ✈️ 🏨 🛏️ 🍽️ ☕ 🍹 🎈 🐪 🐎 📍 📅 ⏰ 💳 💵 📞 📸 🎁 🛍️').split(' ');
