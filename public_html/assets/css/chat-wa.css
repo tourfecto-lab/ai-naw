@@ -152,7 +152,7 @@ html body.wa-app .ai-chat-split .ai-chat-item .nm b{display:block}
 /* ---- reply to a message, quoted block, reactions ---- */
 .ai-chat-split .ai-bubble .wa-actions{position:absolute;top:-14px;inset-inline-end:8px;display:none;gap:2px;padding:2px;border-radius:999px;background:var(--wa-header);box-shadow:0 2px 8px rgba(0,0,0,.35);z-index:5}
 .ai-chat-split .ai-bubble:hover .wa-actions,.ai-chat-split .ai-bubble:focus-within .wa-actions{display:flex}
-@media (pointer:coarse){.ai-chat-split .ai-bubble .wa-actions{display:flex;top:-12px;opacity:.9}}
+@media (pointer:coarse){.ai-chat-split .ai-bubble .wa-actions{top:-14px}.ai-chat-split .ai-bubble:hover .wa-actions{display:none}.ai-chat-split .ai-bubble.wa-tap .wa-actions{display:flex}}
 .wa-act{width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--wa-text);font-size:15px;line-height:1;cursor:pointer}
 .wa-act:hover{background:var(--wa-active)}
 .ai-quote{margin:0 0 5px;padding:5px 8px;border-radius:6px;border-inline-start:4px solid var(--wa-green-2);background:rgba(11,20,26,.18);font-size:12.5px;line-height:1.35;cursor:default}

@@ -321,6 +321,14 @@
         new MutationObserver(function () { head.classList.remove('wa-head-open'); }).observe(panel, { attributes: true, attributeFilter: ['style'] });
     }
 
+    /* ---------- touch: tap a bubble to show its reply / react buttons ---------- */
+    thread.addEventListener('click', function (e) {
+        if (e.target.closest && e.target.closest('.wa-actions,a,button,audio,video')) return;
+        var b = e.target.closest && e.target.closest('.ai-bubble[data-mid]');
+        thread.querySelectorAll('.wa-tap').forEach(function (x) { if (x !== b) x.classList.remove('wa-tap'); });
+        if (b) b.classList.toggle('wa-tap');
+    });
+
     /* ---------- keyboard shortcuts ---------- */
     document.addEventListener('keydown', function (e) {
         var tag = (e.target && e.target.tagName) || '';
