@@ -120,9 +120,10 @@
         var AC = window.AudioContext || window.webkitAudioContext;
         var ctx = new AC({ sampleRate: 48000 });
         if (ctx.sampleRate !== 48000) { ctx.close(); throw new Error('48 kHz audio is not available'); }
+        if (ctx.state === 'suspended') ctx.resume();
         var src = ctx.createMediaStreamSource(stream);
         var proc = ctx.createScriptProcessor(4096, 1, 1);
-        var packets = [], samples = [], head = null, ts = 0, closed = false, failed = false;
+        var packets = [], samples = [], head = null, ts = 0, closed = false, failed = false, peak = 0, level = 0;
         var enc = new AudioEncoder({
             output: function (chunk, meta) {
                 var b = new Uint8Array(chunk.byteLength);
@@ -137,6 +138,9 @@
         proc.onaudioprocess = function (e) {
             if (closed) return;
             var copy = new Float32Array(e.inputBuffer.getChannelData(0));
+            var mx = 0;
+            for (var q = 0; q < copy.length; q++) { var a = copy[q] < 0 ? -copy[q] : copy[q]; if (a > mx) mx = a; }
+            level = mx; if (mx > peak) peak = mx;
             var ad = new AudioData({ format: 'f32-planar', sampleRate: 48000, numberOfFrames: copy.length, numberOfChannels: 1, timestamp: Math.round(ts * 1e6 / 48000), data: copy });
             ts += copy.length;
             try { enc.encode(ad); } finally { ad.close(); }
@@ -144,12 +148,15 @@
         src.connect(proc);
         proc.connect(ctx.destination); // silent: nothing is written to the output buffer
         return {
+            level: function () { return level; },
+            peak: function () { return peak; },
             stop: function () {
                 closed = true;
                 try { src.disconnect(); proc.disconnect(); } catch (e) { /* already closed */ }
                 enc.flush().then(function () {
                     enc.close(); ctx.close();
                     if (failed || !packets.length) { done(null); return; }
+                    if (peak < 0.004) { done(null, 'silent'); return; }
                     done(new File([OggOpus.mux(packets, samples, { head: head, preSkip: 312 })], 'voice-note.ogg', { type: 'audio/ogg' }));
                 }).catch(function () { done(null); });
             }
@@ -167,23 +174,29 @@
         bar.hidden = true;
         var dot = el('span', 'wa-rec-dot');
         var clock = el('span', '', '0:00');
+        var meter = el('span', 'wa-level'); meter.appendChild(el('i'));
+        var devLabel = el('small', 'wa-dev');
         var stopRec = el('button', 'p-btn primary xs', 'Send');
         stopRec.type = 'button';
         var cancelRec = el('button', 'p-btn outline xs', 'Cancel');
         cancelRec.type = 'button';
-        bar.appendChild(dot); bar.appendChild(clock); bar.appendChild(cancelRec); bar.appendChild(stopRec);
+        bar.appendChild(dot); bar.appendChild(clock); bar.appendChild(meter); bar.appendChild(devLabel); bar.appendChild(cancelRec); bar.appendChild(stopRec);
         replyCard.insertBefore(bar, replyCard.firstChild);
-        function endRec() { clearInterval(timer); bar.hidden = true; mic.classList.remove('on'); }
+        var meterTimer = null;
+        function endRec() { clearInterval(timer); clearInterval(meterTimer); meter.firstChild.style.width = '0%'; bar.hidden = true; mic.classList.remove('on'); }
         mic.addEventListener('click', function () {
             // a second tap on the microphone finishes the recording and sends it, like WhatsApp
             if (rec) { sendNow = true; rec.stop(); return; }
             navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
                 chunks = []; cancelled = false; sendNow = false;
-                function finish(note) {
+                var track = stream.getAudioTracks()[0];
+                devLabel.textContent = track && track.label ? track.label : '';
+                function finish(note, why) {
                     stream.getTracks().forEach(function (t) { t.stop(); });
                     var wasCancelled = cancelled;
                     rec = null; endRec();
                     if (wasCancelled) return;
+                    if (why === 'silent') { say('No sound was captured' + (track && track.label ? ' from "' + track.label + '"' : '') + '. Check that this microphone is the right one and not muted, then record again.'); return; }
                     if (!note) { say('The voice note could not be recorded. Try again, or use Firefox.'); return; }
                     if (sendNow && typeof window.sendAttachment === 'function') window.sendAttachment({ files: [note], value: '' });
                     else stage(note);
@@ -199,7 +212,11 @@
                 }
                 started = Date.now();
                 bar.hidden = false; mic.classList.add('on');
-                timer = setInterval(function () { var s = Math.floor((Date.now() - started) / 1000); clock.textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }, 500);
+                timer = setInterval(function () {
+                    var s = Math.floor((Date.now() - started) / 1000);
+                    clock.textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+                }, 500);
+                meterTimer = setInterval(function () { var l = rec && rec.level ? rec.level() : 0; meter.firstChild.style.width = Math.min(100, Math.round(Math.sqrt(l) * 140)) + '%'; }, 120);
             }).catch(function (err) {
                 var name = err && err.name;
                 if (name === 'NotAllowedError' || name === 'SecurityError') say('The microphone is blocked for this site. Click the lock icon next to the address, allow the microphone, then try again.');

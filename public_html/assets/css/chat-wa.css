@@ -286,3 +286,7 @@ html:not([data-theme="dark"]) .wa-loc,html:not([data-theme="dark"]) .wa-contact{
 .wa-loc small,.wa-contact small{display:block;color:var(--wa-sub);font-size:12px}
 .wa-loc span{display:inline-block;margin-top:4px;color:var(--wa-green-2);font-weight:600;font-size:12.5px}
 html:not([data-theme="dark"]) .wa-loc span{color:#006e5a}
+.wa-level{flex:0 0 70px;height:8px;border-radius:4px;background:rgba(134,150,160,.3);overflow:hidden}
+.wa-level i{display:block;height:100%;width:0;background:var(--wa-green-2);transition:width .1s}
+.wa-dev{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--wa-sub);font-size:11.5px}
+.wa-rec-bar span:nth-child(2){flex:0 0 auto}
