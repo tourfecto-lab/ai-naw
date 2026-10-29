@@ -71,9 +71,24 @@ final class MetaDmMedia
         return is_file($p) && (time() - (int) @filemtime($p)) <= self::TTL ? $p : null;
     }
 
+    /**
+     * The public origin Meta must fetch from: the host of the messaging app's registered redirect URI when that app is set
+     * up (so a staging site on its own domain serves its own files), else the platform's base URL.
+     */
+    public static function base(): string
+    {
+        if (class_exists('MetaMessagingApp') && MetaMessagingApp::configured()) {
+            $p = parse_url(MetaMessagingApp::redirectUri());
+            if (!empty($p['host']) && strtolower((string) ($p['scheme'] ?? '')) === 'https' && !isset($p['port'])) {
+                return 'https://' . strtolower((string) $p['host']);
+            }
+        }
+        return rtrim(MetaOAuthClient::baseUrl(), '/');
+    }
+
     public static function url(string $name): string
     {
-        return MetaOAuthClient::baseUrl() . '/media/out/' . $name;
+        return self::base() . '/media/out/' . $name;
     }
 
     /**
@@ -113,7 +128,7 @@ final class MetaDmMedia
     /** True for a URL we issued ourselves (the inbox may show it). */
     public static function isOurs(string $url): bool
     {
-        $prefix = MetaOAuthClient::baseUrl() . '/media/out/';
+        $prefix = self::base() . '/media/out/';
         return strncmp($url, $prefix, strlen($prefix)) === 0 && preg_match('/^[a-f0-9]{32}\.[a-z0-9]{2,5}$/', substr($url, strlen($prefix))) === 1;
     }
 
