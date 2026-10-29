@@ -36,7 +36,7 @@ class ChatMetaConnectController extends Controller
         }
         $uid = (int) ($this->user['id'] ?? 0);
         $back = static function (string $result): void {
-            header('Location: /chat/settings?meta_msg=' . rawurlencode($result));
+            header('Location: /chat/settings?meta_msg=' . ($result === 'server' || strncmp($result, 'server&', 7) === 0 ? $result : rawurlencode($result)));
             exit;
         };
         if ($this->get('error')) {
@@ -50,18 +50,24 @@ class ChatMetaConnectController extends Controller
         if (empty($this->db->query('SELECT id FROM websites WHERE id = ? AND user_id = ? LIMIT 1', [$wid, $uid]))) {
             $back('website');
         }
-        $code = (string) $this->get('code');
-        $ex = $code === '' ? ['success' => false] : MetaMessagingApp::exchange($code);
-        if (empty($ex['success'])) {
-            Logger::warning('Meta messaging login failed', ['website_id' => $wid, 'error' => mb_substr((string) ($ex['error'] ?? ''), 0, 200)]);
-            $back('exchange');
+        try {
+            $code = (string) $this->get('code');
+            $ex = $code === '' ? ['success' => false] : MetaMessagingApp::exchange($code);
+            if (empty($ex['success'])) {
+                Logger::warning('Meta messaging login failed', ['website_id' => $wid, 'error' => mb_substr((string) ($ex['error'] ?? ''), 0, 200)]);
+                $back('exchange');
+            }
+            $pages = MetaMessagingApp::pages((string) $ex['access_token']);
+            if (empty($pages['success'])) {
+                Logger::warning('Meta messaging pages failed', ['website_id' => $wid, 'error' => mb_substr((string) ($pages['error'] ?? ''), 0, 200)]);
+                $back('pages');
+            }
+            self::savePages($this->db, $uid, $wid, $pages['pages']);
+        } catch (Throwable $e) {
+            Logger::error('Meta messaging callback crashed', ['website_id' => $wid, 'error' => $e->getMessage(), 'at' => basename($e->getFile()) . ':' . $e->getLine()]);
+            // The connecting user is the site owner: a short class + message (no secrets) helps them report the cause.
+            $back('server&detail=' . rawurlencode(mb_substr(get_class($e) . ': ' . $e->getMessage() . ' @' . basename($e->getFile()) . ':' . $e->getLine(), 0, 160)));
         }
-        $pages = MetaMessagingApp::pages((string) $ex['access_token']);
-        if (empty($pages['success'])) {
-            Logger::warning('Meta messaging pages failed', ['website_id' => $wid, 'error' => mb_substr((string) ($pages['error'] ?? ''), 0, 200)]);
-            $back('pages');
-        }
-        self::savePages($this->db, $uid, $wid, $pages['pages']);
         $back($pages['pages'] ? 'connected' : 'nopages');
     }
 
