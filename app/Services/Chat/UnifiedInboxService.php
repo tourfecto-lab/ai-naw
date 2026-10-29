@@ -311,9 +311,16 @@ class UnifiedInboxService
         }
 
         if (!empty($filters['search'])) {
-            $where[] = "(customer_name LIKE ? OR customer_phone LIKE ? OR customer_email LIKE ? OR ai_summary LIKE ?)";
-            $term = '%' . $filters['search'] . '%';
+            // Literal match: a typed % or _ must not act as a wildcard.
+            $term = '%' . addcslashes((string) $filters['search'], '%_\\') . '%';
+            $cond = "customer_name LIKE ? OR customer_phone LIKE ? OR customer_email LIKE ? OR ai_summary LIKE ?";
             array_push($params, $term, $term, $term, $term);
+            // From 3 characters the text of the messages is searched too (a customer's question, a booking reference...).
+            if (mb_strlen(trim((string) $filters['search'])) >= 3) {
+                $cond .= " OR EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id = ai_conversations.id AND m.website_id = ai_conversations.website_id AND m.message_text LIKE ?)";
+                $params[] = $term;
+            }
+            $where[] = '(' . $cond . ')';
         }
 
         if (!empty($filters['unread_only'])) {
