@@ -316,7 +316,7 @@ body.ap-theme .af-btn { margin-inline-end: 6px; }
 
 /* Contrast (WCAG AA 4.5:1): white text on the light dark-mode accent / red measured 3.07 / 2.54. Darker fills, same hue. */
 body.ap-theme .tf-next-pill,
-body.ap-theme .onboarding-wizard-cta { background: #3F4DDB; color: #fff; }
+body.ap-theme .onboarding-wizard-cta { background: #008069; color: #fff; }
 body.ap-theme .tf-next-pill { font-size: 11px; }
 body.ap-theme .panel-notif-badge { background: #C92A1F; color: #fff; }
 
@@ -325,8 +325,8 @@ body.ap-theme .panel-notif-badge { background: #C92A1F; color: #fff; }
 body.ap-theme .form-label { color: var(--panel-text); }
 html[data-theme="dark"] body.ap-theme .p-btn.primary,
 html[data-theme="dark"] body.ap-theme .p-btn:not(.primary):not(.outline):not(.danger):not(.success):not(.ghost),
-html[data-theme="dark"] body.ap-theme .seo-hub-tab.on { background: #3F4DDB; color: #fff; }
-html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #3441C2; }
+html[data-theme="dark"] body.ap-theme .seo-hub-tab.on { background: #008069; color: #fff; }
+html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #006E5A; }
 
 /* Contrast, part 3: style.css gives every h1-h6 var(--dark-gray) (#343A40), so headings outside .p-card were 1.55:1 on the
    dark navy surface (subscription plans, add-ons...). :where() keeps specificity at a bare element selector, so any
@@ -341,7 +341,7 @@ html[data-theme="dark"] body.ap-theme .p-btn.primary:hover { background: #3441C2
 /* Contrast, part 4: active tab pills (CRM, reputation, chat, review inbox) were white on the light accent (3.07:1). */
 html[data-theme="dark"] body.ap-theme .p-tab.active,
 html[data-theme="dark"] body.ap-theme .ch-tab.active,
-html[data-theme="dark"] body.ap-theme .ri-tab.active { background: #3F4DDB; border-color: #3F4DDB; color: #fff; }
+html[data-theme="dark"] body.ap-theme .ri-tab.active { background: #008069; border-color: #008069; color: #fff; }
 
 /* Contrast, part 5 (dark theme), from a 33-page audit at 375px:
    - class-less links kept the global #0077BE (3.2:1 on the navy surface), the most common failure (59 hits);
@@ -380,4 +380,44 @@ html:not([data-theme="dark"]) body.ap-theme em.blue { color: #1D4ED8; }
     body.ap-theme .panel-sidebar-footer a { display: flex; align-items: center; min-height: 44px; }
     body.ap-theme input[type="checkbox"], body.ap-theme input[type="radio"] { width: 20px; height: 20px; }
     body.ap-theme .p-input, body.ap-theme .p-select, body.ap-theme .form-control { min-height: 44px; }
+}
+
+/* ============================================================
+   WhatsApp palette for the whole panel (same values as the inbox). White-label agencies keep their own accent:
+   the accent still comes from --agency-accent when an agency sets one. Fills with white text use #008069 (5:1).
+   ============================================================ */
+html[data-theme="light"] body.ap-theme, body.ap-theme {
+    --panel-bg: #F0F2F5;
+    --panel-sidebar-bg: #FFFFFF;
+    --panel-sidebar-bg-hover: #F0F2F5;
+    --panel-sidebar-text: #54656F;
+    --panel-sidebar-text-active: #111B21;
+    --panel-card-bg: #FFFFFF;
+    --panel-card-bg-2: #F0F2F5;
+    --panel-border: #E9EDEF;
+    --panel-text: #111B21;
+    --panel-text-muted: #54656F;
+    --panel-accent: var(--agency-accent, #008069);
+    --ap-line: #E9EDEF;
+    --ap-surface: #FFFFFF;
+    --ap-surface-2: #F0F2F5;
+    --ap-focus: 0 0 0 2px #fff, 0 0 0 4px #008069;
+}
+html[data-theme="dark"] body.ap-theme {
+    --panel-bg: #0B141A;
+    --panel-sidebar-bg: #111B21;
+    --panel-sidebar-bg-hover: #202C33;
+    --panel-sidebar-text: #8696A0;
+    --panel-sidebar-text-active: #E9EDEF;
+    --panel-card-bg: #111B21;
+    --panel-card-bg-2: #202C33;
+    --panel-border: #222D34;
+    --panel-text: #E9EDEF;
+    --panel-text-muted: #8696A0;
+    --panel-accent: var(--agency-accent, #00A884);
+    --ap-line: #222D34;
+    --ap-line-strong: #2A3942;
+    --ap-surface: #111B21;
+    --ap-surface-2: #202C33;
+    --ap-focus: 0 0 0 2px #0B141A, 0 0 0 4px #00A884;
 }
