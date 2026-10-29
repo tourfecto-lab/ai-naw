@@ -638,3 +638,70 @@
         }
     });
 })();
+
+/*
+ * One inbox per channel. Tabs above the conversation list: All (the unified chat, the default) / WhatsApp / Messenger /
+ * Instagram. A tab simply sets the inbox's existing channel filter, so nothing about loading or sending changes. The look
+ * follows the channel: in a channel tab the whole inbox wears that app's skin; in "All" each open conversation does.
+ */
+(function () {
+    'use strict';
+    var split = document.querySelector('.ai-chat-split');
+    var select = document.getElementById('ucChannel');
+    var card = document.querySelector('.ai-chat-list-card');
+    if (!split || !select || !card) return;
+
+    var TABS = [['', 'All', 'كلهم'], ['whatsapp', 'WhatsApp', 'واتساب'], ['messenger', 'Messenger', 'ماسنجر'], ['instagram', 'Instagram', 'إنستجرام']];
+    var ar = /^ar/i.test(document.documentElement.lang || '');
+    var KEY = 'tfInboxChannel';
+    function get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+    function put(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* private mode */ } }
+
+    var bar = document.createElement('div');
+    bar.className = 'wa-ch-tabs';
+    bar.setAttribute('role', 'tablist');
+    bar.setAttribute('aria-label', ar ? 'قنوات الرسائل' : 'Message channels');
+    TABS.forEach(function (t) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'tab');
+        b.setAttribute('data-ch', t[0] || 'all');
+        b.innerHTML = '<i></i>';
+        b.appendChild(document.createTextNode(ar ? t[2] : t[1]));
+        b.addEventListener('click', function () { choose(t[0], true); });
+        bar.appendChild(b);
+    });
+    var anchor = card.querySelector('.p-toolbar');
+    card.insertBefore(bar, anchor || card.firstChild);
+
+    function activeRowChannel() {
+        var row = document.querySelector('.ai-chat-item.active .ai-chat-avatar');
+        if (!row) return '';
+        var m = /\b(messenger|instagram|whatsapp)\b/.exec(row.className);
+        return m ? m[1] : '';
+    }
+    function skin() {
+        var tab = select.value;
+        var ch = ['whatsapp', 'messenger', 'instagram'].indexOf(tab) !== -1 ? tab : activeRowChannel();
+        if (ch && ch !== 'whatsapp') split.setAttribute('data-ch', ch); else split.removeAttribute('data-ch');
+        [].forEach.call(bar.children, function (b) { b.setAttribute('aria-selected', String((b.getAttribute('data-ch') === 'all' ? '' : b.getAttribute('data-ch')) === tab)); });
+        document.body.classList.toggle('ch-messenger', ch === 'messenger');
+        document.body.classList.toggle('ch-instagram', ch === 'instagram');
+    }
+    function choose(v, reload) {
+        select.value = v;
+        if (select.value !== v) select.value = ''; // the option does not exist
+        put(select.value);
+        skin();
+        if (reload && typeof window.ucApplyFilters === 'function') window.ucApplyFilters();
+    }
+
+    // restore the last choice before the first list load reads the filter; the list re-skins as conversations open
+    var saved = get();
+    if (saved) { select.value = saved; if (select.value !== saved) select.value = ''; }
+    skin();
+    select.addEventListener('change', function () { put(select.value); skin(); });
+    var list = document.getElementById('ucList');
+    if (list) new MutationObserver(skin).observe(list, { childList: true, attributes: true, subtree: true, attributeFilter: ['class'] });
+    window.addEventListener('tourfecto:website-changed', skin);
+})();

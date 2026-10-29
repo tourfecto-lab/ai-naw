@@ -290,3 +290,37 @@ html:not([data-theme="dark"]) .wa-loc span{color:#006e5a}
 .wa-level i{display:block;height:100%;width:0;background:var(--wa-green-2);transition:width .1s}
 .wa-dev{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--wa-sub);font-size:11.5px}
 .wa-rec-bar span:nth-child(2){flex:0 0 auto}
+
+/* ---- one inbox per channel: tabs + a skin for each (WhatsApp / Messenger / Instagram). "All" keeps the unified chat and
+        gives every open conversation the look of its own channel. The skins only override the inbox colour variables. ---- */
+.wa-ch-tabs{display:flex;gap:6px;padding:8px 12px 0;overflow-x:auto;scrollbar-width:none;background:var(--wa-panel)}
+.wa-ch-tabs button{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:6px 13px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--wa-header);color:var(--wa-sub);min-height:32px}
+.wa-ch-tabs button i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#8696a0}
+.wa-ch-tabs button[data-ch="whatsapp"] i{background:#25d366}
+.wa-ch-tabs button[data-ch="messenger"] i{background:#0084ff}
+.wa-ch-tabs button[data-ch="instagram"] i{background:linear-gradient(135deg,#f58529,#dd2a7b 55%,#8134af)}
+.wa-ch-tabs button[aria-selected="true"]{color:#fff;background:var(--wa-accent)}
+.wa-ch-tabs button[aria-selected="true"] i{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+
+/* Messenger */
+.ai-chat-split[data-ch="messenger"]{--wa-bg:#fff;--wa-panel:#fff;--wa-header:#f0f2f5;--wa-line:#e4e6eb;--wa-in:#e4e6eb;--wa-out:#0084ff;--wa-text:#050505;--wa-sub:#65676b;--wa-accent:#0084ff;--wa-active:#e7f3ff;--wa-tick:#cfe8ff;--wa-pill:#fff;--wa-shadow:none}
+html[data-theme="dark"] .ai-chat-split[data-ch="messenger"]{--wa-bg:#18191a;--wa-panel:#242526;--wa-header:#3a3b3c;--wa-line:#3e4042;--wa-in:#3a3b3c;--wa-out:#0084ff;--wa-text:#e4e6eb;--wa-sub:#b0b3b8;--wa-active:#3a3b3c;--wa-pill:#242526}
+.ai-chat-split[data-ch="messenger"] .ai-bubble{border-radius:18px;padding:8px 12px}
+.ai-chat-split[data-ch="messenger"] .ai-bubble.out{background:linear-gradient(180deg,#00a2ff,#0078ff);color:#fff}
+.ai-chat-split[data-ch="messenger"] .ai-bubble.out *{color:inherit}
+.ai-chat-split[data-ch="messenger"] .ai-bubble::before{display:none!important}
+.ai-chat-split[data-ch="messenger"] .ai-bubble.in + .ai-bubble.in{border-start-start-radius:4px}
+.ai-chat-split[data-ch="messenger"] .ai-bubble.out + .ai-bubble.out{border-start-end-radius:4px}
+
+/* Instagram */
+.ai-chat-split[data-ch="instagram"]{--wa-bg:#fff;--wa-panel:#fff;--wa-header:#efefef;--wa-line:#dbdbdb;--wa-in:#efefef;--wa-out:#7638fa;--wa-text:#262626;--wa-sub:#737373;--wa-accent:#0095f6;--wa-active:#efefef;--wa-tick:#e9dcff;--wa-pill:#fff;--wa-shadow:none}
+html[data-theme="dark"] .ai-chat-split[data-ch="instagram"]{--wa-bg:#000;--wa-panel:#000;--wa-header:#262626;--wa-line:#262626;--wa-in:#262626;--wa-out:#7638fa;--wa-text:#fafafa;--wa-sub:#a8a8a8;--wa-active:#121212;--wa-pill:#121212}
+.ai-chat-split[data-ch="instagram"] .ai-bubble{border-radius:22px;padding:9px 14px}
+.ai-chat-split[data-ch="instagram"] .ai-bubble.out{background:linear-gradient(135deg,#7638fa,#d300c5 60%,#ff0069);color:#fff}
+.ai-chat-split[data-ch="instagram"] .ai-bubble.out *{color:inherit}
+.ai-chat-split[data-ch="instagram"] .ai-bubble::before{display:none!important}
+.ai-chat-split[data-ch="instagram"] .ai-chat-item.active{background:var(--wa-active)}
+
+/* the skin follows through to the colours the inbox shell reads from the accent */
+.ai-chat-split[data-ch="messenger"] .wa-send,.ai-chat-split[data-ch="instagram"] .wa-send{background:var(--wa-accent)}
+@media (max-width:640px){.wa-ch-tabs{padding:6px 10px 0}}

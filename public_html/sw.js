@@ -11,7 +11,7 @@
 // لو الـ CDN واقع مانوقفش الـ PWA.
 try { importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js'); } catch (e) {}
 
-const CACHE_VERSION = 'tourfecto-static-v5';
+const CACHE_VERSION = 'tourfecto-static-v6';
 const STATIC_ASSETS = [
     '/assets/css/style.css',
     '/assets/css/panel.css',
