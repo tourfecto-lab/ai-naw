@@ -221,8 +221,8 @@
             }
         });
     }
-    var first = main.firstElementChild;
-    main.insertBefore(nav, first);
+    var tabsBar = main.querySelector('.tf-sec-tabs');
+    main.insertBefore(nav, tabsBar ? tabsBar.nextSibling : main.firstElementChild);
     refresh();
     // the cards fill in after their data loads
     [600, 1500, 3500].forEach(function (ms) { setTimeout(refresh, ms); });

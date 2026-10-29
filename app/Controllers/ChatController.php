@@ -2749,7 +2749,7 @@ JS;
         <script src="/assets/js/wa-cloud.js?v=10" defer></script>
         <div id="waQrCard" class="p-card" style="display:none;margin-top:14px;"></div>
         <div id="metaChatCard" class="p-card" style="display:none;margin-top:14px;"></div>
-        <script src="/assets/js/chat-connect.js?v=3" defer></script>
+        <script src="/assets/js/chat-connect.js?v=4" defer></script>
         <div id="ultramsgCard" class="p-card" style="display:none;margin-top:14px;">
             <div class="p-card-head"><h3>📱 {$tWhatsappTitle}</h3><span class="p-card-sub">{$tWhatsappSub}</span></div>
             <div id="ultramsgConnected" style="display:none;">
