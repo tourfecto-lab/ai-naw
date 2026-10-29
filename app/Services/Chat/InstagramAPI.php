@@ -28,6 +28,10 @@ class InstagramAPI
         $this->baseUrl = 'https://graph.facebook.com/' . (env('META_API_VERSION') ?: 'v25.0');
     }
 
+    /** Graph error of the last failed send (0 = none): tells a dead token from a one-off failure. */
+    public int $lastErrorCode = 0;
+    public string $lastErrorMessage = '';
+
     /**
      * @return bool
      */
@@ -73,6 +77,9 @@ class InstagramAPI
             curl_close($ch);
 
             if ($curlError || $httpCode !== 200) {
+                $d = json_decode((string) $response, true);
+                $this->lastErrorCode = is_array($d) ? (int) ($d['error']['code'] ?? 0) : 0;
+                $this->lastErrorMessage = is_array($d) ? (string) ($d['error']['message'] ?? '') : '';
                 Logger::error('InstagramAPI: send failed', [
                     'http_code' => $httpCode, 'curl_error' => $curlError, 'response' => $response,
                 ]);

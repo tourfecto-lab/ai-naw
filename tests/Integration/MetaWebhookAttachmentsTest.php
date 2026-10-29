@@ -52,6 +52,40 @@ final class MetaWebhookAttachmentsTest extends TestCase
         $this->assertSame('[weirdtype]', MetaWebhookController::describeAttachment(['attachments' => [['type' => 'Weird<Type>!', 'payload' => []]]])[0]);
     }
 
+    /** A message that could not be saved because of an error on our side is un-marked, so Meta's redelivery is processed. */
+    public function testAFailedMessageIsRetriedNotLostAsADuplicate(): void
+    {
+        $db = Database::getInstance();
+        $site = $db->query('SELECT id, user_id FROM websites ORDER BY id LIMIT 1')[0] ?? null;
+        if (!$site) {
+            $this->markTestSkipped('no website fixture');
+        }
+        $page = 'PAGE' . bin2hex(random_bytes(4));
+        $db->query("INSERT INTO platform_connections (website_id, user_id, platform, external_location_id, status, created_at) VALUES (?, ?, 'messenger', ?, 'connected', NOW())", [(int) $site['id'], (int) $site['user_id'], $page]);
+        $mid = 'm_' . bin2hex(random_bytes(6));
+        $payload = ['object' => 'page', 'entry' => [['id' => $page, 'messaging' => [['sender' => ['id' => 'PSID9'], 'message' => ['mid' => $mid, 'text' => 'hello']]]]]];
+        $boom = new class {
+            public function processIncomingMessage(array $d): array { throw new RuntimeException('db down'); }
+        };
+        $seen = [];
+        $ok = new class($seen) {
+            public function __construct(public array &$seen) {}
+            public function processIncomingMessage(array $d): array { $this->seen[] = $d; return ['success' => true]; }
+        };
+        try {
+            $r1 = MetaWebhookController::route($payload, $boom);
+            $this->assertSame(1, $r1['retry'], 'asks Meta to retry');
+            $r2 = MetaWebhookController::route($payload, $ok);
+            $this->assertSame(1, $r2['messages'], 'the redelivery is processed, not dropped as a duplicate');
+            $this->assertSame('hello', $seen[0]['message']);
+            $r3 = MetaWebhookController::route($payload, $ok);
+            $this->assertSame(0, $r3['messages'], 'a genuine duplicate is still ignored');
+        } finally {
+            $db->query('DELETE FROM platform_connections WHERE external_location_id = ?', [$page]);
+            $db->query('DELETE FROM ai_webhook_events WHERE external_event_id = ?', [$mid]);
+        }
+    }
+
     /** chat_messages.platform has no 'instagram' value: storing it fails in strict mode and the DM was silently lost. */
     public function testInstagramIsStoredWithAPlatformTheTableAccepts(): void
     {

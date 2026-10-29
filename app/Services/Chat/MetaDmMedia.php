@@ -94,12 +94,12 @@ final class MetaDmMedia
     /**
      * Send one attachment through the Page (Messenger and Instagram DMs use the same endpoint and page token).
      * @param callable|null $post fn(string $url, array $payload): array{0:int,1:string} [http code, body] (tests inject a fake)
-     * @return array{ok:bool,id:string,error:string}
+     * @return array{ok:bool,id:string,error:string,code:int}
      */
     public static function send(string $token, string $recipientId, string $type, string $url, string $channel, ?callable $post = null, ?string $filePath = null, ?string $mime = null): array
     {
         if ($token === '' || !preg_match('/^\d{5,25}$/', $recipientId) || !in_array($type, ['image', 'audio', 'video', 'file'], true) || !self::isOurs($url)) {
-            return ['ok' => false, 'id' => '', 'error' => 'invalid_request'];
+            return ['ok' => false, 'id' => '', 'error' => 'invalid_request', 'code' => 0];
         }
         $payload = ['recipient' => ['id' => $recipientId], 'message' => ['attachment' => ['type' => $type, 'payload' => ['url' => $url]]]];
         if ($channel === 'messenger') {
@@ -125,14 +125,14 @@ final class MetaDmMedia
         }
         $d = json_decode((string) $body, true);
         if ($code === 200 && is_array($d) && !empty($d['message_id'])) {
-            return ['ok' => true, 'id' => (string) $d['message_id'], 'error' => ''];
+            return ['ok' => true, 'id' => (string) $d['message_id'], 'error' => '', 'code' => 0];
         }
         $err = is_array($d) && isset($d['error']['message']) ? mb_substr((string) $d['error']['message'], 0, 160) : 'http_' . $code;
         Logger::warning('Meta attachment send failed', ['channel' => $channel, 'http_code' => $code, 'error' => $err]);
-        return ['ok' => false, 'id' => '', 'error' => $err];
+        return ['ok' => false, 'id' => '', 'error' => $err, 'code' => is_array($d) ? (int) ($d['error']['code'] ?? 0) : 0];
     }
 
-    /** @return array{ok:bool,id:string,error:string} */
+    /** @return array{ok:bool,id:string,error:string,code:int} */
     private static function upload(string $endpoint, string $recipientId, string $type, string $filePath, string $mime, string $channel): array
     {
         $fields = [
@@ -151,11 +151,11 @@ final class MetaDmMedia
         curl_close($ch);
         $d = json_decode($body, true);
         if ($code === 200 && is_array($d) && !empty($d['message_id'])) {
-            return ['ok' => true, 'id' => (string) $d['message_id'], 'error' => ''];
+            return ['ok' => true, 'id' => (string) $d['message_id'], 'error' => '', 'code' => 0];
         }
         $err = is_array($d) && isset($d['error']['message']) ? mb_substr((string) $d['error']['message'], 0, 160) : 'http_' . $code;
         Logger::info('Meta attachment upload refused, trying the URL', ['channel' => $channel, 'error' => $err]);
-        return ['ok' => false, 'id' => '', 'error' => 'upload: ' . $err];
+        return ['ok' => false, 'id' => '', 'error' => 'upload: ' . $err, 'code' => is_array($d) ? (int) ($d['error']['code'] ?? 0) : 0];
     }
 
     /** True for a URL we issued ourselves (the inbox may show it). */

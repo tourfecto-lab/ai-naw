@@ -50,13 +50,13 @@ final class MetaDmMediaTest extends TestCase
         };
         $url = MetaDmMedia::url(str_repeat('b', 32) . '.mp4');
         $r = MetaDmMedia::send('PAGE-TOKEN', '29381276351491751', 'video', $url, 'messenger', $post);
-        $this->assertSame(['ok' => true, 'id' => 'm_abc', 'error' => ''], $r);
+        $this->assertSame(['ok' => true, 'id' => 'm_abc', 'error' => '', 'code' => 0], $r);
         $this->assertStringContainsString('/me/messages?access_token=PAGE-TOKEN', $seen[0]);
         $this->assertSame('RESPONSE', $seen[1]['messaging_type']);
         $this->assertSame(['type' => 'video', 'payload' => ['url' => $url]], $seen[1]['message']['attachment']);
         MetaDmMedia::send('T', '17841475954414841', 'image', MetaDmMedia::url(str_repeat('c', 32) . '.png'), 'instagram', $post);
         $this->assertArrayNotHasKey('messaging_type', $seen[1], 'Instagram has no messaging_type');
-        $err = MetaDmMedia::send('T', '29381276351491751', 'image', MetaDmMedia::url(str_repeat('c', 32) . '.png'), 'messenger', static fn () => [400, json_encode(['error' => ['message' => 'Invalid URL']])]);
-        $this->assertSame(['ok' => false, 'id' => '', 'error' => 'Invalid URL'], $err);
+        $err = MetaDmMedia::send('T', '29381276351491751', 'image', MetaDmMedia::url(str_repeat('c', 32) . '.png'), 'messenger', static fn () => [400, json_encode(['error' => ['message' => 'Invalid URL', 'code' => 100]])]);
+        $this->assertSame(['ok' => false, 'id' => '', 'error' => 'Invalid URL', 'code' => 100], $err);
     }
 }

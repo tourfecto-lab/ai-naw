@@ -49,7 +49,12 @@ class MetaWebhookController extends Controller
         if (!is_array($payload)) {
             return $this->error('Invalid JSON', 400);
         }
-        return $this->success(self::route($payload));
+        $result = self::route($payload);
+        if (!empty($result['retry'])) {
+            // A message could not be saved because of an error on our side: ask Meta to deliver it again (it was un-marked below).
+            return $this->error('Temporary failure, please retry', 503);
+        }
+        return $this->success($result);
     }
 
     /** The main Meta app signs its webhooks with its secret; the optional messaging-only app signs with its own. */
@@ -146,6 +151,12 @@ class MetaWebhookController extends Controller
                 } catch (Throwable $e) {
                     Logger::error('Meta webhook message failed', ['website_id' => $websiteId, 'platform' => $platform, 'message' => $e->getMessage()]);
                     MetaWebhookLog::add(['result' => 'error', 'object' => $platform, 'account' => $accountId, 'error' => $e->getMessage()]);
+                    // Forget the event id so Meta's redelivery is processed instead of being ignored as a duplicate.
+                    try {
+                        $db->query('DELETE FROM ai_webhook_events WHERE website_id = ? AND channel = ? AND external_event_id = ?', [$websiteId, $platform, (string) ($message['mid'] ?? '')]);
+                    } catch (Throwable $ignore) {
+                    }
+                    $total['retry'] = ($total['retry'] ?? 0) + 1;
                 }
             }
         }

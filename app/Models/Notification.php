@@ -26,6 +26,7 @@ class Notification extends Model
         'media_generated' => 'content_publishing',
         'chat_pending_approval' => 'leads',
         'ai_chat_new_message' => 'leads',
+        'ai_chat_channel_error' => 'system',
         'admin_broadcast' => 'system',
         'wallet_deposit_approved' => 'system',
         'subscription_activated' => 'system',

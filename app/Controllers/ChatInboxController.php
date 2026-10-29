@@ -552,6 +552,9 @@ class ChatInboxController extends Controller
         $url = MetaDmMedia::url($name);
         $r = MetaDmMedia::send($token, (string) $conversation->getAttribute('channel_thread_id'), $type, $url, $channel, null, (string) MetaDmMedia::path($name), $mime);
         $sent = $r['ok'];
+        if (!$sent) {
+            MetaChannelHealth::note($websiteId, $channel, (int) $r['code'], (string) $r['error']);
+        }
         $label = ['image' => '[Image]', 'video' => '[Video]', 'audio' => '[Voice message]', 'file' => '[File] ' . $filename][$type];
         $text = trim($label . ($caption !== '' && $type !== 'audio' ? ' ' . $caption : ''));
         $id = $this->insertOutgoing($website, $conversation, $text, $sent, $sent ? $r['id'] : null, [

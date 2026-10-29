@@ -400,14 +400,24 @@ class ChatManager
         try {
             switch ($channel) {
                 case 'messenger':
-                    return $this->sendViaPlatformConnection($websiteId, 'messenger', function ($token) use ($recipient, $message) {
-                        return (new MessengerAPI($token))->sendMessage($recipient, $message);
+                    return $this->sendViaPlatformConnection($websiteId, 'messenger', function ($token) use ($recipient, $message, $websiteId) {
+                        $api = new MessengerAPI($token);
+                        $ok = $api->sendMessage($recipient, $message);
+                        if (!$ok) {
+                            MetaChannelHealth::note($websiteId, 'messenger', $api->lastErrorCode, $api->lastErrorMessage);
+                        }
+                        return $ok;
                     });
 
                 case 'instagram':
                     $igPlatform = !empty((new PlatformConnection())->where(['website_id' => $websiteId, 'platform' => 'instagram_dm', 'status' => 'connected'], [], 1)) ? 'instagram_dm' : 'instagram';
-                    return $this->sendViaPlatformConnection($websiteId, $igPlatform, function ($token) use ($recipient, $message) {
-                        return (new InstagramAPI($token))->sendMessage($recipient, $message);
+                    return $this->sendViaPlatformConnection($websiteId, $igPlatform, function ($token) use ($recipient, $message, $websiteId) {
+                        $api = new InstagramAPI($token);
+                        $ok = $api->sendMessage($recipient, $message);
+                        if (!$ok) {
+                            MetaChannelHealth::note($websiteId, 'instagram', $api->lastErrorCode, $api->lastErrorMessage);
+                        }
+                        return $ok;
                     });
 
                 case 'email':
