@@ -11,6 +11,7 @@ require_once __DIR__ . '/../Services/AiCeo/CustomerSuccess.php';
 require_once __DIR__ . '/../Services/AiCeo/OpsAdvisor.php';
 require_once __DIR__ . '/../Services/AiCeo/FinanceStrategy.php';
 require_once __DIR__ . '/../Services/AiCeo/ExecutiveIntel.php';
+require_once __DIR__ . '/../Services/AiCeo/AiCeoActivation.php';
 
 /**
  * TOURFECTO AI CEO — AI Mission Control (لوحة الأدمن). العقل التنفيذي لإدارة شركة Tourfecto نفسها.
@@ -609,6 +610,21 @@ class AiCeoController extends Controller
             return $this->error('Unknown action', 404);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    // ------------------------------------------------------------------ المرحلة 10: التجهيز والتفعيل التدريجي
+
+    /** GET /api/admin/ai-ceo/activation */
+    public function activation(array $params = []): array
+    {
+        if (!$this->allowed()) return $this->error('غير مصرح', 403);
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success((new AiCeoActivation($this->db))->report() + ['owner' => $this->owner()]);
+        } catch (Throwable $e) {
+            Logger::error('AI CEO activation failed', ['error' => $e->getMessage()]);
+            return $this->error('Setup data could not load right now.', 503);
         }
     }
 
