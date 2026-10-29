@@ -1704,17 +1704,33 @@ HTML;
             'reports' => ['file', $this->tr('ci.tab.reports')],
             'settings' => ['sliders', $this->tr('ci.tab.settings')],
         ];
+        // 10 تبويبات في صف واحد كانت كتير على العميل: الأساسية ظاهرة والباقي تحت "المزيد"
+        $secondary = ['discovery', 'watchlist', 'comparison', 'insights'];
         $tabButtons = '';
+        $moreButtons = '';
         foreach ($tabDefs as $key => [$icon, $label]) {
-            $tabButtons .= '<button type="button" class="p-tab ci-tab-btn" id="ciTab-' . $key . '" data-tab="' . $key . '" role="tab" aria-selected="false" onclick="ciSwitchTab(\'' . $key . '\')">'
+            $button = '<button type="button" class="p-tab ci-tab-btn" id="ciTab-' . $key . '" data-tab="' . $key . '" role="tab" aria-selected="false" onclick="ciSwitchTab(\'' . $key . '\')">'
                 . $this->ciIcon($icon) . '<span>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span></button>';
+            if (in_array($key, $secondary, true)) {
+                $moreButtons .= $button;
+            } else {
+                $tabButtons .= $button;
+            }
         }
+        $moreLabel = current_lang() === 'ar' ? 'المزيد' : 'More';
+        $tabButtons .= '<details class="ci-more"><summary class="p-tab">' . $moreLabel . ' ▾</summary><div class="ci-more-menu">' . $moreButtons . '</div></details>';
 
         $tHint = $this->tr('ci.how.body');
 
         return $this->ciSprite() . <<<HTML
 <style>
     .ci-panel { display: none; }
+    .ci-more { position: relative; }
+    .ci-more > summary { list-style: none; cursor: pointer; }
+    .ci-more > summary::-webkit-details-marker { display: none; }
+    .ci-more.has-active > summary { background: var(--panel-accent-light); color: var(--panel-accent); }
+    .ci-more-menu { position: absolute; inset-inline-start: 0; top: calc(100% + 6px); z-index: 30; display: grid; gap: 4px; min-width: 200px; padding: 6px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-card-bg, #fff); box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+    .ci-more-menu .p-tab { justify-content: flex-start; width: 100%; }
     .ci-panel.active { display: block; }
     .ci-ico { width: 16px; height: 16px; flex-shrink: 0; vertical-align: middle; }
     .ci-ico.lg { width: 20px; height: 20px; }
@@ -2323,6 +2339,8 @@ HTML;
             b.setAttribute('aria-selected', on ? 'true' : 'false');
         });
         document.querySelectorAll('.ci-panel').forEach(p => p.classList.toggle('active', p.id === 'ciPanel-' + tab));
+        const more = document.querySelector('.ci-more');
+        if (more) { more.open = false; more.classList.toggle('has-active', !!more.querySelector('.ci-tab-btn.active')); }
         const loaders = {
             dashboard: loadDashboard, competitors: loadCompetitors, discovery: loadDiscovery,
             watchlist: loadWatchlist, activity: loadActivity, comparison: loadComparisonPicker,
