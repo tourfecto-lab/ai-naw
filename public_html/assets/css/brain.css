@@ -76,3 +76,7 @@
 .ac-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .ac-form input { flex: 1 1 200px; }
 .ac-mem { list-style: none; padding: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 8px; }
+
+.ac-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 14px; position: sticky; top: 0; z-index: 2; padding: 6px 0; background: var(--panel-bg, transparent); }
+.ac-badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--panel-danger, #dc2626); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+@media (max-width: 640px) { .ac-tabs { flex-wrap: nowrap; overflow-x: auto; } .ac-tabs .p-tab { flex: 0 0 auto; } }
