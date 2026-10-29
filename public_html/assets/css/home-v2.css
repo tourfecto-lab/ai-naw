@@ -136,3 +136,5 @@
   .hv2 .hv-card{animation:none;opacity:1;transform:none}
   .hv2 .hv-typing,.hv2 .hv-rest,.hv2 .hv-reply .sig{animation:none;opacity:1}
 }
+
+html[data-theme="dark"] .hv2 .hv-ps .pr{color:#FCA5A5;background:rgba(248,113,113,.10)}
