@@ -84,4 +84,16 @@ final class SiteDashboardWalkthroughTest extends TestCase
         $src = $this->source('app/Controllers/WebsiteBuilderController.php');
         $this->assertStringContainsString('text.indexOf(res.data.booking_reference) === -1', $src);
     }
+
+    public function testPublicFormEndpointsAnswerInTheSitesOwnLanguage(): void
+    {
+        $src = $this->source('app/Controllers/WebsiteBuilderController.php');
+        $this->assertMatchesRegularExpression('/\$this->publicSiteLanguage = \$siteLang;/', $src, 'findViewableWebsite must set the site language');
+    }
+
+    public function testHotelQuoteShowsNightsNotAdultAndChildPrices(): void
+    {
+        $src = $this->source('app/Controllers/WebsiteBuilderController.php');
+        $this->assertStringContainsString("r.data.nights?' ('+r.data.nights+' × '+r.data.adult_price", $src);
+    }
 }

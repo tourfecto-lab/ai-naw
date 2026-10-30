@@ -85,6 +85,7 @@ class SiteDashboardController extends Controller
         </div>
 
         <div id="sdTabBookings" style="display:none;">
+            <div id="sdAvailability" class="p-card" style="margin-bottom:12px;display:none;"></div>
             <div class="p-grid cols-3" id="sdBookingStats" style="margin-bottom:12px;"></div>
             <div class="p-card" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <label for="sdBookingFilter" class="form-label" style="margin:0;">الحالة</label>
@@ -308,6 +309,26 @@ HTML;
 
     const bookingStatus = { pending: 'قيد الانتظار', confirmed: 'مؤكد', cancelled: 'ملغي', completed: 'مكتمل', no_show: 'لم يحضر' };
     let bookingTimer = null;
+    function sdRenderAvailability(products) {
+        const box = document.getElementById('sdAvailability');
+        if (!products.length) { box.style.display = 'none'; return; }
+        box.style.display = '';
+        box.innerHTML = '<h4 style="margin:0 0 6px;">التوفر المتاح للحجز</h4><p style="margin:0 0 10px;font-size:13px;opacity:.8;">الزائر مش هيقدر يحجز أونلاين في أي يوم لسه ماتفتحش. افتح الأيام وحدد العدد المتاح لكل يوم.</p>' +
+            products.map(p => `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+                <strong style="flex:1;min-width:160px;">\${esc(p.name)}</strong>
+                <span style="font-size:13px;">\${Number(p.open_days) > 0 ? 'مفتوح لعدد أيام قادمة: ' + Number(p.open_days) : 'غير مفتوح للحجز'}</span>
+                <input type="number" min="1" max="500" value="5" id="sdAvCap\${p.id}" class="form-control" style="width:80px;" aria-label="العدد المتاح في اليوم">
+                <input type="number" min="1" max="366" value="180" id="sdAvDays\${p.id}" class="form-control" style="width:80px;" aria-label="عدد الأيام القادمة">
+                <button class="p-btn outline xs" onclick="sdOpenAvailability(\${p.id})">فتح التواريخ للحجز</button></div>`).join('');
+    }
+    window.sdOpenAvailability = async function (productId) {
+        const cap = parseInt(document.getElementById('sdAvCap' + productId).value, 10);
+        const days = parseInt(document.getElementById('sdAvDays' + productId).value, 10);
+        if (!(cap >= 1) || !(days >= 1 && days <= 366)) { toast('اكتب عدد متاح وعدد أيام صحيح', 'error'); return; }
+        const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+        const res = await fetchJSON('/api/inventory/' + productId + '/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: day(0), to: day(days - 1), capacity: cap }) });
+        if (res.success) { toast('تم فتح الأيام للحجز', 'success'); sdFetchBookings(); } else { toast(res.error || 'حصل خطأ', 'error'); }
+    };
     window.sdLoadBookings = function () {
         clearTimeout(bookingTimer);
         bookingTimer = setTimeout(sdFetchBookings, 250);
@@ -325,6 +346,7 @@ HTML;
             `<div class="p-card"><span class="p-stat-label">قيد الانتظار</span><h3>\${st.pending}</h3></div>` +
             `<div class="p-card"><span class="p-stat-label">مؤكدة</span><h3>\${st.confirmed}</h3></div>` +
             `<div class="p-card"><span class="p-stat-label">الإيراد المؤكد</span><h3 dir="ltr">\${esc(st.revenue)}</h3></div>`;
+        sdRenderAvailability(res.data.products || []);
         const dot = document.getElementById('sdBookingsCount');
         dot.style.display = st.pending > 0 ? '' : 'none'; dot.textContent = st.pending;
         if (!res.data.bookings.length) { list.innerHTML = '<p>لا توجد حجوزات بعد</p>'; return; }
@@ -754,7 +776,21 @@ JS;
             }
         }
         $stats['revenue'] = number_format($stats['revenue'], 2, '.', '') . ($currency !== '' ? ' ' . $currency : '');
-        return $this->success(['bookings' => $rows, 'stats' => $stats]);
+        return $this->success(['bookings' => $rows, 'stats' => $stats, 'products' => $this->availabilityRows($website)]);
+    }
+
+    /** Items of the site and how many upcoming days are open for booking (a new site has none until the owner opens dates) */
+    private function availabilityRows(GeneratedWebsite $website): array
+    {
+        try {
+            return $this->db->query(
+                'SELECT p.id, p.name, (SELECT COUNT(*) FROM inventory i WHERE i.product_id = p.id AND i.date >= CURDATE() AND i.is_blocked = 0 AND i.capacity > i.booked_count) AS open_days
+                 FROM crm_products p WHERE p.website_id = ? AND p.user_id = ? AND p.is_active = 1 ORDER BY p.id',
+                [(int) $website->getAttribute('id'), (int) $this->user['id']]
+            ) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 
     /** GET /api/site-dashboard/{id}/bookings/export - CSV (الخلايا اللي بتبدأ بـ = + - @ بتتحصّن ضد Excel injection) */

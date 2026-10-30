@@ -5442,4 +5442,13 @@ return [
     'طلبات + حجوزات' => 'Requests + bookings',
     'عنوان الصفحة الرئيسية' => 'Home page title',
     'كلمة السر الحالية' => 'Current password',
+    'التوفر المتاح للحجز' => 'Availability for booking',
+    'الزائر مش هيقدر يحجز أونلاين في أي يوم لسه ماتفتحش. افتح الأيام وحدد العدد المتاح لكل يوم' => 'Visitors cannot book online on days that are not opened yet. Open the days and set how many are available each day',
+    'مفتوح لعدد أيام قادمة' => 'Open for upcoming days',
+    'غير مفتوح للحجز' => 'Not open for booking',
+    'العدد المتاح في اليوم' => 'Number available per day',
+    'عدد الأيام القادمة' => 'Number of upcoming days',
+    'فتح التواريخ للحجز' => 'Open dates for booking',
+    'تم فتح الأيام للحجز' => 'Days opened for booking',
+    'اكتب عدد متاح وعدد أيام صحيح' => 'Enter a valid number available and number of days',
 ];

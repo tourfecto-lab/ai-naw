@@ -66,6 +66,27 @@ final class SiteDashboardBookingsTest extends TestCase
         return $m->invoke($c, (new GeneratedWebsite())->find($siteId), $status, $q);
     }
 
+    public function testAvailabilityListsOnlyThisSitesItemsAndCountsOpenFutureDays(): void
+    {
+        $c = (new ReflectionClass(SiteDashboardController::class))->newInstanceWithoutConstructor();
+        $db = new ReflectionProperty(Controller::class, 'db');
+        $db->setAccessible(true);
+        $db->setValue($c, Database::getInstance());
+        $user = new ReflectionProperty(Controller::class, 'user');
+        $user->setAccessible(true);
+        $user->setValue($c, ['id' => self::USER]);
+        $m = new ReflectionMethod($c, 'availabilityRows');
+        $m->setAccessible(true);
+        $rows = $m->invoke($c, (new GeneratedWebsite())->find(self::SITE_A));
+        $this->assertSame(['Felucca'], array_column($rows, 'name'));
+        $this->assertSame(0, (int) $rows[0]['open_days'], 'a new site has no open dates yet');
+
+        (new InventoryService())->setDay(self::USER, self::PRODUCT_A, date('Y-m-d', strtotime('+3 days')), 4);
+        $rows = $m->invoke($c, (new GeneratedWebsite())->find(self::SITE_A));
+        $this->assertSame(1, (int) $rows[0]['open_days']);
+        $this->pdo->exec('DELETE FROM inventory WHERE product_id = ' . self::PRODUCT_A);
+    }
+
     public function testASiteSeesOnlyItsOwnBookings(): void
     {
         $names = array_column($this->rows(self::SITE_A), 'customer_name');

@@ -911,6 +911,11 @@ JS;
             // اشتراك الموقع خلص (بعد فترة السماح): الزوار بيشوفوا صفحة «متوقف مؤقتًا» - البيانات كلها محفوظة
             $this->renderPausedSite($website);
         }
+        // form endpoints (booking, lead, review, quote) answer in the site's own language, not the English default
+        $siteLang = strtolower((string) (($website->getContent()['language'] ?? 'en')));
+        if (HreflangService::language($siteLang)) {
+            $this->publicSiteLanguage = $siteLang;
+        }
         return $website;
     }
 
@@ -2801,7 +2806,7 @@ HTML;
     var bookingSubmitting=false;
     var quoteEl=document.getElementById('wsBookingQuote'), quote=null, quoteVersion=0, quoteTimer;
     function quoteParams(){var p=new URLSearchParams();['start_date','end_date','rooms_count','adults_count','children_count','coupon_code'].forEach(function(k){if(form.elements[k])p.set(k,form.elements[k].value);});new FormData(form).forEach(function(v,k){if(k==='extra_ids[]')p.append('extra_ids[]',v);});return p.toString();}
-    function updateQuote(requestToken){var version=++quoteVersion;quote=null;if(!form.elements.start_date.value)return Promise.resolve(false);quoteEl.textContent='{$this->siteJs('جاري حساب السعر…')}';var params=quoteParams();var requestParams=params+(typeof requestToken==='string'?'&request_token='+encodeURIComponent(requestToken):'');return fetch(form.getAttribute('data-action').replace(/\/book$/, '/quote')+'?'+requestParams,{headers:{Accept:'application/json'}}).then(function(r){return r.json();}).then(function(r){if(version!==quoteVersion)return false;if(!r.success||!r.data){quoteEl.textContent=r.error||'{$this->siteJs('تعذر حساب السعر')}';return false;}quote={params:params,total:r.data.total};quoteEl.textContent='{$this->siteJs('الإجمالي')}: '+r.data.total+' '+r.data.currency+' ({$this->siteJs('البالغ')} '+r.data.adult_price+'{$this->siteJs('، الطفل')} '+r.data.child_price+'{$this->siteJs('، مع الإضافات المختارة')})'+(r.data.coupon?' — {$this->siteJs('تم تطبيق الخصم')}: -'+r.data.coupon.discount+' '+r.data.currency:'')+(r.data.coupon_error?' — '+r.data.coupon_error:'');return true;}).catch(function(){if(version===quoteVersion)quoteEl.textContent='{$this->siteJs('تعذر حساب السعر؛ حاول بعد التحقق من الاتصال')}.';return false;});}
+    function updateQuote(requestToken){var version=++quoteVersion;quote=null;if(!form.elements.start_date.value)return Promise.resolve(false);quoteEl.textContent='{$this->siteJs('جاري حساب السعر…')}';var params=quoteParams();var requestParams=params+(typeof requestToken==='string'?'&request_token='+encodeURIComponent(requestToken):'');return fetch(form.getAttribute('data-action').replace(/\/book$/, '/quote')+'?'+requestParams,{headers:{Accept:'application/json'}}).then(function(r){return r.json();}).then(function(r){if(version!==quoteVersion)return false;if(!r.success||!r.data){quoteEl.textContent=r.error||'{$this->siteJs('تعذر حساب السعر')}';return false;}quote={params:params,total:r.data.total};quoteEl.textContent='{$this->siteJs('الإجمالي')}: '+r.data.total+' '+r.data.currency+(r.data.nights?' ('+r.data.nights+' × '+r.data.adult_price+(r.data.rooms_count>1?' × '+r.data.rooms_count:'')+')':' ({$this->siteJs('البالغ')} '+r.data.adult_price+'{$this->siteJs('، الطفل')} '+r.data.child_price+'{$this->siteJs('، مع الإضافات المختارة')})')+(r.data.coupon?' — {$this->siteJs('تم تطبيق الخصم')}: -'+r.data.coupon.discount+' '+r.data.currency:'')+(r.data.coupon_error?' — '+r.data.coupon_error:'');return true;}).catch(function(){if(version===quoteVersion)quoteEl.textContent='{$this->siteJs('تعذر حساب السعر؛ حاول بعد التحقق من الاتصال')}.';return false;});}
     form.addEventListener('input',function(e){if(['start_date','end_date','rooms_count','adults_count','children_count','coupon_code','extra_ids[]'].indexOf(e.target.name)<0)return;quote=null;++quoteVersion;clearTimeout(quoteTimer);quoteTimer=setTimeout(updateQuote,300);});
 
     var requestStorageKey='tfBookingRequest:'+form.getAttribute('data-action');
