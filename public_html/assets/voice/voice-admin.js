@@ -8,7 +8,7 @@
     var opt = { credentials: 'same-origin', headers: { 'Accept': 'application/json' } };
     if (body !== undefined) { opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.headers['X-CSRF-Token'] = csrf(); opt.body = JSON.stringify(body); }
     return fetch(path, opt).then(function (r) { return r.json().catch(function () { return { success: false, message: 'Bad response' }; }); })
-      .then(function (j) { if (!j || j.success === false) throw new Error((j && j.message) || 'Request failed'); j.data = j.data || {}; j.data._message = j.message; return j.data; });
+      .then(function (j) { if (!j || j.success === false) throw new Error((j && (j.error || j.message)) || 'Request failed'); j.data = j.data || {}; j.data._message = j.message; return j.data; });
   }
   function badge(t, c) { return '<span class="va-badge ' + (c || '') + '">' + esc(t) + '</span>'; }
   function cards(items) { return '<div class="va-cards">' + items.map(function (i) { return '<div class="va-card"><span class="va-muted">' + esc(i[0]) + '</span><b>' + esc(i[1]) + '</b></div>'; }).join('') + '</div>'; }
