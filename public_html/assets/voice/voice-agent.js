@@ -66,6 +66,100 @@
       return '<div class="va-bar"><span class="va-bar-l">' + esc(i.key) + '</span><span class="va-bar-t"><span class="va-bar-f" style="width:' + Math.round((+i.count || 0) / max * 100) + '%"></span></span><span class="va-bar-n">' + esc(i.count) + '</span></div>';
     }).join('') + '</div>';
   }
+
+  function opts(list, cur) { return list.map(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join(''); }
+  function field(name, label, kind, val, extra) {
+    var v = val == null ? '' : val;
+    if (kind === 'select') return '<label>' + esc(label) + '<select name="' + name + '">' + opts(extra, v) + '</select></label>';
+    if (kind === 'textarea') return '<label>' + esc(label) + '<textarea name="' + name + '" rows="3">' + esc(v) + '</textarea></label>';
+    return '<label>' + esc(label) + '<input name="' + name + '" value="' + esc(v) + '"' + (extra || '') + '></label>';
+  }
+  function collect(f) { var b = {}; new FormData(f).forEach(function (v, k) { b[k] = v; }); return b; }
+  function note(el, text, bad) { var m = el.querySelector('[data-msg]'); if (m) { m.textContent = text; m.className = bad ? 'va-err' : 'va-muted'; } }
+  var ROLES = ['reception', 'sales', 'booking', 'support'], TONES = ['friendly', 'professional', 'formal', 'warm'], LANGS = ['en', 'ar', 'fr', 'de', 'es', 'it', 'ru', 'tr'], TYPES = ['local', 'national', 'toll_free', 'mobile'];
+
+  function assistantsTab() {
+    return api('/api/voice-agent/agents').then(function (r) {
+      window.__vaAgents = r.agents || [];
+      return '<h3>Assistants</h3>' + table([['Name', 'name'], ['Role', 'role'], ['Language', 'language'], ['Status', function (a) { return badge(a.status); }],
+        ['', function (a) { return '<button class="va-btn sec" data-edit="' + (+a.id) + '">Edit</button>'; }]], r.agents) +
+        '<h3 data-title>Add an assistant</h3><form class="va-form" data-agent><input type="hidden" name="id" value="">' +
+        field('name', 'Name', 'text', '', ' required maxlength="120"') + field('role', 'Role', 'select', 'reception', ROLES) + field('tone', 'Tone', 'select', 'friendly', TONES) +
+        field('language', 'Main language', 'select', 'en', LANGS) + field('languages', 'Other languages it may switch to (comma separated)', 'text', '') +
+        field('status', 'Status', 'select', 'draft', ['draft', 'active', 'paused']) + field('opening_text', 'Opening sentence (the AI notice is added automatically)', 'textarea', '') +
+        field('instructions', 'Extra instructions (prices are never invented; this only adds rules)', 'textarea', '') +
+        '<div><button class="va-btn" type="submit">Save assistant</button> <span data-msg></span></div></form>';
+    });
+  }
+  function bindAssistants(el) {
+    var f = el.querySelector('[data-agent]');
+    el.querySelectorAll('[data-edit]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = (window.__vaAgents || []).filter(function (x) { return +x.id === +b.getAttribute('data-edit'); })[0]; if (!a) return;
+        ['id', 'name', 'role', 'tone', 'language', 'languages', 'status', 'opening_text', 'instructions'].forEach(function (k) { if (f.elements[k]) f.elements[k].value = a[k] == null ? '' : a[k]; });
+        el.querySelector('[data-title]').textContent = 'Edit assistant';
+        f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var body = collect(f), id = body.id; delete body.id;
+      api(id ? '/api/voice-agent/agents/' + (+id) : '/api/voice-agent/agents', body).then(function () { render(); }).catch(function (err) { note(el, err.message, true); });
+    });
+  }
+
+  function numbersTab() {
+    return Promise.all([api('/api/voice-agent/numbers'), api('/api/voice-agent/agents'), api('/api/voice-agent/providers'), api('/api/voice-agent/markets')]).then(function (r) {
+      var agents = r[1].agents || [], provs = (r[2].providers || []).filter(function (p) { return p.available; }), markets = r[3].markets || [];
+      window.__vaProvs = provs;
+      var agentOpts = [['', '— none —']].concat(agents.map(function (a) { return [a.id, a.name]; }));
+      var cols = [['Number', 'e164'], ['Country', 'country'], ['Provider', 'provider'], ['Status', function (n) { return badge(n.status + (n.live_usable ? '' : '')); }],
+        ['Assistant', function (n) { return '<select data-assign="' + (+n.id) + '">' + opts(agentOpts, n.agent_id || '') + '</select>'; }],
+        ['', function (n) { return '<button class="va-btn sec" data-test="' + (+n.id) + '">Test</button> <button class="va-btn sec" data-default="' + (+n.id) + '">Default</button> <button class="va-btn sec" data-release="' + (+n.id) + '">Release</button>'; }]];
+      var urls = provs.map(function (p) { return '<li><b>' + esc(p.provider) + '</b><br>Voice URL: <code>' + esc(p.webhook_urls.inbound) + '</code><br>Status URL: <code>' + esc(p.webhook_urls.status) + '</code></li>'; }).join('');
+      return '<p data-msg></p>' + table(cols, r[0].numbers) +
+        '<details class="va-card"><summary><b>Get a new number</b> (you approve the exact price before anything is bought)</summary><form class="va-form" data-search>' +
+        field('country', 'Country', 'select', markets.length ? markets[0].iso : '', markets.map(function (m) { return [m.iso, m.name]; })) + field('type', 'Type', 'select', 'local', TYPES) +
+        field('provider', 'Provider', 'select', provs.length ? provs[0].provider : '', provs.map(function (p) { return [p.provider, p.provider]; })) +
+        '<div><button class="va-btn" type="submit"' + (provs.length ? '' : ' disabled') + '>Search</button></div></form>' + (provs.length ? '' : '<p class="va-muted">No phone provider is available yet.</p>') + '<div data-results></div><div data-quote></div></details>' +
+        '<details class="va-card"><summary><b>Use a number I already own</b></summary><form class="va-form" data-connect>' + field('number', 'Number (E.164, e.g. +201001234567)', 'text', '', ' required') +
+        field('method', 'How it reaches us', 'select', 'forward', [['provider_native', 'It is already with the provider'], ['forward', 'Forward calls from my carrier'], ['sip', 'SIP trunk'], ['port', 'Port it over']]) +
+        field('country', 'Country', 'select', markets.length ? markets[0].iso : '', markets.map(function (m) { return [m.iso, m.name]; })) +
+        field('provider', 'Provider', 'select', provs.length ? provs[0].provider : '', provs.map(function (p) { return [p.provider, p.provider]; })) +
+        '<div><button class="va-btn" type="submit">Add number</button></div></form>' +
+        (urls ? '<p class="va-muted">For a number you own at the provider, set these in the provider console:</p><ul>' + urls + '</ul>' : '') + '</details>';
+    });
+  }
+  function bindNumbers(el) {
+    function post(path, body) { return api(path, body || {}).then(function (d) { window.__vaNote = (d.simulated ? 'Test mode: simulated, nothing was bought or changed at the provider. ' : '') + 'Done'; render(); }).catch(function (e) { note(el, e.message, true); }); }
+    el.querySelectorAll('[data-assign]').forEach(function (s) { s.addEventListener('change', function () { post('/api/voice-agent/numbers/' + (+s.getAttribute('data-assign')) + '/assign', { agent_id: s.value }); }); });
+    el.querySelectorAll('[data-test]').forEach(function (b) { b.addEventListener('click', function () { api('/api/voice-agent/numbers/' + (+b.getAttribute('data-test')) + '/test', {}).then(function (d) { note(el, JSON.stringify(d)); }).catch(function (e) { note(el, e.message, true); }); }); });
+    el.querySelectorAll('[data-default]').forEach(function (b) { b.addEventListener('click', function () { post('/api/voice-agent/numbers/' + (+b.getAttribute('data-default')) + '/default'); }); });
+    el.querySelectorAll('[data-release]').forEach(function (b) { b.addEventListener('click', function () { if (window.confirm('Release this number? You will lose it.')) post('/api/voice-agent/numbers/' + (+b.getAttribute('data-release')) + '/release', { approve_release: true }); }); });
+    var c = el.querySelector('[data-connect]');
+    c.addEventListener('submit', function (e) { e.preventDefault(); post('/api/voice-agent/numbers/connect', collect(c)); });
+    var s = el.querySelector('[data-search]'), res = el.querySelector('[data-results]'), qbox = el.querySelector('[data-quote]');
+    s.addEventListener('submit', function (e) {
+      e.preventDefault(); var b = collect(s); qbox.innerHTML = ''; res.innerHTML = '<p class="va-muted">Searching…</p>';
+      api('/api/voice-agent/providers/' + encodeURIComponent(b.provider) + '/numbers?country=' + encodeURIComponent(b.country) + '&type=' + encodeURIComponent(b.type)).then(function (d) {
+        res.innerHTML = table([['Number', 'number'], ['Monthly (provider)', function (n) { return n.monthly_cost == null ? 'no price' : esc(n.monthly_cost) + ' ' + esc(n.currency); }], ['', function (n) { return n.voice && n.monthly_cost != null ? '<button class="va-btn sec" data-q="' + esc(n.number) + '">Get exact quote</button>' : ''; }]], d.numbers);
+        res.querySelectorAll('[data-q]').forEach(function (qb) {
+          qb.addEventListener('click', function () {
+            api('/api/voice-agent/numbers/quote', { provider: b.provider, number: qb.getAttribute('data-q'), country: b.country, type: b.type }).then(function (r) {
+              var q = r.quote;
+              qbox.innerHTML = '<div class="va-note"><b>' + esc(q.number) + '</b><br>Monthly: ' + esc(q.monthly_cost) + ' ' + esc(q.currency) + ' · Setup: ' + esc(q.setup_cost) + '<br><b>Charged now: ' + esc(q.first_charge) + ' ' + esc(q.currency) + '</b><br>' + esc(q.usage_note) +
+                '<br>Valid for ' + Math.round(q.expires_in_seconds / 60) + ' minutes.' + (q.requirements && q.requirements.needs_ack ? '<br><label><input type="checkbox" data-ack> I have read the regulatory requirements for this number</label>' : '') +
+                '<br><button class="va-btn" data-buy>Approve ' + esc(q.first_charge) + ' ' + esc(q.currency) + ' and get this number</button></div>';
+              qbox.querySelector('[data-buy]').addEventListener('click', function () {
+                var ack = qbox.querySelector('[data-ack]');
+                post('/api/voice-agent/numbers/orders/' + (+q.order_id) + '/approve', { accept_total: q.first_charge, requirements_ack: ack ? ack.checked : true });
+              });
+            }).catch(function (er) { qbox.innerHTML = '<p class="va-err">' + esc(er.message) + '</p>'; });
+          });
+        });
+      }).catch(function (er) { res.innerHTML = '<p class="va-err">' + esc(er.message) + '</p>'; });
+    });
+  }
   function money(v) { return '$' + (Number(v) || 0).toFixed(2); }
 
   var TABS = [
@@ -76,16 +170,8 @@
           cards([[t('calls'), (a.calls && a.calls.total) || 0], [t('booked'), (a.bookings && a.bookings.count) || 0], [t('spent'), money(c.month_usd)], [t('budget'), c.budget_usd == null ? '—' : money(c.budget_usd)]]);
       });
     }],
-    ['numbers', function () {
-      return api('/api/voice-agent/numbers').then(function (r) {
-        return table([['Number', 'e164'], ['Country', 'country'], ['Type', 'number_type'], ['Provider', 'provider'], ['Status', function (n) { return badge(n.status); }]], r.numbers);
-      });
-    }],
-    ['assistants', function () {
-      return api('/api/voice-agent/agents').then(function (r) {
-        return table([['Name', 'name'], ['Role', 'role'], ['Language', 'language'], ['Status', function (a) { return badge(a.status); }]], r.agents);
-      });
-    }],
+    ['numbers', numbersTab, bindNumbers],
+    ['assistants', assistantsTab, bindAssistants],
     ['incoming', function () {
       return api('/api/voice-agent/calls?direction=inbound&limit=50').then(function (r) { return callsTable(r.calls); });
     }],
@@ -147,7 +233,7 @@
       return '<button class="va-tab" role="tab" aria-selected="' + (i === active) + '" data-i="' + i + '">' + esc(t(tb[0])) + '</button>';
     }).join('') + '</div><div class="va-body" role="tabpanel"><p class="va-muted">' + esc(t('loading')) + '</p></div>';
     var body = root.querySelector('.va-body');
-    TABS[active][1]().then(function (html) { body.innerHTML = html; bindSettings(body); })
+    TABS[active][1]().then(function (html) { body.innerHTML = html; if (window.__vaNote) { var m0 = body.querySelector('[data-msg]'); if (m0) m0.textContent = window.__vaNote; window.__vaNote = null; } bindSettings(body); if (TABS[active][2]) TABS[active][2](body); })
       .catch(function (e) { body.innerHTML = '<p class="va-err">' + esc(e.message || t('failed')) + '</p>'; });
   }
   root.addEventListener('click', function (e) {
