@@ -134,11 +134,7 @@
   ];
   if (BOOT.admin) {
     TABS.push(['admin', function () {
-      return Promise.all([api('/api/admin/voice/providers'), api('/api/admin/voice/quality'), api('/api/admin/voice/margins')]).then(function (r) {
-        var q = r[1], m = r[2].total || {};
-        return cards([['Calls (7d)', q.calls], ['Fallback rate', q.fallback_rate_pct == null ? '—' : q.fallback_rate_pct + '%'], ['Avg reply', q.avg_reply_ms == null ? '—' : q.avg_reply_ms + ' ms'], ['Provider errors', q.provider_errors], ['Margin', m.margin_pct == null ? '—' : m.margin_pct + '%']]) +
-          '<pre class="va-muted" style="white-space:pre-wrap;overflow-wrap:anywhere">' + esc(JSON.stringify(r[0], null, 2)) + '</pre>';
-      });
+      return Promise.resolve('<p><a class="va-btn" href="/admin/voice">Open AI Voice administration</a></p>');
     }]);
   }
   function callsTable(rows) {

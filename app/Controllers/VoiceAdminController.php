@@ -2,8 +2,9 @@
 
 /**
  * Tourfecto - AI Voice Agent: platform administration API (Phase 2). Routes are admin-only (AuthMiddleware + AdminMiddleware) and the
- * controller checks the role again. Read-only on purpose: provider keys are saved in admin > Integrations (twilio_voice / telnyx_voice),
- * and the live-operations switch is not changeable from here.
+ * controller checks the role again. Provider keys are saved in admin > Integrations (twilio_voice / telnyx_voice). Platform switches, per-company
+ * control, the emergency stop and the platform do-not-call list are managed here; turning on anything that spends money or contacts people needs
+ * the typed confirmation phrase, and every change is written to the audit trail.
  */
 class VoiceAdminController extends Controller
 {
@@ -118,5 +119,139 @@ class VoiceAdminController extends Controller
     public function quality(array $params = []): array
     {
         return $this->admin() ?? $this->success((new VoiceAdminReports())->quality((int) $this->get('days', 7)));
+    }
+
+    /** GET /api/admin/voice/settings */
+    public function getSettings(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        $defs = [];
+        foreach (VoicePlatformSettings::DEFINITIONS as $k => [$type, $default, $label, $danger]) {
+            $defs[] = ['key' => $k, 'type' => $type, 'default' => $default, 'label' => $label, 'danger' => $danger];
+        }
+        return $this->success(['values' => VoicePlatformSettings::current(), 'definitions' => $defs, 'confirm_phrase' => VoicePlatformSettings::CONFIRM_PHRASE]);
+    }
+
+    /** POST /api/admin/voice/settings {key: value..., confirm?} */
+    public function saveSettings(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        try {
+            $clean = VoicePlatformSettings::sanitize($this->all());
+            $current = VoicePlatformSettings::current();
+            $danger = VoicePlatformSettings::dangerousChanges($clean, $current);
+            if ($danger && (string) $this->get('confirm', '') !== VoicePlatformSettings::CONFIRM_PHRASE) {
+                return $this->error('Type "' . VoicePlatformSettings::CONFIRM_PHRASE . '" to confirm: ' . implode(', ', $danger), 422);
+            }
+            $settings = new SystemSettingsService();
+            foreach ($clean as $k => $v) {
+                if ((string) ($current[$k] ?? '') !== $v) {
+                    $settings->set($k, $v);
+                    VoiceAuditService::record(0, (int) $this->user['id'], 'platform.setting_changed', 'setting', $k, ['from' => $current[$k] ?? null, 'to' => $v]);
+                }
+            }
+            return $this->success(['values' => VoicePlatformSettings::current()], 'Saved');
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        }
+    }
+
+    /** POST /api/admin/voice/emergency-stop - turns live operations off platform-wide and cancels everything waiting to be dialled */
+    public function emergencyStop(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        (new SystemSettingsService())->set('voice_live_operations_enabled', '0');
+        $n = (new VoiceAdminReports())->cancelQueuedJobs(null, 'emergency_stop');
+        VoiceAuditService::record(0, (int) $this->user['id'], 'platform.emergency_stop', 'platform', null, ['cancelled_jobs' => $n]);
+        return $this->success(['live_operations_enabled' => false, 'cancelled_jobs' => $n], 'Live operations are off and queued calls were cancelled');
+    }
+
+    /** GET /api/admin/voice/companies */
+    public function companies(array $params = []): array
+    {
+        return $this->admin() ?? $this->success(['companies' => (new VoiceAdminReports())->companies()]);
+    }
+
+    /** POST /api/admin/voice/companies/{id}/control {enabled?, sandbox_mode?, outbound_enabled?, monthly_budget_usd?, budget_policy?, stop?} */
+    public function controlCompany(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        $tenant = (int) ($params['id'] ?? 0);
+        if ($tenant < 1 || !Database::getInstance()->query('SELECT id FROM users WHERE id = ? LIMIT 1', [$tenant])) {
+            return $this->error('Company not found', 404);
+        }
+        try {
+            $in = array_intersect_key($this->all(), array_flip(['enabled', 'sandbox_mode', 'outbound_enabled', 'monthly_budget_usd', 'budget_policy']));
+            if (!empty($this->get('stop'))) { // company kill switch
+                $in = ['enabled' => 0, 'outbound_enabled' => 0];
+            }
+            $svc = new VoiceSettingsService();
+            $before = $svc->get($tenant);
+            if (isset($in['sandbox_mode']) && (int) $in['sandbox_mode'] === 0 && (int) ($before['sandbox_mode'] ?? 1) === 1 && (string) $this->get('confirm', '') !== VoicePlatformSettings::CONFIRM_PHRASE) {
+                return $this->error('Type "' . VoicePlatformSettings::CONFIRM_PHRASE . '" to take this company out of test mode', 422);
+            }
+            $after = $svc->save($tenant, $in);
+            $cancelled = 0;
+            if (empty($after['enabled']) || empty($after['outbound_enabled'])) {
+                $cancelled = (new VoiceAdminReports())->cancelQueuedJobs($tenant, 'admin_stop');
+            }
+            VoiceAuditService::record($tenant, (int) $this->user['id'], 'admin.company_control', 'company', $tenant, ['changed' => array_keys($in), 'cancelled_jobs' => $cancelled]);
+            return $this->success(['settings' => $after, 'cancelled_jobs' => $cancelled], 'Saved');
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        }
+    }
+
+    /** GET /api/admin/voice/dnc - the platform-wide do-not-call list (blocks every company) */
+    public function dnc(array $params = []): array
+    {
+        return $this->admin() ?? $this->success(['entries' => (new VoiceConsentService())->listDnc(0)]);
+    }
+
+    /** POST /api/admin/voice/dnc {phone, reason?} */
+    public function addDnc(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        try {
+            (new VoiceConsentService())->addDnc(0, (int) $this->user['id'], (string) $this->get('phone', ''), 'platform', (string) $this->get('reason', '') ?: null);
+            return $this->success([], 'Added');
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        }
+    }
+
+    /** POST /api/admin/voice/dnc/remove {phone} */
+    public function removeDnc(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        (new VoiceConsentService())->removeDnc(0, (int) $this->user['id'], (string) $this->get('phone', ''));
+        return $this->success([], 'Removed');
     }
 }

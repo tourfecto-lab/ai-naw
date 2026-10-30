@@ -135,4 +135,27 @@ class VoiceAdminReports
         return ['days' => $days, 'calls' => $calls, 'fallback_rate_pct' => $calls ? round((int) $c['fallback'] / $calls * 100, 1) : null,
             'avg_reply_ms' => $turns ? (int) round((int) $c['lat'] / $turns) : null, 'provider_errors' => $e];
     }
+
+    /** Every company that has voice set up: switches, this month's usage, active numbers. Never call content or customer data. */
+    public function companies(int $limit = 200): array
+    {
+        $month = gmdate('Y-m') . '-01 00:00:00';
+        return $this->db()->query(
+            "SELECT s.tenant_user_id AS company, u.email, u.company_name, s.enabled, s.sandbox_mode, s.outbound_enabled, s.monthly_budget_usd, s.budget_policy,
+                    (SELECT COUNT(*) FROM voice_numbers n WHERE n.tenant_user_id = s.tenant_user_id AND n.status = 'active') AS active_numbers,
+                    (SELECT COALESCE(SUM(l.price_usd),0) FROM voice_usage_ledger l WHERE l.tenant_user_id = s.tenant_user_id AND l.occurred_at >= ?) AS month_price_usd,
+                    (SELECT COUNT(*) FROM voice_calls c WHERE c.tenant_user_id = s.tenant_user_id AND c.started_at >= ?) AS month_calls
+             FROM voice_agent_settings s LEFT JOIN users u ON u.id = s.tenant_user_id ORDER BY s.updated_at DESC LIMIT " . max(1, min(500, $limit)),
+            [$month, $month]
+        ) ?: [];
+    }
+
+    /** Stop everything waiting to be dialled (one company, or all when $tenantId is null). Calls already in progress are not touched. @return int jobs cancelled */
+    public function cancelQueuedJobs(?int $tenantId, string $reason): int
+    {
+        $where = $tenantId === null ? '' : ' AND tenant_user_id = ' . (int) $tenantId;
+        $n = (int) ($this->db()->query("SELECT COUNT(*) AS n FROM voice_outbound_jobs WHERE status = 'scheduled'" . $where)[0]['n'] ?? 0);
+        $this->db()->exec("UPDATE voice_outbound_jobs SET status='cancelled', blocked_reason=?, updated_at=NOW() WHERE status = 'scheduled'" . $where, [mb_substr($reason, 0, 60)]);
+        return $n;
+    }
 }

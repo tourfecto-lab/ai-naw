@@ -681,4 +681,18 @@ final class VoiceAgentDatabaseTest extends TestCase
         $this->assertNull($svc->audio(self::B, 1, 77)); // another company: nothing, and no provider call is even attempted
         $this->assertNull($svc->audio(self::A, 1, 78)); // past retention: not served
     }
+
+    public function testAdminStopCancelsOnlyTheNamedCompaniesQueuedCalls(): void
+    {
+        foreach ([self::A, self::B] as $t) {
+            $this->db()->exec("INSERT INTO voice_agent_settings (tenant_user_id, enabled, sandbox_mode, created_at, updated_at) VALUES (?,1,1,NOW(),NOW())", [$t]);
+            $this->db()->exec("INSERT INTO voice_outbound_jobs (tenant_user_id, number_id, agent_id, purpose, category, to_e164, phone_key, status, next_attempt_at, created_by_user_id, created_at, updated_at) VALUES (?,1,1,'booking_confirmation','service','+201001234567','001234567','scheduled',NOW(),1,NOW(),NOW())", [$t]);
+        }
+        $r = new VoiceAdminReports();
+        $this->assertSame(1, $r->cancelQueuedJobs(self::A, 'admin_stop'));
+        $this->assertSame('cancelled', $this->db()->query('SELECT status FROM voice_outbound_jobs WHERE tenant_user_id = ?', [self::A])[0]['status']);
+        $this->assertSame('scheduled', $this->db()->query('SELECT status FROM voice_outbound_jobs WHERE tenant_user_id = ?', [self::B])[0]['status']);
+        $ids = array_column($r->companies(), 'company');
+        $this->assertContains(self::A, array_map('intval', $ids));
+    }
 }
