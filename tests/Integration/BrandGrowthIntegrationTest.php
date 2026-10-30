@@ -80,6 +80,26 @@ final class BrandGrowthIntegrationTest extends TestCase
         $this->assertSame(1, $this->row($a['referrers'], 'google.com')['signups'] - $this->row($before['referrers'], 'google.com')['signups']);
     }
 
+    public function testPresenceFindsTheBrandSiteOnTheRealWebsitesColumns(): void
+    {
+        if (!class_exists('WebsiteSchema')) require_once dirname(__DIR__, 2) . '/app/Models/WebsiteSchema.php';
+        $this->db->query("INSERT INTO users (id, email, password, company_name, role, created_at) VALUES (?, 'brand-admin@tourfecto.test', 'x', 'Brand Admin', 'admin', NOW())", [self::USER]);
+        $url = WebsiteSchema::url();
+        $cols = ['user_id' => self::USER, $url => $url === 'domain' ? 'www.brand-audit.test' : 'https://www.brand-audit.test/'];
+        foreach (['brand_name', 'company_name', 'name'] as $n) if (WebsiteSchema::has($n)) { $cols[$n] = 'Tourfecto Brand'; break; }
+        $this->db->query('INSERT INTO websites (' . implode(', ', array_map(static fn ($c) => '`' . $c . '`', array_keys($cols))) . ') VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')', array_values($cols));
+        try {
+            $p = (new BrandGrowth($this->db))->presence(self::SITE);
+            $this->assertNotNull($p['website'], 'the admin website on the same host must be found');
+            $this->assertSame(self::USER, $p['website']['owner_user_id']);
+            $this->assertSame('Tourfecto Brand', $p['website']['name']);
+            $this->assertNotNull($p['reviews']);
+            $this->assertSame(null, (new BrandGrowth($this->db))->presence('https://not-ours.test')['website']);
+        } finally {
+            $this->db->query('DELETE FROM websites WHERE user_id = ?', [self::USER]);
+        }
+    }
+
     public function testAuditRunsOnSitemapAndTracksImprovement(): void
     {
         $this->db->query("INSERT INTO system_settings (setting_key, setting_value, is_secret, category) VALUES ('brand_site_url', ?, 0, 'ai_ceo') ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)", [self::SITE]);

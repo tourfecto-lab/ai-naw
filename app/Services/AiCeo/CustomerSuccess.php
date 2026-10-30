@@ -56,9 +56,11 @@ final class CustomerSuccess
     public function funnel(int $days = 90): ?array
     {
         $days = max(7, min(365, $days));
+        if (!class_exists('WebsiteSchema')) require_once __DIR__ . '/../../Models/WebsiteSchema.php';
+        $siteConnected = WebsiteSchema::has('is_connected') ? '(SELECT COUNT(*) FROM websites w WHERE w.user_id = u.id AND w.is_connected = 1) + ' : '';
         $rows = $this->safe("SELECT u.id, u.email, u.company_name, u.created_at, u.last_login,
                 (SELECT COUNT(*) FROM websites w WHERE w.user_id = u.id) AS sites,
-                ((SELECT COUNT(*) FROM websites w WHERE w.user_id = u.id AND w.is_connected = 1) + (SELECT COUNT(*) FROM platform_connections pc WHERE pc.user_id = u.id AND pc.status = 'connected')) AS connected,
+                ({$siteConnected}(SELECT COUNT(*) FROM platform_connections pc WHERE pc.user_id = u.id AND pc.status = 'connected')) AS connected,
                 (SELECT COUNT(*) FROM api_usage_logs a WHERE a.user_id = u.id) AS ai_calls,
                 (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id = u.id AND s.trial_ends_at IS NOT NULL) AS trials,
                 (SELECT COUNT(*) FROM subscriptions s LEFT JOIN subscription_plans sp ON sp.id = s.plan_id WHERE s.user_id = u.id AND " . self::PAID . ") AS paying
