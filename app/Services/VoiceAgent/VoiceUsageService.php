@@ -19,11 +19,16 @@ class VoiceUsageService
     /** Called when a call closes (after the provider cost lookup). Safe to repeat. */
     public function recordCall(int $tenantId, int $callId, ?float $providerCostUsd): void
     {
-        $call = $this->db()->query('SELECT direction, duration_s, mode, ai_cost_usd, COALESCE(ended_at, started_at) AS at FROM voice_calls WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$callId, $tenantId])[0] ?? null;
+        $call = $this->db()->query('SELECT provider, direction, duration_s, mode, ai_cost_usd, COALESCE(ended_at, started_at) AS at FROM voice_calls WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$callId, $tenantId])[0] ?? null;
         if (!$call) {
             return;
         }
+        // A company that brought its own provider account pays the provider directly: only our AI cost is ours to charge.
+        $own = (bool) $this->db()->query("SELECT 1 FROM voice_providers WHERE tenant_user_id = ? AND provider = ? AND mode = 'own' LIMIT 1", [$tenantId, (string) $call['provider']]);
         foreach (VoiceCostModel::components($call, $providerCostUsd, self::rates(), VoicePricing::markupPct()) as $c) {
+            if ($own && $c['component'] !== 'ai') {
+                continue;
+            }
             $this->upsert($tenantId, 'call:' . $callId, $c['component'], $c['quantity'], $c['unit'], $c['cost_usd'], $c['price_usd'], $c['cost_source'], (string) $call['at']);
         }
     }
@@ -43,7 +48,9 @@ class VoiceUsageService
         $day = $day ?? gmdate('Y-m-d');
         $dim = (int) gmdate('t', strtotime($day));
         $n = 0;
-        foreach ($this->db()->query("SELECT id, tenant_user_id, monthly_cost, provider_monthly_cost FROM voice_numbers WHERE status = 'active' AND monthly_cost IS NOT NULL") ?: [] as $r) {
+        foreach ($this->db()->query("SELECT n.id, n.tenant_user_id, n.monthly_cost, n.provider_monthly_cost FROM voice_numbers n
+             LEFT JOIN voice_providers p ON p.tenant_user_id = n.tenant_user_id AND p.provider = n.provider AND p.mode = 'own'
+             WHERE n.status = 'active' AND n.monthly_cost IS NOT NULL AND p.id IS NULL") ?: [] as $r) {
             $d = VoiceCostModel::rentalDay($r['provider_monthly_cost'] !== null ? (float) $r['provider_monthly_cost'] : null, (float) $r['monthly_cost'], $dim);
             $this->upsert((int) $r['tenant_user_id'], 'number:' . $r['id'] . ':' . str_replace('-', '', $day), 'number_rental', 1, 'day', $d['cost_usd'], $d['price_usd'], 'provider', $day . ' 00:00:00');
             $n++;
