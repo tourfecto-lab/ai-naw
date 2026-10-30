@@ -8,6 +8,8 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../Fixtures/VoiceFakeHttp.php';
+
 final class VoiceAgentDatabaseTest extends TestCase
 {
     private const A = 998001;
@@ -750,5 +752,27 @@ final class VoiceAgentDatabaseTest extends TestCase
         $this->assertSame(0, VoiceInboundService::tenantForCall('telnyx', 0, ['To' => '+14155550999']));       // unknown number: nobody
         $this->assertSame(0, VoiceInboundService::tenantForCall('twilio', 0, ['To' => '+14155550177']));       // only Telnyx may use the tenant-less URL
         $this->assertSame(self::A, VoiceInboundService::tenantForCall('telnyx', self::A, ['To' => '+14155550177'])); // an explicit tenant is never overridden
+    }
+
+    public function testRotatingTheWebhookSecretKillsTheOldUrls(): void
+    {
+        if (!defined('ENCRYPTION_KEY') || ENCRYPTION_KEY === '') {
+            $this->markTestSkipped('no ENCRYPTION_KEY in this environment');
+        }
+        $s = new SystemSettingsService();
+        $old = $s->get('voice_webhook_salt', '');
+        try {
+            $s->set('voice_webhook_salt', '');
+            $x = new TelnyxVoiceAdapter(['api_key' => 'k', 'connection_id' => 'c', 'public_key' => base64_encode(str_repeat('a', 32))], new VoiceFakeHttp());
+            $before = VoiceWebhookToken::make('telnyx');
+            $this->assertTrue($x->verifyWebhook('https://t.test/i?k=' . $before, [], '', []));
+            VoiceWebhookToken::rotate();
+            $after = VoiceWebhookToken::make('telnyx');
+            $this->assertNotSame($before, $after);
+            $this->assertFalse($x->verifyWebhook('https://t.test/i?k=' . $before, [], '', []));
+            $this->assertTrue($x->verifyWebhook('https://t.test/i?k=' . $after, [], '', []));
+        } finally {
+            $s->set('voice_webhook_salt', $old);
+        }
     }
 }

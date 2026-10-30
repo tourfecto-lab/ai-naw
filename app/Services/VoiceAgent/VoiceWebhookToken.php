@@ -10,7 +10,28 @@ class VoiceWebhookToken
     public static function make(string $provider): string
     {
         $key = defined('ENCRYPTION_KEY') ? (string) ENCRYPTION_KEY : '';
-        return $key === '' ? '' : substr(hash_hmac('sha256', 'voice-webhook:' . strtolower($provider), $key), 0, 32);
+        if ($key === '') {
+            return '';
+        }
+        $salt = self::salt();
+        return substr(hash_hmac('sha256', 'voice-webhook:' . strtolower($provider) . ($salt === '' ? '' : ':' . $salt), $key), 0, 32);
+    }
+
+    private static function salt(): string
+    {
+        try {
+            return (string) (new SystemSettingsService())->get('voice_webhook_salt', '');
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+
+    /** New secret for every provider: the old URLs stop working at once. @return string the new salt */
+    public static function rotate(): string
+    {
+        $salt = bin2hex(random_bytes(8));
+        (new SystemSettingsService())->set('voice_webhook_salt', $salt);
+        return $salt;
     }
 
     public static function valid(string $provider, string $given): bool

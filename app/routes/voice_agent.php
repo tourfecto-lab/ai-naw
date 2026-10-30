@@ -108,3 +108,4 @@ $router->post('/api/admin/voice/dnc/remove','VoiceAdminController','removeDnc',[
 $router->get('/admin/voice','VoiceAdminPageController','index',['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/voice/access','VoiceAdminController','accessSearch',['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/voice/access/{id}','VoiceAdminController','accessSet',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/webhook-token/rotate','VoiceAdminController','rotateWebhookToken',['AuthMiddleware','AdminMiddleware']);
