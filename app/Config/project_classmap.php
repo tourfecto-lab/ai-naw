@@ -916,4 +916,8 @@ return [
     'BuilderLanguageService' => dirname(__DIR__,2).'/app/Services/International/BuilderLanguageService.php',
     'SitemapSubmissionService' => dirname(__DIR__,2).'/app/Services/International/SitemapSubmissionService.php',
     'InternationalSeoController' => dirname(__DIR__,2).'/app/Controllers/InternationalSeoController.php',
+    'VoiceAgentController' => dirname(__DIR__,2).'/app/Controllers/VoiceAgentController.php',
+    'VoiceAccessService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAccessService.php',
+    'VoiceAuditService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAuditService.php',
+    'VoiceSettingsService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceSettingsService.php',
 ];

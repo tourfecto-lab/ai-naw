@@ -2079,3 +2079,6 @@ $router->post('/api/seo-expert/runs/{id}/recheck','SeoExpertController','recheck
 
 // AI insights: cited sources, sentiment, AI crawler visits
 require __DIR__.'/ai_insights.php';
+
+// AI Voice & Sales Agent
+require __DIR__.'/voice_agent.php';
