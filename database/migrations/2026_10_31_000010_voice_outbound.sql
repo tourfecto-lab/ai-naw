@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS voice_outbound_jobs (
  max_attempts TINYINT NOT NULL DEFAULT 3,
  min_gap_hours TINYINT UNSIGNED NULL COMMENT 'hours between attempts to the same person (1-48); NULL = policy default',
  campaign_id BIGINT UNSIGNED NULL,
+ source_ref VARCHAR(60) NULL COMMENT 'what created this job (e.g. booking:12:trip_reminder); one job per source',
  next_attempt_at DATETIME NOT NULL,
  last_attempt_at DATETIME NULL,
  last_result VARCHAR(20) NULL COMMENT 'answered, busy, no-answer, voicemail, failed, simulated',
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS voice_outbound_jobs (
  updated_at DATETIME NOT NULL,
  KEY idx_voice_jobs_due (status, next_attempt_at),
  KEY idx_voice_jobs_tenant (tenant_user_id, status),
- KEY idx_voice_jobs_phone (tenant_user_id, phone_key)
+ KEY idx_voice_jobs_phone (tenant_user_id, phone_key),
+ UNIQUE KEY uq_voice_job_source (tenant_user_id, source_ref)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voice_campaigns (

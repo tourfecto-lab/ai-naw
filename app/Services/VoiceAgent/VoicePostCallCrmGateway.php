@@ -85,6 +85,20 @@ class VoicePostCallCrmGateway implements VoicePostCallGateway
         return (new CrmWhatsAppService($tenantId, $websiteId))->sendToContact($tenantId, $contactId, $text, $websiteId);
     }
 
+    public function sendWhatsAppTemplate(int $tenantId, int $contactId, string $text, int $websiteId, string $template, string $language, string $operation): array
+    {
+        $c = $this->contact($tenantId, $contactId);
+        if (!$c || empty($c['phone'])) {
+            return ['success' => false, 'error' => 'Contact has no phone number'];
+        }
+        if ($websiteId < 1) {
+            return ['success' => false, 'error' => 'No WhatsApp website selected'];
+        }
+        $one = mb_substr(trim(preg_replace('/\s+/u', ' ', $text)), 0, 900); // template parameters cannot contain line breaks
+        $r = WhatsAppTransactionalService::send($tenantId, $websiteId, (string) $c['phone'], $template, $language, [$one], $operation);
+        return ['success' => !empty($r['ok']), 'error' => $r['error'] ?? null];
+    }
+
     public function sendEmail(int $tenantId, int $contactId, string $subject, string $text): array
     {
         $html = '<p>' . nl2br(htmlspecialchars($text, ENT_QUOTES, 'UTF-8')) . '</p>';

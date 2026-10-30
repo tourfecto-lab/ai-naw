@@ -129,6 +129,10 @@ class VoiceOutboundService
         $max = max(1, min(5, (int) ($in['max_attempts'] ?? 3)));
         $gapHours = isset($in['min_gap_hours']) && $in['min_gap_hours'] !== '' ? max(1, min(48, (int) $in['min_gap_hours'])) : null;
         $campaignId = isset($in['campaign_id']) ? (int) $in['campaign_id'] : null;
+        $sourceRef = isset($in['source_ref']) && preg_match('/^[a-z0-9:_\-]{1,60}$/', (string) $in['source_ref']) ? (string) $in['source_ref'] : null;
+        if ($sourceRef !== null && ($dup = $this->db()->query('SELECT id, status, next_attempt_at FROM voice_outbound_jobs WHERE tenant_user_id = ? AND source_ref = ? LIMIT 1', [$tenantId, $sourceRef]))) {
+            return ['job_id' => (int) $dup[0]['id'], 'status' => $dup[0]['status'], 'next_attempt_at' => date('c', strtotime($dup[0]['next_attempt_at'])), 'waiting_reason' => null, 'existing' => true]; // one job per source, even if asked twice
+        }
         $at = $now;
         if (!empty($in['scheduled_at'])) {
             $req = strtotime((string) $in['scheduled_at']);
@@ -144,9 +148,9 @@ class VoiceOutboundService
         }
         $first = $d['action'] === 'wait' ? (int) $d['retry_at'] : $at;
         $this->db()->exec(
-            "INSERT INTO voice_outbound_jobs (tenant_user_id, number_id, agent_id, contact_id, to_e164, phone_key, country, tz, purpose, category, context_json, status, max_attempts, min_gap_hours, campaign_id, next_attempt_at, approved_live, created_by_user_id, created_at, updated_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,NOW(),NOW())",
-            [$tenantId, $number['id'], (int) $in['agent_id'], $contactId, $to, $key, $iso, $tz, $purpose, $category, json_encode($ctx), $max, $gapHours, $campaignId, date('Y-m-d H:i:s', $first), !empty($in['approve_live']) && filter_var($in['approve_live'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0, $actorUserId]
+            "INSERT INTO voice_outbound_jobs (tenant_user_id, number_id, agent_id, contact_id, to_e164, phone_key, country, tz, purpose, category, context_json, status, max_attempts, min_gap_hours, campaign_id, source_ref, next_attempt_at, approved_live, created_by_user_id, created_at, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,?,NOW(),NOW())",
+            [$tenantId, $number['id'], (int) $in['agent_id'], $contactId, $to, $key, $iso, $tz, $purpose, $category, json_encode($ctx), $max, $gapHours, $campaignId, $sourceRef, date('Y-m-d H:i:s', $first), !empty($in['approve_live']) && filter_var($in['approve_live'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0, $actorUserId]
         );
         $id = (int) $this->db()->getConnection()->lastInsertId();
         VoiceAuditService::record($tenantId, $actorUserId, 'outbound.queued', 'job', $id, ['purpose' => $purpose, 'basis_attested' => array_intersect_key($ctx, ['inquiry_at' => 1, 'callback_requested_at' => 1])]);

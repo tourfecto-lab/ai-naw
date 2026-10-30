@@ -199,6 +199,13 @@ class VoicePostCallService
                     return ['status' => 'done', 'ref' => $ch];
                 }
                 $last .= $ch . ': ' . (string) ($r['error'] ?? 'failed') . '; ';
+                if ($ch === 'whatsapp' && !empty($settings['post_call_wa_template'])) { // window closed: the company's approved utility template
+                    $r = $this->gw->sendWhatsAppTemplate($tenantId, $st['contact_id'], $msg['text'], (int) ($settings['whatsapp_website_id'] ?? 0), (string) $settings['post_call_wa_template'], (string) ($settings['post_call_wa_template_lang'] ?: 'en'), 'voice_postcall:' . $callId);
+                    if (!empty($r['success'])) {
+                        return ['status' => 'done', 'ref' => 'whatsapp_template'];
+                    }
+                    $last .= 'whatsapp_template: ' . (string) ($r['error'] ?? 'failed') . '; ';
+                }
             }
             $st['delivery_failed'] = true;
             return ['status' => 'skipped', 'detail' => 'not_delivered: ' . mb_substr($last, 0, 180)];

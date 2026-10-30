@@ -8,17 +8,17 @@ class VoiceSettingsService
     public const DEFAULTS = [
         'enabled' => 0, 'sandbox_mode' => 1, 'default_language' => 'en', 'outbound_enabled' => 0,
         'recording_enabled' => 0, 'monthly_budget_usd' => null, 'human_handoff_phone' => null,
-        'daily_outbound_cap' => 100, 'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
+        'daily_outbound_cap' => 100, 'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'post_call_wa_template' => null, 'post_call_wa_template_lang' => null, 'auto_abandoned_recovery' => 0, 'auto_trip_reminders' => 0, 'auto_booking_confirmation' => 0, 'auto_followups_live_approved' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
     ];
 
     public const BOOKING_MODES = ['request_only', 'create_pending', 'auto_confirm'];
-    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'daily_outbound_cap', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'payment_link_pct', 'whatsapp_website_id'];
+    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'daily_outbound_cap', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'post_call_wa_template', 'post_call_wa_template_lang', 'auto_abandoned_recovery', 'auto_trip_reminders', 'auto_booking_confirmation', 'auto_followups_live_approved', 'payment_link_pct', 'whatsapp_website_id'];
 
     /** Pure: validate and normalise user input into the writable settings columns. */
     public static function sanitizeSettings(array $in): array
     {
         $out = [];
-        foreach (['enabled', 'sandbox_mode', 'outbound_enabled', 'recording_enabled', 'post_call_whatsapp', 'post_call_email'] as $k) {
+        foreach (['enabled', 'sandbox_mode', 'outbound_enabled', 'recording_enabled', 'post_call_whatsapp', 'post_call_email', 'auto_abandoned_recovery', 'auto_trip_reminders', 'auto_booking_confirmation', 'auto_followups_live_approved'] as $k) {
             if (array_key_exists($k, $in)) {
                 $out[$k] = filter_var($in[$k], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
             }
@@ -39,6 +39,20 @@ class VoiceSettingsService
             } else {
                 $out['monthly_budget_usd'] = round((float) $v, 2);
             }
+        }
+        if (array_key_exists('post_call_wa_template', $in)) {
+            $v = trim((string) $in['post_call_wa_template']);
+            if ($v !== '' && !preg_match('/^[a-z0-9_]{1,80}$/', $v)) {
+                throw new InvalidArgumentException('Template name: lowercase letters, digits and underscores only');
+            }
+            $out['post_call_wa_template'] = $v === '' ? null : $v;
+        }
+        if (array_key_exists('post_call_wa_template_lang', $in)) {
+            $v = trim((string) $in['post_call_wa_template_lang']);
+            if ($v !== '' && !preg_match('/^[a-z]{2}(_[A-Z]{2})?$/', $v)) {
+                throw new InvalidArgumentException('Template language like en or en_US');
+            }
+            $out['post_call_wa_template_lang'] = $v === '' ? null : $v;
         }
         if (array_key_exists('daily_outbound_cap', $in)) {
             $v = filter_var($in['daily_outbound_cap'], FILTER_VALIDATE_INT);

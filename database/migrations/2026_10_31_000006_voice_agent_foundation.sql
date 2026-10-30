@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS voice_agent_settings (
  post_call_whatsapp TINYINT(1) NOT NULL DEFAULT 0,
  post_call_email TINYINT(1) NOT NULL DEFAULT 0,
  payment_link_pct TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0 = never send payment links, else deposit percent',
+ post_call_wa_template VARCHAR(80) NULL COMMENT 'approved WhatsApp utility template (one body parameter = the message) used when the 24 h window is closed',
+ post_call_wa_template_lang VARCHAR(10) NULL,
+ auto_abandoned_recovery TINYINT(1) NOT NULL DEFAULT 0,
+ auto_trip_reminders TINYINT(1) NOT NULL DEFAULT 0,
+ auto_booking_confirmation TINYINT(1) NOT NULL DEFAULT 0,
+ auto_followups_live_approved TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'standing approval for automatic calls to be real (still needs platform + company live mode)',
  whatsapp_website_id INT(11) NULL COMMENT 'website whose WhatsApp connection sends post-call messages',
  created_at DATETIME NOT NULL,
  updated_at DATETIME NOT NULL

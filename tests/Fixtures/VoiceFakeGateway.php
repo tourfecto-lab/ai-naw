@@ -106,6 +106,15 @@ final class VoiceFakeGateway implements VoicePostCallGateway
         return $this->waResult;
     }
 
+    public array $waTemplates = [];
+    public array $waTemplateResult = ['success' => true];
+
+    public function sendWhatsAppTemplate(int $t, int $cid, string $text, int $site, string $template, string $lang, string $op): array
+    {
+        $this->waTemplates[] = [$cid, $template, $lang, $op, $text];
+        return $this->waTemplateResult;
+    }
+
     public function sendEmail(int $t, int $cid, string $subject, string $text): array
     {
         $this->mails[] = [$cid, $subject, $text];

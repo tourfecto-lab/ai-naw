@@ -35,6 +35,10 @@ interface VoicePostCallGateway
     /** @return array{success:bool, error?:?string} */
     public function sendWhatsApp(int $tenantId, int $contactId, string $text, int $websiteId): array;
 
+    /** Approved utility template (works outside the 24 h window). The message is the template's single body parameter.
+     * @return array{success:bool, error?:?string} */
+    public function sendWhatsAppTemplate(int $tenantId, int $contactId, string $text, int $websiteId, string $template, string $language, string $operation): array;
+
     /** @return array{success:bool, error?:?string} */
     public function sendEmail(int $tenantId, int $contactId, string $subject, string $text): array;
 
