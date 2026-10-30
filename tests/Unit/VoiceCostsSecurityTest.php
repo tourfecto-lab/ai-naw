@@ -249,4 +249,17 @@ final class VoiceCostsSecurityTest extends TestCase
         $this->assertFalse($x->verifyWebhook('https://t.test/webhooks/voice/telnyx/0/inbound?k=', [], '', []));
         $this->assertNotSame($k, VoiceWebhookToken::make('twilio')); // a token is per provider
     }
+
+    public function testPublicWebhookBaseMustBeAnHttpsOrigin(): void
+    {
+        foreach (['https://tourfectoai.pro', 'https://tourfectoai.pro/', 'https://voice.example.com:8443'] as $ok) {
+            $this->assertTrue(VoicePublicUrl::valid($ok), $ok);
+        }
+        foreach (['http://tourfectoai.pro', 'https://tourfectoai.pro/app', 'https://x.pro?a=1', 'javascript:alert(1)', 'https://', 'tourfectoai.pro'] as $bad) {
+            $this->assertFalse(VoicePublicUrl::valid($bad), $bad);
+        }
+        $this->assertSame(['voice_public_base_url' => 'https://tourfectoai.pro'], VoicePlatformSettings::sanitize(['voice_public_base_url' => 'https://tourfectoai.pro/']));
+        $this->expectException(InvalidArgumentException::class);
+        VoicePlatformSettings::sanitize(['voice_public_base_url' => 'http://insecure.test']);
+    }
 }

@@ -18,6 +18,7 @@ class VoicePlatformSettings
         'voice_markup_pct' => ['float', '0', 'Markup on provider prices, percent (0-500)', false],
         'voice_platform_max_concurrent' => ['int', '20', 'Platform-wide maximum simultaneous calls (1-1000)', false],
         'voice_rates_json' => ['rates', '', 'Estimated provider cost per minute, JSON (inbound_per_min, outbound_per_min, speech_per_min)', false],
+        'voice_public_base_url' => ['https_origin', '', 'Public address providers call for voice webhooks, e.g. https://tourfectoai.pro (leave empty to use the site address). Does not change OAuth or any other link', false],
         'voice_stream_url' => ['wss', '', 'Realtime bridge address (wss://). Leave empty to use turn mode', false],
         'voice_sip_domain' => ['host', '', 'SIP domain for forwarding calls', false],
     ];
@@ -75,6 +76,12 @@ class VoicePlatformSettings
                         throw new InvalidArgumentException("$key must be JSON with numeric rates between 0 and 100 for: " . implode(', ', VoiceCostModel::RATE_KEYS));
                     }
                     $out[$key] = json_encode($rates);
+                    break;
+                case 'https_origin':
+                    if ($v !== '' && !VoicePublicUrl::valid((string) $v)) {
+                        throw new InvalidArgumentException("$key must be like https://yourdomain.com (https, no path)");
+                    }
+                    $out[$key] = rtrim((string) $v, '/');
                     break;
                 case 'wss':
                     if ($v !== '' && !preg_match('#^wss://[A-Za-z0-9.-]+(:\d+)?(/[^\s]*)?$#', (string) $v)) {

@@ -21,7 +21,7 @@ class VoiceInboundService
         $this->providers = $providers ?? new VoiceProviderService();
         $this->store = $store ?? new VoiceDataStore();
         $this->settings = new VoiceSettingsService();
-        $this->baseUrl = rtrim($baseUrl ?? (defined('APP_URL') ? APP_URL : ''), '/');
+        $this->baseUrl = rtrim($baseUrl ?? VoicePublicUrl::base(), '/');
         $this->llm = $llm;
     }
 

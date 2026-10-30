@@ -35,7 +35,7 @@ class VoiceOutboundService
         $this->providers = $providers ?? new VoiceProviderService();
         $this->consent = $consent ?? new VoiceConsentService();
         $this->store = $store ?? new VoiceDataStore();
-        $this->baseUrl = rtrim($baseUrl ?? (defined('APP_URL') ? APP_URL : ''), '/');
+        $this->baseUrl = rtrim($baseUrl ?? VoicePublicUrl::base(), '/');
     }
 
     private function db(): Database

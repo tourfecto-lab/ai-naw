@@ -86,7 +86,7 @@ class VoiceProviderService
                 'status' => $r['status'] ?? ($platform ? 'platform_account' : 'not_configured'),
                 'last_test_at' => $r['last_test_at'] ?? null, 'last_test_detail' => $r['last_test_detail'] ?? null,
                 'own_account_allowed' => self::ownAccountsAllowed(),
-                'webhook_urls' => VoiceInboundService::webhookUrls(defined('APP_URL') ? APP_URL : '', $k, $tenantId),
+                'webhook_urls' => VoiceInboundService::webhookUrls(VoicePublicUrl::base(), $k, $tenantId),
                 'capabilities' => self::capabilitiesOf($k),
             ];
         }
