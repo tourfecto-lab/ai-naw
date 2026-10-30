@@ -998,7 +998,7 @@ HTML;
         document.getElementById('bkPrev').disabled = page <= 1;
         document.getElementById('bkNext').disabled = rows.length < 25;
         if (!rows.length) {
-            body.innerHTML = '<tr><td colspan="8"><div class="p-empty" style="padding:20px 0;"><div class="p-empty-icon">📭</div>مفيش حجوزات لسه. شارك رابط موقع الحجز بتاعك مع عملائك.</div></td></tr>';
+            body.innerHTML = '<tr><td colspan="8"><div class="p-empty" style="padding:20px 0;"><div class="p-empty-icon">📭</div>مفيش حجوزات لسه. شارك رابط موقع الحجز بتاعك مع عملائك.<div style="margin-top:10px;"><button type="button" class="p-btn primary xs" onclick="bkNewOpen()">➕ حجز جديد</button></div></div></td></tr>';
             return;
         }
         body.innerHTML = rows.map(b => {
@@ -1017,7 +1017,7 @@ HTML;
             const rmTag = b.reminder_status ? (String(b.reminder_status).indexOf('sent') === 0
                 ? '<br><small title="' + esc(b.reminder_sent_at || '') + '">🔔 اتبعت تذكير</small>'
                 : '<br><small style="color:var(--panel-danger,#d33)" title="' + esc(b.reminder_error || '') + '">⚠️ التذكير ماوصلش</small>') : '';
-            const contact = [b.customer_phone ? '<a href="https://wa.me/' + esc(String(b.customer_phone).replace(/\D/g, '')) + '" target="_blank" rel="noopener" dir="ltr">' + esc(b.customer_phone) + '</a>' : '', b.customer_email ? '<span dir="ltr">' + esc(b.customer_email) + '</span>' : ''].filter(Boolean).join('<br>');
+            const contact = [b.customer_phone ? '<a href="https://wa.me/' + esc(String(b.customer_phone).replace(/\D/g, '')) + '" target="_blank" rel="noopener" dir="ltr" style="white-space:nowrap">' + esc(b.customer_phone) + '</a>' : '', b.customer_email ? '<span dir="ltr">' + esc(b.customer_email) + '</span>' : ''].filter(Boolean).join('<br>');
             // data-label: على الموبايل كل حجز بيبقى كارت (الزراير كانت مستخبية ورا سكرول جانبي)
             return '<tr><td data-label="الكود"><code dir="ltr">' + esc(b.booking_reference) + '</code></td>'
                 + '<td data-label="العميل"><div><b>' + esc(b.customer_name || '-') + '</b><br><small>' + contact + '</small></div></td>'
@@ -1376,7 +1376,9 @@ HTML;
 
     // ===== حجز جديد (تليفون / واتساب / مكتب) =====
     window.bkNewOpen = async function () {
-        await loadProducts();
+        // أول مرة بتحمّل الرحلات: لو اتأخرت نطمّن العميل إن الضغطة وصلت
+        const slow = setTimeout(() => toast('جارِ التحميل...', 'success'), 300);
+        try { await loadProducts(); } finally { clearTimeout(slow); }
         const has = products.length > 0;
         document.getElementById('bnNoTrips').style.display = has ? 'none' : '';
         document.getElementById('bnForm').style.display = has ? '' : 'none';
