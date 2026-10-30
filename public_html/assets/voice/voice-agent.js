@@ -8,14 +8,14 @@
       overview: 'Overview', numbers: 'Phone Numbers', assistants: 'AI Assistants', incoming: 'Incoming Calls', outgoing: 'Outgoing Campaigns',
       history: 'Call History', crm: 'Booking & CRM Integration', whatsapp: 'WhatsApp Integration', analytics: 'Analytics', billing: 'Billing & Usage',
       settings: 'Settings', done: 'Done', admin: 'Voice Administration', loading: 'Loading…', save: 'Save', none: 'Nothing here yet.', failed: 'Could not load this section.',
-      sandbox: 'Test mode is on: no real numbers are bought and no real calls are placed.', notEnabled: 'AI Voice Agent is not included in your plan.',
+      sandbox: 'Test mode is on: no real numbers are bought and no real calls are placed.', notEnabled: 'AI Voice Agent is not included in your plan.', upgrade: 'See plans and upgrade',
       saved: 'Saved', calls: 'Calls', booked: 'Bookings', spent: 'Spent this month', budget: 'Budget'
     },
     ar: {
       overview: 'نظرة عامة', numbers: 'أرقام الهاتف', assistants: 'المساعدون الأذكياء', incoming: 'المكالمات الواردة', outgoing: 'حملات المكالمات الصادرة',
       history: 'سجل المكالمات', crm: 'الحجوزات وإدارة العملاء', whatsapp: 'ربط واتساب', analytics: 'التحليلات', billing: 'الفواتير والاستخدام',
       settings: 'الإعدادات', done: 'تم', admin: 'إدارة الصوت', loading: 'جارٍ التحميل…', save: 'حفظ', none: 'لا يوجد شيء بعد.', failed: 'تعذر تحميل هذا القسم.',
-      sandbox: 'وضع التجربة مفعّل: لا يتم شراء أرقام حقيقية ولا إجراء مكالمات حقيقية.', notEnabled: 'ميزة المساعد الصوتي غير متضمنة في باقتك.',
+      sandbox: 'وضع التجربة مفعّل: لا يتم شراء أرقام حقيقية ولا إجراء مكالمات حقيقية.', notEnabled: 'ميزة المساعد الصوتي غير متضمنة في باقتك.', upgrade: 'شوف الباقات وارقّي',
       saved: 'تم الحفظ', calls: 'المكالمات', booked: 'الحجوزات', spent: 'المصروف هذا الشهر', budget: 'الميزانية'
     }
   };
@@ -279,7 +279,7 @@
   });
   if (BOOT.lang === 'ar') root.setAttribute('dir', 'rtl');
   api('/api/voice-agent/status').then(function (s) {
-    if (!s.feature_enabled) { root.innerHTML = '<div class="va-note">' + esc(t('notEnabled')) + '</div>'; return; }
+    if (!s.feature_enabled) { root.innerHTML = '<div class="va-note">' + esc(t('notEnabled')) + '<div style="margin-top:12px"><a class="p-btn primary" href="/subscription">' + esc(t('upgrade')) + '</a></div></div>'; return; }
     render();
   }).catch(function (e) { root.innerHTML = '<p class="va-err">' + esc(e.message) + '</p>'; });
 })();

@@ -64,6 +64,11 @@ class CrmController extends Controller
         {$tabsHtml}
 HTML;
         $body .= <<<HTML
+        <div class="p-toolbar" style="gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+            <a class="p-btn primary" href="/crm/leads">+ {$this->tr('crm.leads.new')}</a>
+            <a class="p-btn outline" href="/crm/deals">+ {$this->tr('crm.deals.new')}</a>
+            <a class="p-btn outline" href="/crm/tasks">+ {$this->tr('crm.tasks.new')}</a>
+        </div>
         <div class="p-grid cols-3" id="crmStats"><div class="p-empty">{$this->tr('common.loading')}</div></div>
         <div class="p-card no-pad" style="margin-top:20px;">
             <div class="p-card-head" style="padding:18px 20px 0;"><h3>{$this->tr('crm.sites.title')}</h3></div>
