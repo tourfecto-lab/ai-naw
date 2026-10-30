@@ -934,6 +934,17 @@ JS;
         }
     }
 
+    /** A complete, noindex 404 page for public site URLs, with a way back to the site home */
+    private function notFoundPage(string $message, string $slug = ''): string
+    {
+        $text = htmlspecialchars($this->siteUi($message), ENT_QUOTES, 'UTF-8');
+        $dir = in_array($this->publicSiteLanguage, ['ar', 'he', 'fa', 'ur'], true) ? 'rtl' : 'ltr';
+        $lang = htmlspecialchars($this->publicSiteLanguage, ENT_QUOTES, 'UTF-8');
+        $back = $slug !== '' ? '<p><a href="/sites/' . rawurlencode($slug) . '" style="color:#1d4ed8;">' . htmlspecialchars($this->siteUi('الرئيسية'), ENT_QUOTES, 'UTF-8') . '</a></p>' : '';
+        return '<!doctype html><html lang="' . $lang . '" dir="' . $dir . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>404</title></head>'
+            . '<body style="margin:0;min-height:100vh;display:grid;place-items:center;text-align:center;font-family:system-ui,sans-serif;padding:24px;"><main><h1 style="font-size:24px;">' . $text . '</h1>' . $back . '</main></body></html>';
+    }
+
     private function findViewableWebsite(string $slug): ?GeneratedWebsite
     {
         $rows = (new GeneratedWebsite())->where(['slug' => $slug], [], 1);
@@ -1235,7 +1246,7 @@ HTML;
 
         if (!$website) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الموقع ده مش موجود أو لسه مش منشور</h1>');
+            echo $this->notFoundPage('الموقع ده مش موجود أو لسه مش منشور');
             exit;
         }
         $this->attachWebChat($website);
@@ -1258,7 +1269,7 @@ HTML;
         }
         if ($page !== 'home' && !in_array($page, self::TOUR_PAGES, true)) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الصفحة دي مش موجودة</h1>');
+            echo $this->notFoundPage('الصفحة دي مش موجودة', $slug);
             exit;
         }
         $params['page'] = $page;
@@ -1861,7 +1872,7 @@ HTML;
 
         if (!$website) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الموقع ده مش موجود أو لسه مش منشور</h1>');
+            echo $this->notFoundPage('الموقع ده مش موجود أو لسه مش منشور');
             exit;
         }
         $this->attachWebChat($website);
@@ -1882,7 +1893,7 @@ HTML;
 
         if (!$tour) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الرحلة دي مش موجودة</h1>');
+            echo $this->notFoundPage('الرحلة دي مش موجودة', $slug);
             exit;
         }
 
@@ -2084,7 +2095,7 @@ HTML;
 
         if (!$website) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الموقع ده مش موجود أو لسه مش منشور</h1>');
+            echo $this->notFoundPage('الموقع ده مش موجود أو لسه مش منشور');
             exit;
         }
         $this->attachWebChat($website);
@@ -2105,7 +2116,7 @@ HTML;
 
         if (!$room) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الغرفة دي مش موجودة</h1>');
+            echo $this->notFoundPage('الغرفة دي مش موجودة', $slug);
             exit;
         }
 
@@ -2617,7 +2628,7 @@ HTML;
         $website = $this->findViewableWebsite($slug);
         if (!$website) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الموقع ده مش موجود أو لسه مش منشور</h1>');
+            echo $this->notFoundPage('الموقع ده مش موجود أو لسه مش منشور');
             exit;
         }
 
@@ -2625,7 +2636,7 @@ HTML;
         if (!$booking
             || (int) $booking->getAttribute('user_id') !== (int) $website->getAttribute('user_id')) {
             header('HTTP/1.1 404 Not Found');
-            echo $this->siteUi('<h1 style="text-align:center;font-family:sans-serif;margin-top:100px;">الحجز ده مش موجود</h1>');
+            echo $this->notFoundPage('الحجز ده مش موجود', $slug);
             exit;
         }
 

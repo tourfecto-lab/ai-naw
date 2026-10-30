@@ -124,4 +124,12 @@ final class SiteDashboardWalkthroughTest extends TestCase
             $this->assertStringContainsString("'dashboard.site.pending'", $this->source("app/Lang/$lang.php"));
         }
     }
+
+    public function testPublicSite404PagesAreCompleteNoindexPagesWithAWayBack(): void
+    {
+        $src = $this->source('app/Controllers/WebsiteBuilderController.php');
+        $this->assertStringNotContainsString('margin-top:100px', $src, 'bare <h1> 404 pages came back');
+        $this->assertStringContainsString("<meta name=\"robots\" content=\"noindex\">", $src);
+        $this->assertStringContainsString("notFoundPage('الرحلة دي مش موجودة', \$slug)", $src);
+    }
 }
