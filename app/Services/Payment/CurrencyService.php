@@ -82,8 +82,9 @@ class CurrencyService
     {
         $c = self::CURRENCIES[$code] ?? self::CURRENCIES['USD'];
         $v = $usd * self::rate($code);
-        // الأسعار الكبيرة بتتقرب لأقرب رقم مقبول (مثلًا 2,450 مش 2,447.35)
-        if ($c['decimals'] === 0 && $v >= 100) {
+        // الأسعار الكبيرة بتتقرب لأقرب رقم مقبول (مثلًا 2,450 مش 2,447.35) - إلا الدولار: هو اللي بيتخصم،
+        // فكان كارت «النمو» بيقول $200 وصفحة الأسعار والإجمالي $199
+        if ($code !== 'USD' && $c['decimals'] === 0 && $v >= 100) {
             return round($v / 5) * 5;
         }
         return round($v, $c['decimals'] === 0 ? 0 : $c['decimals']);
