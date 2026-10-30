@@ -210,18 +210,27 @@ class WhatsAppCloudController extends Controller
      * الرقم اتربط هنا (أو Meta أكدت إن مفتاح الربط ده بيوصل للرقم): أي ربط تاني لنفس الرقم على موقع أو حساب تاني بيتفصل.
      * من غير كده الرقم بيبقى «مربوط» في مكانين، والـ webhook مابيعرفش الرسالة بتاعة مين فبيرميها
      * (حصل لما عميل نقل رقمه لحساب جديد من غير ما يفصله من القديم). الفصل في المنصة بس - الرقم عند Meta مابيتلمسش.
+     * $onlyOlder: زرار الفحص بيفك الربطات الأقدم بس (زي الـ webhook: الأحدث هو صاحب الرقم). الفحص من الحساب القديم
+     * ماينفعش يسحب الرقم من الحساب الجديد - الرقم بيتنقل بربط فعلي بس.
      * @return int عدد الربطات اللي اتفصلت
      */
-    public static function releaseNumberElsewhere(string $pnid, int $keepConnId): int
+    public static function releaseNumberElsewhere(string $pnid, int $keepConnId, bool $onlyOlder = false): int
     {
         if ($pnid === '' || $keepConnId <= 0) {
             return 0;
         }
         $db = Database::getInstance();
-        $ids = array_map('intval', array_column($db->query(
-            "SELECT id FROM platform_connections WHERE platform = 'whatsapp_cloud' AND status = 'connected' AND external_account_id = ? AND id <> ?",
-            [$pnid, $keepConnId]
-        ) ?: [], 'id'));
+        $sql = "SELECT id FROM platform_connections WHERE platform = 'whatsapp_cloud' AND status = 'connected' AND external_account_id = ? AND id <> ?";
+        $args = [$pnid, $keepConnId];
+        if ($onlyOlder) {
+            $at = (string) ($db->query('SELECT connected_at FROM platform_connections WHERE id = ? LIMIT 1', [$keepConnId])[0]['connected_at'] ?? '');
+            if ($at === '') {
+                return 0;
+            }
+            $sql .= ' AND (connected_at IS NULL OR connected_at < ? OR (connected_at = ? AND id < ?))';
+            array_push($args, $at, $at, $keepConnId);
+        }
+        $ids = array_map('intval', array_column($db->query($sql, $args) ?: [], 'id'));
         if (!$ids) {
             return 0;
         }
@@ -360,9 +369,22 @@ class WhatsAppCloudController extends Controller
         }
         $info = $api->phoneInfo();
         // Meta أكدت إن مفتاح الحساب ده بيوصل للرقم: لو نفس الرقم لسه «مربوط» في حساب تاني، الرسايل كانت بتضيع - نفكه من هناك
-        $released = $info['ok'] && $row ? self::releaseNumberElsewhere((string) $row['external_account_id'], (int) $row['id']) : 0;
+        $released = $info['ok'] && $row ? self::releaseNumberElsewhere((string) $row['external_account_id'], (int) $row['id'], true) : 0;
+        // ربط أحدث لنفس الرقم في مكان تاني: الرسايل بتروح هناك، والفحص هنا مابيسحبهاش (الرقم بيتنقل بـ«اربط واتساب» بس)
+        $newerElsewhere = 0;
+        if ($row) {
+            try {
+                $newerElsewhere = (int) ($this->db->query(
+                    "SELECT COUNT(*) AS n FROM platform_connections WHERE platform = 'whatsapp_cloud' AND status = 'connected' AND external_account_id = ? AND id <> ? AND connected_at > ?",
+                    [(string) $row['external_account_id'], (int) $row['id'], (string) $row['connected_at']]
+                )[0]['n'] ?? 0);
+            } catch (Throwable $e) {
+                $newerElsewhere = 0;
+            }
+        }
         $checks = [
             'released_elsewhere' => $released,
+            'newer_connection_elsewhere' => $newerElsewhere > 0,
             'app_subscribed' => $subscribed || $fixed,
             'resubscribed_now' => $fixed,
             'subscribe_error' => $sub['ok'] ? null : $sub['error'],
@@ -399,7 +421,9 @@ class WhatsAppCloudController extends Controller
         if ($checks['webhook_bad_signature_at'] && (!$checks['webhook_last_event_at'] || $checks['webhook_bad_signature_at'] > $checks['webhook_last_event_at'])) {
             $hints[] = 'Meta بتبعت الرسايل بس التوقيع مش مطابق: الـ App Secret المحفوظ في إعدادات الأدمن غلط. انسخه تاني من App settings ← Basic واحفظه.';
         }
-        if ($released) {
+        if ($newerElsewhere) {
+            $hints[] = 'الرقم ده متربط بعد كده على حساب أو موقع تاني على المنصة، والرسايل الواردة بتروح هناك. لو عايزها هنا، دوس «اربط واتساب» تاني من هنا.';
+        } elseif ($released) {
             $hints[] = 'الرقم كان لسه مربوط على حساب أو موقع تاني على المنصة، فالرسايل الواردة كانت بتضيع. فصلناه من هناك (الرقم عند Meta زي ما هو). ابعت رسالة تاني من موبايلك.';
         } elseif ($checks['webhook_unknown_number_at'] && !$checks['this_number_last_event_at']) {
             $hints[] = 'Meta بعتت رسايل لرقم مش متربط بأي موقع على المنصة.';

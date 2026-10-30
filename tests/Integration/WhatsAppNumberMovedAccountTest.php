@@ -67,4 +67,17 @@ final class WhatsAppNumberMovedAccountTest extends TestCase
         $this->assertSame(0, WhatsAppCloudController::releaseNumberElsewhere($pnid, $new['id']), 'nothing left to release');
         $this->assertSame(0, WhatsAppCloudController::releaseNumberElsewhere('', $new['id']));
     }
+
+    public function testTheCheckButtonInTheOldAccountDoesNotTakeTheNumberBack(): void
+    {
+        $pnid = (string) random_int(100000000000000, 999999999999999);
+        $old = $this->connect($pnid, '2026-10-01 10:00:00');
+        $new = $this->connect($pnid, '2026-10-30 10:00:00');
+
+        $this->assertSame(0, WhatsAppCloudController::releaseNumberElsewhere($pnid, $old['id'], true), 'checking from the old account moves nothing');
+        $this->assertSame('connected', self::connStatus($new['id']));
+
+        $this->assertSame(1, WhatsAppCloudController::releaseNumberElsewhere($pnid, $new['id'], true), 'checking from the new account clears the old one');
+        $this->assertSame('disconnected', self::connStatus($old['id']));
+    }
 }
