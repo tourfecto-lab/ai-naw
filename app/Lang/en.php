@@ -1229,6 +1229,8 @@ return [
     'websites.col.status' => 'Status',
     'websites.col.date' => 'Date',
     'websites.no_sites' => 'You haven\'t added any websites yet',
+    'websites.no_site_build' => 'No website yet?',
+    'websites.no_site_build_link' => 'Build a ready booking site in minutes →',
     'websites.verified' => 'Verified',
     'websites.unverified' => 'Not Verified',
     'websites.manage' => 'Manage',

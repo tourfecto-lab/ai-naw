@@ -348,6 +348,7 @@ Tea", 'price' => '1 EGP'], ['slug' => 'unknown', 'short_description' => 'x']],
         $_SESSION['csrf_token'] = 'tok-5';
 
         $_POST = ['token' => $r['token'], 'password' => 'My-own-pass-42'];
+        unset($_SERVER['HTTP_X_CSRF_TOKEN']); // هيدر سابه اختبار تاني (Outreach setUp) كان بيعدّي الطلب ده حسب ترتيب التشغيل
         $noCsrf = (new SiteManagerController())->inviteAccept([]);
         $this->assertFalse((bool) ($noCsrf['success'] ?? false), 'refused without a CSRF token');
 

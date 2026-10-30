@@ -208,7 +208,7 @@
         const targets = [...(p.search_queries || []), ...(p.services || []).slice(0, 5)];
         host.innerHTML = stepper(3) + `
             <h2 class="ob-h">${kws.length ? t('الكلمات اللي بتظهر بيها في جوجل', 'Keywords you rank for on Google') : t('الكلمات اللي هنستهدفها', "Keywords we'll target")}</h2>
-            <p class="ob-sub">${kws.length ? t('مرتبة حسب عدد اللي بيدوّروا عليها كل شهر. هنشتغل نطلّعك فيها لأول الصفحة.', "Sorted by monthly searches. We'll work to push you to the top for these.") : t('موقعك لسه مش ظاهر بكلمات كفاية في جوجل — دي الكلمات اللي هنبدأ نشتغل عليها.', "Your site doesn't rank for enough keywords yet — these are the ones we'll start with.")}</p>
+            <p class="ob-sub">${kws.length ? t('كلمات الحجز الأول (اللي بيكتبها السائح لما يكون عايز يحجز)، وبعدها الأكتر بحثًا.', 'Booking keywords first (what travellers type when they are ready to book), then the most searched.') : t('موقعك لسه مش ظاهر بكلمات كفاية في جوجل — دي الكلمات اللي هنبدأ نشتغل عليها.', "Your site doesn't rank for enough keywords yet — these are the ones we'll start with.")}</p>
             ${siteCard()}
             ${kws.length ? `<div class="obs-kw" id="obsKw">
                 <div class="obs-kw-h"><span>${t('الكلمة', 'Keyword')}</span><span>${t('ترتيبك', 'Your rank')}</span><span>${t('بحث/شهر', 'Searches/mo')}</span></div>
@@ -499,7 +499,14 @@
     }
 
     function manual() {
-        if (REG) { showAccountForm(null); return; }
+        if (REG) {
+            // «معنديش موقع»: بعد التسجيل على منشئ المواقع على طول، من غير ما المعالج يسأله عن رابط موقعه تاني
+            window.OB_NO_SITE = true;
+            showAccountForm(null);
+            const h1 = card.querySelector('h1');
+            if (h1) h1.textContent = t('اعمل حسابك ونبنيلك موقع حجز', "Create your account and we'll build your booking site");
+            return;
+        }
         card.classList.remove('smart-on');
         host.innerHTML = '';
         if (S.url) { const m = document.getElementById('obMainUrl'); if (m && !m.value) m.value = S.url; }

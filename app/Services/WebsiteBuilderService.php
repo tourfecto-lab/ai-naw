@@ -39,6 +39,7 @@ class WebsiteBuilderService
     /** الحالة الحالية للمعالج - السؤال الجاي أو لو خلصنا كل الأسئلة */
     public function getCurrentState(): array
     {
+        $this->bindToCurrentUser();
         $this->prefillFromProfile();
         $answers = $_SESSION['website_builder_answers'] ?? [];
         $items = $answers['items'] ?? [];
@@ -63,13 +64,17 @@ class WebsiteBuilderService
         $industryMeta = self::INDUSTRIES[$answers['industry']] ?? self::INDUSTRIES['tours'];
         if (!$itemsDone) {
             $itemLabel = $industryMeta['item_singular'];
-            $known = !empty($_SESSION['website_builder_prefilled']) && count($items) === 0
-                ? 'أخدنا اسم شركتك ونشاطك وبيانات التواصل من ملف شركتك ✅ '
+            // «أخدنا ... من ملف شركتك» بيظهر لحد ما العميل يضيف عنصر بنفسه، وبيذكر بس اللي اتملى فعلًا
+            $prefilled = (array) ($_SESSION['website_builder_prefilled'] ?? []);
+            $known = $prefilled && count($items) === (int) ($_SESSION['website_builder_prefilled_items'] ?? 0)
+                ? self::prefilledNote($prefilled, count($items), $industryMeta['item_plural'], $itemLabel)
                 : '';
             $countMsg = count($items) > 0 ? ' (عندك دلوقتي ' . count($items) . ' ' . $industryMeta['item_plural'] . ' مسجّلة)' : '';
             $question = count($items) === 0
                 ? $known . "دلوقتي احكيلي عن الـ{$itemLabel} اللي بتقدّمها - واحدة في كل رسالة. لما تخلّص كل الـ{$industryMeta['item_plural']} اكتب \"خلصت\"."
-                : "تمام، سجّلتها! في {$itemLabel} تانية؟{$countMsg} (اكتبها، أو دوس \"خلصت\" للانتهاء)";
+                : ($known !== ''
+                    ? $known . "في {$itemLabel} تانية؟ اكتبها، أو دوس \"خلصت\" للانتهاء."
+                    : "تمام، سجّلتها! في {$itemLabel} تانية؟{$countMsg} (اكتبها، أو دوس \"خلصت\" للانتهاء)");
             $options = count($items) > 0 ? ['خلصت'] : [];
             return ['done' => false, 'step' => 'items', 'question' => $question, 'items_count' => count($items), 'options' => $options];
         }
@@ -83,7 +88,8 @@ class WebsiteBuilderService
     /**
      * اسم الشركة ونوع النشاط ووصفه وبيانات التواصل موجودين أصلًا في ملف الشركة -
      * كان المعالج بيسألهم تاني. بنملاهم مرة واحدة في أول المحادثة (والعميل يقدر
-     * يبدأ من جديد لو عايز يغيّرهم).
+     * يبدأ من جديد لو عايز يغيّرهم). العميل اللي لسه معندوش موقع بناخد اسم شركته من التسجيل،
+     * والرحلات اللي ضافها في «رحلاتي» مابنسألهوش عنها تاني.
      */
     private function prefillFromProfile(): void
     {
@@ -98,41 +104,118 @@ class WebsiteBuilderService
         try {
             $db = Database::getInstance();
             $site = $db->query('SELECT id, company_name, industry_niche AS industry FROM websites WHERE user_id = ? ORDER BY id DESC LIMIT 1', [$uid])[0] ?? null;
-            if (!$site) {
-                return;
+            $a = $site ? $this->answersFromSite($db, $site, $uid) : $this->answersFromAccount($db, $uid);
+            $items = $this->tripsFromCatalog($db, $uid);
+            if ($items) {
+                $a['items'] = $items;
             }
-            $brief = [];
-            try {
-                $row = $db->query('SELECT brief_json FROM seo_expert_sites WHERE website_id = ? AND user_id = ? LIMIT 1', [(int) $site['id'], $uid])[0] ?? null;
-                $brief = $row ? (json_decode((string) $row['brief_json'], true) ?: []) : [];
-            } catch (Throwable $e) {
-            error_log('[WebsiteBuilderService] ignored error: ' . $e->getMessage());
-            }
-            $a = [];
-            $name = trim((string) ($brief['business_name'] ?? '')) ?: trim((string) $site['company_name']);
-            if ($name !== '') {
-                $a['business_name'] = mb_substr($name, 0, 120);
-            }
-            if (in_array(strtolower((string) $site['industry']), ['tourism', 'tours', 'travel'], true) || $name !== '') {
-                $a['industry'] = stripos((string) ($brief['business_facts'] ?? ''), 'hotel') !== false && stripos((string) ($brief['business_facts'] ?? ''), 'tour') === false ? 'hotel' : 'tours';
-            }
-            $facts = trim((string) ($brief['business_facts'] ?? ''));
-            if ($facts !== '') {
-                $first = trim((string) preg_replace('/^[^:]{1,20}:\s*/u', '', strtok($facts, "\n")));
-                if (mb_strlen($first) >= 15) {
-                    $a['service_type'] = mb_substr($first, 0, 400);
-                }
-            }
-            $contact = array_filter([trim((string) ($brief['phone'] ?? '')), trim((string) ($brief['email'] ?? '')), trim((string) ($brief['cta'] ?? ''))]);
-            if ($contact) {
-                $a['contact_text'] = mb_substr(implode(' - ', $contact), 0, 400);
-            }
-            if (count($a) >= 2) {
+            if (!empty($a['business_name']) || $items) {
                 $_SESSION['website_builder_answers'] = $a;
-                $_SESSION['website_builder_prefilled'] = true;
+                $_SESSION['website_builder_prefilled'] = array_keys($a);
+                $_SESSION['website_builder_prefilled_items'] = count($items);
             }
         } catch (Throwable $e) {
             // المعالج يكمل بالأسئلة العادية
+        }
+    }
+
+    private function answersFromSite(Database $db, array $site, int $uid): array
+    {
+        $brief = [];
+        try {
+            $row = $db->query('SELECT brief_json FROM seo_expert_sites WHERE website_id = ? AND user_id = ? LIMIT 1', [(int) $site['id'], $uid])[0] ?? null;
+            $brief = $row ? (json_decode((string) $row['brief_json'], true) ?: []) : [];
+        } catch (Throwable $e) {
+            error_log('[WebsiteBuilderService] ignored error: ' . $e->getMessage());
+        }
+        $a = [];
+        $name = trim((string) ($brief['business_name'] ?? '')) ?: trim((string) $site['company_name']);
+        if ($name !== '') {
+            $a['business_name'] = mb_substr($name, 0, 120);
+        }
+        if (in_array(strtolower((string) $site['industry']), ['tourism', 'tours', 'travel'], true) || $name !== '') {
+            $a['industry'] = stripos((string) ($brief['business_facts'] ?? ''), 'hotel') !== false && stripos((string) ($brief['business_facts'] ?? ''), 'tour') === false ? 'hotel' : 'tours';
+        }
+        $facts = trim((string) ($brief['business_facts'] ?? ''));
+        if ($facts !== '') {
+            $first = trim((string) preg_replace('/^[^:]{1,20}:\s*/u', '', strtok($facts, "\n")));
+            if (mb_strlen($first) >= 15) {
+                $a['service_type'] = mb_substr($first, 0, 400);
+            }
+        }
+        $contact = array_filter([trim((string) ($brief['phone'] ?? '')), trim((string) ($brief['email'] ?? '')), trim((string) ($brief['cta'] ?? ''))]);
+        if ($contact) {
+            $a['contact_text'] = mb_substr(implode(' - ', $contact), 0, 400);
+        }
+        return $a;
+    }
+
+    /** من غير موقع: اسم الشركة اللي اتكتب في التسجيل (مش اسم الشخص اللي جاي من جوجل/فيسبوك) */
+    private function answersFromAccount(Database $db, int $uid): array
+    {
+        $u = $db->query('SELECT company_name, first_name, last_name, email FROM users WHERE id = ? LIMIT 1', [$uid])[0] ?? null;
+        $name = trim((string) ($u['company_name'] ?? ''));
+        $first = trim((string) ($u['first_name'] ?? ''));
+        $person = trim((string) preg_replace('/\s*-\s*$/', '', $first . ' ' . trim((string) ($u['last_name'] ?? ''))));
+        if ($name === '' || in_array($name, [$first, $person, trim((string) ($u['email'] ?? ''))], true)) {
+            return [];
+        }
+        return ['business_name' => mb_substr($name, 0, 120)];
+    }
+
+    /** الرحلات اللي العميل ضافها من الحجوزات ← «رحلاتي» كعناصر جاهزة للموقع */
+    private function tripsFromCatalog(Database $db, int $uid): array
+    {
+        try {
+            $rows = $db->query('SELECT name, description, price, currency FROM crm_products WHERE user_id = ? AND is_active = 1 ORDER BY id LIMIT ' . self::MAX_ITEMS, [$uid]);
+        } catch (Throwable $e) {
+            return [];
+        }
+        $items = [];
+        foreach ($rows ?: [] as $r) {
+            $line = trim((string) $r['name']);
+            if ($line === '') {
+                continue;
+            }
+            if ((float) $r['price'] > 0) {
+                $line .= ' - ' . rtrim(rtrim(number_format((float) $r['price'], 2, '.', ''), '0'), '.') . ' ' . $r['currency'] . ' للفرد';
+            }
+            $desc = trim((string) $r['description']);
+            if ($desc !== '') {
+                $line .= ': ' . $desc;
+            }
+            $items[] = mb_substr($line, 0, self::MAX_ANSWER_CHARS);
+        }
+        return $items;
+    }
+
+    /** «أخدنا اسم شركتك و3 رحلات من ملف شركتك ✅» - بيذكر بس اللي اتملى فعلًا */
+    private static function prefilledNote(array $keys, int $itemsCount, string $itemPlural, string $itemSingular = ''): string
+    {
+        $labels = ['business_name' => 'اسم شركتك', 'service_type' => 'وصف نشاطك', 'contact_text' => 'بيانات التواصل'];
+        $parts = [];
+        foreach ($labels as $key => $label) {
+            if (in_array($key, $keys, true)) {
+                $parts[] = $label;
+            }
+        }
+        if ($itemsCount > 0) {
+            $parts[] = ($itemsCount === 1 && $itemSingular !== '' ? $itemSingular : $itemsCount . ' ' . $itemPlural) . ' من «رحلاتي»';
+        }
+        if (!$parts) {
+            return '';
+        }
+        $last = array_pop($parts);
+        return 'أخدنا ' . ($parts ? implode('، ', $parts) . ' و' : '') . $last . ' من ملف شركتك ✅ ';
+    }
+
+    /** إجابات المعالج بتاعة الحساب اللي كتبها بس - لو الجلسة اتنقلت لحساب تاني بنبدأ من الأول */
+    private function bindToCurrentUser(): void
+    {
+        $uid = (int) ($_SESSION['user_id'] ?? 0);
+        if ((int) ($_SESSION['website_builder_uid'] ?? 0) !== $uid) {
+            $this->resetWizard();
+            $_SESSION['website_builder_uid'] = $uid;
         }
     }
 
@@ -236,7 +319,7 @@ class WebsiteBuilderService
     /** إعادة تصفير المعالج (لو العميل عايز يبدأ موقع تاني من الصفر) */
     public function resetWizard(): void
     {
-        unset($_SESSION['website_builder_answers'], $_SESSION['website_builder_prefill_done'], $_SESSION['website_builder_prefilled']);
+        unset($_SESSION['website_builder_answers'], $_SESSION['website_builder_prefill_done'], $_SESSION['website_builder_prefilled'], $_SESSION['website_builder_prefilled_items']);
     }
 
     /**
@@ -256,6 +339,7 @@ class WebsiteBuilderService
             $freePreview = true;
         }
 
+        $this->bindToCurrentUser();
         $answers = $_SESSION['website_builder_answers'] ?? [];
         if (empty($answers['language']) || empty($answers['industry']) || empty($answers['business_name']) || empty($answers['service_type']) || empty($answers['items']) || empty($answers['contact_text'])) {
             return ['success' => false, 'error' => 'محتاجين نكمّل الأسئلة الأول'];

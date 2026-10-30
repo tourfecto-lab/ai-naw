@@ -12,11 +12,24 @@ class SmartOnboardingService
 {
     /** مواقع حجز/منصات كبيرة - مش منافسين مباشرين لشركة سياحة */
     private const NOT_COMPETITORS = [
-        'tripadvisor', 'viator', 'getyourguide', 'booking.com', 'expedia', 'airbnb', 'klook', 'civitatis', 'musement',
-        'headout', 'tiqets', 'kayak', 'trivago', 'agoda', 'hotels.com', 'lonelyplanet', 'wikipedia', 'wikitravel', 'youtube',
-        'nusuk.sa', 'haj.gov', '.gov.', 'facebook', 'instagram', 'tiktok', 'pinterest', 'reddit', 'quora', 'twitter', 'x.com', 'linkedin', 'google.',
-        'yelp', 'trustpilot', 'tourradar', 'egypt.travel', 'skyscanner', 'cntraveler', 'timeout.com', 'culturetrip',
+        'tripadvisor', 'viator', 'getyourguide', 'expedia', 'airbnb', 'klook', 'civitatis', 'musement',
+        'headout', 'tiqets', 'kayak', 'trivago', 'agoda', 'lonelyplanet', 'wikipedia', 'wikitravel', 'youtube',
+        'nusuk.sa', 'haj.gov', '.gov.', 'facebook', 'instagram', 'tiktok', 'pinterest', 'reddit', 'quora', 'twitter', 'linkedin', 'google.',
+        'yelp', 'trustpilot', 'tourradar', 'egypt.travel', 'skyscanner', 'cntraveler', 'timeout.com', 'culturetrip', 'nationalgeographic',
     ];
+    /**
+     * دومينات بالظبط (أو subdomain منها) - مجلات وموسوعات وأخبار بتشاركك كلمات معلوماتية بس مش بتبيع رحلات.
+     * منفصلة عن القايمة اللي فوق عشان «x.com» أو «hotels.com» كجزء من الاسم كانت بتشيل شركات حقيقية زي egyptsphinx.com.
+     */
+    private const NOT_COMPETITOR_DOMAINS = [
+        'x.com', 'booking.com', 'hotels.com', 'history.com', 'worldhistory.org', 'britannica.com', 'smithsonianmag.com', 'travelandleisure.com',
+        'roughguides.com', 'fodors.com', 'frommers.com', 'afar.com', 'atlasobscura.com', 'worldatlas.com', 'bbc.com', 'bbc.co.uk', 'cnn.com',
+        'nytimes.com', 'theguardian.com', 'forbes.com', 'dailymail.co.uk', 'livescience.com', 'ancient-origins.net', 'thoughtco.com',
+        'medium.com', 'wikiwand.com', 'khanacademy.org', 'ancient.eu',
+    ];
+    /** موقع بعدد كلمات أكبر من كده و10 أضعاف موقعك = ناشر عملاق مش شركة رحلات زيك */
+    private const PUBLISHER_KEYWORDS = 150000;
+    private const INFORMATIONAL_WORDS = '/\b(what|who|when|where|why|how|history|facts?|map|location|weather|population|queen|king|god|goddess|ancient|meaning|definition)\b|^(ما|من هو|من هي|تاريخ|أين|اين|كيف|معنى)\s/iu';
     private const TRAVEL_WORDS = '/tour|trip|travel|excursion|safari|cruise|holiday|vacation|transfer|sightseeing|day ?trip|umrah|umra|hajj|pilgrim|hotel|reise|ausflug|voyage|excursi|viaggi|escursion|viaje|رحل|سياح|جول|عطل|عمرة|العمره|حج|معتمر|فندق|فنادق|طيران|экскурс|тур/iu';
     /** لغة → سوق البحث الافتراضي (نفس SeoMarketService) */
     private const LOCATION_FOR_LANG = ['en' => 2840, 'ar' => 2818, 'de' => 2276, 'fr' => 2250, 'es' => 2724, 'it' => 2380, 'ru' => 2643, 'pt' => 2076, 'nl' => 2528, 'pl' => 2616];
@@ -548,14 +561,19 @@ class SmartOnboardingService
                     $h = self::host((string) ($it['domain'] ?? ''));
                     if ($h === '' || $h === $own || $this->isMarketplace($h)) continue;
                     $o = $it['full_domain_metrics']['organic'] ?? ($it['metrics']['organic'] ?? []);
+                    if (self::isPublisher((int) ($o['count'] ?? 0), $site['keywords'])) continue;
                     $pool[$h] = ['shared' => (int) ($it['intersections'] ?? 0), 'traffic' => (int) round((float) ($o['etv'] ?? 0)), 'keywords' => (int) ($o['count'] ?? 0), 'position' => null, 'via' => 'labs'];
                 }
-                $rk = $client->callPlatform('dataforseo_labs/google/ranked_keywords/live', [$base + ['limit' => 12, 'order_by' => ['keyword_data.keyword_info.search_volume,desc']]], 0.03);
+                // 40 كلمة ونختار منهم 12 بنية الحجز الأول (كانت أعلى 12 بحثًا: «egypt» و«cleopatra queen» بدل «egypt tours»)
+                $rk = $client->callPlatform('dataforseo_labs/google/ranked_keywords/live', [$base + ['limit' => 40, 'order_by' => ['keyword_data.keyword_info.search_volume,desc']]], 0.03);
+                $found = [];
                 foreach ($rk['available'] ? DataForSeoClient::items($rk) : [] as $it) {
                     $kw = (string) ($it['keyword_data']['keyword'] ?? '');
                     if ($kw === '') continue;
-                    $keywords[] = ['keyword' => mb_substr($kw, 0, 80), 'position' => (int) ($it['ranked_serp_element']['serp_item']['rank_group'] ?? 0) ?: null, 'volume' => (int) ($it['keyword_data']['keyword_info']['search_volume'] ?? 0)];
+                    $found[] = ['keyword' => mb_substr($kw, 0, 80), 'position' => (int) ($it['ranked_serp_element']['serp_item']['rank_group'] ?? 0) ?: null, 'volume' => (int) ($it['keyword_data']['keyword_info']['search_volume'] ?? 0),
+                        'intent' => (string) ($it['keyword_data']['search_intent_info']['main_intent'] ?? '')];
                 }
+                $keywords = self::bookingKeywordsFirst($found, 12);
                 if ($pool) $source = 'google_data';
             }
             // موقع جديد أو بيانات قليلة: نتايج جوجل الحقيقية لجمل البحث
@@ -637,6 +655,8 @@ class SmartOnboardingService
                 unset($c);
             }
         }
+        // اللي جايين من البحث/الذكاء الاصطناعي اتقاسوا دلوقتي بس: الناشرين العمالقة يخرجوا من هنا كمان
+        $out = array_values(array_filter($out, fn ($c) => !self::isPublisher((int) ($c['keywords'] ?? 0), (int) ($site['keywords'] ?? 0))));
         // ترتيبك بين المنافسين حسب الزيارات التقديرية: إنت + اللي فوقك على طول + اللي تحتك على طول
         if ($site) {
             $ladder = [['domain' => $own, 'traffic' => $site['traffic'], 'keywords' => $site['keywords'], 'you' => true]];
@@ -661,10 +681,45 @@ class SmartOnboardingService
 
     private function isMarketplace(string $host): bool
     {
+        return self::notACompetitor($host);
+    }
+
+    public static function notACompetitor(string $host): bool
+    {
+        $host = strtolower($host);
         foreach (self::NOT_COMPETITORS as $m) {
             if (str_contains($host, $m)) return true;
         }
+        foreach (self::NOT_COMPETITOR_DOMAINS as $d) {
+            if ($host === $d || str_ends_with($host, '.' . $d)) return true;
+        }
         return false;
+    }
+
+    public static function isPublisher(int $theirKeywords, int $ownKeywords): bool
+    {
+        return $theirKeywords >= self::PUBLISHER_KEYWORDS && $theirKeywords > 10 * max(1, $ownKeywords);
+    }
+
+    /**
+     * كلمات الحجز الأول: فيها رحلة/جولة/... أو جوجل شايفها تجارية، وترتيبك فيها 4-30 (قريبة تطلع أول الصفحة).
+     * المعلوماتية (تاريخ، مكان، «who is») بتنزل لآخر القايمة. نفس الدرجة → الأكتر بحثًا الأول.
+     * @param array<int,array{keyword:string,position:?int,volume:int,intent?:string}> $keywords
+     * @return array<int,array{keyword:string,position:?int,volume:int}>
+     */
+    public static function bookingKeywordsFirst(array $keywords, int $limit): array
+    {
+        $score = static function (array $k): int {
+            $s = preg_match(self::TRAVEL_WORDS, $k['keyword']) ? 2 : 0;
+            $intent = strtolower($k['intent'] ?? '');
+            if ($intent === 'commercial' || $intent === 'transactional') $s += 2;
+            elseif ($intent === 'informational' || $intent === 'navigational') $s -= 1;
+            if (preg_match(self::INFORMATIONAL_WORDS, $k['keyword'])) $s -= 1;
+            if (($k['position'] ?? 0) >= 4 && $k['position'] <= 30) $s += 1;
+            return $s;
+        };
+        usort($keywords, fn ($a, $b) => $score($b) <=> $score($a) ?: $b['volume'] <=> $a['volume']);
+        return array_map(fn ($k) => ['keyword' => $k['keyword'], 'position' => $k['position'], 'volume' => $k['volume']], array_slice($keywords, 0, $limit));
     }
 
     /**

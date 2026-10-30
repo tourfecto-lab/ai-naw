@@ -333,6 +333,20 @@ class AuthController extends Controller
             $class::enqueue($userId,$method);
         }catch(Throwable $e){try{if(class_exists('Logger'))Logger::warning('Owner alert unavailable; authentication continues',['kind'=>$kind]);}catch(Throwable $ignored){}}
     }
+    /**
+     * جلسة نضيفة لكل حساب: أي حاجة سابها حساب تاني على نفس المتصفح (إجابات منشئ المواقع، تخطّي
+     * الإعداد، رجوع OAuth، الانتحال...) كانت بتفضل في الجلسة بعد الخروج والتسجيل/الدخول بحساب تاني،
+     * فالعميل الجديد كان بيلاقي منشئ المواقع جاهز ببيانات شركة غيره. بنسيب بس اللي اتكتب قبل الحساب
+     * في نفس التسجيل (خطة التسجيل الذكي ورابط الموقع).
+     */
+    private function resetSessionForNewLogin(): void
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            return;
+        }
+        $_SESSION = array_intersect_key($_SESSION, array_flip(['smart_onboarding', 'signup_site']));
+    }
+
     private function markLoggedIn(int $userId): void
     {
         try {
@@ -347,6 +361,7 @@ class AuthController extends Controller
         $userData = $user->toArray();
 
         // جلسة الويب
+        $this->resetSessionForNewLogin();
         $_SESSION['user_id'] = $userData['id'];
         $this->markLoggedIn((int) $userData['id']);
         $_SESSION['user'] = $userData;
@@ -594,7 +609,13 @@ HTML;
             return $this->error('بيانات غير صحيحة', 422, $this->getErrors());
         }
 
-        try { $locale=InternationalSettingsService::accountValues(['country_code'=>(string)$this->get('country_code',''),'language'=>(string)$this->get('language','en'),'timezone'=>(string)$this->get('timezone','UTC'),'currency'=>(string)$this->get('currency','USD')]); } catch(InvalidArgumentException $e) { return $this->error($e->getMessage(),422); }
+        // بلد الشركة اختياري في الفورم وأغلب الناس بتسيبه فاضي: بنعرفه من المنطقة الزمنية للمتصفح (Africa/Cairo → EG)
+        $countryCode = (string) $this->get('country_code', '');
+        if ($countryCode === '') {
+            try { $countryCode = (string) ((new DateTimeZone((string) $this->get('timezone', 'UTC')))->getLocation()['country_code'] ?? ''); } catch (Throwable $e) { $countryCode = ''; }
+            if (!preg_match('/^[A-Z]{2}$/', $countryCode)) $countryCode = '';
+        }
+        try { $locale=InternationalSettingsService::accountValues(['country_code'=>$countryCode,'language'=>(string)$this->get('language','en'),'timezone'=>(string)$this->get('timezone','UTC'),'currency'=>(string)$this->get('currency','USD')]); } catch(InvalidArgumentException $e) { return $this->error($e->getMessage(),422); }
         $email = trim((string) $this->get('email'));
         $companyName = trim((string) $this->get('company_name'));
 
@@ -639,6 +660,7 @@ HTML;
             $this->queueOwnerAlert('registration',(int)$newUser->getAttribute('id'),'password');
             if (class_exists('PlanExtras')) { (new PlanExtras())->autoStartOnSignup((int) $newUser->getAttribute('id')); }
             $userData = $newUser->toArray();
+            $this->resetSessionForNewLogin();
             $_SESSION['user_id'] = $userData['id'];
             $this->markLoggedIn((int) $userData['id']);
             $_SESSION['user'] = $userData;
@@ -690,7 +712,8 @@ HTML;
             }
         }
 
-        unset($_SESSION['user_id'], $_SESSION['user'], $_SESSION['current_refresh_token_id']);
+        // الجلسة كلها بتتمسح مش بس user_id: كل المفاتيح التانية (منشئ المواقع، الانتحال، OAuth...) بتاعة الحساب ده
+        $_SESSION = [];
         BrowserSessionService::cookie('',time()-3600);
         session_regenerate_id(true);
 
@@ -880,8 +903,10 @@ HTML;
             }
 
             $nameParts = $name ? preg_split('/\s+/', trim($name), 2) : [];
+            // لو جاي من التسجيل الذكي فاسم الشركة اتأكد قبل الحساب - أحسن من اسم الشخص على جوجل/فيسبوك
+            $smartName = trim((string) ($_SESSION['smart_onboarding']['business_name'] ?? ''));
             $newUser = User::create([
-                'company_name' => $name ?: $email,
+                'company_name' => $smartName ?: ($name ?: $email),
                 'email' => $email,
                 'password' => bin2hex(random_bytes(16)), // كلمة مرور عشوائية - المستخدم دخل بالـ OAuth، ممكن يحدّدها لاحقًا من "نسيت كلمة المرور"
                 'first_name' => $nameParts[0] ?? ($name ?: $email),
@@ -916,6 +941,8 @@ HTML;
         );
 
         $userData = $user->toArray();
+        $feature = $_SESSION['oauth_service_feature'] ?? '';
+        $this->resetSessionForNewLogin();
         $_SESSION['user_id'] = $userData['id'];
         $this->markLoggedIn((int) $userData['id']);
         $_SESSION['user'] = $userData;
@@ -927,8 +954,6 @@ HTML;
         $this->queueOwnerAlert('login',(int)$userData['id'],(string)$provider);
         $this->recordLoginHistory((int) $userData['id'], $userData['email'] ?? '', 'success');
 
-        $feature = $_SESSION['oauth_service_feature'] ?? '';
-        unset($_SESSION['oauth_service_feature']);
         $destination = is_string($feature) && class_exists('MarketingContent') && isset(MarketingContent::features()[$feature])
             ? '/onboarding?feature=' . $feature : '/dashboard';
         header('Location: ' . $destination);
@@ -1760,6 +1785,12 @@ HTML;
         .navbar-brand { color: var(--auth-text) !important; font-weight: 700; }
         .nav-link { color: var(--auth-muted) !important; }
         .nav-link:hover { color: var(--auth-gold) !important; }
+        /* الموبايل: الروابط التلاتة كانت بتتكوّم تحت بعض وتزق فورم التسجيل لتحت */
+        @media (max-width: 576px) {
+            .navbar-container { flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+            .navbar-nav { flex-direction: row; gap: 2px; margin: 0; padding: 0; }
+            .navbar-nav .nav-link { padding: 4px 8px; font-size: 13px; }
+        }
         .auth-wrap {
             min-height: calc(100vh - 70px);
             display: flex;
@@ -1872,13 +1903,15 @@ HTML;
             try {
                 const res = await fetch('{$action}', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                const result = await res.json();
+                // خطأ من السيرفر مش انقطاع اتصال: كانت بتظهر «تعذر الاتصال بالخادم» لأي رد مش JSON
+                const result = await res.json().catch(() => ({ success: false, error: 'حصلت مشكلة عندنا، جرّب تاني بعد دقيقة. لو اتكررت كلّمنا على واتساب.' }));
 
                 if (result.success) {
-                    window.location.href = REDIRECT_PATH;
+                    // «معنديش موقع» في التسجيل الذكي ← منشئ المواقع مباشرة
+                    window.location.href = window.OB_NO_SITE ? '/dashboard?skip_onboarding=1&next=%2Fwebsite-builder' : REDIRECT_PATH;
                     return;
                 }
 

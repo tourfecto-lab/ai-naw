@@ -157,7 +157,10 @@ class TrialPlanService
             1 => ['title' => $t('جهّز شركتك', 'Set up your company'), 'tasks' => [
                 ['done' => $m['trips'] > 0, 'label' => $t('ضيف رحلاتك وأسعارها', 'Add your trips and prices'), 'why' => $t('الشات الذكي بيبيعها لوحده بالسعر الصح', 'The AI chat sells them on its own at the right price'), 'link' => '/bookings?tab=trips'],
                 ['done' => $m['sites'] > 0, 'label' => $t('ضيف موقعك أو ابنِ موقع حجز', 'Add your website or build a booking site'), 'why' => $t('عشان السيو والحجز الأونلاين يشتغلوا عليه', 'So SEO and online booking work on it'), 'link' => '/websites'],
-                ['done' => $pg, 'label' => $t('جرّب الشات كأنك سائح', 'Try the chat as a traveller'), 'why' => $t('اسأله عن سعر رحلة بالإنجليزي أو الألماني', 'Ask it a price in English or German'), 'link' => '/chat/knowledge-base'],
+                // تجربة الشات محتاجة موقع: من غيره الصفحة كانت بتقول «ضيف موقعك الأول» من غير ما المهمة تقول كده
+                $m['sites'] > 0 || $pg
+                    ? ['done' => $pg, 'label' => $t('جرّب الشات كأنك سائح', 'Try the chat as a traveller'), 'why' => $t('اسأله عن سعر رحلة بالإنجليزي أو الألماني', 'Ask it a price in English or German'), 'link' => '/chat/knowledge-base']
+                    : ['done' => false, 'label' => $t('جرّب الشات كأنك سائح', 'Try the chat as a traveller'), 'why' => $t('محتاج موقعك الأول: ابنِ موقع حجز في دقايق وبعدها جرّب الشات', 'It needs your website first: build a booking site in minutes, then try the chat'), 'link' => '/website-builder'],
             ]],
             2 => ['title' => $t('خلّي المنصة تشتغل لك', 'Let the platform work for you'), 'tasks' => [
                 ['done' => $m['gbp'] > 0, 'label' => $t('اربط Google Business', 'Connect Google Business'), 'why' => $t('تقييماتك بتتسحب وبيترد عليها بلغة كل سائح', 'Your reviews are pulled and answered in each traveller’s language'), 'link' => '/reputation/platforms'],

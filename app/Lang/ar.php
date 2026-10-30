@@ -1218,6 +1218,8 @@ return [
     'websites.col.status' => 'الحالة',
     'websites.col.date' => 'التاريخ',
     'websites.no_sites' => 'لسه معندكش مواقع مضافة',
+    'websites.no_site_build' => 'معندكش موقع؟',
+    'websites.no_site_build_link' => 'ابنِ موقع حجز جاهز في دقايق ←',
     'websites.verified' => 'موثّق',
     'websites.unverified' => 'غير موثّق',
     'websites.manage' => 'إدارة',

@@ -484,6 +484,9 @@ class WebsiteController extends Controller
         $tColCompany = $this->tr('websites.col.company');
         $tColStatus = $this->tr('websites.col.status');
         $tColDate = $this->tr('websites.col.date');
+        // مهمة «ضيف موقعك أو ابنِ موقع حجز» بتوصل هنا: اللي معندوش موقع يلاقي طريق البناء مش فورم رابط بس
+        $buildCta = $sites ? '' : '<p class="p-cell-muted" style="margin:14px 0 0;">' . htmlspecialchars($this->tr('websites.no_site_build'), ENT_QUOTES, 'UTF-8')
+            . ' <a href="/website-builder" style="font-weight:600;">' . htmlspecialchars($this->tr('websites.no_site_build_link'), ENT_QUOTES, 'UTF-8') . '</a></p>';
 
         $body = <<<HTML
         <div class="p-card">
@@ -502,6 +505,7 @@ class WebsiteController extends Controller
                 <div id="addWebsiteAlert" class="alert alert-danger" style="display:none;"></div>
                 <button type="submit" class="p-btn primary">{$tAddButton}</button>
             </form>
+            {$buildCta}
         </div>
         <div class="p-card no-pad" style="margin-top:16px;">
             <div class="p-card-head" style="padding:18px 20px 0;"><h3>{$tYourSites}</h3></div>

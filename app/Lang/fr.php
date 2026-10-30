@@ -1169,6 +1169,8 @@ return [
     'websites.col.status' => 'Statut',
     'websites.col.date' => 'Date',
     'websites.no_sites' => 'Vous n\'avez pas encore ajouté de site',
+    'websites.no_site_build' => 'Pas encore de site ?',
+    'websites.no_site_build_link' => 'Créez un site de réservation prêt en quelques minutes →',
     'websites.verified' => 'Vérifié',
     'websites.unverified' => 'Non vérifié',
     'websites.manage' => 'Gérer',

@@ -1169,6 +1169,8 @@ return [
     'websites.col.status' => 'Status',
     'websites.col.date' => 'Datum',
     'websites.no_sites' => 'Sie haben noch keine Websites hinzugefügt',
+    'websites.no_site_build' => 'Noch keine Website?',
+    'websites.no_site_build_link' => 'Erstellen Sie in Minuten eine fertige Buchungsseite →',
     'websites.verified' => 'Verifiziert',
     'websites.unverified' => 'Nicht verifiziert',
     'websites.manage' => 'Verwalten',

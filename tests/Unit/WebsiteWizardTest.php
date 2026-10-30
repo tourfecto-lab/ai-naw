@@ -65,6 +65,37 @@ final class WebsiteWizardTest extends TestCase
         $this->assertEmpty($_SESSION['website_builder_answers']['items'] ?? []);
     }
 
+    public function testAnswersLeftByAnotherAccountInTheSameBrowserAreDropped(): void
+    {
+        $_SESSION = [
+            'user_id' => 6,
+            'website_builder_uid' => 5,
+            'website_builder_prefill_done' => true,
+            'website_builder_answers' => ['language' => 'en', 'industry' => 'tours', 'business_name' => 'Nile Breeze Tours', 'service_type' => 'Day trips', 'items' => ['Pyramids'], 'items_done' => true, 'contact_text' => '+20 100'],
+        ];
+        $state = (new WebsiteBuilderService())->getCurrentState();
+        $this->assertFalse($state['done']);
+        $this->assertNotSame('Nile Breeze Tours', $_SESSION['website_builder_answers']['business_name'] ?? null);
+        $this->assertSame(6, $_SESSION['website_builder_uid']);
+    }
+
+    public function testPrefilledNoteOnlyNamesWhatWasActuallyPrefilled(): void
+    {
+        $_SESSION = [
+            'user_id' => 7,
+            'website_builder_uid' => 7,
+            'website_builder_prefill_done' => true,
+            'website_builder_prefilled' => ['business_name', 'items'],
+            'website_builder_prefilled_items' => 2,
+            'website_builder_answers' => ['language' => 'ar', 'industry' => 'tours', 'business_name' => 'شركة النيل', 'service_type' => 'رحلات نيلية في الأقصر', 'items' => ['رحلة الأهرامات', 'رحلة الفلوكة']],
+        ];
+        $state = (new WebsiteBuilderService())->getCurrentState();
+        $this->assertSame('items', $state['step']);
+        $this->assertStringContainsString('أخدنا اسم شركتك و2 رحلات من «رحلاتي»', $state['question']);
+        $this->assertStringNotContainsString('بيانات التواصل', $state['question']);
+        $this->assertSame(['خلصت'], $state['options']);
+    }
+
     public function testItemsAreCappedSoImageGenerationStaysWithinTheRequest(): void
     {
         $this->toItemsStep();
