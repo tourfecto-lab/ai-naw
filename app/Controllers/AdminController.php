@@ -3891,58 +3891,59 @@ HTML;
     private function renderAdminSidebar(string $activeTab): string
     {
         // المجموعات بالترتيب: عام، الذكاء الاصطناعي، العملاء والمبيعات، الفلوس، التشغيل، الأمان، الإعدادات
+        $L = static fn (string $ar, string $en): string => (function_exists('current_lang') ? current_lang() : 'ar') === 'ar' ? $ar : $en;
         $groups = [
             $this->tr('admin.nav.general') => [
                 'overview' => [$this->tr('admin.nav.overview'), 'bar-chart-2', '/admin'],
                 'platform' => [$this->tr('admin.nav.platform_overview'), 'compass', '/admin/platform'],
-                'metrics' => ['أرقام SaaS', 'trending-up', '/admin/metrics'],
+                'metrics' => [$L('أرقام SaaS', 'SaaS metrics'), 'trending-up', '/admin/metrics'],
             ],
-            'AI CEO والذكاء الاصطناعي' => [
+            $L('AI CEO والذكاء الاصطناعي', 'AI CEO & AI') => [
                 'ai-ceo' => ['AI Mission Control', 'brain', '/admin/ai-ceo'],
-                'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
+                'admin-brain' => [$L('العقل الاستراتيجي', 'Strategic brain'), 'brain', '/admin/brain'],
                 'ai-usage' => [$this->tr('admin.nav.ai_usage'), 'brain', '/admin/ai-usage'],
-                'ai-service-routing' => ['توزيع خدمات AI', 'settings', '/admin/ai-routing'],
-                'creative-studio-ops' => ['استوديو الوسائط', 'image', '/admin/creative-studio'],
+                'ai-service-routing' => [$L('توزيع خدمات AI', 'AI service routing'), 'settings', '/admin/ai-routing'],
+                'creative-studio-ops' => [$L('استوديو الوسائط', 'Media studio'), 'image', '/admin/creative-studio'],
             ],
-            'المحتوى والسيو' => [
-                'blog' => ['المدونة', 'edit', '/admin/blog'],
-                'hosted-blogs' => ['المدونات المستضافة', 'globe', '/admin/hosted-blogs'],
-                'seo-markets' => ['الكلمات والأسواق (SEO)', 'globe', '/admin/seo-markets'],
-                'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
+            $L('المحتوى والسيو', 'Content & SEO') => [
+                'blog' => [$L('المدونة', 'Blog'), 'edit', '/admin/blog'],
+                'hosted-blogs' => [$L('المدونات المستضافة', 'Hosted blogs'), 'globe', '/admin/hosted-blogs'],
+                'seo-markets' => [$L('الكلمات والأسواق (SEO)', 'Keywords & markets'), 'globe', '/admin/seo-markets'],
+                'seo-data-costs' => [$L('تكلفة DataForSEO', 'DataForSEO cost'), 'dollar', '/admin/seo-data-costs'],
             ],
-            'العملاء والمبيعات' => [
+            $L('العملاء والمبيعات', 'Customers & sales') => [
                 'users' => [$this->tr('admin.nav.users'), 'users', '/admin/users'],
-                'customers-health' => ['صحة العملاء', 'target', '/admin/customers-health'],
-                'trials' => ['متابعة التجارب', 'clock', '/admin/trials'],
-                'adoption' => ['استخدام المميزات', 'activity', '/admin/adoption'],
+                'customers-health' => [$L('صحة العملاء', 'Customer health'), 'target', '/admin/customers-health'],
+                'trials' => [$L('متابعة التجارب', 'Trials'), 'clock', '/admin/trials'],
+                'adoption' => [$L('استخدام المميزات', 'Feature adoption'), 'activity', '/admin/adoption'],
                 'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), 'flask', '/admin/onboarding-funnel'],
-                'platform-growth' => ['تسويق المنصة (إيميل)', 'send', '/admin/growth'],
-                'email-reputation' => ['سمعة التسويق بالبريد', 'mail', '/admin/email-reputation'],
+                'platform-growth' => [$L('تسويق المنصة (إيميل)', 'Platform outreach (email)'), 'send', '/admin/growth'],
+                'email-reputation' => [$L('سمعة التسويق بالبريد', 'Email reputation'), 'mail', '/admin/email-reputation'],
                 'contact-messages' => [$this->tr('admin.nav.contact_messages'), 'mail', '/admin/contact-messages'],
             ],
-            'الاشتراكات والفلوس' => [
+            $L('الاشتراكات والفلوس', 'Subscriptions & money') => [
                 'subscriptions' => [$this->tr('admin.nav.subscriptions'), 'credit-card', '/admin/subscriptions'],
-                'billing-ops' => ['الدفع والكوبونات', 'credit-card', '/admin/billing-ops'],
+                'billing-ops' => [$L('الدفع والكوبونات', 'Payments & coupons'), 'credit-card', '/admin/billing-ops'],
                 'plans' => [$this->tr('admin.nav.plans'), 'dollar', '/admin/plans'],
-                'plans-studio' => ['الباقات والعملات والدفع (XPay)', 'credit-card', '/admin/plans-studio'],
+                'plans-studio' => [$L('الباقات والعملات والدفع (XPay)', 'Plans studio & XPay'), 'credit-card', '/admin/plans-studio'],
                 'finance' => [$this->tr('admin.nav.finance'), 'credit-card', '/admin/finance'],
-                'usage-reservations' => ['مراجعة الاستخدام المعلق', 'clock', '/admin/usage-reservations'],
+                'usage-reservations' => [$L('مراجعة الاستخدام المعلق', 'Pending usage review'), 'clock', '/admin/usage-reservations'],
             ],
-            'التشغيل وصحة المنصة' => [
-                'health' => ['صحة المنصة', 'activity', '/admin/health'],
-                'alerts' => ['التنبيهات', 'bell', '/admin/alerts'],
-                'errors' => ['أخطاء النظام', 'flag', '/admin/errors'],
+            $L('التشغيل وصحة المنصة', 'Operations & health') => [
+                'health' => [$L('صحة المنصة', 'Platform health'), 'activity', '/admin/health'],
+                'alerts' => [$L('التنبيهات', 'Alerts'), 'bell', '/admin/alerts'],
+                'errors' => [$L('أخطاء النظام', 'System errors'), 'flag', '/admin/errors'],
                 'system' => [$this->tr('admin.nav.system_status'), 'monitor', '/admin/system'],
                 'logs' => [$this->tr('admin.nav.logs'), 'file-text', '/admin/logs'],
                 'jobs' => [$this->tr('admin.nav.jobs'), 'activity', '/admin/jobs'],
-                'emails' => ['سجل البريد', 'mail', '/admin/emails'],
-                'status-page' => ['صفحة الحالة والتحديثات', 'globe', '/admin/status-page'],
+                'emails' => [$L('سجل البريد', 'Email log'), 'mail', '/admin/emails'],
+                'status-page' => [$L('صفحة الحالة والتحديثات', 'Status page & updates'), 'globe', '/admin/status-page'],
             ],
             $this->tr('admin.nav.security_tracking') => [
                 'visitors' => [$this->tr('admin.nav.visitors'), 'eye', '/admin/visitors'],
                 'login-history' => [$this->tr('admin.nav.login_history'), 'lock', '/admin/login-history'],
                 'security' => [$this->tr('admin.nav.security'), 'alarm', '/admin/security'],
-                'admin-security' => ['أمان الأدمن', 'lock', '/admin/admin-security'],
+                'admin-security' => [$L('أمان الأدمن', 'Admin security'), 'lock', '/admin/admin-security'],
                 'audit' => [$this->tr('admin.nav.audit'), 'clock', '/admin/audit'],
             ],
             $this->tr('admin.nav.system') => [
@@ -3950,7 +3951,7 @@ HTML;
                 'settings' => [$this->tr('admin.nav.settings'), 'settings', '/admin/settings'],
                 'integrations' => [$this->tr('admin.nav.integrations'), 'plug', '/admin/integrations'],
                 'api-keys' => [$this->tr('admin.nav.api_keys'), 'key', '/admin/api-keys'],
-                'meta-review' => ['جاهزية مراجعة Meta', 'flag', '/admin/meta-review'],
+                'meta-review' => [$L('جاهزية مراجعة Meta', 'Meta review readiness'), 'flag', '/admin/meta-review'],
             ],
         ];
 
