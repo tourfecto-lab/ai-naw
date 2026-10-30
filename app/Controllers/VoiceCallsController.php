@@ -55,4 +55,23 @@ class VoiceCallsController extends Controller
         $actions = Database::getInstance()->query('SELECT action, status, ref, detail, created_at FROM voice_post_call_actions WHERE call_id = ? AND tenant_user_id = ? ORDER BY id', [(int) $call['id'], $g['tenant']]) ?: [];
         return $this->success(['call' => $call, 'turns' => $turns, 'post_call_actions' => $actions]);
     }
+
+    /** GET /api/voice-agent/calls/{id}/recording - audio through our authenticated endpoint only; needs the recordings capability */
+    public function recording(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_VIEW_RECORDINGS);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        $audio = (new VoiceRecordingService())->audio($g['tenant'], $g['user'], (int) ($params['id'] ?? 0));
+        if ($audio === null) {
+            return $this->error('Recording not available', 404);
+        }
+        header('Content-Type: ' . $audio['content_type']);
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . strlen($audio['body']));
+        echo $audio['body'];
+        exit;
+    }
 }

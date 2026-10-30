@@ -9,6 +9,7 @@ try {
     foreach(Database::getInstance()->query('SELECT tenant_user_id FROM voice_agent_settings') ?: [] as $r){
         $t=(int)$r['tenant_user_id'];
         $out['purged']+=$retention->purgeExpired($t,$settings->get($t));
+        $out['recordings_deleted']=($out['recordings_deleted']??0)+(new VoiceRecordingService())->purgeExpired($t);
     }
     if((int)gmdate('j')===1){
         $month=gmdate('Y-m',strtotime('first day of last month'));

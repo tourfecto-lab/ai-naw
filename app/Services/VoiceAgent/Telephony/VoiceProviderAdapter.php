@@ -67,4 +67,12 @@ interface VoiceProviderAdapter
 
     /** @return array{cost_usd:float, currency:string}|null null = provider cannot look this up */
     public function fetchCallCost(string $callId): ?array;
+
+    /** @return array{recording_id:string} */
+    public function startRecording(string $callId): array;
+
+    /** @return array{content_type:string, body:string} */
+    public function fetchRecording(string $recordingId): array;
+
+    public function deleteRecording(string $recordingId): bool;
 }

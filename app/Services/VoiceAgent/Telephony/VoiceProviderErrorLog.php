@@ -32,4 +32,10 @@ class VoiceProviderErrorLog
             [$tenantId]
         ) ?: [];
     }
+
+    /** Platform-wide health signal for provider selection: errors per provider in the last hour (counts only). @return list<array{provider:string, errors:int}> */
+    public static function lastHourCounts(): array
+    {
+        return Database::getInstance()->query('SELECT provider, COUNT(*) AS errors FROM voice_provider_errors WHERE created_at >= NOW() - INTERVAL 1 HOUR GROUP BY provider') ?: [];
+    }
 }

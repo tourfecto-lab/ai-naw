@@ -58,9 +58,43 @@ class VoiceNumberService
     }
 
     /** Re-checks availability and price with the provider right now and stores a time-limited quote. */
+    /** Cheapest healthy provider that lists this exact number. Providers that error are skipped (failover) and the error is logged. */
+    private function cheapestProvider(int $tenantId, string $e164raw, string $iso, string $type): ?string
+    {
+        $e164 = VoiceNumberRules::normalizeE164($e164raw);
+        $iso = strtoupper(trim($iso));
+        $cc = VoiceMarkets::callingCode($iso);
+        $national = $cc !== null && strpos(ltrim($e164, '+'), $cc) === 0 ? substr(ltrim($e164, '+'), strlen($cc)) : '';
+        $errors = [];
+        foreach (VoiceProviderErrorLog::lastHourCounts() as $r) {
+            $errors[$r['provider']] = (int) $r['errors'];
+        }
+        $cands = [];
+        foreach (VoiceProviderRegistry::keys() as $k) {
+            if (VoicePlatformCredentials::forProvider($k) === null) {
+                continue;
+            }
+            try {
+                foreach ($this->providers->search($tenantId, $k, $iso, $type, ['contains' => $national]) as $n) {
+                    if ($n['number'] === $e164 && !empty($n['voice']) && $n['monthly_cost'] !== null) {
+                        $cands[] = ['provider' => $k, 'price' => (float) $n['monthly_cost'] + (float) ($n['setup_cost'] ?? 0), 'healthy' => VoiceProviderSelector::healthy($errors[$k] ?? 0)];
+                    }
+                }
+            } catch (VoiceProviderException $e) {
+                // already logged by search(); the next provider is tried
+            }
+        }
+        $c = VoiceProviderSelector::choose($cands, VoiceProviderRegistry::keys());
+        return $c['provider'] ?? null;
+    }
+
     public function quote(int $tenantId, int $actorUserId, string $provider, string $e164, string $iso, string $type): array
     {
-        $provider = $provider !== '' ? $provider : (string) VoiceProviderService::defaultProvider();
+        $auto = $provider === '';
+        $provider = $auto ? '' : $provider;
+        if ($auto) {
+            $provider = $this->cheapestProvider($tenantId, $e164, $iso, $type) ?? (string) VoiceProviderService::defaultProvider();
+        }
         if (!VoiceProviderRegistry::has($provider)) {
             throw new InvalidArgumentException('No phone provider is available yet');
         }

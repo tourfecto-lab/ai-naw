@@ -42,6 +42,6 @@ class VoiceRetentionService
     {
         $this->db()->exec('DELETE FROM voice_call_turns WHERE tenant_user_id = ? AND call_id = ?', [$tenantId, $callId]);
         $this->db()->exec("UPDATE voice_calls SET from_e164 = NULL, to_e164 = NULL, summary = NULL, qualification = NULL, booking_request = NULL, needs = NULL, send_requests = NULL WHERE id = ? AND tenant_user_id = ?", [$callId, $tenantId]);
-        $this->db()->exec("UPDATE voice_recordings SET status = 'deleted', updated_at = NOW() WHERE call_id = ? AND tenant_user_id = ? AND status <> 'deleted'", [$callId, $tenantId]);
+        $this->db()->exec("UPDATE voice_recordings SET retention_until = NOW() - INTERVAL 1 SECOND, updated_at = NOW() WHERE call_id = ? AND tenant_user_id = ? AND status <> 'deleted'", [$callId, $tenantId]);
     }
 }

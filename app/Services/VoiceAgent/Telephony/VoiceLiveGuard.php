@@ -8,7 +8,7 @@
 class VoiceLiveGuard
 {
     public const NEEDS_APPROVAL = ['purchase_number', 'release_number', 'start_call', 'transfer_call'];
-    public const MUTATING = ['purchase_number', 'release_number', 'start_call', 'transfer_call', 'hangup_call', 'create_subaccount'];
+    public const MUTATING = ['purchase_number', 'release_number', 'start_call', 'transfer_call', 'hangup_call', 'create_subaccount', 'start_recording'];
 
     /** @return array{live:bool, reason:string} */
     public static function decide(string $operation, array $tenantSettings, bool $platformLiveEnabled, bool $approved): array

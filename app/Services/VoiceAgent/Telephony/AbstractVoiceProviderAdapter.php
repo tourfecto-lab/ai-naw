@@ -45,6 +45,23 @@ abstract class AbstractVoiceProviderAdapter implements VoiceProviderAdapter
     }
 
     /** @return array{account_id:string, credentials:array} credentials a tenant-scoped adapter can use */
+    /** Start recording a call that is in progress. @return array{recording_id:string} */
+    public function startRecording(string $callId): array
+    {
+        throw new VoiceProviderException('Recording is not supported by this provider yet');
+    }
+
+    /** @return array{content_type:string, body:string} the audio bytes (never a provider URL: customers must not receive provider links) */
+    public function fetchRecording(string $recordingId): array
+    {
+        throw new VoiceProviderException('Recording is not supported by this provider yet');
+    }
+
+    public function deleteRecording(string $recordingId): bool
+    {
+        throw new VoiceProviderException('Recording is not supported by this provider yet');
+    }
+
     public function createSubaccount(string $label): array
     {
         throw new LogicException('Sub-accounts are not supported by this provider');

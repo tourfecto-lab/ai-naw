@@ -186,7 +186,11 @@ class VoiceInboundService
         if (!empty($number['utm_link_id'])) { // a dedicated tracking number: the only trustworthy ad attribution for a phone call
             $this->store->updateCall($tenantId, $callId, ['utm_link_id' => (int) $number['utm_link_id'], 'attribution_source' => $number['attribution_source'] ?? null]);
         }
-        $greeting = VoicePromptBuilder::greeting($this->store->businessName($tenantId), $agent['name'] ?? null, $lang, !empty($settings['recording_enabled']), $agent['opening_text'] ?? null);
+        $rec = VoiceRecordingService::decide((string) $ev['from'], $settings); // one decision for both the notice and the recording
+        $greeting = VoicePromptBuilder::greeting($this->store->businessName($tenantId), $agent['name'] ?? null, $lang, $rec['record'], $agent['opening_text'] ?? null);
+        if ($rec['record'] && $mode !== 'fallback') {
+            (new VoiceRecordingService($this->providers))->start($tenantId, $callId, $provider, (string) $ev['call_id'], $settings);
+        }
         if ($afterHours && $afterMode !== 'ai') {
             $greeting .= ' ' . VoiceLanguages::afterHoursPhrase($lang);
         }

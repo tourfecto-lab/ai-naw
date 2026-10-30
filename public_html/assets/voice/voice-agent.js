@@ -134,7 +134,7 @@
     }]);
   }
   function callsTable(rows) {
-    return table([['When', 'started_at'], ['Direction', 'direction'], ['From', 'from_e164'], ['Outcome', function (c) { return badge(c.outcome || c.status || ''); }], ['Summary', 'summary']], rows);
+    return table([['When', 'started_at'], ['Direction', 'direction'], ['From', 'from_e164'], ['Outcome', function (c) { return badge(c.outcome || c.status || ''); }], ['Summary', 'summary'], ['Audio', function (c) { return '<a href="/api/voice-agent/calls/' + (+c.id) + '/recording" target="_blank" rel="noopener">Play</a>'; }]], rows);
   }
 
   var active = 0;

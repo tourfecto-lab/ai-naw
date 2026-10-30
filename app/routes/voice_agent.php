@@ -94,3 +94,4 @@ $router->post('/api/voice-agent/privacy/erase','VoiceBillingController','erase',
 $router->get('/api/admin/voice/margins','VoiceAdminController','margins',['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/voice/quality','VoiceAdminController','quality',['AuthMiddleware','AdminMiddleware']);
 $router->get('/voice-agent','VoiceAgentPageController','index',['AuthMiddleware']);
+$router->get('/api/voice-agent/calls/{id}/recording','VoiceCallsController','recording',['AuthMiddleware']);

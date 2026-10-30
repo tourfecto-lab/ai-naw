@@ -206,7 +206,17 @@ class VoiceProviderService
 
     public function countries(int $tenantId, string $provider): array
     {
-        return $this->read($tenantId, $provider, 'list_countries', fn (VoiceProviderAdapter $a) => $a->listCountries());
+        $load = fn () => $this->read($tenantId, $provider, 'list_countries', fn (VoiceProviderAdapter $a) => $a->listCountries());
+        if (!class_exists('Cache')) {
+            return $load();
+        }
+        try {
+            return (new Cache())->remember('voice:countries:' . $tenantId . ':' . $provider, $load, 86400); // coverage rarely changes; number searches are never cached (availability)
+        } catch (VoiceProviderException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            return $load(); // cache unavailable: just ask the provider
+        }
     }
 
     public function search(int $tenantId, string $provider, string $iso, string $type, array $filters = []): array

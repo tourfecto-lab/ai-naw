@@ -2,6 +2,8 @@
 
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../Fixtures/VoiceFakeHttp.php';
+
 /** Phase 9: cost model, budgets, provider choice, fraud guard, recording policy (pure rules). */
 final class VoiceCostsSecurityTest extends TestCase
 {
@@ -117,5 +119,76 @@ final class VoiceCostsSecurityTest extends TestCase
     {
         $this->assertSame(['cost_usd' => 8.0, 'price_usd' => 10.0, 'margin_usd' => 2.0, 'margin_pct' => 20.0], VoiceAdminReports::margin(8, 10));
         $this->assertNull(VoiceAdminReports::margin(0, 0)['margin_pct']);
+    }
+
+    public function testQuoteWithoutAProviderPicksTheCheapestAndFailsOver(): void
+    {
+        $env = ['TWILIO_VOICE_ACCOUNT_SID' => 'ACx', 'TWILIO_VOICE_AUTH_TOKEN' => 't', 'TELNYX_API_KEY' => 'k', 'TELNYX_CONNECTION_ID' => 'c', 'TELNYX_PUBLIC_KEY' => 'p'];
+        foreach ($env as $k => $v) {
+            putenv("$k=$v");
+        }
+        try {
+            $mk = static fn (array $byProvider) => new class ($byProvider) extends VoiceProviderService {
+                public function __construct(private array $byProvider)
+                {
+                }
+
+                public function search(int $tenantId, string $provider, string $iso, string $type, array $filters = []): array
+                {
+                    $r = $this->byProvider[$provider];
+                    if ($r instanceof Throwable) {
+                        throw $r;
+                    }
+                    return $r;
+                }
+            };
+            $n = static fn (float $m) => [['number' => '+201001234567', 'voice' => true, 'monthly_cost' => $m, 'setup_cost' => 0.0]];
+            $pick = static function (VoiceProviderService $p): ?string {
+                $m = new ReflectionMethod(VoiceNumberService::class, 'cheapestProvider');
+                $m->setAccessible(true);
+                return $m->invoke(new VoiceNumberService($p), 1, '+201001234567', 'EG', 'mobile');
+            };
+            $this->assertSame('telnyx', $pick($mk(['twilio' => $n(3.0), 'telnyx' => $n(1.0)])));
+            $this->assertSame('twilio', $pick($mk(['twilio' => $n(3.0), 'telnyx' => new VoiceProviderException('down', 500, '')]))); // failover
+            $this->assertNull($pick($mk(['twilio' => [], 'telnyx' => []])));
+        } finally {
+            foreach ($env as $k => $v) {
+                putenv($k);
+            }
+        }
+    }
+
+    public function testTwilioRecordingStartFetchDeleteAndTelnyxIsHonestlyUnsupported(): void
+    {
+        $h = new VoiceFakeHttp();
+        $a = new TwilioVoiceAdapter(['account_sid' => 'ACx', 'auth_token' => 't'], $h);
+        $h->push(201, ['sid' => 'RE123']);
+        $this->assertSame(['recording_id' => 'RE123'], $a->startRecording('CA1'));
+        $this->assertStringContainsString('/Calls/CA1/Recordings.json', $h->calls[0]['url']);
+        $h->push(200, 'AUDIO');
+        $this->assertSame(['content_type' => 'audio/mpeg', 'body' => 'AUDIO'], $a->fetchRecording('RE123'));
+        $h->push(404, '');
+        try {
+            $a->fetchRecording('RE404');
+            $this->fail('a missing recording must not return audio');
+        } catch (VoiceProviderException $e) {
+            $this->assertSame(404, $e->httpCode);
+        }
+        $h->push(204, '');
+        $this->assertTrue($a->deleteRecording('RE123'));
+        $h->push(404, '');
+        $this->assertTrue($a->deleteRecording('RE123')); // already gone
+        $this->assertFalse(VoiceProviderService::capabilitiesOf('telnyx')['recording']);
+        $this->expectException(VoiceProviderException::class);
+        (new TelnyxVoiceAdapter(['api_key' => 'k', 'connection_id' => 'c', 'public_key' => 'p'], new VoiceFakeHttp()))->startRecording('x');
+    }
+
+    public function testNoticeAndRecordingShareOneDecision(): void
+    {
+        $src = (string) file_get_contents(__DIR__ . '/../../app/Services/VoiceAgent/VoiceInboundService.php');
+        $this->assertStringContainsString('$rec = VoiceRecordingService::decide(', $src);
+        $this->assertStringContainsString("\$lang, \$rec['record'], \$agent['opening_text']", $src);
+        $this->assertStringContainsString("if (\$rec['record'] && \$mode !== 'fallback')", $src);
+        $this->assertStringNotContainsString("!empty(\$settings['recording_enabled']), \$agent['opening_text']", $src);
     }
 }

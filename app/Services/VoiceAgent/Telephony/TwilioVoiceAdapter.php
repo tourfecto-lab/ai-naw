@@ -197,6 +197,30 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
         return ['call_id' => (string) $d['sid'], 'status' => (string) ($d['status'] ?? 'in-progress')];
     }
 
+    public function startRecording(string $callId): array
+    {
+        $r = $this->json('POST', $this->acct() . '/Calls/' . rawurlencode($callId) . '/Recordings.json', ['RecordingChannels' => 'dual'], [], $this->auth());
+        if (empty($r['sid'])) {
+            throw new VoiceProviderException('Provider did not return a recording id');
+        }
+        return ['recording_id' => (string) $r['sid']];
+    }
+
+    public function fetchRecording(string $recordingId): array
+    {
+        $r = $this->http->request('GET', 'https://api.twilio.com/2010-04-01/Accounts/' . rawurlencode((string) $this->cred['account_sid']) . '/Recordings/' . rawurlencode($recordingId) . '.mp3', [], null, $this->auth(), 60);
+        if ($r['code'] !== 200 || $r['body'] === '') {
+            throw new VoiceProviderException('Recording is not available', $r['code']);
+        }
+        return ['content_type' => 'audio/mpeg', 'body' => $r['body']];
+    }
+
+    public function deleteRecording(string $recordingId): bool
+    {
+        $r = $this->http->request('DELETE', 'https://api.twilio.com/2010-04-01/Accounts/' . rawurlencode((string) $this->cred['account_sid']) . '/Recordings/' . rawurlencode($recordingId) . '.json', [], null, $this->auth());
+        return $r['code'] === 204 || $r['code'] === 404; // already gone counts as deleted
+    }
+
     public function hangupCall(string $callId): bool
     {
         $this->json('POST', $this->acct() . '/Calls/' . rawurlencode($callId) . '.json', ['Status' => 'completed'], [], $this->auth());

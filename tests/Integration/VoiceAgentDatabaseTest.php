@@ -671,4 +671,14 @@ final class VoiceAgentDatabaseTest extends TestCase
         $this->assertNull($this->db()->query('SELECT summary FROM voice_calls WHERE id = ?', [$id])[0]['summary']);
         $this->assertSame(1, (int) $this->db()->query('SELECT COUNT(*) AS n FROM voice_dnc WHERE tenant_user_id = ?', [self::A])[0]['n']);
     }
+
+    public function testRecordingAudioIsOnlyForTheOwningCompanyAndExpiredOnesAreNotServed(): void
+    {
+        $now = 'NOW()';
+        $this->db()->exec("INSERT INTO voice_recordings (tenant_user_id, call_id, provider, recording_sid, status, retention_until, created_at, updated_at) VALUES (?, 77, 'twilio', 'RE1', 'available', NOW() + INTERVAL 1 DAY, $now, $now)", [self::A]);
+        $this->db()->exec("INSERT INTO voice_recordings (tenant_user_id, call_id, provider, recording_sid, status, retention_until, created_at, updated_at) VALUES (?, 78, 'twilio', 'RE2', 'available', NOW() - INTERVAL 1 DAY, $now, $now)", [self::A]);
+        $svc = new VoiceRecordingService();
+        $this->assertNull($svc->audio(self::B, 1, 77)); // another company: nothing, and no provider call is even attempted
+        $this->assertNull($svc->audio(self::A, 1, 78)); // past retention: not served
+    }
 }
