@@ -2019,6 +2019,19 @@ class AdminController extends Controller
         if ($r['platform']) $cats .= '<tr><td>التحليل الذكي قبل التسجيل (على المنصة)</td><td dir="ltr">' . $usd($r['platform']['cost']) . '</td><td>' . $r['platform']['calls'] . ' مكالمة</td></tr>';
         $html .= '<div class="p-card"><div class="p-card-head"><h3>الفلوس رايحة فين</h3><span class="p-card-sub">فحص الترتيب: الكلمات المهمة (أولوية عالية أو في أول 20) كل يوم والباقي مرة في الأسبوع، على أول 30 نتيجة.</span></div>'
             . ($cats ? '<table class="p-table"><thead><tr><th>البند</th><th>التكلفة</th><th>النسبة</th></tr></thead><tbody>' . $cats . '</tbody></table>' : '<div class="p-empty">مفيش صرف الشهر ده.</div>') . '</div>';
+        // تفصيل لكل خدمة ولكل يوم: عشان نعرف الرصيد بيخلص ليه وإمتى
+        $eps = '';
+        foreach ($r['endpoints'] as $ep) $eps .= '<tr><td dir="ltr"><code>' . $e($ep['endpoint']) . '</code><br><small>' . $e(SeoDataCostReport::categoryLabel($ep['category'])) . '</small></td><td>' . (int) $ep['calls'] . '</td><td dir="ltr">' . $usd($ep['cost']) . '</td><td dir="ltr">$' . number_format($ep['avg'], 4) . '</td><td dir="ltr">' . ($ep['held'] > 0 ? $usd($ep['held']) : '—') . '</td></tr>';
+        $days = '';
+        foreach ($r['days'] as $d) $days .= '<tr><td dir="ltr">' . $e($d['day']) . '</td><td>' . (int) $d['calls'] . ($d['platform_calls'] ? ' <small>(' . (int) $d['platform_calls'] . ' قبل التسجيل)</small>' : '') . '</td><td dir="ltr">' . $usd($d['cost']) . '</td></tr>';
+        $st = $r['statuses'];
+        $stTxt = implode(' · ', array_map(static fn ($k, $v) => $k . ' ' . $v['calls'] . ($v['held'] > 0 ? ' (محجوز $' . number_format($v['held'], 2) . ')' : ''), array_keys($st), $st));
+        $html .= '<div class="p-card"><div class="p-card-head"><h3>كل خدمة بتكلّف كام</h3><span class="p-card-sub">المتوسط لكل طلب بيبيّن لو فيه خدمة غالية. «محجوز» = طلب ماوصلش رده لسه؛ بعد ساعة بيتسجل بمتوسط تكلفة نفس الخدمة (estimated) بدل ما يحجز السقف طول الشهر.</span></div>'
+            . ($eps ? '<div style="overflow-x:auto"><table class="p-table"><thead><tr><th>الخدمة</th><th>طلبات</th><th>التكلفة</th><th>متوسط الطلب</th><th>محجوز</th></tr></thead><tbody>' . $eps . '</tbody></table></div><p class="p-cell-muted" style="margin-top:8px" dir="ltr">' . $e($stTxt) . '</p>' : '<div class="p-empty">مفيش طلبات الشهر ده.</div>')
+            . '</div>';
+        $html .= '<div class="p-card"><div class="p-card-head"><h3>كل يوم (آخر 30 يوم)</h3><span class="p-card-sub">يوم فيه طلبات كتير فجأة = تجربة أو تحليل اتعمل كذا مرة.</span></div>'
+            . ($days ? '<div style="overflow-x:auto;max-height:420px"><table class="p-table"><thead><tr><th>اليوم</th><th>طلبات</th><th>التكلفة</th></tr></thead><tbody>' . $days . '</tbody></table></div>' : '<div class="p-empty">مفيش طلبات.</div>')
+            . '</div>';
         $rows = '';
         foreach ($r['customers'] as $c) {
             $q = $c['quota'] ? $c['quota']['used'] . ' / ' . ($c['quota']['limit'] > 0 ? $c['quota']['limit'] : '—') : '—';

@@ -28,6 +28,7 @@ class DataForSeoClient
         $cap=(float)($this->settings['monthly_budget_usd']??0);$cap=is_finite($cap)&&$cap>0?$cap:0.0;
         $out=['stats_available'=>false,'available'=>false,'reason'=>'seo_budget_check_unavailable','currency'=>'USD','period_utc'=>gmdate('Y-m'),'cap'=>$cap];
         try {
+            try { ($this->ledger ?? new SeoDataLedger($db))->reconcileStale(); } catch (Throwable $e) { error_log('[DataForSeoClient] reconcile skipped: ' . $e->getMessage()); }
             $s=$db->getConnection()->query("SELECT COUNT(*) AS calls,COALESCE(SUM(cost),0) AS actual_cost,COALESCE(SUM(GREATEST(reserved_cost-cost,0)),0) AS held_cost,COALESCE(SUM(GREATEST(cost,reserved_cost)),0) AS committed_cost,COALESCE(SUM(status='unknown'),0) AS unknown_calls,COALESCE(SUM(status='pending'),0) AS pending_calls FROM dataforseo_calls WHERE created_at>=DATE_FORMAT(UTC_TIMESTAMP(),'%Y-%m-01')");
             $row=$s->fetch(PDO::FETCH_ASSOC);if(!$row)throw new RuntimeException('Missing budget summary');
             $spent=(float)$row['committed_cost'];$available=$this->isConfigured()&&$cap>0&&is_finite($spent)&&round($spent+0.10,6)<=round($cap,6);

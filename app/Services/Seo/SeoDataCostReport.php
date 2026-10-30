@@ -45,7 +45,7 @@ final class SeoDataCostReport
 
     public function build(): array
     {
-        $out = ['available' => false, 'month' => gmdate('Y-m'), 'totals' => null, 'last_month' => null, 'categories' => [], 'customers' => [], 'platform' => null];
+        $out = ['available' => false, 'month' => gmdate('Y-m'), 'totals' => null, 'last_month' => null, 'categories' => [], 'customers' => [], 'platform' => null, 'endpoints' => [], 'days' => [], 'statuses' => []];
         if (!$this->db->query("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'dataforseo_calls'")) return $out;
         $out['available'] = true;
         $start = gmdate('Y-m-01 00:00:00');
@@ -57,6 +57,18 @@ final class SeoDataCostReport
         $out['totals'] = ['calls' => (int) ($t['calls'] ?? 0), 'cost' => round($cost, 4), 'held' => round((float) ($t['held'] ?? 0), 4), 'projected' => self::projection($cost, $day, $dim)];
         $l = $this->db->query("SELECT COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost FROM dataforseo_calls WHERE created_at >= DATE_SUB(?, INTERVAL 1 MONTH) AND created_at < ?", [$start, $start])[0] ?? [];
         $out['last_month'] = ['calls' => (int) ($l['calls'] ?? 0), 'cost' => round((float) ($l['cost'] ?? 0), 4)];
+
+        // كل خدمة بتتكلف كام (المتوسط بيبيّن لو فيه طلب غالي)، وكل يوم، وحالات الطلبات (المحجوز والتقديري)
+        foreach ($this->db->query("SELECT endpoint, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, COALESCE(SUM(GREATEST(reserved_cost-cost,0)),0) AS held FROM dataforseo_calls WHERE created_at >= ? GROUP BY endpoint ORDER BY cost DESC", [$start]) ?: [] as $r) {
+            $out['endpoints'][] = ['endpoint' => (string) $r['endpoint'], 'category' => self::category((string) $r['endpoint']), 'calls' => (int) $r['calls'], 'cost' => round((float) $r['cost'], 4),
+                'avg' => (int) $r['calls'] > 0 ? round((float) $r['cost'] / (int) $r['calls'], 4) : 0, 'held' => round((float) $r['held'], 4)];
+        }
+        foreach ($this->db->query("SELECT DATE(created_at) AS d, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost, SUM(website_id = 0) AS platform_calls FROM dataforseo_calls WHERE created_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY GROUP BY DATE(created_at) ORDER BY d DESC") ?: [] as $r) {
+            $out['days'][] = ['day' => (string) $r['d'], 'calls' => (int) $r['calls'], 'cost' => round((float) $r['cost'], 4), 'platform_calls' => (int) $r['platform_calls']];
+        }
+        foreach ($this->db->query("SELECT status, COUNT(*) AS n, COALESCE(SUM(GREATEST(reserved_cost-cost,0)),0) AS held FROM dataforseo_calls WHERE created_at >= ? GROUP BY status", [$start]) ?: [] as $r) {
+            $out['statuses'][(string) $r['status']] = ['calls' => (int) $r['n'], 'held' => round((float) $r['held'], 4)];
+        }
 
         $rows = $this->db->query("SELECT website_id, endpoint, COUNT(*) AS calls, COALESCE(SUM(cost),0) AS cost FROM dataforseo_calls WHERE created_at >= ? GROUP BY website_id, endpoint", [$start]);
         $sites = [];

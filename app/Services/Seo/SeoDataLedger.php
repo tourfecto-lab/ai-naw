@@ -11,6 +11,24 @@ class SeoDataLedger
     }
     public function walletSpent(): float {return $this->walletSpent;}
 
+    /**
+     * الحجوزات المعلقة: طلب "unknown" (انقطع الاتصال) أو "pending" (العملية وقفت في النص) أو خطأ من غير تكلفة كان بيفضل حاجز
+     * السقف كله (0.10$ لبحث جوجل) طول الشهر، فالميزانية بتخلص أسرع من الصرف الحقيقي بكتير (فحص AI CEO: 1.12$ من 3.94$ محجوزين).
+     * بعد ساعة بنسجله بمتوسط التكلفة الفعلية لنفس الخدمة آخر 60 يوم (status=estimated)، ومن غير ما يعدّي الحجز الأصلي.
+     * لو مفيش تاريخ للخدمة دي بيفضل الحجز زي ما هو (أحوط). محفظة العميل مش بتتلمس هنا.
+     * @return int عدد الطلبات اللي اتسوّت
+     */
+    public function reconcileStale(int $olderThanMinutes = 60): int
+    {
+        SeoDataSchema::ensureSchema($this->db);
+        $s = $this->db->getConnection()->prepare("UPDATE dataforseo_calls d
+            JOIN (SELECT endpoint, AVG(cost) AS avg_cost FROM dataforseo_calls WHERE status = 'complete' AND cost > 0 AND created_at >= UTC_TIMESTAMP() - INTERVAL 60 DAY GROUP BY endpoint) a ON a.endpoint = d.endpoint
+            SET d.cost = LEAST(d.reserved_cost, a.avg_cost), d.reserved_cost = 0, d.status = 'estimated'
+            WHERE d.status IN ('unknown', 'pending', 'provider_error') AND d.reserved_cost > 0 AND d.created_at < UTC_TIMESTAMP() - INTERVAL ? MINUTE");
+        $s->execute([max(5, $olderThanMinutes)]);
+        return $s->rowCount();
+    }
+
     public function reserve(string $endpoint, int $websiteId, int $units, float $ceiling, float $cap): int
     {
         $this->cap=$cap;
@@ -19,6 +37,7 @@ class SeoDataLedger
         $lock = $pdo->query("SELECT GET_LOCK('tourfecto:dataforseo:budget',10)")->fetchColumn();
         if ((int)$lock !== 1) throw new RuntimeException('seo_budget_busy');
         try {
+            $this->reconcileStale();
             $spent = (float)$pdo->query("SELECT COALESCE(SUM(GREATEST(cost,reserved_cost)),0) FROM dataforseo_calls WHERE created_at >= DATE_FORMAT(UTC_TIMESTAMP(),'%Y-%m-01')")->fetchColumn();
             if (!is_finite($cap) || $cap <= 0 || round($spent + $ceiling,6) > round($cap,6)) {
                 $this->alert();
@@ -73,6 +92,7 @@ class SeoDataLedger
         $lock=$pdo->query("SELECT GET_LOCK('tourfecto:dataforseo:budget',10)")->fetchColumn();
         if ((int)$lock!==1) throw new RuntimeException('seo_budget_busy');
         try {
+            $this->reconcileStale();
             $spent=(float)$pdo->query("SELECT COALESCE(SUM(GREATEST(cost,reserved_cost)),0) FROM dataforseo_calls WHERE created_at >= DATE_FORMAT(UTC_TIMESTAMP(),'%Y-%m-01')")->fetchColumn();
             if (!is_finite($cap) || $cap<=0 || round($spent+$ceiling,6)>round($cap,6)) { $this->alert(); throw new RuntimeException('seo_monthly_budget_reached'); }
             $today=(float)$pdo->query("SELECT COALESCE(SUM(GREATEST(cost,reserved_cost)),0) FROM dataforseo_calls WHERE website_id=0 AND created_at >= UTC_DATE()")->fetchColumn();
