@@ -29,7 +29,16 @@ class SmartOnboardingService
     ];
     /** موقع بعدد كلمات أكبر من كده و10 أضعاف موقعك = ناشر عملاق مش شركة رحلات زيك */
     private const PUBLISHER_KEYWORDS = 150000;
-    private const INFORMATIONAL_WORDS = '/\b(what|who|when|where|why|how|history|facts?|map|location|weather|population|queen|king|god|goddess|ancient|meaning|definition)\b|^(ما|من هو|من هي|تاريخ|أين|اين|كيف|معنى)\s/iu';
+    /** الكلمات اللي بيكتبها اللي عايز يحجز، بلغة سوق البحث (8 بالظبط: حد فلاتر DataForSEO) */
+    private const BOOKING_WORDS = [
+        'en' => ['tour', 'trip', 'cruise', 'excursion', 'safari', 'holiday', 'package', 'travel'],
+        'de' => ['reise', 'tour', 'ausflug', 'kreuzfahrt', 'urlaub', 'safari', 'ticket', 'buchen'],
+        'fr' => ['voyage', 'circuit', 'excursion', 'croisière', 'séjour', 'safari', 'tour', 'visite'],
+        'es' => ['viaje', 'tour', 'excursión', 'crucero', 'safari', 'vacaciones', 'paquete', 'visita'],
+        'it' => ['viaggio', 'tour', 'escursion', 'crociera', 'safari', 'vacanz', 'pacchett', 'visita'],
+        'ar' => ['رحلة', 'رحلات', 'جولة', 'سفاري', 'عمرة', 'حجز', 'عروض', 'فندق'],
+    ];
+    private const INFORMATIONAL_WORDS ='/\b(what|who|when|where|why|how|history|facts?|map|location|weather|population|queen|king|god|goddess|ancient|meaning|definition)\b|^(ما|من هو|من هي|تاريخ|أين|اين|كيف|معنى)\s/iu';
     private const TRAVEL_WORDS = '/tour|trip|travel|excursion|safari|cruise|holiday|vacation|transfer|sightseeing|day ?trip|umrah|umra|hajj|pilgrim|hotel|reise|ausflug|voyage|excursi|viaggi|escursion|viaje|رحل|سياح|جول|عطل|عمرة|العمره|حج|معتمر|فندق|فنادق|طيران|экскурс|тур/iu';
     /** لغة → سوق البحث الافتراضي (نفس SeoMarketService) */
     private const LOCATION_FOR_LANG = ['en' => 2840, 'ar' => 2818, 'de' => 2276, 'fr' => 2250, 'es' => 2724, 'it' => 2380, 'ru' => 2643, 'pt' => 2076, 'nl' => 2528, 'pl' => 2616];
@@ -564,14 +573,15 @@ class SmartOnboardingService
                     if (self::isPublisher((int) ($o['count'] ?? 0), $site['keywords'])) continue;
                     $pool[$h] = ['shared' => (int) ($it['intersections'] ?? 0), 'traffic' => (int) round((float) ($o['etv'] ?? 0)), 'keywords' => (int) ($o['count'] ?? 0), 'position' => null, 'via' => 'labs'];
                 }
-                // 40 كلمة ونختار منهم 12 بنية الحجز الأول (كانت أعلى 12 بحثًا: «egypt» و«cleopatra queen» بدل «egypt tours»)
-                $rk = $client->callPlatform('dataforseo_labs/google/ranked_keywords/live', [$base + ['limit' => 40, 'order_by' => ['keyword_data.keyword_info.search_volume,desc']]], 0.03);
-                $found = [];
-                foreach ($rk['available'] ? DataForSeoClient::items($rk) : [] as $it) {
-                    $kw = (string) ($it['keyword_data']['keyword'] ?? '');
-                    if ($kw === '') continue;
-                    $found[] = ['keyword' => mb_substr($kw, 0, 80), 'position' => (int) ($it['ranked_serp_element']['serp_item']['rank_group'] ?? 0) ?: null, 'volume' => (int) ($it['keyword_data']['keyword_info']['search_volume'] ?? 0),
-                        'intent' => (string) ($it['keyword_data']['search_intent_info']['main_intent'] ?? '')];
+                // كلمات الحجز الأول (tour/trip/cruise... بلغة السوق): أعلى 40 بحثًا لوحدهم كانوا كلهم معلوماتية
+                // («egypt»، «mumbai»، «petra»). لو كلمات الحجز قليلة نكمّل بالأكتر بحثًا زي الأول.
+                $ranked = fn (array $extra) => self::rankedKeywords($client->callPlatform('dataforseo_labs/google/ranked_keywords/live', [$base + ['limit' => 40, 'order_by' => ['keyword_data.keyword_info.search_volume,desc']] + $extra], 0.03));
+                $found = $ranked(['filters' => self::bookingKeywordFilter($m['lang'])]);
+                if (count($found) < 6) {
+                    $seen = array_flip(array_column($found, 'keyword'));
+                    foreach ($ranked([]) as $k) {
+                        if (!isset($seen[$k['keyword']])) $found[] = $k;
+                    }
                 }
                 $keywords = self::bookingKeywordsFirst($found, 12);
                 if ($pool) $source = 'google_data';
@@ -694,6 +704,30 @@ class SmartOnboardingService
             if ($host === $d || str_ends_with($host, '.' . $d)) return true;
         }
         return false;
+    }
+
+    /** @return array<int,array{keyword:string,position:?int,volume:int,intent:string}> */
+    private static function rankedKeywords(array $rk): array
+    {
+        $found = [];
+        foreach (!empty($rk['available']) ? DataForSeoClient::items($rk) : [] as $it) {
+            $kw = (string) ($it['keyword_data']['keyword'] ?? '');
+            if ($kw === '') continue;
+            $found[] = ['keyword' => mb_substr($kw, 0, 80), 'position' => (int) ($it['ranked_serp_element']['serp_item']['rank_group'] ?? 0) ?: null, 'volume' => (int) ($it['keyword_data']['keyword_info']['search_volume'] ?? 0),
+                'intent' => (string) ($it['keyword_data']['search_intent_info']['main_intent'] ?? '')];
+        }
+        return $found;
+    }
+
+    /** فلتر DataForSEO لكلمات الحجز بلغة السوق (أقصى حاجة 8 شروط في الطلب) */
+    public static function bookingKeywordFilter(string $lang): array
+    {
+        $filter = [];
+        foreach (self::BOOKING_WORDS[$lang] ?? self::BOOKING_WORDS['en'] as $word) {
+            if ($filter) $filter[] = 'or';
+            $filter[] = ['keyword_data.keyword', 'like', '%' . $word . '%'];
+        }
+        return $filter;
     }
 
     public static function isPublisher(int $theirKeywords, int $ownKeywords): bool
