@@ -127,6 +127,15 @@ class CeoAdvisorService
         error_log('[CeoAdvisorService] ignored error: ' . $e->getMessage());
         }
 
+        // AI Voice & Sales Agent: last 30 days of phone activity (only when the company has any)
+        try {
+            if (class_exists('VoiceInsightsService')) {
+                $snapshot['voice'] = (new VoiceInsightsService())->snapshotFor($userId);
+            }
+        } catch (Throwable $e) {
+            error_log('[CeoAdvisorService] voice section skipped: ' . $e->getMessage());
+        }
+
         // الملاحظات/المخاطر/الفرص اليدوية الموجودة بالفعل (ExecutiveExtrasController)
         try {
             $snapshot['manual_notes'] = array_column(
@@ -202,6 +211,10 @@ class CeoAdvisorService
         $outreach = $snapshot['outreach_pipeline'];
         $cost = $snapshot['ai_cost_this_month'];
 
+        $v = $snapshot['voice'] ?? null;
+        $voiceBlock = $v ? "=== AI Voice & Sales Agent (آخر {$v['period_days']} يوم) ===\nمكالمات: {$v['calls']} (فائتة {$v['missed']}) | حجوزات: {$v['bookings']} | إيراد مؤكد (USD): {$v['revenue_usd']} | تكلفة (USD): {$v['cost_usd']}"
+            . (isset($v['roi_pct']) ? " | ROI: {$v['roi_pct']}%" : '') . (isset($v['satisfaction_avg']) ? " | رضا العملاء: {$v['satisfaction_avg']}/5" : '') . (isset($v['assistant_quality_avg']) ? " | جودة المساعد: {$v['assistant_quality_avg']}/5" : '')
+            . ($v['top_objections'] ? "\nأكثر الاعتراضات: " . implode(', ', $v['top_objections']) : '') . ($v['top_loss_reasons'] ? "\nأسباب خسارة العملاء: " . implode(', ', $v['top_loss_reasons']) : '') . "\n\n" : '';
         $notesLines = empty($snapshot['manual_notes']) ? '- لا يوجد.' : implode("\n", array_map(fn ($n) => "- {$n}", $snapshot['manual_notes']));
         $risksLines = empty($snapshot['open_risks']) ? '- لا يوجد.' : implode("\n", array_map(fn ($r) => "- [{$r['severity']}] {$r['title']}", $snapshot['open_risks']));
         $oppsLines = empty($snapshot['open_opportunities']) ? '- لا يوجد.' : implode("\n", array_map(fn ($o) => "- [{$o['estimated_impact']}] {$o['title']}", $snapshot['open_opportunities']));
@@ -229,7 +242,7 @@ class CeoAdvisorService
 === ملاحظات صاحب الحساب ===
 {$notesLines}
 
-=== مخاطر مفتوحة ===
+{$voiceBlock}=== مخاطر مفتوحة ===
 {$risksLines}
 
 === فرص نمو مفتوحة ===

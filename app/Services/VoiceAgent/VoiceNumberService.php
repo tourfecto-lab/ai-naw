@@ -351,6 +351,26 @@ class VoiceNumberService
         return ['agent_id' => $agentId, 'forward_to' => $fwd];
     }
 
+    /**
+     * Tie a dedicated number to one of the company's own ad links, or remove the tie (utm_link_id = null). Calls to the number are then attributed to that ad.
+     * Only links of the company's own campaigns are accepted; the source label comes from the campaign's platform.
+     */
+    public function setAttribution(int $tenantId, int $actorUserId, int $numberId, ?int $utmLinkId): array
+    {
+        $this->row($tenantId, $numberId);
+        $source = null;
+        if ($utmLinkId !== null) {
+            $l = $this->db()->query('SELECT c.platform FROM ad_utm_links u JOIN ad_campaigns c ON c.id = u.campaign_id WHERE u.id = ? AND c.user_id = ? LIMIT 1', [$utmLinkId, $tenantId]);
+            if (!$l) {
+                throw new InvalidArgumentException('Ad link not found in your account');
+            }
+            $source = VoiceAttribution::sourceFor($l[0]['platform'] ?? null);
+        }
+        $this->db()->exec('UPDATE voice_numbers SET utm_link_id = ?, attribution_source = ?, updated_at = NOW() WHERE id = ? AND tenant_user_id = ?', [$utmLinkId, $source, $numberId, $tenantId]);
+        VoiceAuditService::record($tenantId, $actorUserId, 'number.attribution_set', 'number', $numberId, ['source' => $source]);
+        return ['utm_link_id' => $utmLinkId, 'attribution_source' => $source];
+    }
+
     /** Which assistant answers this number in which situation (known customer, open booking, after hours, caller country). */
     public function setRouting(int $tenantId, int $actorUserId, int $numberId, array $rules): array
     {

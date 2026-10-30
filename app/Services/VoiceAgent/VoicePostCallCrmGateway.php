@@ -54,7 +54,7 @@ class VoicePostCallCrmGateway implements VoicePostCallGateway
 
     public function createTask(int $tenantId, array $data): int
     {
-        return (int) (new CrmTaskService())->create($tenantId, $data, $tenantId)->getAttribute('id');
+        return VoiceCrmCompat::createTask($tenantId, $data);
     }
 
     public function createBooking(int $tenantId, array $data): array

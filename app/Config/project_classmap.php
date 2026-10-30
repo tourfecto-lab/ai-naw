@@ -977,4 +977,12 @@ return [
     'VoiceHandoff' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceHandoff.php',
     'VoiceHours' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceHours.php',
     'VoiceStaffService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceStaffService.php',
+    'VoiceAnalyticsMath' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAnalyticsMath.php',
+    'VoiceAnalyticsService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAnalyticsService.php',
+    'VoiceAttribution' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAttribution.php',
+    'VoiceCrmCompat' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCrmCompat.php',
+    'VoiceInsightsService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceInsightsService.php',
+    'VoiceSupervisorRules' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceSupervisorRules.php',
+    'VoiceSupervisorService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceSupervisorService.php',
+    'VoiceAnalyticsController' => dirname(__DIR__,2).'/app/Controllers/VoiceAnalyticsController.php',
 ];

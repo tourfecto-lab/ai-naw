@@ -94,4 +94,10 @@ class VoiceAdminController extends Controller
             return $this->error($ex->getMessage(), 422);
         }
     }
+
+    /** GET /api/admin/voice/analytics - platform-wide totals (the same numbers the AI CEO sees) */
+    public function analytics(array $params = []): array
+    {
+        return $this->admin() ?? $this->success(['summary' => VoicePlatformLoad::summary((int) $this->get('days', 30))]);
+    }
 }

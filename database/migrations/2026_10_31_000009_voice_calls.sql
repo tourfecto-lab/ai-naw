@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS voice_calls (
  language VARCHAR(10) NULL,
  after_hours TINYINT(1) NOT NULL DEFAULT 0,
  handoff_topic VARCHAR(20) NULL,
+ utm_link_id INT(11) NULL COMMENT 'ad link of the dedicated number that was called (trusted attribution only)',
+ attribution_source VARCHAR(30) NULL,
  job_id BIGINT UNSIGNED NULL COMMENT 'outbound job that placed this call',
  answered_by VARCHAR(20) NULL COMMENT 'human / machine / fax / unknown (voicemail detection)',
  contact_id INT(11) NULL,

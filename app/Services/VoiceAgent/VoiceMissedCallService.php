@@ -29,7 +29,7 @@ class VoiceMissedCallService
                 );
                 $contactId = $dup ? (int) $dup[0]['id'] : (int) (new CrmContactService())->create($tenantId, ['name' => 'Caller ' . $fromE164, 'phone' => $fromE164, 'source' => 'voice_missed_call'])->getAttribute('id');
             }
-            (new CrmTaskService())->create($tenantId, [
+            VoiceCrmCompat::createTask($tenantId, [
                 'title' => 'Return missed call from ' . $fromE164,
                 'description' => 'The AI voice assistant could not take this call (' . $reason . '). Call the customer back.',
                 'related_type' => 'contact', 'related_id' => $contactId,

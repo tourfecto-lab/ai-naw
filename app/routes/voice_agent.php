@@ -81,3 +81,9 @@ $router->post('/api/voice-agent/staff/{id}','VoiceAssistantController','updateSt
 $router->post('/api/voice-agent/staff/{id}/delete','VoiceAssistantController','deleteStaff',['AuthMiddleware']);
 $router->post('/api/voice-agent/numbers/{id}/routing','VoiceAssistantController','setRouting',['AuthMiddleware']);
 $router->get('/api/voice-agent/hours','VoiceAssistantController','hours',['AuthMiddleware']);
+
+// Phase 8: analytics, supervisor reviews, ad attribution
+$router->get('/api/voice-agent/analytics','VoiceAnalyticsController','overview',['AuthMiddleware']);
+$router->get('/api/voice-agent/analytics/reviews','VoiceAnalyticsController','reviews',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/attribution','VoiceAnalyticsController','setAttribution',['AuthMiddleware']);
+$router->get('/api/admin/voice/analytics','VoiceAdminController','analytics',['AuthMiddleware','AdminMiddleware']);

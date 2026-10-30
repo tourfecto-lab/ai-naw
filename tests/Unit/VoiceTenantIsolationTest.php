@@ -127,4 +127,21 @@ final class VoiceTenantIsolationTest extends TestCase
             $this->assertStringNotContainsString('->decrypt(', $src, basename($f));
         }
     }
+
+    public function testEveryVoiceClassIsInTheProductionClassmapAndDeclaresItself(): void
+    {
+        // the server has no composer dump-autoload: a class missing from the generated classmap is a fatal error in production
+        $root = dirname(__DIR__, 2);
+        $map = require $root . '/app/Config/project_classmap.php';
+        $missing = [];
+        foreach (array_merge(glob($root . '/app/Services/VoiceAgent/*.php'), glob($root . '/app/Services/VoiceAgent/Telephony/*.php'), glob($root . '/app/Controllers/Voice*.php')) as $f) {
+            $cls = basename($f, '.php');
+            if (!isset($map[$cls]) || realpath($map[$cls]) !== realpath($f)) {
+                $missing[] = $cls;
+            } elseif (!preg_match('/\b(class|interface)\s+' . $cls . '\b/', file_get_contents($f))) {
+                $missing[] = $cls . ' (file does not declare it)';
+            }
+        }
+        $this->assertSame([], $missing, 'voice classes not mapped for production: ' . implode(', ', $missing));
+    }
 }

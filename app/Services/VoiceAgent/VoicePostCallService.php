@@ -117,7 +117,7 @@ class VoicePostCallService
         if (in_array($bookingAction, ['create_pending', 'create_and_confirm'], true) && (!$st['contact_id'] || $bName === '' || strpos($bName, 'Caller ') === 0)) {
             $bookingAction = 'task_only'; // never create a booking without a customer record and a real name
         }
-        $this->step($tenantId, $callId, $res, 'booking', function () use ($tenantId, $callId, &$st, &$bookingAction, $decision, $br, $bName, $q, $contact, $number, $now) {
+        $this->step($tenantId, $callId, $res, 'booking', function () use ($tenantId, $callId, &$st, &$bookingAction, $decision, $br, $bName, $q, $contact, $number, $now, $call) {
             if (!in_array($bookingAction, ['create_pending', 'create_and_confirm'], true)) {
                 return ['status' => 'skipped', 'detail' => $bookingAction === 'none' ? 'no_booking_request' : ($bookingAction === 'task_only' ? 'staff_will_confirm:' . $decision['reason'] : $decision['reason'])];
             }
@@ -126,7 +126,7 @@ class VoicePostCallService
                     'product_id' => (int) $br['product_id'], 'start_date' => (string) $br['date'], 'adults_count' => (int) $br['guests'], 'children_count' => 0,
                     'customer_id' => $st['contact_id'], 'customer_name' => $bName, 'customer_phone' => $number,
                     'customer_email' => VoicePostCallRules::validEmail($contact['email'] ?? null) ?? VoicePostCallRules::validEmail($q['email'] ?? null),
-                    'source' => 'voice_ai', 'notes' => 'Taken by the AI voice assistant on call #' . $callId, 'expected_total' => (float) $br['quoted_total'],
+                    'source' => 'voice_ai', 'attributed_utm_link_id' => !empty($call['utm_link_id']) ? (int) $call['utm_link_id'] : null, 'notes' => 'Taken by the AI voice assistant on call #' . $callId, 'expected_total' => (float) $br['quoted_total'],
                 ]);
             } catch (Throwable $e) {
                 $bookingAction = 'task_only'; // price changed, sold out, ...: a person takes over, so this is final and not retried

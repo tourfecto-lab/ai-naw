@@ -3,7 +3,7 @@
 /** Tourfecto - AI Voice Agent: database implementation of VoiceDataSource. Every query carries the tenant id. */
 class VoiceDataStore implements VoiceDataSource
 {
-    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by', 'next_step', 'needs', 'send_requests', 'post_call_status', 'post_processed_at', 'crm_lead_id', 'booking_id', 'after_hours', 'handoff_topic'];
+    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by', 'next_step', 'needs', 'send_requests', 'post_call_status', 'post_processed_at', 'crm_lead_id', 'booking_id', 'after_hours', 'handoff_topic', 'utm_link_id', 'attribution_source'];
 
     private function db(): Database
     {

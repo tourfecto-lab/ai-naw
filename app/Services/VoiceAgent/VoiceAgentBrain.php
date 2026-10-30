@@ -78,8 +78,9 @@ class VoiceAgentBrain
             $say = VoiceLanguages::fallbackPhrase($lang); // model still wanted a lookup after the limit
         }
         $bad = VoiceReplyParser::ungroundedPrices($say, $this->allowedPrices($tenant, $callId));
-        if ($bad) {
-            $say = VoiceLanguages::fallbackPhrase($lang);
+        $priceGuard = (bool) $bad;
+        if ($priceGuard) {
+            $say = VoiceLanguages::fallbackPhrase($lang); // the supervisor is told this happened (turn meta)
         }
         $out = ['say' => $say, 'language' => $lang, 'end' => false, 'transfer' => null, 'outcome' => null, 'opt_out' => false, 'topic' => null];
 
@@ -120,7 +121,7 @@ class VoiceAgentBrain
             $out['end'] = !$canTransfer;
             $out['outcome'] = $canTransfer ? null : 'callback_requested';
         }
-        $this->data->addTurn($tenant, $callId, $base + 90, 'agent', $out['say'], ['action' => $a['type']]);
+        $this->data->addTurn($tenant, $callId, $base + 90, 'agent', $out['say'], ['action' => $a['type']] + ($priceGuard ? ['price_guard' => true] : []));
         return $out;
     }
 
