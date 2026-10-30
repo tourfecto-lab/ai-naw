@@ -108,9 +108,34 @@
     });
   }
 
+
+  var OWN_FIELDS = { twilio: [['account_sid', 'Account SID'], ['auth_token', 'Auth Token']], telnyx: [['api_key', 'API key'], ['connection_id', 'Connection ID'], ['public_key', 'Webhook public key']] };
+  function ownAccountPanel(allProvs) {
+    var allowed = allProvs.some(function (p) { return p.own_account_allowed; });
+    if (!allowed) return '<details class="va-card"><summary><b>Use my own provider account</b></summary><p class="va-muted">Your platform administrator has not enabled this. Ask them to allow own provider accounts.</p></details>';
+    var first = allProvs[0].provider;
+    return '<details class="va-card"><summary><b>Use my own provider account</b> (you pay the provider directly)</summary><p class="va-muted">Keys are stored encrypted and never shown again.</p>' +
+      '<form class="va-form" data-own>' + field('provider', 'Provider', 'select', first, allProvs.map(function (p) { return [p.provider, p.provider]; })) +
+      '<div data-own-fields class="va-form" style="margin:0"></div>' +
+      '<div><button class="va-btn" type="submit">Save and test</button> <span data-own-msg class="va-muted"></span></div></form>' +
+      allProvs.filter(function (p) { return p.mode === 'own'; }).map(function (p) { return '<p>' + esc(p.provider) + ': ' + badge(p.status) + ' <button class="va-btn sec" data-own-remove="' + esc(p.provider) + '">Remove my keys</button></p>'; }).join('') + '</details>';
+  }
+  function bindOwn(el) {
+    var f = el.querySelector('[data-own]'); if (!f) return;
+    var box = f.querySelector('[data-own-fields]'), sel = f.elements.provider, msg = f.querySelector('[data-own-msg]');
+    function draw() { box.innerHTML = (OWN_FIELDS[sel.value] || []).map(function (x) { return '<label>' + esc(x[1]) + '<input name="' + x[0] + '" type="password" autocomplete="off" required></label>'; }).join(''); }
+    sel.addEventListener('change', draw); draw();
+    f.addEventListener('submit', function (e) {
+      e.preventDefault(); var b = collect(f), pr = b.provider; delete b.provider; msg.textContent = '…';
+      api('/api/voice-agent/providers/' + encodeURIComponent(pr) + '/credentials', b).then(function () { return api('/api/voice-agent/providers/' + encodeURIComponent(pr) + '/test', {}); })
+        .then(function (d) { var r = d.result || {}; window.__vaNote = r.ok === false ? 'Saved, but the connection test failed: ' + (r.detail || 'check the keys') : 'Saved. Connection OK'; render(); }).catch(function (er) { msg.textContent = er.message; msg.className = 'va-err'; });
+    });
+    el.querySelectorAll('[data-own-remove]').forEach(function (b) { b.addEventListener('click', function () { if (window.confirm('Remove your provider keys?')) api('/api/voice-agent/providers/' + encodeURIComponent(b.getAttribute('data-own-remove')) + '/remove', {}).then(function () { render(); }).catch(function (e) { note(el, e.message, true); }); }); });
+  }
+
   function numbersTab() {
     return Promise.all([api('/api/voice-agent/numbers'), api('/api/voice-agent/agents'), api('/api/voice-agent/providers'), api('/api/voice-agent/markets')]).then(function (r) {
-      var agents = r[1].agents || [], provs = (r[2].providers || []).filter(function (p) { return p.available; }), markets = r[3].markets || [];
+      var agents = r[1].agents || [], allProvs = r[2].providers || [], provs = allProvs.filter(function (p) { return p.available; }), markets = r[3].markets || [];
       window.__vaProvs = provs;
       var agentOpts = [['', '— none —']].concat(agents.map(function (a) { return [a.id, a.name]; }));
       var cols = [['Number', 'e164'], ['Country', 'country'], ['Provider', 'provider'], ['Status', function (n) { return badge(n.status + (n.live_usable ? '' : '')); }],
@@ -127,10 +152,11 @@
         field('country', 'Country', 'select', '', [['', 'Detect from the number']].concat(markets.map(function (m) { return [m.iso, m.name]; }))) +
         field('provider', 'Provider (only if the number is in your own provider account)', 'select', '', [['', '—']].concat(provs.map(function (p) { return [p.provider, p.provider]; }))) +
         '<div><button class="va-btn" type="submit">Add number</button></div></form>' +
-        (urls ? '<p class="va-muted">For a number you own at the provider, set these in the provider console:</p><ul>' + urls + '</ul>' : '') + '</details>';
+        (urls ? '<p class="va-muted">For a number you own at the provider, set these in the provider console:</p><ul>' + urls + '</ul>' : '') + '</details>' + (allProvs.length ? ownAccountPanel(allProvs) : '');
     });
   }
   function bindNumbers(el) {
+    bindOwn(el);
     function post(path, body) { return api(path, body || {}).then(function (d) { window.__vaNote = (d.simulated ? 'Test mode: simulated, nothing was bought or changed at the provider. ' : '') + t('done'); window.__vaInfo = d.steps ? { steps: d.steps, target: d.target } : null; render(); }).catch(function (e) { note(el, e.message, true); }); }
     el.querySelectorAll('[data-assign]').forEach(function (s) { s.addEventListener('change', function () { post('/api/voice-agent/numbers/' + (+s.getAttribute('data-assign')) + '/assign', { agent_id: s.value }); }); });
     el.querySelectorAll('[data-test]').forEach(function (b) { b.addEventListener('click', function () { api('/api/voice-agent/numbers/' + (+b.getAttribute('data-test')) + '/test', {}).then(function (d) { note(el, 'Status: ' + String(d.state || d.status || 'unknown').replace(/_/g, ' ') + (d.detail ? ' - ' + d.detail : '')); }).catch(function (e) { note(el, e.message, true); }); }); });
