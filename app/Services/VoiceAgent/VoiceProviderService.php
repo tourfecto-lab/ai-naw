@@ -20,6 +20,12 @@ class VoiceProviderService
     {
         $class = VoiceProviderRegistry::classFor($provider);
         $out = [];
+        foreach ($class::optionalCredentialFields() as $f) {
+            $v = trim((string) ($in[$f] ?? ''));
+            if ($v !== '' && strlen($v) <= 512) {
+                $out[$f] = $v;
+            }
+        }
         foreach ($class::credentialFields() as $f) {
             $v = trim((string) ($in[$f] ?? ''));
             if ($v === '' || strlen($v) > 512) {

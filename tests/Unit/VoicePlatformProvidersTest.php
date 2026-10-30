@@ -22,7 +22,7 @@ final class VoicePlatformProvidersTest extends TestCase
     {
         $this->assertSame(['account_sid' => 'AC1', 'auth_token' => 't'], VoicePlatformCredentials::forProvider('twilio', $this->env(['TWILIO_VOICE_ACCOUNT_SID' => ' AC1 ', 'TWILIO_VOICE_AUTH_TOKEN' => 't'])));
         $this->assertNull(VoicePlatformCredentials::forProvider('twilio', $this->env(['TWILIO_VOICE_ACCOUNT_SID' => 'AC1'])));
-        $this->assertSame(['TELNYX_CONNECTION_ID', 'TELNYX_PUBLIC_KEY'], VoicePlatformCredentials::missing('telnyx', $this->env(['TELNYX_API_KEY' => 'k'])));
+        $this->assertSame(['TELNYX_CONNECTION_ID'], VoicePlatformCredentials::missing('telnyx', $this->env(['TELNYX_API_KEY' => 'k'])));
         $this->assertNull(VoicePlatformCredentials::forProvider('nobody'));
         $this->assertSame([], VoicePlatformCredentials::envKeys('nobody'));
     }
@@ -31,7 +31,7 @@ final class VoicePlatformProvidersTest extends TestCase
     {
         foreach (VoiceProviderRegistry::keys() as $k) {
             $class = VoiceProviderRegistry::classFor($k);
-            $fields = $class::credentialFields();
+            $fields = array_merge($class::credentialFields(), $class::optionalCredentialFields());
             sort($fields);
             $mapped = array_keys(VoicePlatformCredentials::MAP[$k]);
             sort($mapped);

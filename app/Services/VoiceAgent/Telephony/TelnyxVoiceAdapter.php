@@ -19,7 +19,13 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
 
     public static function credentialFields(): array
     {
-        return ['api_key', 'connection_id', 'public_key'];
+        return ['api_key', 'connection_id'];
+    }
+
+    /** Telnyx only shows the webhook public key on upgraded accounts; without it the platform token in the webhook URL is the way in. */
+    public static function optionalCredentialFields(): array
+    {
+        return ['public_key'];
     }
 
     public function capabilities(): array
@@ -162,7 +168,7 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
             return false;
         }
         $s = base64_decode($sig, true);
-        $k = base64_decode((string) $this->cred['public_key'], true);
+        $k = base64_decode((string) ($this->cred['public_key'] ?? ''), true);
         if ($s === false || $k === false || strlen($s) !== SODIUM_CRYPTO_SIGN_BYTES || strlen($k) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
             return false;
         }
