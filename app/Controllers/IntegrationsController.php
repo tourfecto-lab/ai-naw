@@ -411,7 +411,7 @@ class IntegrationsController extends Controller
                 : '';
             $siteHub = '<style>.tf-hub-step{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--panel-border,rgba(127,127,127,.2))}.tf-hub-n{flex:0 0 28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--panel-primary,#4c6fff);color:#fff}'
                 . '.tf-hub-b{flex:1;min-width:0}.tf-hub-code{display:block;padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.14);font-size:12px;overflow-x:auto;white-space:pre}'
-                . '.tf-hub-toggles{display:grid;gap:8px;margin-bottom:10px}.tf-hub-toggle{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.tf-hub-toggle small{display:block;font-size:12px;opacity:.75}</style>'
+                . '.tf-hub-toggles{display:grid;gap:8px;margin-bottom:10px}.tf-hub-toggle{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.tf-hub-toggle small{display:block;font-size:12px;opacity:.75}#site-hub .scc-detect{display:none}</style>'
                 . '<div class="p-card" id="site-hub" style="margin-bottom:16px;"><div class="p-card-head"><h3>🔗 ربط موقعك</h3><span class="p-card-sub">مرة واحدة، وكل خدمات المنصة بتشتغل على موقعك</span></div>'
                 . $picker . '<div class="p-cell-muted" style="font-size:12.5px;" dir="ltr">' . htmlspecialchars((string) $hubSite->getAttribute('main_url'), ENT_QUOTES, 'UTF-8') . '</div>'
                 . '<div id="tfSiteHub" data-site="' . $hubId . '"></div>'

@@ -68,8 +68,12 @@
             + (s && s.publish ? (s.publish.connected ? '<span class="pill green">' + L('مربوط', 'Connected') + '</span> <small class="p-cell-muted">' + esc(s.publish.name) + '</small>' : '<span class="pill gray">' + L('مش مربوط', 'Not connected') + '</span>') : '')
             + '<div class="p-cell-muted" style="font-size:12.5px">' + (key === 'wordpress' ? L('موقعك ووردبريس: اربطه بضغطة تحت، والمقالات والإصلاحات بتنزل عليه لوحدها.', 'WordPress: connect it in one click below and articles and fixes go live on their own.')
                 : ['shopify', 'webflow', 'ghost'].indexOf(key) !== -1 ? L('اربطه تحت بالخطوات اللي ظاهرة لنظامك، والمقالات بتنزل عليه لوحدها.', 'Connect it below with the steps for your platform; articles publish on their own.')
-                : L('المقالات بتوصلك جاهزة تنسخها، أو المبرمج يربط الـ API تحت عشان تنزل لوحدها.', 'Articles arrive ready to copy, or your developer connects the API below to publish automatically.')) + '</div></div></div>';
+                : L('المقالات بتوصلك جاهزة تنسخها، أو المبرمج يربط الـ API تحت عشان تنزل لوحدها.', 'Articles arrive ready to copy, or your developer connects the API below to publish automatically.'))
+            + (state.platform && key !== 'wordpress' && !state.showWp ? ' <button type="button" class="p-btn ghost xs" data-hub-wp>' + L('موقعي ووردبريس فعلًا', 'My site is WordPress') + '</button>' : '') + '</div></div></div>';
         root.innerHTML = html;
+        // ويزارد ووردبريس بيظهر بس لموقع ووردبريس (أو لو العميل قال إن موقعه ووردبريس والاكتشاف ماشافهوش)
+        var wp = document.getElementById('siteConnect');
+        if (wp && state.platform) wp.style.display = key === 'wordpress' || state.showWp ? '' : 'none';
     }
     function toggle(svc, on, title, sub) {
         return '<label class="tf-hub-toggle"><input type="checkbox" data-hub-svc="' + svc + '"' + (on ? ' checked' : '') + '><span><b>' + title + '</b><small>' + sub + '</small></span></label>';
@@ -82,6 +86,7 @@
             return;
         }
         if (e.target.closest('[data-hub-recheck]')) { state.status = null; render(); loadStatus(); }
+        if (e.target.closest('[data-hub-wp]')) { state.showWp = true; render(); }
     });
     root.addEventListener('change', function (e) {
         var t = e.target.closest('[data-hub-svc]'); if (!t) return;
