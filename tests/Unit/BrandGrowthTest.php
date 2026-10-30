@@ -51,7 +51,7 @@ final class BrandGrowthTest extends TestCase
 
     public function testScore(): void
     {
-        $ok = BrandSiteAudit::analyzePage('https://tourfecto.pro/', 200, $this->good(), 500, 'tourfecto.pro');
+        $ok = BrandSiteAudit::analyzePage('https://tourfecto.pro/features', 200, $this->good(), 500, 'tourfecto.pro');
         $this->assertSame(100, BrandSiteAudit::summarize([$ok], [])['score']);
         $bad = BrandSiteAudit::analyzePage('https://tourfecto.pro/gone', 500, '', 100, 'tourfecto.pro');
         $s = BrandSiteAudit::summarize([$ok, $bad], [['critical', 'sitemap_missing', 'x'], ['info', 'llms_txt_missing', 'y']]);
