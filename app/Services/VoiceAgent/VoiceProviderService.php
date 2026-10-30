@@ -66,6 +66,7 @@ class VoiceProviderService
                 'provider' => $k, 'configured' => $r !== null, 'status' => $r['status'] ?? 'not_configured',
                 'last_test_at' => $r['last_test_at'] ?? null, 'last_test_detail' => $r['last_test_detail'] ?? null,
                 'credential_fields' => $class::credentialFields(),
+                'webhook_urls' => VoiceInboundService::webhookUrls(defined('APP_URL') ? APP_URL : '', $k, $tenantId),
                 'capabilities' => self::capabilitiesOf($k),
             ];
         }

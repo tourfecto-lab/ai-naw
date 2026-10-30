@@ -41,6 +41,13 @@ class VoiceWebhookService
         // INSERT IGNORE + the unique key keep a concurrent retry from double-inserting; cost recording is an idempotent upsert.
         $db->exec('INSERT IGNORE INTO voice_webhook_events (tenant_user_id, provider, event_id, call_id, status, created_at) VALUES (?,?,?,?,?,NOW())', [$tenantId, $provider, $ev['event_id'], $ev['call_id'], $ev['status']]);
         if (in_array($ev['status'], ['completed', 'busy', 'failed', 'no-answer', 'canceled'], true)) {
+            try {
+                (new VoiceInboundService($this->providers))->onStatus($tenantId, $provider, $ev);
+            } catch (Throwable $e) {
+                if (class_exists('Logger')) {
+                    Logger::error('VoiceWebhookService: call close failed', ['error' => $e->getMessage()]);
+                }
+            }
             $cost = null;
             $source = 'none';
             if ($adapter->capabilities()['cost_lookup']) {

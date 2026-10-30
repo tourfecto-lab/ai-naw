@@ -88,8 +88,8 @@ class VoiceNumberRules
         switch ($method) {
             case 'provider_native':
                 return [
-                    'ar' => ["الرقم $number موجود في حسابك لدى المزوّد؛ نتحقق من الملكية تلقائيًا من حسابك.", 'لا حاجة لأي تحويل؛ سيتم ضبط الرقم ليرسل مكالماته إلى Tourfecto.'],
-                    'en' => ["$number is in your own provider account; ownership is checked automatically from that account.", 'No forwarding needed; the number will be pointed at Tourfecto.'],
+                    'ar' => ["الرقم $number موجود في حسابك لدى المزوّد؛ نتحقق من الملكية تلقائيًا من حسابك.", 'في لوحة المزوّد اضبط Webhook المكالمات الواردة لهذا الرقم على: ' . ($target ?: '(الرابط يظهر بعد إعداد المزوّد)') . ' ثم اضغط اختبار الربط.'],
+                    'en' => ["$number is in your own provider account; ownership is checked automatically from that account.", 'In your provider console set this number\'s incoming-call webhook to: ' . ($target ?: '(shown after the provider is set up)') . ' then press Test link.'],
                 ];
             case 'forward':
                 $t = $target ?: '(a Tourfecto number)';

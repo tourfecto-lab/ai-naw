@@ -41,6 +41,13 @@ interface VoiceProviderAdapter
     /** Answer instructions for an inbound call. ['content_type'=>..., 'body'=>...] */
     public function inboundInstructions(array $opts): array;
 
+    /**
+     * One conversational turn for providers that can run speech-gather turns (capability turn_mode).
+     * opts: say, voice, language (speech locale), gather_url (null = no further input), transfer_to (E.164), hangup (bool)
+     * @return array{content_type:string, body:string}
+     */
+    public function turnInstructions(array $opts): array;
+
     public function verifyWebhook(string $url, array $headers, string $rawBody, array $params): bool;
 
     /** @return array<string,mixed>|null normalised: event_id,call_id,status,direction,from,to,duration_s,cost_usd,cost_source,recording_url */

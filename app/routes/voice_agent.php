@@ -29,3 +29,13 @@ $router->post('/api/voice-agent/numbers/{id}/verify/confirm','VoiceNumberControl
 $router->post('/api/voice-agent/numbers/{id}/test','VoiceNumberController','test',['AuthMiddleware']);
 $router->post('/api/voice-agent/numbers/{id}/assign','VoiceNumberController','assign',['AuthMiddleware']);
 $router->post('/api/voice-agent/numbers/{id}/release','VoiceNumberController','release',['AuthMiddleware']);
+
+// Phase 4: inbound AI calls (public, provider-signed) and the realtime bridge API (public, token + HMAC)
+$router->post('/webhooks/voice/{provider}/{tenant}/inbound','VoiceWebhookController','inbound',[]);
+$router->post('/webhooks/voice/{provider}/{tenant}/turn','VoiceWebhookController','turn',[]);
+$router->post('/api/voice-bridge/context','VoiceBridgeController','context',[]);
+$router->post('/api/voice-bridge/tool','VoiceBridgeController','tool',[]);
+$router->post('/api/voice-bridge/end','VoiceBridgeController','end',[]);
+// Phase 4: call history for the account
+$router->get('/api/voice-agent/calls','VoiceCallsController','index',['AuthMiddleware']);
+$router->get('/api/voice-agent/calls/{id}','VoiceCallsController','show',['AuthMiddleware']);

@@ -6,8 +6,7 @@
  */
 class VoiceWebhookController extends Controller
 {
-    /** POST /webhooks/voice/{provider}/{tenant}/status */
-    public function status(array $params = []): array
+    private function request(): array
     {
         $headers = [];
         foreach ($_SERVER as $k => $v) {
@@ -16,10 +15,41 @@ class VoiceWebhookController extends Controller
             }
         }
         $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? '');
-        $raw = (string) file_get_contents('php://input');
-        [$code, $body] = (new VoiceWebhookService())->handle(strtolower((string) ($params['provider'] ?? '')), (int) ($params['tenant'] ?? 0), $url, $headers, $raw, $_POST);
+        return [$url, $headers, (string) file_get_contents('php://input')];
+    }
+
+    private function send(int $code, string $type, string $body): void
+    {
         http_response_code($code);
+        header('Content-Type: ' . $type);
         echo $body;
         exit;
+    }
+
+    /** POST /webhooks/voice/{provider}/{tenant}/status */
+    public function status(array $params = []): array
+    {
+        [$url, $headers, $raw] = $this->request();
+        [$code, $body] = (new VoiceWebhookService())->handle(strtolower((string) ($params['provider'] ?? '')), (int) ($params['tenant'] ?? 0), $url, $headers, $raw, $_POST);
+        $this->send($code, 'text/plain', $body);
+        return [];
+    }
+
+    /** POST /webhooks/voice/{provider}/{tenant}/inbound - a call arrived on one of the tenant's numbers */
+    public function inbound(array $params = []): array
+    {
+        [$url, $headers, $raw] = $this->request();
+        [$code, $type, $body] = (new VoiceInboundService())->handleInbound(strtolower((string) ($params['provider'] ?? '')), (int) ($params['tenant'] ?? 0), $url, $headers, $raw, $_POST);
+        $this->send($code, $type, $body);
+        return [];
+    }
+
+    /** POST /webhooks/voice/{provider}/{tenant}/turn?call=ID&n=SEQ - the caller said something */
+    public function turn(array $params = []): array
+    {
+        [$url, $headers, $raw] = $this->request();
+        [$code, $type, $body] = (new VoiceInboundService())->handleTurn(strtolower((string) ($params['provider'] ?? '')), (int) ($params['tenant'] ?? 0), $url, $headers, $raw, $_POST, (int) ($_GET['call'] ?? 0), (int) ($_GET['n'] ?? 0));
+        $this->send($code, $type, $body);
+        return [];
     }
 }

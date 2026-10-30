@@ -44,6 +44,11 @@ abstract class AbstractVoiceProviderAdapter implements VoiceProviderAdapter
         return '+' . $d;
     }
 
+    public function turnInstructions(array $opts): array
+    {
+        throw new LogicException('Turn mode is not supported by this provider');
+    }
+
     public function usageRates(string $iso, string $type): ?array
     {
         return null;

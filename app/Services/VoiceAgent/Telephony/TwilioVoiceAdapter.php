@@ -23,7 +23,7 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
     public function capabilities(): array
     {
         return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => true, 'sip' => true,
-            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => true, 'inline_voice' => true];
+            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => true, 'inline_voice' => true, 'turn_mode' => true];
     }
 
     private function auth(): array
@@ -212,6 +212,26 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
             $inner .= '<Dial' . $rec . '>' . $x(self::e164($opts['forward_to'])) . '</Dial>';
         } elseif (!empty($opts['sip_uri'])) {
             $inner .= '<Dial><Sip>' . $x($opts['sip_uri']) . '</Sip></Dial>';
+        }
+        return ['content_type' => 'text/xml', 'body' => '<?xml version="1.0" encoding="UTF-8"?><Response>' . $inner . '</Response>'];
+    }
+
+    public function turnInstructions(array $o): array
+    {
+        $x = static fn ($v) => htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES);
+        $voice = preg_match('/^[A-Za-z0-9._\-]{2,60}$/', (string) ($o['voice'] ?? '')) ? $o['voice'] : 'Polly.Joanna';
+        $say = '<Say voice="' . $x($voice) . '">' . $x($o['say'] ?? '') . '</Say>';
+        $inner = $say;
+        if (!empty($o['gather_url'])) {
+            if (!preg_match('#^https://#i', (string) $o['gather_url'])) {
+                throw new InvalidArgumentException('gather_url must be https');
+            }
+            $loc = preg_match('/^[a-z]{2}-[A-Z]{2}$/', (string) ($o['language'] ?? '')) ? $o['language'] : 'en-US';
+            $inner = '<Gather input="speech" action="' . $x($o['gather_url']) . '" method="POST" language="' . $x($loc) . '" speechTimeout="auto" timeout="6" actionOnEmptyResult="true">' . $say . '</Gather>';
+        } elseif (!empty($o['transfer_to'])) {
+            $inner = $say . '<Dial>' . $x(self::e164($o['transfer_to'])) . '</Dial>';
+        } else {
+            $inner = $say . '<Hangup/>';
         }
         return ['content_type' => 'text/xml', 'body' => '<?xml version="1.0" encoding="UTF-8"?><Response>' . $inner . '</Response>'];
     }
