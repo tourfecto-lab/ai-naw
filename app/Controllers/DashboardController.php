@@ -796,6 +796,14 @@ class DashboardController extends Controller
             // التخطي بيتسجّل في الجلسة واللوحة بتحترمه.
             if (!empty($_GET['skip_onboarding'])) {
                 $_SESSION['onboarding_skipped'] = true;
+                // بيتسجّل دايمًا (مش في الجلسة بس) عشان مايترجعش للمعالج في كل دخول جاي
+                try {
+                    if (class_exists('ActivityLog') && !empty($this->user['id'])) {
+                        ActivityLog::record('onboarding', 'onboarding.skipped', ['user_id' => (int) $this->user['id']]);
+                    }
+                } catch (Throwable $e) {
+                    error_log('[DashboardController] ignored error: ' . $e->getMessage());
+                }
                 // «معنديش موقع» في المعالج: يتخطّى ويروح على منشئ المواقع مباشرة
                 $next = (string) ($_GET['next'] ?? '');
                 if (in_array($next, ['/website-builder', '/websites'], true)) {
@@ -831,8 +839,16 @@ class DashboardController extends Controller
                         header('Location: /chat');
                         exit;
                     }
-                    header('Location: /onboarding');
-                    exit;
+                    // المعالج مرة واحدة بس: اللي شافه أو تخطّاه قبل كده بيدخل اللوحة عادي (مهام التجربة بتفكّره بالموقع)
+                    // بدل ما يتحوّل على «اكتب رابط موقعك» في كل دخول لحد ما يعمل موقع
+                    $seen = (int) ($this->db->query(
+                        "SELECT COUNT(*) AS c FROM activity_logs WHERE user_id = ? AND module = 'onboarding' AND action IN ('onboarding.viewed', 'onboarding.skipped')",
+                        [(int) $this->user['id']]
+                    )[0]['c'] ?? 0);
+                    if ($seen === 0) {
+                        header('Location: /onboarding');
+                        exit;
+                    }
                 }
             }
         } catch (Throwable $e) {

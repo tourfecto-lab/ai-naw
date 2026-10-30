@@ -69,6 +69,31 @@ class WebsiteController extends Controller
         return preg_replace('/^www\./', '', $h);
     }
 
+    private const FREE_MAIL_DOMAINS = ['gmail.com', 'googlemail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com', 'msn.com', 'icloud.com', 'me.com',
+        'aol.com', 'proton.me', 'protonmail.com', 'yandex.com', 'mail.ru', 'gmx.com', 'gmx.de', 'web.de', 'zoho.com'];
+
+    /**
+     * أسهل توثيق: إيميل الحساب المتأكد منه على نفس دومين الموقع (info@memphistours.com ← memphistours.com)
+     * يكفي من غير ملف ولا DNS. إيميلات Gmail وأمثالها مابتثبتش ملكية أي موقع.
+     */
+    private function ownsByEmail(int $userId, string $mainUrl): bool
+    {
+        try {
+            $u = $this->db()->query('SELECT email, email_verified_at FROM users WHERE id = ? LIMIT 1', [$userId])[0] ?? null;
+        } catch (Throwable $e) {
+            return false;
+        }
+        if (!$u || empty($u['email_verified_at'])) {
+            return false;
+        }
+        $domain = strtolower(trim((string) substr((string) strrchr((string) $u['email'], '@'), 1)));
+        $host = self::hostKey($mainUrl);
+        if ($domain === '' || $host === '' || in_array($domain, self::FREE_MAIL_DOMAINS, true)) {
+            return false;
+        }
+        return $host === $domain || str_ends_with($host, '.' . $domain);
+    }
+
     /** id الموقع المكرر عند نفس الحساب (نفس الدومين، مع أو من غير www) */
     private function findDuplicateWebsite(int $userId, string $url): ?int
     {
@@ -646,11 +671,16 @@ JS;
             }
 
             $saved = $website->find($id);
+            if ($saved && $this->ownsByEmail((int) $userId, $mainUrl)) {
+                $saved->setAttribute('is_verified', 1);
+                $saved->save();
+                $this->log('Website Verified', ['website_id' => $id, 'method' => 'email_domain']);
+            }
 
             return $this->success([
                 'website' => $saved->toArray(),
                 'verification' => $this->verificationInstructions($saved),
-            ], 'تم إضافة الموقع بنجاح، وتفعيله محتاج تأكيد الملكية', 201);
+            ], 'تم إضافة الموقع بنجاح', 201);
 
         } catch (Exception $e) {
             Logger::error('Website Store Error', ['message' => $e->getMessage()]);
@@ -776,11 +806,28 @@ JS;
             JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
         );
 
-        $notVerifiedAlert = $isVerified ? '' : '<div class="alert alert-warning">⚠️ ' . $tNotVerifiedWarning . '</div>';
+        // التوثيق مابيقفلش أي أداة: رسالة هادية بدل تحذير، وطريق سهل لصاحب الشركة اللي مش بيعرف يعدّل الموقع بنفسه
+        $notVerifiedAlert = $isVerified ? '' : '<div class="alert alert-info">ℹ️ ' . $tNotVerifiedWarning . '</div>';
+        $devText = str_replace('{url}', (string) $website->getAttribute('main_url'), t('websites.dev_share_text')) . "\n" . $instructions['meta_tag']
+            . "\n\n" . str_replace(['{name}', '{file_url}'], [$instructions['file']['name'], $instructions['file']['url']], t('websites.dev_share_file'))
+            . "\n" . $instructions['file']['content'];
+        $devTextAttr = htmlspecialchars($devText, ENT_QUOTES, 'UTF-8');
+        $devWaHref = htmlspecialchars('https://wa.me/?text=' . rawurlencode($devText), ENT_QUOTES, 'UTF-8');
+        $tDevHint = $this->tr('websites.dev_share_hint');
+        $tDevWa = $this->tr('websites.dev_share_btn');
+        $tDevCopy = $this->tr('websites.dev_copy_btn');
+        $tCopied = $this->tr('sc.copied');
         $verifyBlock = $isVerified
             ? '<div class="alert alert-success">✔ ' . $tVerifiedMsg . '</div>'
             : <<<HTML
                 <details class="sc-manual" id="scManual"><summary>{$tManualSummary}</summary>
+                <div class="p-card" style="background:var(--panel-bg,#f7f8fa);margin-bottom:12px;">
+                    <p style="margin:0 0 10px;">{$tDevHint}</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <a class="p-btn primary" href="{$devWaHref}" target="_blank" rel="noopener">{$tDevWa}</a>
+                        <button type="button" class="p-btn outline" data-text="{$devTextAttr}" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.dataset.text).then(()=>{this.textContent='{$tCopied}';})">{$tDevCopy}</button>
+                    </div>
+                </div>
                 <p class="p-cell-muted">{$tChooseMethod}</p>
                 <div class="p-grid cols-2">
                     <div class="p-card" style="background:var(--panel-bg,#f7f8fa);">
@@ -1110,7 +1157,9 @@ JS;
             return $this->error('رابط الموقع غير صالح', 422);
         }
 
-        $result = $this->runVerificationChecks($mainUrl, $host, $token);
+        $result = $this->ownsByEmail((int) $userId, $mainUrl)
+            ? ['verified' => true, 'method' => 'email_domain', 'checks' => []]
+            : $this->runVerificationChecks($mainUrl, $host, $token);
 
         if (!$result['verified']) {
             return $this->error(
