@@ -262,4 +262,18 @@ final class VoiceCostsSecurityTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         VoicePlatformSettings::sanitize(['voice_public_base_url' => 'http://insecure.test']);
     }
+
+    public function testTelnyxWorksWithoutThePublicKeyAndStillRefusesUnauthenticatedWebhooks(): void
+    {
+        $get = static fn (string $k) => ['TELNYX_API_KEY' => 'KEY1', 'TELNYX_CONNECTION_ID' => '308'][$k] ?? '';
+        $creds = VoicePlatformCredentials::forProvider('telnyx', $get);
+        $this->assertSame(['api_key' => 'KEY1', 'connection_id' => '308'], $creds);
+        $this->assertSame([], VoicePlatformCredentials::missing('telnyx', $get));
+        $this->assertNull(VoicePlatformCredentials::forProvider('telnyx', static fn (string $k) => ['TELNYX_CONNECTION_ID' => '308'][$k] ?? '')); // the API key is still required
+        $this->assertSame(['TELNYX_API_KEY'], VoicePlatformCredentials::missing('telnyx', static fn (string $k) => ['TELNYX_CONNECTION_ID' => '308'][$k] ?? ''));
+        $x = new TelnyxVoiceAdapter($creds, new VoiceFakeHttp());
+        $this->assertFalse($x->verifyWebhook('https://t.test/inbound', ['telnyx-signature-ed25519' => 'AAAA', 'telnyx-timestamp' => (string) time()], '{}', []));
+        $this->assertEquals(['api_key' => 'K', 'connection_id' => 'C', 'public_key' => 'P'], VoiceProviderService::sanitizeCredentials('telnyx', ['api_key' => 'K', 'connection_id' => 'C', 'public_key' => 'P']));
+        $this->assertSame(['api_key' => 'K', 'connection_id' => 'C'], VoiceProviderService::sanitizeCredentials('telnyx', ['api_key' => 'K', 'connection_id' => 'C']));
+    }
 }

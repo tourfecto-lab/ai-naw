@@ -16,6 +16,12 @@ abstract class AbstractVoiceProviderAdapter implements VoiceProviderAdapter
         $this->http = $http ?? new CurlVoiceHttpClient();
     }
 
+    /** Credentials that may be left out (the adapter then works without them). @return string[] */
+    public static function optionalCredentialFields(): array
+    {
+        return [];
+    }
+
     /** @return array decoded JSON body ([] for empty) */
     protected function json(string $method, string $url, $body = null, array $headers = [], ?array $auth = null): array
     {

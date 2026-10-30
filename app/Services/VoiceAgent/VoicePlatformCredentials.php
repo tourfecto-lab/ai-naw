@@ -12,6 +12,8 @@ class VoicePlatformCredentials
         'twilio' => ['account_sid' => 'TWILIO_VOICE_ACCOUNT_SID', 'auth_token' => 'TWILIO_VOICE_AUTH_TOKEN'],
         'telnyx' => ['api_key' => 'TELNYX_API_KEY', 'connection_id' => 'TELNYX_CONNECTION_ID', 'public_key' => 'TELNYX_PUBLIC_KEY'],
     ];
+    /** credential fields a provider can work without */
+    public const OPTIONAL = ['telnyx' => ['public_key']];
     /** admin integration key => provider */
     public const INTEGRATIONS = ['twilio_voice' => 'twilio', 'telnyx_voice' => 'telnyx'];
 
@@ -38,6 +40,9 @@ class VoicePlatformCredentials
         foreach (self::MAP[$provider] ?? [] as $field => $envKey) {
             $v = trim((string) $get($envKey));
             if ($v === '') {
+                if (in_array($field, self::OPTIONAL[$provider] ?? [], true)) {
+                    continue;
+                }
                 return null;
             }
             $out[$field] = $v;
@@ -49,7 +54,8 @@ class VoicePlatformCredentials
     public static function missing(string $provider, ?callable $get = null): array
     {
         $get = $get ?? [self::class, 'read'];
-        return array_values(array_filter(self::envKeys($provider), static fn ($k) => trim((string) $get($k)) === ''));
+        $optional = array_map(static fn ($f) => self::MAP[$provider][$f] ?? '', self::OPTIONAL[$provider] ?? []);
+        return array_values(array_filter(self::envKeys($provider), static fn ($k) => !in_array($k, $optional, true) && trim((string) $get($k)) === ''));
     }
 
     /** Read-only connectivity check for the admin Integrations page. @return array{ok:bool, message:string} */
