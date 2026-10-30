@@ -12,7 +12,7 @@
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
     const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['executive', 'Business Health & Reports'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['finance', 'Finance & Strategy'], ['ops', 'Platform & Dev Advisor'], ['costs', 'AI Costs'], ['setup', 'Setup & Integrations'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
-    let sales = null, salesError = null, salesLoading = false;
+    let sales = null, salesError = null, salesLoading = false, salesAll = false;
     // نمو علامة Tourfecto (المرحلة 5)
     let brand = null, brandError = null, brandLoading = false, brandPlan = null;
     // نجاح العملاء والإيرادات (المرحلة 6)
@@ -172,7 +172,7 @@
       const srcRows = Object.entries(pl.by_source).map(([r, v]) => `<tr><td dir="ltr">${esc(r)}</td>${Object.values(v).map(n => `<td>${num(n)}</td>`).join('')}</tr>`);
       const head = '<tr><th></th>' + Object.keys(st).map(k => `<th>${esc(k.replace('_', ' '))}</th>`).join('') + '</tr>';
       const reasons = Object.entries(q.counts.reasons || {}).map(([r, n]) => `<li>${esc(r)}: ${num(n)}</li>`).join('');
-      const qRows = q.items.map(i => `<tr><td dir="auto">${esc(i.company || '—')}</td><td>${esc(i.country || '?')} · ${esc(i.verdict.region)}</td><td>${num(i.icp_fit)}</td><td>${i.score ?? '—'}</td><td>${esc(i.track || '')}</td>
+      const qRows = (salesAll ? q.items : q.items.slice(0, 50)).map(i => `<tr><td dir="auto">${esc(i.company || '—')}</td><td>${esc(i.country || '?')} · ${esc(i.verdict.region)}</td><td>${num(i.icp_fit)}</td><td>${i.score ?? '—'}</td><td>${esc(i.track || '')}</td>
         <td>${i.verdict.ok ? `✓ ${esc(i.verdict.basis)}` : `<span class="br-muted">${i.verdict.reason_texts.map(esc).join('; ')}</span>`}</td><td>${owner && i.verdict.ok ? `<button type="button" class="p-btn xs outline" data-sapprove="${i.id}">Approve</button>` : ''}</td></tr>`);
       return `<section class="br-card"><h3>Lawful basis & targeting</h3>
         <p class="br-muted">No first message is approved unless it passes this gate. This is a conservative safeguard, not legal advice. When in doubt, keep a region off and ask your lawyer.</p>
@@ -194,9 +194,9 @@
         <section class="br-card"><div class="br-head"><div><h3>First-message approvals</h3><p class="br-muted">${num(q.counts.ok)} may be contacted · ${num(q.counts.blocked)} blocked by the gate. Sorted by ideal-customer fit.</p></div>
           <div class="br-actions">${owner && q.counts.ok ? `<button type="button" class="p-btn primary xs" id="slApproveAll">Approve all ${num(q.counts.ok)} compliant</button>` : ''}<button type="button" class="p-btn outline xs" id="slReeval">Re-check approved queue</button></div></div>
         ${reasons ? `<details class="br-past"><summary>Why companies are blocked</summary><ul class="br-proof">${reasons}</ul></details>` : ''}
-        ${qRows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Company</th><th>Country · region</th><th>ICP fit</th><th>Score</th><th>Need</th><th>Gate</th><th></th></tr></thead><tbody>${qRows.join('')}</tbody></table></div>` : '<p class="br-muted">No companies waiting for approval.</p>'}</section>
+        ${qRows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Company</th><th>Country · region</th><th>ICP fit</th><th>Score</th><th>Need</th><th>Gate</th><th></th></tr></thead><tbody>${qRows.join('')}</tbody></table></div>${q.items.length > 50 ? `<p><button type="button" class="p-btn outline xs" id="slAll">${salesAll ? 'Show the first 50' : `Show all ${q.items.length}`}</button></p>` : ''}` : '<p class="br-muted">No companies waiting for approval.</p>'}</section>
 
-        ${sales.active_noncompliant.length ? `<section class="br-card"><h3>Running sequences the gate now rejects (${sales.active_noncompliant.length})</h3><ul class="br-proof">${sales.active_noncompliant.slice(0, 30).map(x => `<li>#${x.id} ${esc(x.company || '')} · ${esc(x.country || '?')} · step ${x.step}: ${x.reasons.map(esc).join('; ')}</li>`).join('')}</ul>
+        ${sales.active_noncompliant.length ? `<section class="br-card"><h3>Running sequences the gate now rejects (${sales.active_noncompliant.length})</h3><ul class="br-proof">${sales.active_noncompliant.slice(0, salesAll ? 1000 : 10).map(x => `<li>#${x.id} ${esc(x.company || '')} · ${esc(x.country || '?')} · step ${x.step}: ${x.reasons.map(esc).join('; ')}</li>`).join('')}</ul>
           ${owner ? `<button type="button" class="p-btn xs" style="background:var(--panel-danger,#dc2626);color:#fff" id="slPause">Pause these ${sales.active_noncompliant.length}</button>` : ''}</section>` : ''}
 
         <section class="br-card"><h3>CRM handoff</h3><p>${num(pl.crm_pending)} replied or interested companies are not in the CRM yet. Moving creates a contact and a deal with a follow-up tomorrow in the platform owner's CRM.</p>
@@ -663,6 +663,7 @@
       root.querySelector('#bgAudit')?.addEventListener('click', () => { note = { text: 'Auditing the site… this can take a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/brand/audit', {}); await loadBrand(); }, 'Audit done ✓'); });
       root.querySelector('#bgPlan')?.addEventListener('click', () => { const markets = [...root.querySelectorAll('[data-bgm]:checked')].map(x => x.dataset.bgm), month = root.querySelector('#bgMonth').value;
         note = { text: 'Writing the plan… this can take a minute.' }; render(); act(async () => { brandPlan = await req('/api/admin/ai-ceo/brand/plan', { month, markets }); await loadBrand(); }, 'Plan saved to memory ✓'); });
+      root.querySelector('#slAll')?.addEventListener('click', () => { salesAll = !salesAll; render(); });
       root.querySelector('#slCrm')?.addEventListener('click', () => sAct('crm', {}, 'Moved to CRM ✓'));
       root.querySelector('#coForm')?.addEventListener('submit', ev => { ev.preventDefault(); const fd = new FormData(ev.target); coFilters = { page: 1 };
         for (const [k, v] of fd.entries()) coFilters[k] = k === 'has_email' || k === 'converted' ? true : v; loadCompanies(); });
