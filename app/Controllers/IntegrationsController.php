@@ -362,7 +362,7 @@ class IntegrationsController extends Controller
             $siteRows .= '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--panel-border,#e5e7eb);">'
                 . '<div style="min-width:0;"><div style="font-weight:600;overflow-wrap:anywhere;" dir="ltr">' . $u . '</div>'
                 . '<div class="conn-result" data-for="website-' . $sid . '" role="status" style="font-size:12.5px;margin-top:2px;"></div></div>'
-                . '<div style="display:flex;gap:6px;"><button type="button" class="p-btn outline xs" data-site-test="' . $sid . '">اختبار الموقع</button><a class="p-btn ghost xs" href="/websites">إدارة</a></div></div>';
+                . '<div style="display:flex;gap:6px;"><button type="button" class="p-btn outline xs" data-site-test="' . $sid . '">اختبار الموقع</button><a class="p-btn ghost xs" href="/websites/' . (int) $sid . '">إدارة</a></div></div>';
             $wa = [];
             try {
                 $wa = $this->db->query("SELECT platform, external_location_name, external_account_id FROM platform_connections WHERE user_id = ? AND website_id = ? AND platform IN ('whatsapp_cloud','ultramsg','whatsapp_qr','whatsapp') AND status = 'connected'", [$userId, $sid]);

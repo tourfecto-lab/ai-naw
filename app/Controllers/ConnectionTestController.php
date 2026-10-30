@@ -191,7 +191,8 @@ class ConnectionTestController extends Controller
         $speed = $ms < 1500 ? 'سريع' : ($ms < 4000 ? 'متوسط' : 'بطيء');
         return $this->success([
             'ok' => true, 'status' => $code, 'ms' => $ms, 'embed_installed' => $hasEmbed, 'url' => $url,
-        ], 'موقعك شغّال - بيفتح في ' . number_format($ms / 1000, 1) . ' ثانية (' . $speed . ')' . ($hasEmbed ? ' · كود المنصة متركّب' : ''));
+        ], 'موقعك شغّال - بيفتح في ' . number_format($ms / 1000, 1) . ' ثانية (' . $speed . ')'
+            . ($hasEmbed ? ' · كود المنصة متركّب' : ' · كود المنصة لسه مش متركّب: خطوات ربط موقعك كلها في صفحة الموقع («إدارة»)'));
     }
 
     // ------------------------------------------------------------------ أدوات

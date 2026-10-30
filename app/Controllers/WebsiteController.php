@@ -868,6 +868,55 @@ HTML;
         $tDeleteWebsite = $this->tr('websites.delete_website');
 
         $body = <<<HTML
+        <div class="p-card" id="siteConnectChecklist" style="margin-bottom:16px;">
+            <div class="p-card-head"><h3>🔗 ربط موقعك</h3><span class="p-card-sub" id="sccSummary">بنفحص موقعك…</span></div>
+            <div id="sccList"></div>
+        </div>
+        <script>
+        (function () {
+            var AR = (document.documentElement.lang || 'ar').indexOf('ar') === 0, L = function (a, e) { return AR ? a : e; };
+            var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+            var id = {$id};
+            function row(state, title, desc, href, btn) {
+                var icon = state === true ? '✅' : state === false ? '⬜' : 'ℹ️';
+                return '<div style="display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--panel-border,rgba(127,127,127,.2))">'
+                    + '<span style="font-size:18px">' + icon + '</span><div style="flex:1;min-width:0"><b>' + title + '</b><div class="p-cell-muted" style="font-size:12.5px">' + desc + '</div></div>'
+                    + (href ? '<a class="p-btn ' + (state === true ? 'outline' : 'primary') + ' xs" href="' + href + '">' + btn + '</a>' : '') + '</div>';
+            }
+            fetch('/api/websites/' + id + '/connect-status?check=1', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); }).then(function (res) {
+                    if (!res || !res.success) { document.getElementById('sccSummary').textContent = L('تعذر الفحص دلوقتي', 'Could not check right now'); return; }
+                    var d = res.data, seo = d.seo_code, chat = d.chat_code, rows = [];
+                    rows.push(seo.installed === true
+                        ? row(true, L('كود المنصة متركّب على موقعك', 'Platform code is on your site'), L('إصلاحات السيو بتتطبّق على موقعك لوحدها.', 'SEO fixes apply to your site automatically.'))
+                        : row(seo.installed === null && d.reachable === false ? null : false, L('كود المنصة (سطر واحد في موقعك)', 'Platform code (one line on your site)'),
+                            seo.ready ? L('الكود جاهز: انسخه وحطه قبل &lt;/head&gt; في موقعك، أو ابعته للي عامل موقعك.', 'Your code is ready: paste it before &lt;/head&gt; or send it to your web developer.')
+                                      : L('شغّل السيو التلقائي وخد السطر ده، وحطه قبل &lt;/head&gt; في موقعك.', 'Turn on Auto SEO to get this line, then paste it before &lt;/head&gt;.'),
+                            '/auto-seo', seo.ready ? L('انسخ الكود', 'Copy the code') : L('هات الكود', 'Get the code')));
+                    rows.push(chat.off
+                        ? row(null, L('شات الموقع مقفول', 'Website chat is off'), L('شغّله لو عايز السياح يكلموك من موقعك والذكاء الاصطناعي يرد.', 'Turn it on so travellers can chat from your site.'), '#siteWebChat', L('شغّله', 'Turn on'))
+                        : chat.installed === true ? row(true, L('شات الموقع ظاهر على موقعك', 'Website chat is live on your site'), L('الرسايل بتوصل صندوق الوارد.', 'Messages arrive in your inbox.'))
+                        : row(false, L('شات الموقع لسه مش ظاهر على موقعك', 'Website chat is not on your site yet'), L('انسخ كود الشات من تحت وحطه في موقعك.', 'Copy the chat code below and add it to your site.'), '#siteWebChat', L('كود الشات', 'Chat code')));
+                    rows.push(d.publish.connected
+                        ? row(true, L('النشر على موقعك مربوط', 'Publishing to your site is connected'), esc(d.publish.name))
+                        : row(false, L('النشر التلقائي على موقعك', 'Auto-publishing to your site'), L('المقالات والإصلاحات بتنزل على موقعك لوحدها: ووردبريس بضغطة، أو Shopify / Webflow / Ghost.', 'Articles and fixes go live on their own: WordPress in one click, or Shopify / Webflow / Ghost.'), '#siteConnect', L('اربط', 'Connect')));
+                    rows.push(d.search_console.connected
+                        ? row(true, 'Google Search Console', '<span dir="ltr">' + esc(d.search_console.name) + '</span>')
+                        : row(false, 'Google Search Console', L('ظهورك وكلماتك الحقيقية في جوجل.', 'Your real Google visibility and keywords.'), '/search-console/connect/' + id, L('اربط', 'Connect')));
+                    rows.push(d.analytics.connected
+                        ? row(true, 'Google Analytics', L('زيارات موقعك ومصادرها.', 'Your visits and where they come from.'))
+                        : row(false, 'Google Analytics', L('زيارات موقعك ومصادرها.', 'Your visits and where they come from.'), '/google-analytics/connect/' + id, L('اربط', 'Connect')));
+                    rows.push(d.verified
+                        ? row(true, L('ملكية الموقع متوثّقة', 'Ownership verified'), '')
+                        : row(null, L('توثيق الملكية (اختياري)', 'Ownership verification (optional)'), L('كل الأدوات شغالة من غيره.', 'Every tool works without it.'), '#scManual', L('إزاي', 'How')));
+                    var done = [seo.installed === true, chat.installed === true && !chat.off, d.publish.connected, d.search_console.connected, d.analytics.connected].filter(Boolean).length;
+                    document.getElementById('sccSummary').textContent = d.reachable === false
+                        ? L('مقدرناش نفتح موقعك نتأكد من الأكواد', 'We could not open your site to check the codes')
+                        : L(done + ' من 5 جاهزين', done + ' of 5 ready');
+                    document.getElementById('sccList').innerHTML = rows.join('');
+                }).catch(function () { document.getElementById('sccSummary').textContent = L('تعذر الفحص دلوقتي', 'Could not check right now'); });
+        })();
+        </script>
         <div class="p-card">
             <div class="p-card-head"><h3>{$mainUrl}</h3><span class="p-card-sub">{$tSiteSettingsSub}</span></div>
             {$notVerifiedAlert}
@@ -1183,6 +1232,67 @@ JS;
             'website' => $website->toArray(),
             'method' => $result['method'],
         ], $this->tr('websites.verified_msg'));
+    }
+
+    /** الأكواد بتاعة المنصة اللي ظاهرة في الصفحة الرئيسية للموقع */
+    public static function codesInHtml(string $html): array
+    {
+        return [
+            'seo' => stripos($html, '/embed.js?token=') !== false || stripos($html, "data-tourfecto") !== false || stripos($html, 'dataset.tourfecto') !== false,
+            'chat' => stripos($html, '/widget/chat') !== false,
+        ];
+    }
+
+    /**
+     * GET /api/websites/{id}/connect-status[?check=1]
+     * كل اللي يخص «ربط موقعك» في مكان واحد: كود المنصة، شات الموقع، النشر، Search Console، Analytics، التوثيق.
+     * check=1 بيفتح الصفحة الرئيسية مرة واحدة عشان نشوف الأكواد متركّبة فعلًا ولا لأ.
+     */
+    public function connectStatus(array $params): array
+    {
+        $userId = $this->userId();
+        if (!$userId) {
+            return $this->error('غير مسجل دخول', 401);
+        }
+        $website = (new Website())->find((int) ($params['id'] ?? 0));
+        if (!$website || (int) $website->getAttribute('user_id') !== (int) $userId) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+        $id = (int) $website->getAttribute('id');
+        $db = $this->db();
+        $conn = function (array $platforms) use ($db, $id): ?array {
+            $in = implode(',', array_fill(0, count($platforms), '?'));
+            return $db->query("SELECT platform, external_location_id, external_location_name FROM platform_connections WHERE website_id = ? AND platform IN ($in) AND status = 'connected' ORDER BY id DESC LIMIT 1", array_merge([$id], $platforms))[0] ?? null;
+        };
+        $publish = $conn(['wordpress', 'custom_api']);
+        $gsc = $conn(['google_search_console']);
+        $ga = $conn(['google_analytics']);
+        $seoReady = false;
+        try {
+            $seoReady = (bool) $db->query("SELECT id FROM websites WHERE id = ? AND is_connected = 1 AND embed_token IS NOT NULL AND embed_token <> '' LIMIT 1", [$id]);
+        } catch (Throwable $e) {
+            $seoReady = false;
+        }
+        $chatOff = class_exists('WebChatService') && (new WebChatService())->isSwitchedOff($id);
+
+        $codes = null;
+        if ($this->get('check')) {
+            $r = SafeHttp::exec((string) $website->getAttribute('main_url'), [CURLOPT_TIMEOUT => 12, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_USERAGENT => 'TourfectoBot/1.0 (+https://tourfecto.pro)', CURLOPT_ENCODING => '']);
+            $html = is_string($r['response'] ?? null) && (int) ($r['code'] ?? 0) < 400 ? (string) $r['response'] : '';
+            $codes = $html !== '' ? self::codesInHtml($html) : null;
+        }
+
+        $publishName = $publish ? ($publish['platform'] === 'wordpress' ? 'WordPress' : ucfirst((string) strtok((string) $publish['external_location_id'], ':'))) : '';
+        return $this->success([
+            'url' => (string) $website->getAttribute('main_url'),
+            'reachable' => $this->get('check') ? $codes !== null : null,
+            'seo_code' => ['ready' => $seoReady, 'installed' => $codes['seo'] ?? null],
+            'chat_code' => ['off' => $chatOff, 'installed' => $codes['chat'] ?? null],
+            'publish' => ['connected' => (bool) $publish, 'name' => $publish ? ($publishName . ($publish['external_location_name'] ? ' · ' . $publish['external_location_name'] : '')) : ''],
+            'search_console' => ['connected' => (bool) $gsc, 'name' => (string) ($gsc['external_location_id'] ?? '')],
+            'analytics' => ['connected' => (bool) $ga],
+            'verified' => (int) $website->getAttribute('is_verified') === 1,
+        ]);
     }
 
     /** POST /api/websites/{id}/competitors */
