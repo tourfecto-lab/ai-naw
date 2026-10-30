@@ -192,7 +192,7 @@ class ConnectionTestController extends Controller
         return $this->success([
             'ok' => true, 'status' => $code, 'ms' => $ms, 'embed_installed' => $hasEmbed, 'url' => $url,
         ], 'موقعك شغّال - بيفتح في ' . number_format($ms / 1000, 1) . ' ثانية (' . $speed . ')'
-            . ($hasEmbed ? ' · كود المنصة متركّب' : ' · كود المنصة لسه مش متركّب: خطوات ربط موقعك كلها في صفحة الموقع («إدارة»)'));
+            . ($hasEmbed ? ' · كود المنصة متركّب' : ' · كود Tourfecto لسه مش متركّب: انسخه من «ربط موقعك» في أول الصفحة'));
     }
 
     // ------------------------------------------------------------------ أدوات
