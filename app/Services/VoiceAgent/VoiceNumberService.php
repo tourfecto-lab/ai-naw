@@ -51,7 +51,7 @@ class VoiceNumberService
         $out = [];
         foreach ($this->db()->query('SELECT * FROM voice_numbers WHERE tenant_user_id = ? ORDER BY id DESC', [$tenantId]) ?: [] as $r) {
             $r['live_usable'] = VoiceNumberRules::liveUsable($r);
-            unset($r['verification_hash']);
+            unset($r['verification_hash'], $r['live_key'], $r['provider_number_id']);
             $out[] = $r;
         }
         return $out;
@@ -60,6 +60,10 @@ class VoiceNumberService
     /** Re-checks availability and price with the provider right now and stores a time-limited quote. */
     public function quote(int $tenantId, int $actorUserId, string $provider, string $e164, string $iso, string $type): array
     {
+        $provider = $provider !== '' ? $provider : (string) VoiceProviderService::defaultProvider();
+        if (!VoiceProviderRegistry::has($provider)) {
+            throw new InvalidArgumentException('No phone provider is available yet');
+        }
         $e164 = VoiceNumberRules::normalizeE164($e164);
         $iso = strtoupper(trim($iso));
         if (!in_array($type, VoiceNumberRules::TYPES, true) || !preg_match('/^[A-Z]{2}$/', $iso)) {
@@ -81,35 +85,39 @@ class VoiceNumberService
         if (empty($found['voice'])) {
             throw new InvalidArgumentException('This number does not support voice calls');
         }
-        $monthly = $found['monthly_cost'];
-        $first = VoiceNumberRules::firstCharge($monthly, $found['setup_cost'] ?? 0.0);
+        $pct = VoicePricing::markupPct();
+        $providerMonthly = $found['monthly_cost'];
+        $providerSetup = (float) ($found['setup_cost'] ?? 0.0);
+        $monthly = VoicePricing::apply($providerMonthly, $pct);
+        $setup = VoicePricing::apply($providerSetup, $pct) ?? 0.0;
+        $first = VoiceNumberRules::firstCharge($monthly, $setup);
         if ($first === null) {
             throw new InvalidArgumentException('The provider did not publish a price for this number, so it cannot be bought here');
         }
         $usage = null;
         try {
-            $usage = $this->providers->readAdapter($tenantId, $provider)->usageRates($iso, $type);
+            $usage = VoicePricing::applyRates($this->providers->readAdapter($tenantId, $provider)->usageRates($iso, $type), $pct);
         } catch (VoiceProviderException $e) {
             VoiceProviderErrorLog::record($tenantId, $provider, 'usage_rates', $e);
         }
         $req = VoiceNumberRules::assessRequirements($iso, (string) ($found['address_required'] ?? 'unknown'));
         $this->db()->exec(
-            "INSERT INTO voice_number_orders (tenant_user_id, provider, e164, country, number_type, monthly_cost, setup_cost, first_charge, currency, usage_json, requirement_level, needs_ack, status, quoted_by_user_id, quoted_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'quoted',?,NOW())",
-            [$tenantId, $provider, $e164, $iso, $type, $monthly, $found['setup_cost'] ?? 0.0, $first, $found['currency'], $usage ? json_encode($usage) : null, $req['level'], $req['needs_ack'] ? 1 : 0, $actorUserId]
+            "INSERT INTO voice_number_orders (tenant_user_id, provider, e164, country, number_type, monthly_cost, setup_cost, first_charge, provider_monthly_cost, provider_setup_cost, currency, usage_json, requirement_level, needs_ack, status, quoted_by_user_id, quoted_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'quoted',?,NOW())",
+            [$tenantId, $provider, $e164, $iso, $type, $monthly, $setup, $first, $providerMonthly, $providerSetup, $found['currency'], $usage ? json_encode($usage) : null, $req['level'], $req['needs_ack'] ? 1 : 0, $actorUserId]
         );
         $id = (int) $this->db()->getConnection()->lastInsertId();
         VoiceAuditService::record($tenantId, $actorUserId, 'number.quoted', 'order', $id, ['number' => $e164]);
         return [
-            'order_id' => $id, 'number' => $e164, 'country' => $iso, 'type' => $type, 'provider' => $provider,
-            'monthly_cost' => $monthly, 'setup_cost' => (float) ($found['setup_cost'] ?? 0), 'first_charge' => $first, 'currency' => $found['currency'],
+            'order_id' => $id, 'number' => $e164, 'country' => $iso, 'type' => $type,
+            'monthly_cost' => $monthly, 'setup_cost' => $setup, 'first_charge' => $first, 'currency' => $found['currency'],
             'usage_rates' => $usage, 'usage_note' => $usage ? 'Per-minute usage is billed on top of the monthly fee.' : 'The provider API does not publish usage rates for this route; check the provider price list before approving.',
-            'requirements' => $req, 'expires_in_seconds' => VoiceNumberRules::QUOTE_TTL_SECONDS,
+            'requirements' => $req + ['details' => VoiceMarkets::requirementDetails($iso, $type)], 'expires_in_seconds' => VoiceNumberRules::QUOTE_TTL_SECONDS,
         ];
     }
 
     /** Customer approval of an exact quote, then a guarded purchase (simulated unless every live condition holds). */
-    public function approve(int $tenantId, int $actorUserId, int $orderId, $acceptedTotal, bool $requirementsAck, array $providerRefs = []): array
+    public function approve(int $tenantId, int $actorUserId, int $orderId, $acceptedTotal, bool $requirementsAck, array $providerRefs = [], ?int $agentId = null): array
     {
         $o = $this->db()->query('SELECT * FROM voice_number_orders WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$orderId, $tenantId]);
         if (!$o) {
@@ -165,16 +173,27 @@ class VoiceNumberService
             throw new RuntimeException('The number was purchased but could not be saved. Support has been alerted with the order reference ' . $orderId);
         }
         $numberId = (int) $this->db()->getConnection()->lastInsertId();
+        if ($agentId !== null) {
+            try {
+                $this->assign($tenantId, $numberId, $agentId, null); // the number answers with the chosen assistant from day one
+            } catch (InvalidArgumentException $e) {
+                // an unknown agent must not undo a purchase that already happened; the company can assign later
+            }
+        }
+        $this->ensureDefault($tenantId);
         $this->db()->exec("UPDATE voice_number_orders SET status='completed', result_json=? WHERE id=? AND tenant_user_id=?", [json_encode(['simulated' => $simulated, 'reason' => $res['reason'] ?? null, 'number_id' => $numberId]), $orderId, $tenantId]);
         return ['number_id' => $numberId, 'status' => $status, 'simulated' => $simulated, 'reason' => $res['reason'] ?? null];
     }
 
     /** Add an existing number. provider_native is proven from the customer's own provider account right away. */
-    public function connect(int $tenantId, int $actorUserId, string $e164, string $method, ?string $provider = null, ?string $country = null): array
+    public function connect(int $tenantId, int $actorUserId, string $e164, string $method, ?string $provider = null, ?string $country = null, string $type = 'local'): array
     {
         $e164 = VoiceNumberRules::normalizeE164($e164);
         if (!in_array($method, VoiceNumberRules::METHODS, true)) {
             throw new InvalidArgumentException('Unknown connection method');
+        }
+        if (!in_array($type, VoiceNumberRules::TYPES, true)) {
+            throw new InvalidArgumentException('Unknown number type');
         }
         $iso = $country ? strtoupper(trim($country)) : VoiceMarkets::countryOf($e164);
         if ($iso !== null && !preg_match('/^[A-Z]{2}$/', $iso)) {
@@ -209,7 +228,7 @@ class VoiceNumberService
         $ok = $this->db()->exec(
             'INSERT INTO voice_numbers (tenant_user_id, e164, live_key, country, number_type, source, connect_method, provider, provider_number_id, status, verification_mode, verified_at, created_at, updated_at)
              VALUES (?,?,?,?,?,\'connected\',?,?,?,?,?,?,NOW(),NOW())',
-            [$tenantId, $e164, $mode === 'live' ? $e164 : null, $iso, 'local', $method, $method === 'provider_native' ? $provider : null, $providerNumberId, $status, $mode, $mode === 'live' ? date('Y-m-d H:i:s') : null]
+            [$tenantId, $e164, $mode === 'live' ? $e164 : null, $iso, $type, $method, $method === 'provider_native' ? $provider : null, $providerNumberId, $status, $mode, $mode === 'live' ? date('Y-m-d H:i:s') : null]
         );
         if (!$ok) {
             throw new InvalidArgumentException('This number is already in use by another account');
@@ -217,6 +236,7 @@ class VoiceNumberService
         $id = (int) $this->db()->getConnection()->lastInsertId();
         VoiceAuditService::record($tenantId, $actorUserId, 'number.connected', 'number', $id, ['method' => $method]);
 
+        $this->ensureDefault($tenantId);
         $target = null;
         if ($method === 'forward') {
             $t = $this->db()->query("SELECT e164 FROM voice_numbers WHERE tenant_user_id = ? AND source = 'purchased' AND status IN ('active','simulated') ORDER BY id LIMIT 1", [$tenantId]);
@@ -331,6 +351,29 @@ class VoiceNumberService
         return ['agent_id' => $agentId, 'forward_to' => $fwd];
     }
 
+    /** The company always has exactly one default number once it has any number (the first one added). */
+    private function ensureDefault(int $tenantId): void
+    {
+        if ($this->db()->query('SELECT id FROM voice_numbers WHERE tenant_user_id = ? AND is_default = 1 LIMIT 1', [$tenantId])) {
+            return;
+        }
+        $this->db()->exec('UPDATE voice_numbers SET is_default = 1 WHERE tenant_user_id = ? ORDER BY id LIMIT 1', [$tenantId]);
+    }
+
+    public function setDefault(int $tenantId, int $actorUserId, int $numberId): array
+    {
+        $n = $this->row($tenantId, $numberId);
+        if (!in_array($n['status'], ['active', 'simulated', 'verified', 'awaiting_link_test'], true)) {
+            throw new InvalidArgumentException('Only a number that is set up can be the default');
+        }
+        $this->db()->transaction(function (Database $db) use ($tenantId, $numberId) {
+            $db->exec('UPDATE voice_numbers SET is_default = 0 WHERE tenant_user_id = ?', [$tenantId]);
+            $db->exec('UPDATE voice_numbers SET is_default = 1 WHERE id = ? AND tenant_user_id = ?', [$numberId, $tenantId]);
+        });
+        VoiceAuditService::record($tenantId, $actorUserId, 'number.default_set', 'number', $numberId);
+        return ['default_number_id' => $numberId];
+    }
+
     /** Purchased numbers are released at the provider (guarded); connected numbers are only removed from Tourfecto. */
     public function release(int $tenantId, int $actorUserId, int $numberId, bool $approved): array
     {
@@ -346,6 +389,9 @@ class VoiceNumberService
             }
         }
         $this->db()->exec('DELETE FROM voice_numbers WHERE id=? AND tenant_user_id=?', [$numberId, $tenantId]);
+        if (!empty($n['is_default'])) {
+            $this->ensureDefault($tenantId); // promote the oldest remaining number
+        }
         VoiceAuditService::record($tenantId, $actorUserId, 'number.released', 'number', $numberId, ['number' => $n['e164']]);
         return ['released' => true, 'simulated' => false];
     }

@@ -59,3 +59,6 @@ $router->get('/api/admin/voice/providers/{provider}/countries','VoiceAdminContro
 $router->get('/api/admin/voice/providers/{provider}/numbers','VoiceAdminController','numbers',['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/voice/errors','VoiceAdminController','errors',['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/voice/costs','VoiceAdminController','costs',['AuthMiddleware','AdminMiddleware']);
+
+// Phase 3: default number
+$router->post('/api/voice-agent/numbers/{id}/default','VoiceNumberController','setDefault',['AuthMiddleware']);

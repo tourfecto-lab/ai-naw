@@ -64,4 +64,30 @@ class VoiceMarkets
     {
         return self::TARGETS[strtoupper($iso)][1] ?? null;
     }
+
+    /**
+     * What the customer will probably be asked for. Indicative: the provider's requirements at order time are authoritative.
+     * @return string[]
+     */
+    public static function requirementDetails(string $iso, string $type): array
+    {
+        switch (self::requirementLevel($iso)) {
+            case self::NONE:
+                $d = ['No documents are normally required for voice numbers in this country.'];
+                break;
+            case 'likely_business_documents':
+                $d = ['Business registration or commercial licence of the company.', 'Proof of a local address or local presence.', 'ID of an authorised representative.', 'A local regulator may need to approve the number; this can take days or weeks and some number types may not be available for self-service.'];
+                break;
+            case 'likely_address_or_bundle':
+                $d = ['Proof of a local address (company registration or a recent utility bill).', 'Business identity documents for a regulatory bundle.', 'Approval can take days.'];
+                break;
+            default:
+                $d = ['Requirements for this country are not known yet; the provider states them before the order is completed.'];
+        }
+        if ($type === 'toll_free') {
+            $d[] = 'Toll-free numbers can have extra verification and are not available in every country.';
+        }
+        $d[] = "Indicative only: the provider's requirements at order time are authoritative.";
+        return $d;
+    }
 }

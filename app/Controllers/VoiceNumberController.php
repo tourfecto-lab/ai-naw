@@ -83,7 +83,7 @@ class VoiceNumberController extends Controller
         if (isset($g['error'])) {
             return $g['error'];
         }
-        return $this->run($g, fn ($t, $u) => $this->numbers->approve($t, $u, (int) ($params['id'] ?? 0), $this->get('accept_total'), $this->flag('requirements_ack'), ['address_sid' => $this->get('address_sid'), 'bundle_sid' => $this->get('bundle_sid')]));
+        return $this->run($g, fn ($t, $u) => $this->numbers->approve($t, $u, (int) ($params['id'] ?? 0), $this->get('accept_total'), $this->flag('requirements_ack'), ['address_sid' => $this->get('address_sid'), 'bundle_sid' => $this->get('bundle_sid')], $this->get('agent_id') ? (int) $this->get('agent_id') : null));
     }
 
     /** POST /api/voice-agent/numbers/connect  {number, method, provider?, country?} */
@@ -94,7 +94,7 @@ class VoiceNumberController extends Controller
             return $g['error'];
         }
         $p = $this->get('provider');
-        return $this->run($g, fn ($t, $u) => $this->numbers->connect($t, $u, (string) $this->get('number', ''), (string) $this->get('method', ''), $p ? strtolower((string) $p) : null, $this->get('country') ? (string) $this->get('country') : null));
+        return $this->run($g, fn ($t, $u) => $this->numbers->connect($t, $u, (string) $this->get('number', ''), (string) $this->get('method', ''), $p ? strtolower((string) $p) : null, $this->get('country') ? (string) $this->get('country') : null, (string) $this->get('type', 'local')));
     }
 
     /** POST /api/voice-agent/numbers/{id}/verify/start  {approve_call} */
@@ -136,6 +136,16 @@ class VoiceNumberController extends Controller
         }
         $a = $this->get('agent_id');
         return $this->run($g, fn ($t, $u) => $this->numbers->assign($t, (int) ($params['id'] ?? 0), $a === null || $a === '' ? null : (int) $a, $this->get('forward_to') !== null ? (string) $this->get('forward_to') : null));
+    }
+
+    /** POST /api/voice-agent/numbers/{id}/default */
+    public function setDefault(array $params = []): array
+    {
+        $g = $this->guard(true);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        return $this->run($g, fn ($t, $u) => $this->numbers->setDefault($t, $u, (int) ($params['id'] ?? 0)));
     }
 
     /** POST /api/voice-agent/numbers/{id}/release  {approve_release} */

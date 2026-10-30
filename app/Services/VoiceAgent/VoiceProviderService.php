@@ -57,6 +57,17 @@ class VoiceProviderService
         return (new SystemSettingsService())->get('voice_allow_own_provider_accounts', '0') === '1';
     }
 
+    /** First provider with a configured platform account (the full cost/quality selector comes with Phase 9). */
+    public static function defaultProvider(): ?string
+    {
+        foreach (VoiceProviderRegistry::keys() as $k) {
+            if (VoicePlatformCredentials::forProvider($k) !== null) {
+                return $k;
+            }
+        }
+        return null;
+    }
+
     public function listProviders(int $tenantId): array
     {
         $rows = [];
