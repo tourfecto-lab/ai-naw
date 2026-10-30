@@ -742,4 +742,13 @@ final class VoiceAgentDatabaseTest extends TestCase
         $this->assertSame(['ai'], array_keys($a)); // own account: the provider bills them directly
         $this->assertContains('inbound_minutes', array_keys($b)); // platform account: billed with markup
     }
+
+    public function testTelnyxTenantIsTheOwnerOfTheDialledNumberOnly(): void
+    {
+        $this->db()->exec("INSERT INTO voice_numbers (tenant_user_id, e164, live_key, country, number_type, source, provider, status, verification_mode, created_at, updated_at) VALUES (?, '+14155550177', '+14155550177', 'US', 'local', 'purchased', 'telnyx', 'active', 'live', NOW(), NOW())", [self::B]);
+        $this->assertSame(self::B, VoiceInboundService::tenantForCall('telnyx', 0, ['To' => '+14155550177', 'From' => '+201001234567']));
+        $this->assertSame(0, VoiceInboundService::tenantForCall('telnyx', 0, ['To' => '+14155550999']));       // unknown number: nobody
+        $this->assertSame(0, VoiceInboundService::tenantForCall('twilio', 0, ['To' => '+14155550177']));       // only Telnyx may use the tenant-less URL
+        $this->assertSame(self::A, VoiceInboundService::tenantForCall('telnyx', self::A, ['To' => '+14155550177'])); // an explicit tenant is never overridden
+    }
 }

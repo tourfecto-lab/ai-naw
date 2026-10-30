@@ -31,6 +31,33 @@ class VoiceInboundService
         return ['inbound' => $b . '/inbound', 'status' => $b . '/status', 'turn' => $b . '/turn', 'outbound' => $b . '/outbound', 'whisper' => $b . '/whisper'];
     }
 
+    /**
+     * Telnyx points ONE TeXML application at a tenant-less URL (/webhooks/voice/telnyx/0/...); the company is the owner of the number that was dialled.
+     * This only chooses whose settings are used: the request is still refused unless it carries a valid signature or the platform token.
+     */
+    public static function tenantForCall(string $provider, int $tenantId, array $params): int
+    {
+        if ($tenantId > 0 || $provider !== 'telnyx') {
+            return $tenantId;
+        }
+        foreach ([(string) ($params['To'] ?? ''), (string) ($params['From'] ?? '')] as $num) {
+            if ($num === '') {
+                continue;
+            }
+            $r = Database::getInstance()->query("SELECT tenant_user_id FROM voice_numbers WHERE e164 = ? AND provider = 'telnyx' AND status IN ('active','simulated','awaiting_link_test','verified') LIMIT 1", [$num]);
+            if ($r) {
+                return (int) $r[0]['tenant_user_id'];
+            }
+        }
+        return 0;
+    }
+
+    /** ?k=token suffix for URLs we hand to a provider that authenticates with the platform token. */
+    private static function tokenQuery(string $provider): string
+    {
+        return $provider === 'telnyx' && VoiceWebhookToken::make('telnyx') !== '' ? '&k=' . VoiceWebhookToken::make('telnyx') : '';
+    }
+
     private function authenticate(string $provider, int $tenantId, string $url, array $headers, string $raw, array $params): ?VoiceProviderAdapter
     {
         if (!VoiceProviderRegistry::has($provider) || $tenantId < 1) {
@@ -92,6 +119,7 @@ class VoiceInboundService
     /** First webhook of a call: decide whether the AI may answer, and answer. */
     public function handleInbound(string $provider, int $tenantId, string $url, array $headers, string $raw, array $params): array
     {
+        $tenantId = self::tenantForCall($provider, $tenantId, $params);
         $a = $this->authenticate($provider, $tenantId, $url, $headers, $raw, $params);
         if (!$a) {
             return self::plain(403, 'Invalid signature');
@@ -213,7 +241,7 @@ class VoiceInboundService
 
     private function turnUrl(string $provider, int $tenantId, int $callId, int $n): string
     {
-        return self::webhookUrls($this->baseUrl, $provider, $tenantId)['turn'] . '?call=' . $callId . '&n=' . $n;
+        return self::webhookUrls($this->baseUrl, $provider, $tenantId)['turn'] . '?call=' . $callId . '&n=' . $n . self::tokenQuery($provider);
     }
 
     /** One caller utterance (speech-gather result). */
@@ -282,7 +310,7 @@ class VoiceInboundService
         if ($out['transfer'] !== null && $human) {
             $target = $this->handoffPhone($staff, $number, $settings, $out['topic'] ?? null) ?? $human; // the person who handles this topic, if on shift
             $this->store->updateCall($tenantId, $callId, ['status' => 'transferred', 'handoff_reason' => mb_substr($out['transfer'], 0, 200), 'handoff_topic' => $out['topic'] ?? null, 'outcome' => 'transferred']);
-            return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'transfer_to' => $target, 'whisper_url' => self::webhookUrls($this->baseUrl, $provider, $tenantId)['whisper'] . '?call=' . $callId]);
+            return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'transfer_to' => $target, 'whisper_url' => self::webhookUrls($this->baseUrl, $provider, $tenantId)['whisper'] . '?call=' . $callId . self::tokenQuery($provider)]);
         }
         if ($out['end']) {
             $this->store->updateCall($tenantId, $callId, ['outcome' => $out['outcome'] ?? 'resolved']);

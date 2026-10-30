@@ -11,6 +11,7 @@ class VoiceOutboundService
 
     public const REASONS = [
         'unknown_purpose' => 'Unknown call purpose.',
+        'provider_cannot_dial' => 'This number\'s provider cannot place outgoing AI calls yet.',
         'do_not_call_list' => 'This number is on the do-not-call list.',
         'recipient_opted_out' => 'This person opted out of calls.',
         'no_booking_relationship' => 'No open booking was found for this number, so this call has no lawful basis.',
@@ -268,6 +269,9 @@ class VoiceOutboundService
             return $this->block($job, 'from_number_not_live');
         }
         $urls = VoiceInboundService::webhookUrls($this->baseUrl, (string) $number['provider'], $t);
+        if (empty(VoiceProviderService::capabilitiesOf((string) $number['provider'])['outbound'])) {
+            return $this->block($job, 'provider_cannot_dial'); // e.g. Telnyx in this version: inbound only
+        }
         try {
             $res = $this->providers->guarded(
                 $t, (int) $job['created_by_user_id'], (string) $number['provider'], 'start_call', ['to' => $job['to_e164'], 'purpose' => 'outbound:' . $job['purpose']], $approved,

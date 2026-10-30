@@ -16,6 +16,7 @@ class VoiceWebhookService
     /** @param array<string,string> $headers lower-case header names */
     public function handle(string $provider, int $tenantId, string $url, array $headers, string $rawBody, array $params): array
     {
+        $tenantId = VoiceInboundService::tenantForCall($provider, $tenantId, $params);
         if (!VoiceProviderRegistry::has($provider) || $tenantId < 1) {
             return [404, 'Not found'];
         }

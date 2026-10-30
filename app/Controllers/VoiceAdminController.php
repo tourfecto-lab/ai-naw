@@ -19,7 +19,16 @@ class VoiceAdminController extends Controller
     /** GET /api/admin/voice/providers */
     public function providers(array $params = []): array
     {
-        return $this->admin() ?? $this->success(['providers' => (new VoiceAdminReports())->providers(), 'live_operations_enabled' => (new SystemSettingsService())->get('voice_live_operations_enabled', '0') === '1', 'own_provider_accounts_allowed' => VoiceProviderService::ownAccountsAllowed()]);
+        return $this->admin() ?? $this->success(['providers' => (new VoiceAdminReports())->providers(), 'live_operations_enabled' => (new SystemSettingsService())->get('voice_live_operations_enabled', '0') === '1', 'own_provider_accounts_allowed' => VoiceProviderService::ownAccountsAllowed(), 'telnyx_setup' => $this->telnyxSetup()]);
+    }
+
+    /** What to paste into the Telnyx TeXML application. The token inside is a platform secret: admin only, never shown to customers. */
+    private function telnyxSetup(): array
+    {
+        $base = rtrim(defined('APP_URL') ? (string) APP_URL : '', '/');
+        $k = VoiceWebhookToken::make('telnyx');
+        return $k === '' ? ['error' => 'ENCRYPTION_KEY is not set, so no webhook token can be made'] :
+            ['voice_url' => $base . '/webhooks/voice/telnyx/0/inbound?k=' . $k, 'status_callback_url' => $base . '/webhooks/voice/telnyx/0/status?k=' . $k, 'method' => 'POST'];
     }
 
     /** POST /api/admin/voice/providers/{provider}/test - read-only check of Tourfecto's own account */
