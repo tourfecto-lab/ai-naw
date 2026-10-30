@@ -4253,6 +4253,8 @@ HTML;
 HTML;
 
             case 'plans':
+                // الصفحة كانت 4800 بيكسل و7 مواضيع: الباقات والأرقام فوق، والباقي (MRR، كروت الشحن، الإيداعات، بيانات الدفع، اشتراك المواقع، التسعير بالاستخدام) تبويبات
+                $tabsJs = htmlspecialchars(asset_v('/assets/js/admin-section-tabs.js'), ENT_QUOTES, 'UTF-8');
                 return <<<HTML
                 <p class="p-cell-muted" style="margin-bottom:16px;">{$this->tr('admin.plans.hint')}</p>
                 <div id="plansGrid" class="p-grid cols-3"><div class="p-empty">{$this->tr('common.loading')}</div></div>
@@ -4326,6 +4328,7 @@ HTML;
                     <div class="p-card stat-tile"><div class="stat-icon orange">📉</div><div class="stat-info"><div class="stat-value" id="wsChurn">-</div><div class="stat-label">معدّل التسرّب هذا الشهر (تقريبي)</div></div></div>
                 </div>
                 <div id="platformBalanceBox"></div>
+                <div data-section-tabs="plans-admin" data-section-selector=":scope > .p-card">
                 <div class="p-card" style="margin-top:12px;">
                     <div class="p-card-head"><h3>📈 تطوّر MRR</h3><span class="p-card-sub" id="mrrTrendSub">آخر 30 يوم - بيتسجّل تلقائيًا كل يوم تفتح فيه الصفحة دي</span></div>
                     <div id="mrrTrendChart" style="padding:10px 0;"></div>
@@ -4406,6 +4409,8 @@ HTML;
                     <div class="p-card-head"><h3>🎯 {$this->tr('wallet.admin.usage_pricing_title')}</h3><span class="p-card-sub">{$this->tr('wallet.admin.usage_pricing_sub')}</span></div>
                     <div id="usagePricingList"><div class="p-empty">{$this->tr('common.loading')}</div></div>
                 </div>
+                </div>
+                <script src="{$tabsJs}"></script>
 HTML;
 
             case 'system':
