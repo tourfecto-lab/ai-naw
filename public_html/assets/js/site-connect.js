@@ -229,7 +229,13 @@
         };
         var db = $('#scDisc', root);
         if (db) db.onclick = async function () {
-            if (!window.confirm(t('sc.disconnect_confirm'))) return;
+            // تأكيد جوه الصفحة (نافذة confirm بتتقفل في بعض المتصفحات فالزرار مكانش بيعمل حاجة)
+            if (!db.dataset.armed) {
+                db.dataset.armed = '1'; db.dataset.label = db.textContent; db.textContent = t('sc.disconnect_confirm');
+                setTimeout(function () { if (db.dataset.armed) { delete db.dataset.armed; db.textContent = db.dataset.label; } }, 5000);
+                return;
+            }
+            db.disabled = true;
             var r = await api('/api/websites/' + cfg.id + '/wordpress/disconnect', 'POST', {});
             if (r.success) { location.reload(); } else { toast(reasonText('unknown'), 'error'); }
         };

@@ -798,6 +798,7 @@ JS;
         // اختياري للنشر: يفعّل Application Passwords لو مخبّية (إضافة أمان أو WordPress ورا CDN مش شايف HTTPS)
         $scAppSnippet = "add_filter( 'wp_is_application_passwords_available', '__return_true', 999 );\nadd_filter( 'wp_is_application_passwords_available_for_user', '__return_true', 999 );";
         $scCmsCss = htmlspecialchars(asset_v('/assets/css/site-connect-cms.css'), ENT_QUOTES, 'UTF-8');
+        $scJs = htmlspecialchars(asset_v('/assets/js/site-connect.js'), ENT_QUOTES, 'UTF-8');
         $scCmsJs = htmlspecialchars(asset_v('/assets/js/site-connect-cms.js'), ENT_QUOTES, 'UTF-8');
         $wcJs = htmlspecialchars(asset_v('/assets/js/site-webchat.js'), ENT_QUOTES, 'UTF-8');
         $scConfigJson = json_encode(
@@ -924,7 +925,7 @@ HTML;
             {$verifyBlock}
         </div>
         <script>window.SC_CFG = {$scConfigJson};</script>
-        <script src="/assets/js/site-connect.js"></script>
+        <script src="{$scJs}"></script>
         <link rel="stylesheet" href="{$scCmsCss}">
         <div id="siteConnectCms" data-site="{$id}"></div>
         <script defer src="{$scCmsJs}"></script>
@@ -1240,6 +1241,7 @@ JS;
         return [
             'seo' => stripos($html, '/embed.js?token=') !== false || stripos($html, "data-tourfecto") !== false || stripos($html, 'dataset.tourfecto') !== false,
             'chat' => stripos($html, '/widget/chat') !== false,
+            'connector' => stripos($html, 'name="tourfecto-connector"') !== false,
         ];
     }
 
@@ -1274,6 +1276,13 @@ JS;
             $seoReady = false;
         }
         $chatOff = class_exists('WebChatService') && (new WebChatService())->isSwitchedOff($id);
+        // ملف الربط (tourfecto-connect.php) بيكلّمنا كل شوية: لو كلّمنا خلال يومين يبقى مربوط بالموقع ده بالذات
+        try {
+            $seen = (string) ($db->query('SELECT last_seen_at FROM edge_connections WHERE website_id = ? LIMIT 1', [$id])[0]['last_seen_at'] ?? '');
+        } catch (Throwable $e) {
+            $seen = '';
+        }
+        $connectorLinked = $seen !== '' && strtotime($seen) > time() - 172800;
 
         $codes = null;
         if ($this->get('check')) {
@@ -1288,6 +1297,7 @@ JS;
             'reachable' => $this->get('check') ? $codes !== null : null,
             'seo_code' => ['ready' => $seoReady, 'installed' => $codes['seo'] ?? null],
             'chat_code' => ['off' => $chatOff, 'installed' => $codes['chat'] ?? null],
+            'connector' => ['linked' => $connectorLinked, 'present' => $codes['connector'] ?? null, 'download' => '/api/website-optimizer/edge/php-connector?website_id=' . $id],
             'publish' => ['connected' => (bool) $publish, 'name' => $publish ? ($publishName . ($publish['external_location_name'] ? ' · ' . $publish['external_location_name'] : '')) : ''],
             'search_console' => ['connected' => (bool) $gsc, 'name' => (string) ($gsc['external_location_id'] ?? '')],
             'analytics' => ['connected' => (bool) $ga],
@@ -1370,7 +1380,7 @@ JS;
             'meta' => $instructions['meta_tag']], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         $css = htmlspecialchars(asset_v('/assets/css/site-connect-cms.css'), ENT_QUOTES, 'UTF-8');
         $js = htmlspecialchars(asset_v('/assets/js/site-connect-cms.js'), ENT_QUOTES, 'UTF-8');
-        return '<script>window.SC_CFG = ' . $cfg . ';</script><script src="/assets/js/site-connect.js"></script>'
+        return '<script>window.SC_CFG = ' . $cfg . ';</script><script src="' . htmlspecialchars(asset_v('/assets/js/site-connect.js'), ENT_QUOTES, 'UTF-8') . '"></script>'
             . '<link rel="stylesheet" href="' . $css . '"><div id="siteConnectCms" data-site="' . $id . '"></div><script defer src="' . $js . '"></script>';
     }
 

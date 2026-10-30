@@ -41,7 +41,7 @@ class SiteConnectController extends Controller
         $site = $this->site((int) ($params['id'] ?? 0));
         if (!$site) return $this->error(self::L('غير موجود', 'Not found'), 404);
         $id = (int) $site->getAttribute('id');
-        $key = 'site_platform_' . $id;
+        $key = 'site_platform_v2_' . $id; // v2: الفحص بقى بيعرف مواقع PHP وملف tourfecto-connect.php
         $pf = $_SESSION[$key] ?? null;
         if (!is_array($pf) || (time() - (int) ($pf['at'] ?? 0)) > 3600 || $this->get('refresh')) {
             try {

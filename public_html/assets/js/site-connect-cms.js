@@ -214,9 +214,20 @@
         const m = e.target.closest('[data-scc-method]');
         if (m) { method = m.getAttribute('data-scc-method'); render(); return; }
         if (e.target.closest('[data-scc-refresh]')) { root.querySelector('.scc') && root.querySelector('.scc').classList.add('busy'); await load(true); return; }
-        if (e.target.closest('[data-scc-disc]')) {
-            if (!confirm(t('متأكد؟ المقالات مش هتتنشر تلقائي لحد ما تربط تاني.', 'Sure? Articles will stop auto-publishing until you reconnect.'))) return;
-            await call('/disconnect', {});
+        const disc = e.target.closest('[data-scc-disc]');
+        if (disc) {
+            // تأكيد جوه الصفحة بدل confirm(): بعض المتصفحات (والمتصفح المدمج) بتقفل نافذة التأكيد فالزرار مكانش بيعمل حاجة
+            if (!disc.dataset.armed) {
+                disc.dataset.armed = '1';
+                disc.dataset.label = disc.textContent;
+                disc.textContent = t('متأكد؟ المقالات هتبطّل تتنشر لوحدها - دوس تاني للتأكيد', 'Sure? Articles stop auto-publishing - click again to confirm');
+                setTimeout(() => { if (disc.isConnected && disc.dataset.armed) { delete disc.dataset.armed; disc.textContent = disc.dataset.label; } }, 5000);
+                return;
+            }
+            disc.disabled = true;
+            const r = await call('/disconnect', {});
+            if (!r || !r.success) { disc.disabled = false; delete disc.dataset.armed; disc.textContent = disc.dataset.label; msg((r && r.error) || t('تعذر الإيقاف', 'Could not stop'), false); return; }
+            H = null;
             await load();
         }
     });

@@ -115,6 +115,10 @@ class SmartOnboardingService
             }
         }
         if ($out['key'] === 'wordpress') $out['publish'] = 'wordpress';
+        // موقع PHP مبرمج خاص؟ يبقى أسهل ربط ملف واحد جنب index.php (tourfecto-connect.php) - ولو الملف متركّب أصلًا بيطبع meta tourfecto-connector
+        $out['php'] = $out['key'] === 'laravel' || (bool) preg_match('~^(set-cookie:\s*PHPSESSID=|x-powered-by:\s*PHP)~im', $headers)
+            || (bool) preg_match('~href="[^"#]+\.php(?:[?"])~i', substr($html, 0, 200000));
+        $out['connector'] = stripos($html, 'name="tourfecto-connector"') !== false;
         // الموقع عنده مدونة بالفعل؟ (لينك /blog أو /news أو /guides في نفس الدومين) - عشان مانقترحش مدونة منفصلة عنها
         $out['blog_url'] = self::existingBlog($html, $url);
         return $out;
