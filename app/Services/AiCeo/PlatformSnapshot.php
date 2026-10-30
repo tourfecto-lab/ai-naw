@@ -99,8 +99,11 @@ final class PlatformSnapshot
     private function customers(): array
     {
         $h = (new CustomerHealthService($this->db))->list('at_risk', '', 200);
+        // "بيدفع" بنفس تعريف MRR (من غير منح الأدمن وحسابات التجربة) عشان الأرقام ماتتناقضش في نفس الصفحة
+        $paid = array_flip((new CustomerSuccess($this->db))->paidUserIds());
+        $risk = array_filter($h['items'] ?? [], static fn ($i) => isset($paid[(int) ($i['id'] ?? 0)]));
         return ['healthy' => (int) ($h['counts']['healthy'] ?? 0), 'watch' => (int) ($h['counts']['watch'] ?? 0), 'at_risk' => (int) ($h['counts']['at_risk'] ?? 0),
-            'paying_at_risk' => count($h['items'] ?? []), 'mrr_at_risk' => (float) ($h['mrr_at_risk'] ?? 0)];
+            'paying_at_risk' => count($risk), 'mrr_at_risk' => round(array_sum(array_map(static fn ($i) => (float) ($i['mrr'] ?? 0), $risk)), 2)];
     }
 
     private function platform(): array

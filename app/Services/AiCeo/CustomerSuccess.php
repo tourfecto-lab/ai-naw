@@ -212,8 +212,10 @@ final class CustomerSuccess
     /** فرص الترقية والربط من صحة العملاء الموجودة */
     public function opportunities(): ?array
     {
-        try { $h = (new CustomerHealthService($this->db))->list('paying', '', 300); } catch (Throwable $e) { return null; }
-        $items = $h['items'] ?? [];
+        try { $h = (new CustomerHealthService($this->db))->list('all', '', 500); } catch (Throwable $e) { return null; }
+        // نفس تعريف "بيدفع" بتاع MRR (SaasMetrics): من غير منح الأدمن المجانية وحسابات التجربة، عشان الأرقام ماتختلفش بين الأقسام
+        $paid = array_flip($this->paidUserIds());
+        $items = array_values(array_filter($h['items'] ?? [], static fn ($i) => isset($paid[(int) ($i['id'] ?? 0)])));
         $calls = array_map(static fn ($i) => (int) ($i['ai_calls_30d'] ?? 0), $items);
         sort($calls);
         $p75 = $calls ? $calls[(int) floor(0.75 * (count($calls) - 1))] : 0;
@@ -223,9 +225,35 @@ final class CustomerSuccess
             if (($i['band'] ?? '') === 'healthy' && (int) ($i['ai_calls_30d'] ?? 0) > 0 && (int) ($i['ai_calls_30d'] ?? 0) >= $p75) $upsell[] = $base + ['why' => 'Heavy, healthy usage (' . (int) $i['ai_calls_30d'] . ' AI actions in 30 days): offer the next plan or extra credits.'];
             if ((int) ($i['connections'] ?? 0) === 0) $cross[] = $base + ['why' => 'Paying but no Google/social/WhatsApp connection: help them connect (chat, reviews and publishing need it).'];
         }
-        return ['upsell' => array_slice($upsell, 0, 30), 'cross_sell' => array_slice($cross, 0, 30), 'health' => $h['counts'] ?? [], 'mrr_at_risk' => $h['mrr_at_risk'] ?? 0, 'profit' => $h['profit'] ?? null,
+        $atRisk = array_filter($items, static fn ($i) => ($i['band'] ?? '') === 'at_risk');
+        return ['upsell' => array_slice($upsell, 0, 30), 'cross_sell' => array_slice($cross, 0, 30), 'health' => $h['counts'] ?? [], 'mrr_at_risk' => round(array_sum(array_map(static fn ($i) => (float) ($i['mrr'] ?? 0), $atRisk)), 2), 'profit' => $this->profit(),
             'at_risk' => array_slice(array_map(static fn ($i) => ['user_id' => (int) ($i['id'] ?? 0), 'company' => $i['name'] ?? '', 'score' => (int) ($i['score'] ?? 0), 'mrr' => (float) ($i['mrr'] ?? 0), 'reasons' => $i['reasons'] ?? []],
                 array_filter($items, static fn ($i) => ($i['band'] ?? '') === 'at_risk')), 0, 20)];
+    }
+
+    /** العملاء اللي بيدفعوا فعلًا (نفس شرط MRR) */
+    public function paidUserIds(): array
+    {
+        return array_map('intval', array_column($this->safe('SELECT DISTINCT s.user_id FROM subscriptions s LEFT JOIN subscription_plans sp ON sp.id = s.plan_id WHERE ' . self::PAID . self::notTest('s.user_id')) ?? [], 'user_id'));
+    }
+
+    /** الربحية آخر 30 يوم بنفس تعريفات المالية: خصومات الاشتراك الفعلية − الاسترداد، وتكلفة الذكاء الاصطناعي للعملاء، والهامش لكل باقة للي بيدفعوا فعلًا */
+    public function profit(): array
+    {
+        $since = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $rev = (float) ($this->safe("SELECT COALESCE(-SUM(amount), 0) AS v FROM wallet_transactions WHERE type = 'subscription_charge' AND status = 'completed' AND amount < 0 AND created_at >= ?" . self::notTest('user_id'), [$since])[0]['v'] ?? 0)
+            - (float) ($this->safe("SELECT COALESCE(SUM(amount), 0) AS v FROM wallet_transactions WHERE type = 'refund' AND status = 'completed' AND created_at >= ?" . self::notTest('user_id'), [$since])[0]['v'] ?? 0);
+        $cost = (float) ($this->safe("SELECT COALESCE(SUM(a.cost_in_usd), 0) AS v FROM api_usage_logs a JOIN users u ON u.id = a.user_id WHERE a.created_at >= ? AND u.role NOT IN ('admin','super_admin')" . self::notTest('a.user_id'), [$since])[0]['v'] ?? 0);
+        $byPlan = array_map(static function ($p) {
+            $price = (float) $p['price'];
+            return ['plan' => $p['plan'], 'customers' => (int) $p['customers'], 'price' => round($price, 2), 'avg_ai_cost' => round((float) $p['avg_ai_cost'], 2), 'margin_pct' => $price > 0 ? round(100 * ($price - (float) $p['avg_ai_cost']) / $price, 1) : null];
+        }, $this->safe("SELECT COALESCE(sp.name, s.plan_name, '?') AS plan, COUNT(DISTINCT s.user_id) AS customers, AVG(" . self::MONTHLY . ") AS price,
+                COALESCE(SUM(c.cost), 0) / NULLIF(COUNT(DISTINCT s.user_id), 0) AS avg_ai_cost
+            FROM subscriptions s LEFT JOIN subscription_plans sp ON sp.id = s.plan_id
+            LEFT JOIN (SELECT user_id, SUM(cost_in_usd) AS cost FROM api_usage_logs WHERE created_at >= ? GROUP BY user_id) c ON c.user_id = s.user_id
+            WHERE " . self::PAID . self::notTest('s.user_id') . ' GROUP BY plan ORDER BY price DESC', [$since]) ?? []);
+        return ['revenue_30d' => round($rev, 2), 'ai_cost_30d' => round($cost, 2), 'margin_30d' => round($rev - $cost, 2), 'margin_pct' => $rev > 0 ? round(($rev - $cost) / $rev * 100, 1) : null, 'by_plan' => $byPlan,
+            'note' => 'Same rules as MRR: admin grants and test accounts are excluded.'];
     }
 
     /** استخدام وتكلفة كل خدمة (مهمة AI) آخر 30 يوم، ومين بيستخدمها من اللي بيدفعوا */
