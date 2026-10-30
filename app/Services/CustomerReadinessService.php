@@ -32,7 +32,8 @@ final class CustomerReadinessService
         $sites = $this->read('SELECT id,company_name,main_url FROM websites WHERE user_id=? ORDER BY id', [$owner]);
         $site = null;
         foreach ($sites as $s) if (!$website || (int) $s['id'] === $website) { $site = $s; break; }
-        if ($website && !$site) throw new RuntimeException('Website not found', 404);
+        // حساب جديد من غير أي موقع: مفيش حاجة "ناقصة" نرميها كخطأ، ممكن المتصفح باعت رقم موقع قديم من حساب تاني
+        if ($website && !$site && $sites) throw new RuntimeException('Website not found', 404);
         $checks = [];
         $add = static function (string $key, string $label, string $state, string $message, string $href, array $extra = []) use (&$checks) {
             $checks[] = array_merge(compact('key', 'label', 'state', 'message', 'href'), $extra);
