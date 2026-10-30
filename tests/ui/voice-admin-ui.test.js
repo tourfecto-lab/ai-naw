@@ -44,13 +44,15 @@ const API = {
     await page.waitForSelector('[data-stop]');
     await page.click('[data-stop]');
     await page.waitForFunction(() => document.querySelector('[data-msg]'));
+    await page.waitForTimeout(400); // the page re-renders after a stop
+    await page.waitForSelector('[data-stop]');
     if (!posts.some((p) => p.startsWith('/api/admin/voice/emergency-stop'))) failures.push(`${name}: emergency stop did not post`);
-    await (await page.$$('.va-tab'))[2].click();
+    await page.click('.va-tab[data-i="2"]');
     await page.waitForSelector('[data-live]');
     await page.click('[data-live]');
     await page.waitForTimeout(300);
     if (!posts.some((p) => p.includes('/companies/5/control') && p.includes('"sandbox_mode":0') && p.includes('I UNDERSTAND'))) failures.push(`${name}: take-out-of-test-mode did not send confirmation`);
-    await (await page.$$('.va-tab'))[3].click();
+    await page.click('.va-tab[data-i="3"]');
     await page.fill('[data-search] input', 'acme');
     await page.click('[data-search] button');
     await page.waitForSelector('[data-on]');
