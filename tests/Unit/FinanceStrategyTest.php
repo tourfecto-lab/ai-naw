@@ -60,6 +60,13 @@ final class FinanceStrategyTest extends TestCase
         $this->assertSame('2027-Q1', FinanceStrategy::quarter(strtotime('2027-03-31')));
     }
 
+    public function testSavingsAreReadableSentences(): void
+    {
+        $t = FinanceStrategy::routingText(['feature' => '(untagged)', 'expensive_model' => '?', 'expensive_cpr' => 0.00058, 'expensive_requests' => 8, 'cheap_model' => 'gemini-flash-latest', 'cheap_cpr' => 0.00011]);
+        $this->assertSame('Untagged AI calls used an unknown model for 8 requests at $0.00058 each, while gemini-flash-latest does the same task for $0.00011 (5.3× cheaper). Route this task to the cheaper model in AI service routing if the quality is the same.', $t);
+        $this->assertStringContainsString('Feature article_image cost $2.5 today', FinanceStrategy::anomalyText(['type' => 'feature', 'name' => 'article_image', 'today' => 2.5, 'avg_day' => 0.4]));
+    }
+
     public function testMetricValuesFromSnapshot(): void
     {
         $v = FinanceStrategy::metricValues(['revenue' => ['mrr' => ['now' => 573.17], 'paying' => ['now' => 3], 'logo_churn' => ['now' => 10.0], 'trial_conversion' => 25.0],

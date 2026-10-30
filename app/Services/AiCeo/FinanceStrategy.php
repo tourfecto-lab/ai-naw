@@ -132,8 +132,8 @@ final class FinanceStrategy
         $out = [];
         try {
             $r = (new AiCostIntelligence($this->db))->report();
-            foreach ($r['routing_review'] ?? [] as $x) $out[] = ['area' => 'AI routing', 'text' => is_array($x) ? ($x['text'] ?? json_encode($x)) : (string) $x];
-            foreach ($r['anomalies'] ?? [] as $x) $out[] = ['area' => 'AI spikes', 'text' => is_array($x) ? ($x['text'] ?? json_encode($x)) : (string) $x];
+            foreach ($r['routing_review'] ?? [] as $x) $out[] = ['area' => 'AI routing', 'text' => self::routingText($x)];
+            foreach ($r['anomalies'] ?? [] as $x) $out[] = ['area' => 'AI spikes', 'text' => self::anomalyText($x)];
             $top = $r['features'] ?? [];
             usort($top, static fn ($a, $b) => $b['cost_8d'] <=> $a['cost_8d']);
             foreach (array_slice($top, 0, 3) as $f) if ($f['cost_8d'] > 1) $out[] = ['area' => 'Top AI cost', 'text' => $f['feature'] . ' cost $' . $f['cost_8d'] . ' in 8 days: check caching or a cheaper model for it.'];
@@ -145,6 +145,21 @@ final class FinanceStrategy
         } catch (Throwable $e) {}
         foreach ($this->costItems(true) as $c) if ($c['monthly_usd'] >= 50 && $c['category'] === 'tools') $out[] = ['area' => 'Tools', 'text' => $c['name'] . ' costs $' . $c['monthly_usd'] . '/month: confirm it is still used.'];
         return $out;
+    }
+
+    /** جملة مفهومة بدل JSON (منطق نقي) */
+    public static function routingText(array $x): string
+    {
+        $f = ($x['feature'] ?? '') === '(untagged)' || ($x['feature'] ?? '') === '' ? 'Untagged AI calls' : 'The "' . $x['feature'] . '" task';
+        $dear = ($x['expensive_model'] ?? '?') === '?' ? 'an unknown model' : $x['expensive_model'];
+        $ratio = !empty($x['cheap_cpr']) ? round((float) $x['expensive_cpr'] / (float) $x['cheap_cpr'], 1) : null;
+        return $f . ' used ' . $dear . ' for ' . (int) ($x['expensive_requests'] ?? 0) . ' requests at $' . $x['expensive_cpr'] . ' each, while ' . ($x['cheap_model'] ?? '?') . ' does the same task for $' . ($x['cheap_cpr'] ?? '?')
+            . ($ratio ? ' (' . $ratio . '× cheaper)' : '') . '. Route this task to the cheaper model in AI service routing if the quality is the same.';
+    }
+
+    public static function anomalyText(array $x): string
+    {
+        return ucfirst((string) ($x['type'] ?? 'item')) . ' ' . ($x['name'] ?? '?') . ' cost $' . ($x['today'] ?? 0) . ' today vs about $' . ($x['avg_day'] ?? 0) . ' on a normal day: check what caused the spike.';
     }
 
     // ------------------------------------------------------------------ السيناريوهات
