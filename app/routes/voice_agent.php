@@ -72,3 +72,12 @@ $router->post('/api/voice-agent/outbound/campaigns','VoiceOutboundController','c
 $router->get('/api/voice-agent/outbound/campaigns/{id}','VoiceOutboundController','campaignStats',['AuthMiddleware']);
 $router->post('/api/voice-agent/outbound/campaigns/{id}/recipients','VoiceOutboundController','addRecipients',['AuthMiddleware']);
 $router->post('/api/voice-agent/outbound/campaigns/{id}/status','VoiceOutboundController','campaignStatus',['AuthMiddleware']);
+
+// Phase 7: assistants, routing, handoff staff, hours
+$router->post('/webhooks/voice/{provider}/{tenant}/whisper','VoiceWebhookController','whisper',[]);
+$router->get('/api/voice-agent/staff','VoiceAssistantController','staff',['AuthMiddleware']);
+$router->post('/api/voice-agent/staff','VoiceAssistantController','createStaff',['AuthMiddleware']);
+$router->post('/api/voice-agent/staff/{id}','VoiceAssistantController','updateStaff',['AuthMiddleware']);
+$router->post('/api/voice-agent/staff/{id}/delete','VoiceAssistantController','deleteStaff',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/routing','VoiceAssistantController','setRouting',['AuthMiddleware']);
+$router->get('/api/voice-agent/hours','VoiceAssistantController','hours',['AuthMiddleware']);

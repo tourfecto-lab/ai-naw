@@ -970,4 +970,11 @@ return [
     'VoicePlatformLoad' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePlatformLoad.php',
     'VoiceCampaignService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCampaignService.php',
     'VoiceAutoFollowUps' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAutoFollowUps.php',
+    'VoiceAssistantController' => dirname(__DIR__,2).'/app/Controllers/VoiceAssistantController.php',
+    'VoiceRolePrompts' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceRolePrompts.php',
+    'VoiceRouting' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceRouting.php',
+    'VoiceStaffRouting' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceStaffRouting.php',
+    'VoiceHandoff' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceHandoff.php',
+    'VoiceHours' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceHours.php',
+    'VoiceStaffService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceStaffService.php',
 ];

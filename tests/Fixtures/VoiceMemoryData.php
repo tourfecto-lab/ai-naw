@@ -69,6 +69,13 @@ final class VoiceMemoryData implements VoiceDataSource
         return $this->factors;
     }
 
+    public string $knowledge = '';
+
+    public function knowledgeContext(int $t, string $lang, string $query): string
+    {
+        return $this->knowledge;
+    }
+
     public function businessName(int $t): string
     {
         return 'Nile Tours';

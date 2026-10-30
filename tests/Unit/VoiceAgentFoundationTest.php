@@ -5,6 +5,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../app/Services/VoiceAgent/VoiceAccessService.php';
+require_once __DIR__ . '/../../app/Services/VoiceAgent/VoiceRolePrompts.php';
 require_once __DIR__ . '/../../app/Services/VoiceAgent/VoiceSettingsService.php';
 
 final class VoiceAgentFoundationTest extends TestCase

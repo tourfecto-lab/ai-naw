@@ -61,4 +61,13 @@ class VoiceWebhookController extends Controller
         $this->send($code, $type, $body);
         return [];
     }
+
+    /** POST /webhooks/voice/{provider}/{tenant}/whisper?call=ID - the briefing the person hears when a call is handed over */
+    public function whisper(array $params = []): array
+    {
+        [$url, $headers, $raw] = $this->request();
+        [$code, $type, $body] = (new VoiceInboundService())->handleWhisper(strtolower((string) ($params['provider'] ?? '')), (int) ($params['tenant'] ?? 0), $url, $headers, $raw, $_POST, (int) ($_GET['call'] ?? 0));
+        $this->send($code, $type, $body);
+        return [];
+    }
 }

@@ -40,6 +40,7 @@ class VoiceAgentBrain
         $base = $seq * 100;
         $this->data->addTurn($tenant, $callId, $base, 'caller', mb_substr($utterance, 0, 600));
 
+        $knowledge = $this->data->knowledgeContext($tenant, $lang, $utterance);
         $ctx = $this->data->customerContext($tenant, self::customerNumber($call));
         $business = $this->data->businessName($tenant);
         $parsed = null;
@@ -47,16 +48,14 @@ class VoiceAgentBrain
         $cost = 0.0;
         for ($i = 0; $i <= self::MAX_LOOKUPS_PER_TURN; $i++) {
             $call = $this->data->getCall($tenant, $callId) ?? $call;
-            $prompt = VoicePromptBuilder::build($call, $ctx, $this->data->recentTurns($tenant, $callId, 14), $agent, $business, $canTransfer, date('Y-m-d'));
+            $prompt = VoicePromptBuilder::build($call, $ctx, $this->data->recentTurns($tenant, $callId, 14), $agent, $business, $canTransfer, date('Y-m-d'), $knowledge);
             $r = ($this->llm)($prompt, ['task' => 'voice_agent', 'user_id' => $tenant, 'responseMimeType' => 'application/json', 'temperature' => 0.3, 'maxOutputTokens' => 400]);
             $cost += (float) ($r['cost'] ?? 0);
             $parsed = !empty($r['success']) ? VoiceReplyParser::parse((string) ($r['data'] ?? '')) : null;
             if ($parsed === null) {
                 break;
             }
-            if ($parsed['language']) {
-                $lang = $parsed['language'];
-            }
+            $lang = VoiceLanguages::pick($parsed['language'] ?? $lang, $agent); // only languages this assistant is set up for
             if (in_array($parsed['action']['type'], VoiceReplyParser::READ_ACTIONS, true) && $lookups < self::MAX_LOOKUPS_PER_TURN) {
                 $lookups++;
                 $this->data->addTurn($tenant, $callId, $base + $lookups, 'tool', json_encode($this->runLookup($tenant, $call, $parsed['action']), JSON_UNESCAPED_UNICODE), ['action' => $parsed['action']['type']]);
@@ -70,7 +69,7 @@ class VoiceAgentBrain
             // Model unavailable or unusable: never improvise. Hand over, or promise a callback.
             $say = $canTransfer ? VoiceLanguages::handoffPhrase($lang) : VoiceLanguages::callbackPhrase($lang);
             $this->data->addTurn($tenant, $callId, $base + 90, 'agent', $say, ['fallback' => true]);
-            return ['say' => $say, 'language' => $lang, 'end' => !$canTransfer, 'transfer' => $canTransfer ? 'ai_unavailable' : null, 'outcome' => $canTransfer ? null : 'callback_requested', 'opt_out' => false];
+            return ['say' => $say, 'language' => $lang, 'end' => !$canTransfer, 'transfer' => $canTransfer ? 'ai_unavailable' : null, 'outcome' => $canTransfer ? null : 'callback_requested', 'opt_out' => false, 'topic' => null];
         }
 
         $a = $parsed['action'];
@@ -82,7 +81,7 @@ class VoiceAgentBrain
         if ($bad) {
             $say = VoiceLanguages::fallbackPhrase($lang);
         }
-        $out = ['say' => $say, 'language' => $lang, 'end' => false, 'transfer' => null, 'outcome' => null, 'opt_out' => false];
+        $out = ['say' => $say, 'language' => $lang, 'end' => false, 'transfer' => null, 'outcome' => null, 'opt_out' => false, 'topic' => null];
 
         switch ($a['type']) {
             case 'opt_out':
@@ -102,6 +101,7 @@ class VoiceAgentBrain
             case 'transfer_human':
                 if ($canTransfer) {
                     $out['transfer'] = $a['reason'] !== '' ? $a['reason'] : 'requested';
+                    $out['topic'] = $a['topic'] ?? 'other';
                     $out['say'] = VoiceLanguages::handoffPhrase($lang);
                 } else {
                     $out['say'] = VoiceLanguages::callbackPhrase($lang);

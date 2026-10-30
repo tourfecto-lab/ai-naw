@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 foreach (['VoiceHttpClient', 'VoiceProviderException', 'VoiceProviderAdapter', 'AbstractVoiceProviderAdapter', 'TwilioVoiceAdapter', 'TelnyxVoiceAdapter'] as $c) {
     require_once __DIR__ . '/../../app/Services/VoiceAgent/Telephony/' . $c . '.php';
 }
-foreach (['VoiceLanguages', 'VoiceReplyParser', 'VoiceIdentity', 'VoiceDataSource', 'VoicePromptBuilder', 'VoiceAgentBrain', 'VoiceBridgeAuth'] as $c) {
+foreach (['VoiceLanguages', 'VoiceReplyParser', 'VoiceIdentity', 'VoiceDataSource', 'VoiceRolePrompts', 'VoiceStaffRouting', 'VoicePromptBuilder', 'VoiceAgentBrain', 'VoiceBridgeAuth'] as $c) {
     require_once __DIR__ . '/../../app/Services/VoiceAgent/' . $c . '.php';
 }
 require_once __DIR__ . '/../Fixtures/VoiceFakeHttp.php';
@@ -32,7 +32,7 @@ final class VoiceInboundAgentTest extends TestCase
 
     private function agent(): array
     {
-        return ['name' => 'Layla', 'greeting' => ''];
+        return ['name' => 'Layla', 'language' => 'en', 'languages' => 'ar'];
     }
 
     // ---- parser

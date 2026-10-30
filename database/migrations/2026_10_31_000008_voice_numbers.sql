@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS voice_numbers (
  verified_at DATETIME NULL,
  link_tested_at DATETIME NULL,
  agent_id INT(11) NULL,
+ routing_json TEXT NULL COMMENT 'ordered rules: which assistant answers when (known customer, open booking, after hours, caller country)',
  is_default TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'the company default number (caller ID, first choice)',
  utm_link_id INT(11) NULL COMMENT 'ad_utm_links.id this dedicated number is tied to: calls and bookings from it may be attributed to that ad',
  attribution_source VARCHAR(30) NULL,

@@ -63,6 +63,8 @@ class VoiceReplyParser
                 break;
             case 'transfer_human':
                 $action['reason'] = self::str($a['reason'] ?? '', 200);
+                $tp = (string) ($a['topic'] ?? 'other');
+                $action['topic'] = in_array($tp, VoiceStaffRouting::TOPICS, true) ? $tp : 'other';
                 break;
             case 'send_details':
                 $ch = (string) ($a['channel'] ?? 'any');

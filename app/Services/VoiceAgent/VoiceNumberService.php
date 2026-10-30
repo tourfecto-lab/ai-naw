@@ -351,6 +351,16 @@ class VoiceNumberService
         return ['agent_id' => $agentId, 'forward_to' => $fwd];
     }
 
+    /** Which assistant answers this number in which situation (known customer, open booking, after hours, caller country). */
+    public function setRouting(int $tenantId, int $actorUserId, int $numberId, array $rules): array
+    {
+        $this->row($tenantId, $numberId);
+        $clean = VoiceRouting::sanitize($rules, fn (int $id) => (bool) $this->db()->query('SELECT id FROM voice_agents WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$id, $tenantId]));
+        $this->db()->exec('UPDATE voice_numbers SET routing_json = ?, updated_at = NOW() WHERE id = ? AND tenant_user_id = ?', [$clean ? json_encode($clean) : null, $numberId, $tenantId]);
+        VoiceAuditService::record($tenantId, $actorUserId, 'number.routing_set', 'number', $numberId, ['rules' => count($clean)]);
+        return ['rules' => $clean];
+    }
+
     /** The company always has exactly one default number once it has any number (the first one added). */
     private function ensureDefault(int $tenantId): void
     {

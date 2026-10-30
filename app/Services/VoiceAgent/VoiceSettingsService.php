@@ -8,11 +8,11 @@ class VoiceSettingsService
     public const DEFAULTS = [
         'enabled' => 0, 'sandbox_mode' => 1, 'default_language' => 'en', 'outbound_enabled' => 0,
         'recording_enabled' => 0, 'monthly_budget_usd' => null, 'human_handoff_phone' => null,
-        'daily_outbound_cap' => 100, 'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'post_call_wa_template' => null, 'post_call_wa_template_lang' => null, 'auto_abandoned_recovery' => 0, 'auto_trip_reminders' => 0, 'auto_booking_confirmation' => 0, 'auto_followups_live_approved' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
+        'timezone' => null, 'after_hours_mode' => 'ai', 'knowledge_website_id' => null, 'daily_outbound_cap' => 100, 'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'post_call_wa_template' => null, 'post_call_wa_template_lang' => null, 'auto_abandoned_recovery' => 0, 'auto_trip_reminders' => 0, 'auto_booking_confirmation' => 0, 'auto_followups_live_approved' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
     ];
 
     public const BOOKING_MODES = ['request_only', 'create_pending', 'auto_confirm'];
-    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'daily_outbound_cap', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'post_call_wa_template', 'post_call_wa_template_lang', 'auto_abandoned_recovery', 'auto_trip_reminders', 'auto_booking_confirmation', 'auto_followups_live_approved', 'payment_link_pct', 'whatsapp_website_id'];
+    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'timezone', 'after_hours_mode', 'knowledge_website_id', 'daily_outbound_cap', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'post_call_wa_template', 'post_call_wa_template_lang', 'auto_abandoned_recovery', 'auto_trip_reminders', 'auto_booking_confirmation', 'auto_followups_live_approved', 'payment_link_pct', 'whatsapp_website_id'];
 
     /** Pure: validate and normalise user input into the writable settings columns. */
     public static function sanitizeSettings(array $in): array
@@ -53,6 +53,23 @@ class VoiceSettingsService
                 throw new InvalidArgumentException('Template language like en or en_US');
             }
             $out['post_call_wa_template_lang'] = $v === '' ? null : $v;
+        }
+        if (array_key_exists('timezone', $in)) {
+            $v = trim((string) $in['timezone']);
+            if ($v !== '' && !in_array($v, DateTimeZone::listIdentifiers(), true)) {
+                throw new InvalidArgumentException('Unknown time zone');
+            }
+            $out['timezone'] = $v === '' ? null : $v;
+        }
+        if (array_key_exists('after_hours_mode', $in)) {
+            if (!in_array((string) $in['after_hours_mode'], ['ai', 'message', 'forward'], true)) {
+                throw new InvalidArgumentException('After-hours mode must be ai, message or forward');
+            }
+            $out['after_hours_mode'] = (string) $in['after_hours_mode'];
+        }
+        if (array_key_exists('knowledge_website_id', $in)) {
+            $v = $in['knowledge_website_id'];
+            $out['knowledge_website_id'] = ($v === null || $v === '') ? null : max(1, (int) $v);
         }
         if (array_key_exists('daily_outbound_cap', $in)) {
             $v = filter_var($in['daily_outbound_cap'], FILTER_VALIDATE_INT);
@@ -124,8 +141,27 @@ class VoiceSettingsService
             throw new InvalidArgumentException('Invalid status');
         }
         $voice = isset($in['voice']) ? mb_substr(trim((string) $in['voice']), 0, 60) : null;
-        $greeting = isset($in['greeting']) ? mb_substr(trim((string) $in['greeting']), 0, 1000) : null;
-        return ['name' => $name, 'language' => $lang, 'status' => $status, 'voice' => $voice ?: null, 'greeting' => $greeting ?: null];
+        $role = (string) ($in['role'] ?? 'reception');
+        if (!in_array($role, VoiceRolePrompts::ROLES, true)) {
+            throw new InvalidArgumentException('Invalid role');
+        }
+        $tone = (string) ($in['tone'] ?? 'friendly');
+        if (!in_array($tone, VoiceRolePrompts::TONES, true)) {
+            throw new InvalidArgumentException('Invalid tone');
+        }
+        $extra = [];
+        foreach (is_array($in['languages'] ?? null) ? $in['languages'] : array_filter(explode(',', (string) ($in['languages'] ?? ''))) as $l) {
+            $l = strtolower(trim((string) $l));
+            if (!in_array($l, self::LANGUAGES, true)) {
+                throw new InvalidArgumentException('Unsupported language: ' . $l);
+            }
+            if ($l !== $lang && !in_array($l, $extra, true)) {
+                $extra[] = $l;
+            }
+        }
+        $opening = isset($in['opening_text']) ? mb_substr(trim(strip_tags((string) $in['opening_text'])), 0, 400) : null;
+        $instructions = isset($in['instructions']) ? mb_substr(trim(strip_tags((string) $in['instructions'])), 0, 1500) : null;
+        return ['name' => $name, 'language' => $lang, 'status' => $status, 'voice' => $voice ?: null, 'role' => $role, 'tone' => $tone, 'languages' => $extra ? implode(',', $extra) : null, 'opening_text' => $opening ?: null, 'instructions' => $instructions ?: null];
     }
 
     public function get(int $tenantId): array
@@ -138,6 +174,9 @@ class VoiceSettingsService
     {
         $clean = self::sanitizeSettings($input);
         if (!empty($clean['whatsapp_website_id']) && !Database::getInstance()->query('SELECT id FROM websites WHERE id = ? AND user_id = ? LIMIT 1', [$clean['whatsapp_website_id'], $tenantId])) {
+            throw new InvalidArgumentException('Website not found');
+        }
+        if (!empty($clean['knowledge_website_id']) && !Database::getInstance()->query('SELECT id FROM websites WHERE id = ? AND user_id = ? LIMIT 1', [$clean['knowledge_website_id'], $tenantId])) {
             throw new InvalidArgumentException('Website not found');
         }
         if (($clean['booking_mode'] ?? null) === 'auto_confirm' && !array_key_exists('booking_max_amount', $clean) && ($this->get($tenantId)['booking_max_amount'] ?? null) === null) {
@@ -161,7 +200,7 @@ class VoiceSettingsService
 
     public function listAgents(int $tenantId): array
     {
-        return Database::getInstance()->query('SELECT id, name, language, voice, greeting, status, created_at, updated_at FROM voice_agents WHERE tenant_user_id = ? ORDER BY id DESC', [$tenantId]) ?: [];
+        return Database::getInstance()->query('SELECT id, name, language, languages, role, tone, voice, opening_text, instructions, status, created_at, updated_at FROM voice_agents WHERE tenant_user_id = ? ORDER BY id DESC', [$tenantId]) ?: [];
     }
 
     public function createAgent(int $tenantId, int $actorUserId, array $input): int
@@ -169,8 +208,8 @@ class VoiceSettingsService
         $a = self::sanitizeAgent($input);
         $db = Database::getInstance();
         $db->exec(
-            'INSERT INTO voice_agents (tenant_user_id, name, language, voice, greeting, status, created_by_user_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,NOW(),NOW())',
-            [$tenantId, $a['name'], $a['language'], $a['voice'], $a['greeting'], $a['status'], $actorUserId]
+            'INSERT INTO voice_agents (tenant_user_id, name, language, languages, role, tone, voice, opening_text, instructions, status, created_by_user_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())',
+            [$tenantId, $a['name'], $a['language'], $a['languages'], $a['role'], $a['tone'], $a['voice'], $a['opening_text'], $a['instructions'], $a['status'], $actorUserId]
         );
         return (int) $db->getConnection()->lastInsertId();
     }
@@ -183,8 +222,8 @@ class VoiceSettingsService
             return false;
         }
         return Database::getInstance()->exec(
-            'UPDATE voice_agents SET name=?, language=?, voice=?, greeting=?, status=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?',
-            [$a['name'], $a['language'], $a['voice'], $a['greeting'], $a['status'], $agentId, $tenantId]
+            'UPDATE voice_agents SET name=?, language=?, languages=?, role=?, tone=?, voice=?, opening_text=?, instructions=?, status=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?',
+            [$a['name'], $a['language'], $a['languages'], $a['role'], $a['tone'], $a['voice'], $a['opening_text'], $a['instructions'], $a['status'], $agentId, $tenantId]
         );
     }
 }

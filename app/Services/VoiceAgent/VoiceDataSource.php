@@ -26,4 +26,7 @@ interface VoiceDataSource
     public function identityFactors(int $tenantId, int $contactId): array;
 
     public function businessName(int $tenantId): string;
+
+    /** Company knowledge (FAQs, policies, trips) relevant to what the caller just said; '' when the company has none. */
+    public function knowledgeContext(int $tenantId, string $lang, string $query): string;
 }

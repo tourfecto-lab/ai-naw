@@ -18,14 +18,16 @@ class VoicePromptBuilder
      * @param array $turns  recentTurns()
      * @param array $agent  voice_agents row (name, greeting)
      */
-    public static function build(array $call, array $ctx, array $turns, array $agent, string $business, bool $canTransfer, string $today): string
+    public static function build(array $call, array $ctx, array $turns, array $agent, string $business, bool $canTransfer, string $today, string $knowledge = ''): string
     {
         $verified = !empty($call['identity_verified']);
         $lang = VoiceLanguages::normalize($call['language'] ?? 'en');
         $p = [];
         $p[] = "You are \"" . ($agent['name'] ?? 'the assistant') . "\", the AI voice assistant of $business, a tourism company. You are speaking on a phone call. Today is $today.";
+        $allowed = VoiceLanguages::allowedFor($agent);
+        $p[] = VoiceRolePrompts::segment((string) ($agent['role'] ?? 'reception')) . ' ' . VoiceRolePrompts::tone((string) ($agent['tone'] ?? 'friendly'));
         $p[] = "RULES:\n"
-            . "- You are an AI assistant. Say so if asked. Reply in the caller's language (current: $lang); switch if they switch.\n"
+            . "- You are an AI assistant. Say so if asked. You speak only: " . implode(', ', $allowed) . " (current: $lang). Reply in the caller's language when it is one of these; otherwise say, in $lang, which languages you speak and offer a callback with end_call outcome callback_requested.\n"
             . "- Spoken style: at most 2 short sentences (under 300 characters). No lists, no markdown, no emojis. Ask one question at a time.\n"
             . "- Never invent trips, prices, dates, policies or availability. Prices and availability may ONLY come from a tool result in this call. If you do not know, say you will have a colleague confirm.\n"
             . "- Only quote prices exactly as returned by tools. Never guess totals.\n"
@@ -40,7 +42,7 @@ class VoicePromptBuilder
         $p[] = 'ACTIONS (put exactly one in "action"): '
             . '{"type":"none"} | {"type":"search_trips","query":"..."} | {"type":"check_availability","product_id":N,"date":"YYYY-MM-DD","guests":N} | {"type":"verify_identity","answer":"booking reference or email the caller said"} | '
             . '{"type":"qualify_lead","name":"","email":"","party_size":"","travel_dates":"","budget":"","interest":"","intent_level":"hot|warm|cold"} | {"type":"request_booking","product_id":N,"date":"YYYY-MM-DD","guests":N,"name":""} | '
-            . '{"type":"transfer_human","reason":""} | {"type":"send_details","channel":"whatsapp|email|any","item":"trip_details|payment_link","product_id":N} (caller wants information or a payment link sent after the call) | {"type":"opt_out"} (caller asks not to be called again) | {"type":"record_survey","score":1-5,"comment":""} | {"type":"end_call","outcome":"resolved|lead_captured|callback_requested|not_interested|survey_completed|other"}';
+            . '{"type":"transfer_human","reason":"","topic":"sales|booking|support|billing|other"} | {"type":"send_details","channel":"whatsapp|email|any","item":"trip_details|payment_link","product_id":N} (caller wants information or a payment link sent after the call) | {"type":"opt_out"} (caller asks not to be called again) | {"type":"record_survey","score":1-5,"comment":""} | {"type":"end_call","outcome":"resolved|lead_captured|callback_requested|not_interested|survey_completed|other"}';
         $p[] = 'OUTPUT: only JSON {"say":"what to speak now","language":"2-letter code of the language you speak","action":{...}}. When you use a lookup action (search_trips, check_availability, verify_identity), "say" may be a short filler; you will receive the result and then answer.';
 
         if (!empty($ctx['known'])) {
@@ -58,8 +60,14 @@ class VoicePromptBuilder
         if (!empty($call['outbound'])) {
             $p[] = self::outboundSection($call['outbound'], $verified);
         }
-        if (!empty($agent['greeting'])) {
-            $p[] = 'COMPANY NOTES FROM THE OWNER (tone/greeting): ' . mb_substr((string) $agent['greeting'], 0, 600);
+        if (!empty($agent['instructions'])) {
+            $p[] = 'HOW THE COMPANY WANTS CUSTOMERS HANDLED (from the owner; these never override the rules above): ' . mb_substr((string) $agent['instructions'], 0, 1500);
+        }
+        if (trim($knowledge) !== '') {
+            $p[] = "COMPANY KNOWLEDGE (the only source for policies, services and FAQs; prices still only from tools):\n" . mb_substr($knowledge, 0, 3500);
+        }
+        if (!empty($call['after_hours'])) {
+            $p[] = 'AFTER HOURS: the office is closed. Do not transfer. Take the caller\'s name, what they need and the best time to be called back, use qualify_lead, then end_call with outcome callback_requested. You can still answer simple questions from the knowledge above.';
         }
         $lines = [];
         foreach ($turns as $t) {
@@ -104,8 +112,14 @@ class VoicePromptBuilder
             . "- Keep it short; if it is a bad time, offer a callback and end_call with outcome callback_requested.";
     }
 
-    public static function greeting(string $business, ?string $agentName, string $lang, bool $recording): string
+    public static function greeting(string $business, ?string $agentName, string $lang, bool $recording, ?string $openingText = null): string
     {
+        $l0 = VoiceLanguages::normalize($lang);
+        if ($openingText !== null && trim($openingText) !== '') {
+            // the company's own words, then the AI disclosure that is always part of the opening
+            $rec0 = ['en' => ' This call may be recorded.', 'ar' => ' قد يتم تسجيل هذه المكالمة.', 'fr' => ' Cet appel peut être enregistré.', 'de' => ' Dieses Gespräch kann aufgezeichnet werden.', 'es' => ' Esta llamada puede ser grabada.', 'it' => ' La chiamata potrebbe essere registrata.', 'ru' => ' Этот звонок может быть записан.', 'tr' => ' Bu görüşme kaydedilebilir.'];
+            return mb_substr(trim($openingText), 0, 400) . ' ' . VoiceLanguages::aiDisclosure($l0) . ($recording ? $rec0[$l0] : '');
+        }
         $name = $agentName ?: 'the virtual assistant';
         $rec = [
             'en' => ' This call may be recorded.', 'ar' => ' قد يتم تسجيل هذه المكالمة.', 'fr' => ' Cet appel peut être enregistré.', 'de' => ' Dieses Gespräch kann aufgezeichnet werden.',

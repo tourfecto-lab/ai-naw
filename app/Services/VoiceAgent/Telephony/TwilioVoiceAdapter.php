@@ -246,7 +246,15 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
             $loc = preg_match('/^[a-z]{2}-[A-Z]{2}$/', (string) ($o['language'] ?? '')) ? $o['language'] : 'en-US';
             $inner = '<Gather input="speech" action="' . $x($o['gather_url']) . '" method="POST" language="' . $x($loc) . '" speechTimeout="auto" timeout="6" actionOnEmptyResult="true">' . $say . '</Gather>';
         } elseif (!empty($o['transfer_to'])) {
-            $inner = $say . '<Dial>' . $x(self::e164($o['transfer_to'])) . '</Dial>';
+            $num = $x(self::e164($o['transfer_to']));
+            if (!empty($o['whisper_url'])) {
+                if (!preg_match('#^https://#i', (string) $o['whisper_url'])) {
+                    throw new InvalidArgumentException('whisper_url must be https');
+                }
+                $inner = $say . '<Dial><Number url="' . $x($o['whisper_url']) . '">' . $num . '</Number></Dial>'; // the person hears the briefing before the caller is connected
+            } else {
+                $inner = $say . '<Dial>' . $num . '</Dial>';
+            }
         } else {
             $inner = $say . '<Hangup/>';
         }

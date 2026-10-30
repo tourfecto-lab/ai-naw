@@ -156,4 +156,49 @@ class VoiceLanguages
         ];
         return $p[self::normalize($lang)];
     }
+
+    /** The languages one assistant may speak: its primary language plus the extra ones the company enabled. @return string[] */
+    public static function allowedFor(array $agent): array
+    {
+        $out = [self::normalize($agent['language'] ?? 'en')];
+        foreach (array_filter(array_map('trim', explode(',', (string) ($agent['languages'] ?? '')))) as $l) {
+            $n = self::normalize($l, '');
+            if ($n !== '' && !in_array($n, $out, true)) {
+                $out[] = $n;
+            }
+        }
+        return $out;
+    }
+
+    /** What the assistant answers in: the language it detected if the company enabled it, otherwise its primary language. */
+    public static function pick(?string $detected, array $agent): string
+    {
+        $allowed = self::allowedFor($agent);
+        $d = $detected !== null ? self::normalize($detected, '') : '';
+        return $d !== '' && in_array($d, $allowed, true) ? $d : $allowed[0];
+    }
+
+    public static function aiDisclosure(string $lang): string
+    {
+        $p = [
+            'en' => "I'm an AI assistant.", 'ar' => 'أنا مساعد ذكاء اصطناعي.', 'fr' => 'Je suis un assistant IA.', 'de' => 'Ich bin ein KI-Assistent.',
+            'es' => 'Soy un asistente de IA.', 'it' => 'Sono un assistente IA.', 'ru' => 'Я ИИ-ассистент.', 'tr' => 'Ben bir yapay zeka asistanıyım.',
+        ];
+        return $p[self::normalize($lang)];
+    }
+
+    public static function afterHoursPhrase(string $lang): string
+    {
+        $p = [
+            'en' => 'Our office is closed right now, but I can take your details and have the team call you back.',
+            'ar' => 'مكتبنا مغلق الآن، لكن يمكنني تسجيل بياناتك ليتصل بك الفريق.',
+            'fr' => 'Nos bureaux sont fermés pour le moment, mais je peux noter vos coordonnées pour que l\'équipe vous rappelle.',
+            'de' => 'Unser Büro ist gerade geschlossen, aber ich kann Ihre Daten aufnehmen, damit das Team Sie zurückruft.',
+            'es' => 'Nuestra oficina está cerrada ahora, pero puedo tomar sus datos para que el equipo le llame.',
+            'it' => 'Il nostro ufficio è chiuso al momento, ma posso prendere i suoi dati e farla richiamare dal team.',
+            'ru' => 'Наш офис сейчас закрыт, но я могу записать ваши данные, и команда вам перезвонит.',
+            'tr' => 'Ofisimiz şu an kapalı, ancak bilgilerinizi alıp ekibimizin sizi aramasını sağlayabilirim.',
+        ];
+        return $p[self::normalize($lang)];
+    }
 }

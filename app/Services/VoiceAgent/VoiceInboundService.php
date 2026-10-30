@@ -28,7 +28,7 @@ class VoiceInboundService
     public static function webhookUrls(string $baseUrl, string $provider, int $tenantId): array
     {
         $b = rtrim($baseUrl, '/') . '/webhooks/voice/' . $provider . '/' . $tenantId;
-        return ['inbound' => $b . '/inbound', 'status' => $b . '/status', 'turn' => $b . '/turn', 'outbound' => $b . '/outbound'];
+        return ['inbound' => $b . '/inbound', 'status' => $b . '/status', 'turn' => $b . '/turn', 'outbound' => $b . '/outbound', 'whisper' => $b . '/whisper'];
     }
 
     private function authenticate(string $provider, int $tenantId, string $url, array $headers, string $raw, array $params): ?VoiceProviderAdapter
@@ -53,6 +53,30 @@ class VoiceInboundService
     private static function plain(int $code, string $body): array
     {
         return [$code, 'text/plain', $body];
+    }
+
+    /** Who a handed-over call goes to: a staff member on shift who handles the topic, else the number's own line, else the company handoff phone. */
+    private function handoffPhone(array $staff, array $number, array $settings, ?string $topic): ?string
+    {
+        $p = VoiceStaffRouting::pick($staff, time(), $settings['timezone'] ?? null, $topic);
+        return $p ? (string) $p['phone'] : $this->humanTarget($number, $settings);
+    }
+
+    /** What the person hears (only they, before the caller is connected) when the AI hands a call over. */
+    public function handleWhisper(string $provider, int $tenantId, string $url, array $headers, string $raw, array $params, int $callId): array
+    {
+        $a = $this->authenticate($provider, $tenantId, $url, $headers, $raw, $params);
+        $call = $a ? $this->store->getCall($tenantId, $callId) : null;
+        if (!$a || !$call) {
+            return $a ? self::plain(200, 'ignored') : self::plain(403, 'Invalid signature');
+        }
+        $q = json_decode((string) ($call['qualification'] ?? ''), true) ?: [];
+        $br = json_decode((string) ($call['booking_request'] ?? ''), true) ?: [];
+        $lang = VoiceLanguages::normalize($call['language'] ?? 'en');
+        $text = VoiceHandoff::whisperText($lang, $this->store->businessName($tenantId), ['reason' => (string) ($call['handoff_reason'] ?? ''), 'interest' => (string) ($q['interest'] ?? ''), 'booking' => $br]);
+        $r = $a->turnInstructions(['say' => $text, 'voice' => VoiceLanguages::defaultVoice($lang)]); // say + hang up this leg's TwiML: Twilio then bridges the call
+        $r['body'] = str_replace('<Hangup/>', '', $r['body']);
+        return [200, $r['content_type'], $r['body']];
     }
 
     private function humanTarget(array $number, array $settings): ?string
@@ -87,8 +111,22 @@ class VoiceInboundService
         }
         $number = $rows[0];
         $settings = $this->settings->get($tenantId);
-        $human = $this->humanTarget($number, $settings);
-        $agent = $number['agent_id'] ? (Database::getInstance()->query('SELECT * FROM voice_agents WHERE id = ? AND tenant_user_id = ? LIMIT 1', [(int) $number['agent_id'], $tenantId])[0] ?? null) : null;
+        $staff = (new VoiceStaffService())->forRouting($tenantId);
+        $human = $this->handoffPhone($staff, $number, $settings, null);
+        $ctx = $this->store->customerContext($tenantId, $ev['from']);
+        $afterHours = !VoiceHours::isOpen($this->store->businessHoursRows($tenantId), $settings['timezone'] ?? null, time());
+        $routed = VoiceRouting::choose(json_decode((string) ($number['routing_json'] ?? ''), true) ?: [], $number['agent_id'] ? (int) $number['agent_id'] : null, [
+            'known_customer' => $ctx['known'], 'has_booking' => !empty($ctx['bookings']), 'after_hours' => $afterHours, 'caller_country' => VoiceMarkets::countryOf($ev['from']),
+        ]);
+        $agent = null;
+        foreach (array_unique(array_filter([$routed, $number['agent_id'] ? (int) $number['agent_id'] : null])) as $candidate) { // a routed assistant that is not active falls back to the number's own
+            $row = Database::getInstance()->query("SELECT * FROM voice_agents WHERE id = ? AND tenant_user_id = ? LIMIT 1", [(int) $candidate, $tenantId])[0] ?? null;
+            if ($row && $row['status'] === 'active') {
+                $agent = $row;
+                break;
+            }
+            $agent = $agent ?? $row;
+        }
         $lang = VoiceLanguages::normalize($agent['language'] ?? $settings['default_language'] ?? 'en');
 
         $awaiting = $number['status'] === 'awaiting_link_test' && $number['verification_mode'] === 'live';
@@ -113,6 +151,14 @@ class VoiceInboundService
         if ($awaiting) {
             (new VoiceNumberService($this->providers))->recordInboundArrival($tenantId, $to);
         }
+        $afterMode = (string) ($settings['after_hours_mode'] ?? 'ai');
+        if ($reason === null && $afterHours && $afterMode === 'forward' && $human && $a->capabilities()['turn_mode']) {
+            $this->store->createCall($tenantId, $number, (int) $agent['id'], $provider, $ev['call_id'], $ev['from'], $to, 'fallback', $lang, $ctx['contact_id']);
+            if ($c = $this->store->findBySid($tenantId, $provider, $ev['call_id'])) {
+                $this->store->updateCall($tenantId, (int) $c['id'], ['status' => 'transferred', 'outcome' => 'transferred_after_hours', 'handoff_reason' => 'after_hours_forward', 'after_hours' => 1]);
+            }
+            return self::xml($a, ['say' => VoiceLanguages::handoffPhrase($lang), 'voice' => VoiceLanguages::defaultVoice($lang), 'transfer_to' => $human]);
+        }
         if ($reason !== null) {
             $this->store->createCall($tenantId, $number, $agent['id'] ?? null, $provider, $ev['call_id'], $ev['from'], $to, 'fallback', $lang, null);
             $call = $this->store->findBySid($tenantId, $provider, $ev['call_id']);
@@ -133,10 +179,14 @@ class VoiceInboundService
         $secret = (string) $platform->get('voice_bridge_secret', '');
         $stream = $streamUrl !== '' && $secret !== '' && !empty($a->capabilities()['streaming']) && preg_match('#^wss://#i', $streamUrl);
         $mode = $stream ? 'stream' : (!empty($a->capabilities()['turn_mode']) ? 'turn' : 'fallback');
-        $ctx = $this->store->customerContext($tenantId, $ev['from']);
         $callId = $this->store->createCall($tenantId, $number, (int) $agent['id'], $provider, $ev['call_id'], $ev['from'], $to, $mode, $lang, $ctx['contact_id']);
-
-        $greeting = VoicePromptBuilder::greeting($this->store->businessName($tenantId), $agent['name'] ?? null, $lang, !empty($settings['recording_enabled']));
+        if ($afterHours && $afterMode !== 'ai') {
+            $this->store->updateCall($tenantId, $callId, ['after_hours' => 1]); // closed: take a message, never promise a person
+        }
+        $greeting = VoicePromptBuilder::greeting($this->store->businessName($tenantId), $agent['name'] ?? null, $lang, !empty($settings['recording_enabled']), $agent['opening_text'] ?? null);
+        if ($afterHours && $afterMode !== 'ai') {
+            $greeting .= ' ' . VoiceLanguages::afterHoursPhrase($lang);
+        }
         if ($mode === 'stream') {
             // Twilio ignores a query string on the stream URL, so the per-call token travels as a stream parameter
             $r = $a->inboundInstructions(['say' => $greeting, 'stream_url' => $streamUrl, 'stream_params' => ['token' => VoiceBridgeAuth::makeToken($callId, $tenantId, $secret)]]);
@@ -175,7 +225,8 @@ class VoiceInboundService
         $number = Database::getInstance()->query('SELECT * FROM voice_numbers WHERE id = ? AND tenant_user_id = ? LIMIT 1', [(int) $call['number_id'], $tenantId])[0] ?? [];
         $agent = Database::getInstance()->query('SELECT * FROM voice_agents WHERE id = ? AND tenant_user_id = ? LIMIT 1', [(int) $call['agent_id'], $tenantId])[0] ?? [];
         $settings = $this->settings->get($tenantId);
-        $human = $this->humanTarget($number, $settings);
+        $staff = (new VoiceStaffService())->forRouting($tenantId);
+        $human = !empty($call['after_hours']) ? null : $this->handoffPhone($staff, $number, $settings, null);
         $voice = VoiceLanguages::safeVoice($agent['voice'] ?? null, $lang);
         $next = fn (string $say, string $l) => self::xml($a, ['say' => $say, 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'language' => VoiceLanguages::speechLocale($l), 'gather_url' => $this->turnUrl($provider, $tenantId, $callId, $n + 1)]);
 
@@ -222,8 +273,9 @@ class VoiceInboundService
             return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'hangup' => true]);
         }
         if ($out['transfer'] !== null && $human) {
-            $this->store->updateCall($tenantId, $callId, ['status' => 'transferred', 'handoff_reason' => mb_substr($out['transfer'], 0, 200), 'outcome' => 'transferred']);
-            return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'transfer_to' => $human]);
+            $target = $this->handoffPhone($staff, $number, $settings, $out['topic'] ?? null) ?? $human; // the person who handles this topic, if on shift
+            $this->store->updateCall($tenantId, $callId, ['status' => 'transferred', 'handoff_reason' => mb_substr($out['transfer'], 0, 200), 'handoff_topic' => $out['topic'] ?? null, 'outcome' => 'transferred']);
+            return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'transfer_to' => $target, 'whisper_url' => self::webhookUrls($this->baseUrl, $provider, $tenantId)['whisper'] . '?call=' . $callId]);
         }
         if ($out['end']) {
             $this->store->updateCall($tenantId, $callId, ['outcome' => $out['outcome'] ?? 'resolved']);

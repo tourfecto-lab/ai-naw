@@ -3,7 +3,7 @@
 /** Tourfecto - AI Voice Agent: database implementation of VoiceDataSource. Every query carries the tenant id. */
 class VoiceDataStore implements VoiceDataSource
 {
-    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by', 'next_step', 'needs', 'send_requests', 'post_call_status', 'post_processed_at', 'crm_lead_id', 'booking_id'];
+    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by', 'next_step', 'needs', 'send_requests', 'post_call_status', 'post_processed_at', 'crm_lead_id', 'booking_id', 'after_hours', 'handoff_topic'];
 
     private function db(): Database
     {
@@ -179,5 +179,39 @@ class VoiceDataStore implements VoiceDataSource
     public function activeCalls(int $tenantId): int
     {
         return (int) ($this->db()->query("SELECT COUNT(*) AS n FROM voice_calls WHERE tenant_user_id = ? AND status = 'in_progress' AND started_at >= NOW() - INTERVAL 15 MINUTE", [$tenantId])[0]['n'] ?? 0);
+    }
+
+    private function knowledgeWebsite(int $tenantId): int
+    {
+        $r = $this->db()->query('SELECT knowledge_website_id FROM voice_agent_settings WHERE tenant_user_id = ? LIMIT 1', [$tenantId]);
+        $id = (int) ($r[0]['knowledge_website_id'] ?? 0);
+        return $id > 0 && $this->db()->query('SELECT id FROM websites WHERE id = ? AND user_id = ? LIMIT 1', [$id, $tenantId]) ? $id : 0;
+    }
+
+    public function knowledgeContext(int $tenantId, string $lang, string $query): string
+    {
+        $wid = $this->knowledgeWebsite($tenantId);
+        if ($wid < 1) {
+            return '';
+        }
+        try {
+            return mb_substr((new KnowledgeBaseService())->buildContextForPrompt($wid, null, mb_substr($query, 0, 300), 8), 0, 3500);
+        } catch (Throwable $e) {
+            return ''; // a broken knowledge base must not stop the call
+        }
+    }
+
+    /** Business-hours rows of the company's knowledge base. @return list<array> */
+    public function businessHoursRows(int $tenantId): array
+    {
+        $wid = $this->knowledgeWebsite($tenantId);
+        if ($wid < 1) {
+            return [];
+        }
+        try {
+            return array_values(array_filter((new AiKnowledgeBase())->activeFor($wid), static fn ($r) => ($r['section'] ?? '') === 'business_hours'));
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 }
