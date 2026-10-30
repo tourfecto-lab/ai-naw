@@ -43,7 +43,7 @@ class AiCeoController extends Controller
         if (!$this->allowed()) return $this->error('غير مصرح', 403);
         $js = htmlspecialchars(asset_v('/assets/js/admin-ai-ceo.js'), ENT_QUOTES, 'UTF-8');
         $css = htmlspecialchars(asset_v('/assets/css/brain.css'), ENT_QUOTES, 'UTF-8');
-        $body = '<link rel="stylesheet" href="' . $css . '"><section id="aiCeo" dir="ltr" lang="en" data-no-translate data-csrf="' . htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8') . '"></section><script defer src="' . $js . '"></script>';
+        $body = '<link rel="stylesheet" href="' . $css . '"><style>#aiCeo,#aiCeo .br-head,#aiCeo h3,#aiCeo h4,#aiCeo .br-tile,#aiCeo .p-table th,#aiCeo .p-table td{text-align:left}#aiCeo [dir=rtl]{text-align:right}</style><section id="aiCeo" dir="ltr" lang="en" data-no-translate data-csrf="' . htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8') . '"></section><script defer src="' . $js . '"></script>';
         echo $this->renderPanelPage('ai-ceo', 'AI Mission Control', 'TOURFECTO AI CEO — runs Tourfecto itself, separate from customer brains', $body);
         exit;
     }
