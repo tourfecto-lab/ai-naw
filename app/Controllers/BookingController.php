@@ -698,7 +698,12 @@ class BookingController extends Controller
 .bk-day small{display:block;color:var(--panel-text-muted)}
 .bk-wd{text-align:center;font-size:11.5px;color:var(--panel-text-muted)}
 .bk-actions{display:flex;gap:6px;flex-wrap:wrap}
-@media (max-width:640px){.bk-cal{gap:3px}.bk-day{padding:4px;min-height:64px;font-size:11px}}
+@media (max-width:640px){.bk-cal{gap:3px}.bk-day{padding:4px;min-height:64px;font-size:11px}
+.bk-table thead{display:none}.bk-table,.bk-table tbody,.bk-table tr,.bk-table td{display:block;width:100%}
+.bk-table tr{border:1px solid var(--panel-border,rgba(127,127,127,.25));border-radius:12px;padding:10px 12px;margin:0 0 10px}
+.bk-table td{border:0;padding:3px 0;display:flex;gap:10px;justify-content:space-between;align-items:flex-start;text-align:start}
+.bk-table td[data-label]::before{content:attr(data-label);color:var(--panel-text-muted,#8996ac);font-size:12px;flex:0 0 auto}
+.bk-table td.bk-act-cell{display:block;padding-top:8px}.bk-table td[colspan]{display:block}}
 </style>
 <div class="bk-tiles" id="bkTiles"></div>
 <div class="p-tabs" style="margin-bottom:14px;">
@@ -722,7 +727,7 @@ class BookingController extends Controller
         <button type="button" class="p-btn outline" style="margin-inline-start:auto;" onclick="pmOpen()">💳 طرق استلام الفلوس</button>
         <button type="button" class="p-btn primary" onclick="bkNewOpen()">➕ حجز جديد</button>
     </div>
-    <div class="p-table-scroll"><table class="p-table">
+    <div class="p-table-scroll"><table class="p-table bk-table">
         <thead><tr><th>الكود</th><th>العميل</th><th>الرحلة</th><th>التاريخ</th><th>الأفراد</th><th>المبلغ</th><th>الحالة</th><th></th></tr></thead>
         <tbody id="bkRows"><tr class="p-loading-row"><td colspan="8">جاري التحميل...</td></tr></tbody>
     </table></div>
@@ -1013,14 +1018,15 @@ HTML;
                 ? '<br><small title="' + esc(b.reminder_sent_at || '') + '">🔔 اتبعت تذكير</small>'
                 : '<br><small style="color:var(--panel-danger,#d33)" title="' + esc(b.reminder_error || '') + '">⚠️ التذكير ماوصلش</small>') : '';
             const contact = [b.customer_phone ? '<a href="https://wa.me/' + esc(String(b.customer_phone).replace(/\D/g, '')) + '" target="_blank" rel="noopener" dir="ltr">' + esc(b.customer_phone) + '</a>' : '', b.customer_email ? '<span dir="ltr">' + esc(b.customer_email) + '</span>' : ''].filter(Boolean).join('<br>');
-            return '<tr><td dir="ltr"><code>' + esc(b.booking_reference) + '</code></td>'
-                + '<td><b>' + esc(b.customer_name || '-') + '</b><br><small>' + contact + '</small></td>'
-                + '<td>' + esc(b.product_name || '-') + '</td>'
-                + '<td dir="ltr">' + esc(b.start_date) + '</td>'
-                + '<td>' + (Number(b.adults_count) + Number(b.children_count || 0)) + '</td>'
-                + '<td dir="ltr">' + esc(Number(b.total_amount).toFixed(2) + ' ' + (b.currency || '')) + (Number(b.amount_paid || 0) > 0 ? '<br><small style="color:var(--panel-success,#0e9f6e)">' + (due > 0.009 ? 'مدفوع ' + Number(b.amount_paid).toFixed(2) : 'مدفوع بالكامل ✓') + '</small>' : '') + '</td>'
-                + '<td><span class="pill ' + s[1] + '">' + esc(s[0]) + '</span>' + rmTag + '</td>'
-                + '<td><div class="bk-actions">' + acts.join('') + '</div></td></tr>';
+            // data-label: على الموبايل كل حجز بيبقى كارت (الزراير كانت مستخبية ورا سكرول جانبي)
+            return '<tr><td data-label="الكود"><code dir="ltr">' + esc(b.booking_reference) + '</code></td>'
+                + '<td data-label="العميل"><div><b>' + esc(b.customer_name || '-') + '</b><br><small>' + contact + '</small></div></td>'
+                + '<td data-label="الرحلة">' + esc(b.product_name || '-') + '</td>'
+                + '<td data-label="التاريخ"><span dir="ltr">' + esc(b.start_date) + '</span></td>'
+                + '<td data-label="الأفراد">' + (Number(b.adults_count) + Number(b.children_count || 0)) + '</td>'
+                + '<td data-label="المبلغ"><div><span dir="ltr">' + esc(Number(b.total_amount).toFixed(2) + ' ' + (b.currency || '')) + '</span>' + (Number(b.amount_paid || 0) > 0 ? '<br><small style="color:var(--panel-success,#0e9f6e)">' + (due > 0.009 ? 'مدفوع ' + Number(b.amount_paid).toFixed(2) : 'مدفوع بالكامل ✓') + '</small>' : '') + '</div></td>'
+                + '<td data-label="الحالة"><div><span class="pill ' + s[1] + '">' + esc(s[0]) + '</span>' + rmTag + '</div></td>'
+                + '<td class="bk-act-cell"><div class="bk-actions">' + acts.join('') + '</div></td></tr>';
         }).join('');
     };
     window.bkPage = function (d) { page = Math.max(1, page + d); bkLoad(); };
@@ -1076,6 +1082,8 @@ HTML;
         document.getElementById('pmSave').disabled = ro;
         const al = document.getElementById('pmAlert');
         al.style.display = ro ? 'block' : 'none'; al.textContent = ro ? 'صاحب الحساب بس يقدر يغيّر طرق استلام الفلوس.' : '';
+        // من نافذة الدفع: نفس الـz-index وجاية قبلها في الصفحة، فكانت بتتفتح وراها وزرار «حفظ» مايتداسش
+        if (fromLink) document.getElementById('plModal').after(document.getElementById('pmModal'));
         P.openModal ? P.openModal('pmModal') : document.getElementById('pmModal').classList.add('open');
     };
     window.pmSave = async function () {

@@ -40,7 +40,7 @@ class WebsiteController extends Controller
         if (!in_array($scheme, ['http', 'https'], true) || $host === '' || isset($p['user']) || isset($p['pass'])) {
             return ['', 'الرابط مش صحيح - اكتبه كده: https://example.com'];
         }
-        if (!filter_var($host, FILTER_VALIDATE_IP) && (!str_contains($host, '.') || !preg_match('/^[a-z0-9.-]+$/', idn_to_ascii($host) ?: $host))) {
+        if (!filter_var($host, FILTER_VALIDATE_IP) && (!str_contains($host, '.') || !preg_match('/^[a-z0-9.-]+$/', (function_exists('idn_to_ascii') ? idn_to_ascii($host) : false) ?: $host))) {
             return ['', 'الدومين مش صحيح - اكتبه كده: https://example.com'];
         }
         if ($checkReach && class_exists('SafeHttp')) {
