@@ -55,7 +55,7 @@ final class VoiceAgentDatabaseTest extends TestCase
         $ids = [self::A, self::B];
         $in = implode(',', $ids);
         foreach (['voice_agent_settings', 'voice_agents', 'voice_numbers', 'voice_number_orders', 'voice_providers', 'voice_provider_errors', 'voice_call_costs', 'voice_webhook_events', 'voice_calls', 'voice_call_turns', 'voice_outbound_jobs',
-            'voice_outbound_attempts', 'voice_campaigns', 'voice_consents', 'voice_dnc', 'voice_post_call_actions', 'voice_staff', 'voice_call_reviews', 'voice_usage_ledger', 'voice_budget_alerts', 'voice_invoices', 'voice_recordings'] as $t) {
+            'voice_outbound_attempts', 'voice_campaigns', 'voice_consents', 'voice_dnc', 'voice_post_call_actions', 'voice_staff', 'voice_call_reviews', 'voice_feature_grants', 'voice_usage_ledger', 'voice_budget_alerts', 'voice_invoices', 'voice_recordings'] as $t) {
             $this->db()->exec("DELETE FROM $t WHERE tenant_user_id IN ($in)");
         }
         $this->db()->exec("DELETE FROM voice_dnc WHERE tenant_user_id = 0 AND reason = 'phpunit'");
@@ -694,5 +694,37 @@ final class VoiceAgentDatabaseTest extends TestCase
         $this->assertSame('scheduled', $this->db()->query('SELECT status FROM voice_outbound_jobs WHERE tenant_user_id = ?', [self::B])[0]['status']);
         $ids = array_column($r->companies(), 'company');
         $this->assertContains(self::A, array_map('intval', $ids));
+    }
+
+    public function testAdminVoiceAccessRefusesStaffAccounts(): void
+    {
+        $access = new VoiceFeatureAccess();
+        $this->db()->exec('UPDATE users SET owner_user_id = ? WHERE id = ?', [self::A, self::B]);
+        try {
+            $access->set(self::B, true, 3, 1);
+            $this->fail('staff must be changed through their owner');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('staff', $e->getMessage());
+        }
+        $this->assertSame(1, count($access->search('voice-' . self::A)));
+        $this->assertSame([], $access->search('a'));
+        $this->db()->exec('UPDATE users SET owner_user_id = NULL WHERE id = ?', [self::B]);
+    }
+
+    public function testAdminGrantWinsOverThePlanBothWaysAndCanBeReset(): void
+    {
+        $access = new VoiceFeatureAccess();
+        $access->set(self::A, true, 4, 1);
+        $this->assertTrue(VoiceAccessService::featureEnabled(self::A));
+        $this->assertSame(4, VoiceAccessService::maxNumbers(self::A));
+        $this->assertFalse(VoiceAccessService::featureEnabled(self::B)); // nobody else
+        $access->set(self::A, false, null, 1);
+        $this->assertFalse(VoiceAccessService::featureEnabled(self::A)); // a revoke beats a plan that includes the feature
+        $access->set(self::A, true, null, 1);
+        $this->assertSame(4, VoiceAccessService::maxNumbers(self::A)); // limit survives off/on
+        $this->assertSame('admin', $access->search('voice-' . self::A)[0]['source']);
+        $access->set(self::A, null, null, 1);
+        $this->assertNull(VoiceAccessService::grant(self::A));
+        $this->assertSame('plan', $access->search('voice-' . self::A)[0]['source']);
     }
 }

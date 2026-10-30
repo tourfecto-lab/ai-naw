@@ -11,7 +11,7 @@ const API = {
   '/api/admin/voice/quality': ok({ calls: 3, fallback_rate_pct: 0, avg_reply_ms: 800, provider_errors: 1 }),
   '/api/admin/voice/companies': ok({ companies: [{ company: 5, company_name: 'Nile <b>Tours</b>', enabled: 1, sandbox_mode: 1, outbound_enabled: 0, active_numbers: 1, month_calls: 4, month_price_usd: 2.5, monthly_budget_usd: 50 }] }),
   '/api/admin/voice/margins': ok({ total: { cost_usd: 2, price_usd: 2.5, margin_pct: 20 }, companies: [] }),
-  '/api/admin/voice/errors': ok({ errors: [] }), '/api/admin/voice/dnc': ok({ entries: [{ e164: '+2010', reason: 'x', created_at: 'now' }] }),
+  '/api/admin/voice/errors': ok({ errors: [] }), '/api/admin/voice/access': ok({ users: [{ id: 9, email: 'a@b.c', company_name: 'Acme', voice_enabled: false, voice_max_numbers: 1, source: 'plan', is_staff_of: null }] }), '/api/admin/voice/dnc': ok({ entries: [{ e164: '+2010', reason: 'x', created_at: 'now' }] }),
 };
 (async () => {
   const browser = await chromium.launch();
@@ -31,7 +31,7 @@ const API = {
     await page.goto('http://voice.test/admin/voice');
     await page.waitForSelector('.va-tab');
     const n = (await page.$$('.va-tab')).length;
-    if (n !== 6) failures.push(`${name}: expected 6 tabs, got ${n}`);
+    if (n !== 7) failures.push(`${name}: expected 7 tabs, got ${n}`);
     for (let i = 0; i < n; i++) {
       await (await page.$$('.va-tab'))[i].click();
       await page.waitForFunction(() => !(document.querySelector('.va-body .va-muted')?.textContent || '').startsWith('Loading'));
@@ -44,15 +44,25 @@ const API = {
     await page.waitForSelector('[data-stop]');
     await page.click('[data-stop]');
     await page.waitForFunction(() => document.querySelector('[data-msg]'));
+    await page.waitForTimeout(400); // the page re-renders after a stop
+    await page.waitForSelector('[data-stop]');
     if (!posts.some((p) => p.startsWith('/api/admin/voice/emergency-stop'))) failures.push(`${name}: emergency stop did not post`);
-    await (await page.$$('.va-tab'))[2].click();
+    await page.click('.va-tab[data-i="2"]');
     await page.waitForSelector('[data-live]');
     await page.click('[data-live]');
     await page.waitForTimeout(300);
     if (!posts.some((p) => p.includes('/companies/5/control') && p.includes('"sandbox_mode":0') && p.includes('I UNDERSTAND'))) failures.push(`${name}: take-out-of-test-mode did not send confirmation`);
+    await page.click('.va-tab[data-i="3"]');
+    await page.fill('[data-search] input', 'acme');
+    await page.click('[data-search] button');
+    await page.waitForSelector('[data-on]');
+    await page.click('[data-on]');
+    await page.waitForTimeout(300);
+    if (!posts.some((p) => p.startsWith('/api/admin/voice/access/9') && p.includes('"enabled":1'))) failures.push(`${name}: turn-on did not post`);
+    if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) failures.push(`${name}: overflow on access tab`);
     await page.context().close();
   }
   await browser.close();
   if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
-  console.log('ADMIN UI OK: 6 tabs, no overflow at 375px, escaped output, emergency stop and live-mode confirmation send the right requests');
+  console.log('ADMIN UI OK: 7 tabs, no overflow at 375px, escaped output, emergency stop and live-mode confirmation send the right requests');
 })();

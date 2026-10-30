@@ -216,4 +216,11 @@ final class VoiceCostsSecurityTest extends TestCase
         return [[['voice_markup_pct' => '900']], [['voice_platform_max_concurrent' => '0']], [['voice_recording_countries' => 'KP']], [['voice_stream_url' => 'http://x']],
             [['voice_rates_json' => '{"inbound_per_min":-1}']], [['voice_rates_json' => '{"evil":1}']], [['voice_sip_domain' => 'a b;rm']]];
     }
+
+    public function testVoiceAccessLimitIsClamped(): void
+    {
+        $this->assertNull(VoiceFeatureAccess::clampMax(null));
+        $this->assertSame(50, VoiceFeatureAccess::clampMax(9999));
+        $this->assertSame(1, VoiceFeatureAccess::clampMax(0));
+    }
 }
