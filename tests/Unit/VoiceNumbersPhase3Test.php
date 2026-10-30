@@ -71,7 +71,7 @@ final class VoiceNumbersPhase3Test extends TestCase
     public function testDefaultNumberRules(): void
     {
         $svc = file_get_contents(dirname(__DIR__, 2) . '/app/Services/VoiceAgent/VoiceNumberService.php');
-        $this->assertSame(3, substr_count($svc, '$this->ensureDefault($tenantId)'));        // after buying, after connecting, after releasing the default
+        $this->assertSame(4, substr_count($svc, '$this->ensureDefault($tenantId)'));        // after buying, after connecting, after the admin attaches a platform number, after releasing the default
         $this->assertStringContainsString('UPDATE voice_numbers SET is_default = 0 WHERE tenant_user_id = ?', $svc);
         $this->assertStringContainsString('Only a number that is set up can be the default', $svc);
         $routes = file_get_contents(dirname(__DIR__, 2) . '/app/routes/voice_agent.php');

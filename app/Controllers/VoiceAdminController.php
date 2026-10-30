@@ -242,6 +242,29 @@ class VoiceAdminController extends Controller
         }
     }
 
+    /** POST /api/admin/voice/companies/{id}/numbers {provider, number, agent_id?} - attach a number the platform already holds at the provider */
+    public function attachNumber(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        $tenant = (int) ($params['id'] ?? 0);
+        if ($tenant < 1 || !Database::getInstance()->query('SELECT id FROM users WHERE id = ? LIMIT 1', [$tenant])) {
+            return $this->error('Company not found', 404);
+        }
+        try {
+            $agent = $this->get('agent_id') ? (int) $this->get('agent_id') : null;
+            return $this->success((new VoiceNumberService())->attachPlatformNumber($tenant, (int) $this->user['id'], (string) $this->get('provider', 'telnyx'), (string) $this->get('number', ''), $agent), 'Number attached');
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        } catch (VoiceProviderException $ex) {
+            return $this->error('Provider request failed (HTTP ' . $ex->httpCode . ')', 502);
+        }
+    }
+
     /** GET /api/admin/voice/dnc - the platform-wide do-not-call list (blocks every company) */
     public function dnc(array $params = []): array
     {

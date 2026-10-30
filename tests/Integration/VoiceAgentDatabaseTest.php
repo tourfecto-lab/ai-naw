@@ -775,4 +775,42 @@ final class VoiceAgentDatabaseTest extends TestCase
             $s->set('voice_webhook_salt', $old);
         }
     }
+
+    public function testAdminAttachesANumberTheTelnyxPlatformAccountHolds(): void
+    {
+        foreach (['TELNYX_API_KEY' => 'k', 'TELNYX_CONNECTION_ID' => '308'] as $k => $v) {
+            putenv("$k=$v");
+        }
+        try {
+            $http = new VoiceFakeHttp();
+            $http->push(200, ['data' => [['phone_number' => '+14155550123', 'id' => 'pn_1']]])->push(200, ['data' => [['phone_number' => '+14155550123', 'id' => 'pn_1']]])->push(200, ['data' => []]);
+            $svc = new VoiceNumberService(new VoiceProviderService($http));
+            $r = $svc->attachPlatformNumber(self::A, 1, 'telnyx', '+14155550123');
+            $row = $this->db()->query('SELECT source, connect_method, status, provider_number_id, is_default FROM voice_numbers WHERE tenant_user_id = ?', [self::A])[0];
+            $this->assertSame(['connected', 'provider_native', 'active', 'pn_1', '1'], array_map('strval', array_values($row)));
+            $this->assertTrue(VoiceNumberRules::liveUsable($this->db()->query('SELECT * FROM voice_numbers WHERE tenant_user_id = ?', [self::A])[0]));
+            $this->assertSame('telnyx', $this->db()->query("SELECT provider FROM voice_providers WHERE tenant_user_id = ? AND mode = 'platform'", [self::A])[0]['provider']);
+            // the same number cannot be given to a second company
+            try {
+                $svc->attachPlatformNumber(self::B, 1, 'telnyx', '+14155550123');
+                $this->fail('a number must belong to one company');
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('already', $e->getMessage());
+            }
+            // a number the platform does not hold is refused
+            $http->push(200, ['data' => []]);
+            try {
+                $svc->attachPlatformNumber(self::B, 1, 'telnyx', '+14155550999');
+                $this->fail('unknown number');
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('not found', $e->getMessage());
+            }
+            // Twilio needs a sub-account: refused here
+            $this->expectException(InvalidArgumentException::class);
+            $svc->attachPlatformNumber(self::B, 1, 'twilio', '+14155550124');
+        } finally {
+            putenv('TELNYX_API_KEY');
+            putenv('TELNYX_CONNECTION_ID');
+        }
+    }
 }

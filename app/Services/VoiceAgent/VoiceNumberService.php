@@ -416,6 +416,46 @@ class VoiceNumberService
     }
 
     /** The company always has exactly one default number once it has any number (the first one added). */
+    /**
+     * Admin only: give a company a number that Tourfecto already holds at the provider (bought in the provider's portal and pointed at our TeXML application).
+     * Nothing is bought or called here. The number is stored as "connected" so a company releasing it only removes it from Tourfecto and never deletes it at the provider.
+     */
+    public function attachPlatformNumber(int $tenantId, int $adminUserId, string $provider, string $e164raw, ?int $agentId = null): array
+    {
+        $provider = strtolower($provider);
+        if (!VoiceProviderRegistry::has($provider)) {
+            throw new InvalidArgumentException('Unknown provider');
+        }
+        $e164 = VoiceNumberRules::normalizeE164($e164raw);
+        $this->providers->ensurePlatformAccount($tenantId, $provider); // refuses providers that need sub-accounts
+        $id = null;
+        foreach ($this->providers->platformAdapter($provider)->listOwnedNumbers() as $n) {
+            if ($n['number'] === $e164) {
+                $id = $n['number_id'];
+            }
+        }
+        if ($id === null) {
+            throw new InvalidArgumentException('This number was not found in the platform ' . $provider . ' account. Buy it in the provider portal first');
+        }
+        if ($agentId !== null && !$this->db()->query("SELECT id FROM voice_agents WHERE id = ? AND tenant_user_id = ? LIMIT 1", [$agentId, $tenantId])) {
+            throw new InvalidArgumentException('Assistant not found for this company');
+        }
+        $this->assertFree($tenantId, $e164);
+        $this->assertRoom($tenantId);
+        $ok = $this->db()->exec(
+            "INSERT INTO voice_numbers (tenant_user_id, e164, live_key, country, number_type, source, connect_method, provider, provider_number_id, status, verification_mode, verified_at, agent_id, created_at, updated_at)
+             VALUES (?,?,?,?, 'local', 'connected', 'provider_native', ?,?, 'active', 'live', NOW(), ?, NOW(), NOW())",
+            [$tenantId, $e164, $e164, VoiceMarkets::countryOf($e164), $provider, $id, $agentId]
+        );
+        if (!$ok) {
+            throw new InvalidArgumentException('This number is already in use by another account');
+        }
+        $numberId = (int) $this->db()->getConnection()->lastInsertId();
+        $this->ensureDefault($tenantId);
+        VoiceAuditService::record($tenantId, $adminUserId, 'number.platform_attached', 'number', $numberId, ['provider' => $provider]);
+        return ['number_id' => $numberId, 'status' => 'active', 'webhook_note' => 'In the provider portal, assign this number to the Tourfecto TeXML application.'];
+    }
+
     private function ensureDefault(int $tenantId): void
     {
         if ($this->db()->query('SELECT id FROM voice_numbers WHERE tenant_user_id = ? AND is_default = 1 LIMIT 1', [$tenantId])) {
