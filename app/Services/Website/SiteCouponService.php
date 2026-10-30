@@ -206,4 +206,10 @@ class SiteCouponService
         $db->query('UPDATE site_coupons SET used_count = used_count + 1 WHERE id = ?', [(int) $row['id']]);
         return ['coupon_id' => (int) $row['id'], 'code' => $c, 'discount' => $r['discount']];
     }
+
+    /** Give back one use when a booking that redeemed the coupon is cancelled (never below zero). */
+    public static function release(Database $db, int $couponId): void
+    {
+        $db->query('UPDATE site_coupons SET used_count = GREATEST(0, used_count - 1) WHERE id = ?', [$couponId]);
+    }
 }

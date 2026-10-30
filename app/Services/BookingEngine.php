@@ -117,7 +117,7 @@ class BookingEngine
             }
             if(isset($data['expected_total']) && (!is_numeric($data['expected_total']) || !is_finite((float)$data['expected_total']) || abs(round((float)$data['expected_total'],2)-$calculated)>0.001))throw new InvalidArgumentException('السعر اتغير؛ راجع السعر والتوفر ثم أكد الحجز مرة أخرى');
             $totalAmount = round((float) ($data['total_amount'] ?? $calculated), 2);
-            $pricing = json_encode(['end_date'=>$endDate,'rooms_count'=>$endDate!==null?$units:null,'nights'=>$stay['nights']??1,'nightly_breakdown'=>$stay['nightly_breakdown']??null,'adult_price'=>$unitPrice,'child_price'=>(float)$settings['child_price'],'extras'=>$extras['items'],'capacity_mode'=>$settings['capacity_mode'],'inventory_units'=>$units,'cancellation_hours'=>(int)$settings['cancellation_hours'],'refund_percent'=>(float)$settings['refund_percent'],'calculated_total'=>$calculated,'manual_override'=>isset($data['total_amount'])]+($couponInfo?['coupon'=>['code'=>$couponInfo['code'],'discount'=>$couponInfo['discount']]]:[]), JSON_THROW_ON_ERROR);
+            $pricing = json_encode(['end_date'=>$endDate,'rooms_count'=>$endDate!==null?$units:null,'nights'=>$stay['nights']??1,'nightly_breakdown'=>$stay['nightly_breakdown']??null,'adult_price'=>$unitPrice,'child_price'=>(float)$settings['child_price'],'extras'=>$extras['items'],'capacity_mode'=>$settings['capacity_mode'],'inventory_units'=>$units,'cancellation_hours'=>(int)$settings['cancellation_hours'],'refund_percent'=>(float)$settings['refund_percent'],'calculated_total'=>$calculated,'manual_override'=>isset($data['total_amount'])]+($couponInfo?['coupon'=>['id'=>$couponInfo['coupon_id'],'code'=>$couponInfo['code'],'discount'=>$couponInfo['discount']]]:[]), JSON_THROW_ON_ERROR);
             if (!is_finite($totalAmount) || $totalAmount < 0) {
                 throw new InvalidArgumentException('سعر الخدمة غير صالح');
             }
@@ -279,7 +279,7 @@ class BookingEngine
     {
         $cancelled = $this->db->transaction(function (Database $db) use ($userId, $bookingId, $reason) {
             $rows = $db->query(
-                'SELECT id, product_id, start_date,end_date, status, booking_reference, total_amount, currency, inventory_units
+                'SELECT id, product_id, start_date,end_date, status, booking_reference, total_amount, currency, inventory_units, pricing_json
                  FROM bookings WHERE id = ? AND user_id = ? LIMIT 1 FOR UPDATE',
                 [$bookingId, $userId]
             );
@@ -293,6 +293,14 @@ class BookingEngine
             }
 
             $db->query('UPDATE bookings SET status = ? WHERE id = ?', ['cancelled', $bookingId]);
+
+            // رجّع استخدام كود الخصم (مرة واحدة) عشان الحجز الملغي ما يستهلكش من الحد الأقصى
+            $pricing = json_decode((string) ($booking['pricing_json'] ?? ''), true);
+            if (is_array($pricing) && !empty($pricing['coupon']['id']) && empty($pricing['coupon']['released'])) {
+                SiteCouponService::release($db, (int) $pricing['coupon']['id']);
+                $pricing['coupon']['released'] = true;
+                $db->query('UPDATE bookings SET pricing_json = ? WHERE id = ?', [json_encode($pricing, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $bookingId]);
+            }
 
             // فكّ مكان التوفر لو كان محجوز فعليًا
             $db->query(

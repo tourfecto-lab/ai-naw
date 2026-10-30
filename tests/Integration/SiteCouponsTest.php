@@ -118,6 +118,30 @@ final class SiteCouponsTest extends TestCase
         $this->book(['coupon_code' => 'ONCE', 'customer_name' => 'Second']);
     }
 
+    public function testCancellingABookingGivesTheCouponUseBackOnce(): void
+    {
+        $id = $this->coupon(['code' => 'ONCE', 'max_uses' => 1]);
+        $b = $this->book(['coupon_code' => 'ONCE']);
+        $this->assertSame(1, $this->used($id));
+        $engine = new BookingEngine();
+        $engine->cancelBooking(self::OWNER, (int) $b['id']);
+        $this->assertSame(0, $this->used($id), 'a cancelled booking frees its use');
+        $pricing = json_decode((string) $this->pdo->query('SELECT pricing_json FROM bookings WHERE id = ' . (int) $b['id'])->fetchColumn(), true);
+        $this->assertTrue($pricing['coupon']['released']);
+        $second = $this->book(['coupon_code' => 'ONCE', 'customer_name' => 'Second']);
+        $this->assertSame(1, $this->used($id), 'the freed use can be redeemed again');
+        $this->assertEqualsWithDelta(180.0, $second['total_amount'], 0.001);
+    }
+
+    public function testCancellingABookingWithoutACouponLeavesCountersAlone(): void
+    {
+        $id = $this->coupon();
+        $this->book(['coupon_code' => 'SUMMER10']);
+        $plain = $this->book(['customer_name' => 'Plain']);
+        (new BookingEngine())->cancelBooking(self::OWNER, (int) $plain['id']);
+        $this->assertSame(1, $this->used($id));
+    }
+
     public function testCouponsAreScopedToTheirOwnSite(): void
     {
         $this->coupon(['code' => 'ONLYA']);
