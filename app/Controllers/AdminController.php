@@ -3526,12 +3526,16 @@ class AdminController extends Controller
         const q = (document.getElementById('intFilter')?.value || '').trim().toLowerCase();
         const cat = document.getElementById('intCategory')?.value || '';
         const status = document.getElementById('intStatus')?.value || '';
+        // الصفحة كانت 41 تكامل مرة واحدة (5000 بيكسل): بتفتح على الأساسية، والبحث بيدوّر في الكل
+        const imp = q ? '' : (document.getElementById('intImportance')?.value ?? 'core');
         const filtered = intCache.filter(i => {
             const text = [(i.label || ''), (i.key || ''), (i.category || ''), (i.auth_type || ''), (i.env_keys || []).join(' ')].join(' ').toLowerCase();
             if (q && !text.includes(q)) return false;
             if (cat && i.category !== cat) return false;
             if (status === 'configured' && !i.configured) return false;
             if (status === 'missing' && i.configured) return false;
+            if (imp === 'core' && !['required', 'important'].includes(i.importance)) return false;
+            if (imp === 'optional' && ['required', 'important'].includes(i.importance)) return false;
             return true;
         });
 
@@ -4702,6 +4706,11 @@ HTML;
                         <style>.int-secret{-webkit-text-security:disc;text-security:disc;font-family:monospace}</style>
                         <select id="intCategory" class="p-input" style="max-width:190px;" onchange="renderIntegrationList()">
                             <option value="">كل الفئات</option>
+                        </select>
+                        <select id="intImportance" class="p-input" style="max-width:190px;" onchange="renderIntegrationList()" aria-label="الأهمية">
+                            <option value="core" selected>الأساسية (لازم + مهم)</option>
+                            <option value="">كل التكاملات</option>
+                            <option value="optional">الاختيارية بس</option>
                         </select>
                         <select id="intStatus" class="p-input" style="max-width:170px;" onchange="renderIntegrationList()">
                             <option value="">كل الحالات</option>
