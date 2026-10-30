@@ -8,7 +8,7 @@
 class VoiceLiveGuard
 {
     public const NEEDS_APPROVAL = ['purchase_number', 'release_number', 'start_call', 'transfer_call'];
-    public const MUTATING = ['purchase_number', 'release_number', 'start_call', 'transfer_call', 'hangup_call'];
+    public const MUTATING = ['purchase_number', 'release_number', 'start_call', 'transfer_call', 'hangup_call', 'create_subaccount'];
 
     /** @return array{live:bool, reason:string} */
     public static function decide(string $operation, array $tenantSettings, bool $platformLiveEnabled, bool $approved): array
@@ -41,6 +41,8 @@ class VoiceLiveGuard
             case 'start_call':
             case 'transfer_call':
                 return ['call_id' => $id, 'status' => 'simulated'];
+            case 'create_subaccount':
+                return ['account_id' => $id, 'status' => 'simulated'];
             default:
                 return ['ok' => true, 'status' => 'simulated'];
         }

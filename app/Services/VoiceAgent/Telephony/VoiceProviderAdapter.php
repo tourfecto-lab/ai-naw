@@ -53,6 +53,10 @@ interface VoiceProviderAdapter
     /** @return array<string,mixed>|null normalised: event_id,call_id,status,direction,from,to,duration_s,cost_usd,cost_source,recording_url */
     public function parseStatusEvent(array $headers, string $rawBody, array $params): ?array;
 
+    /** Isolated sub-account under the platform account (capability subaccounts). Telnyx: unsupported, throws LogicException.
+     * @return array{account_id:string, credentials:array} */
+    public function createSubaccount(string $label): array;
+
     /** Numbers already in the customer's own provider account (authoritative ownership proof for "bring your own account").
      * @return list<array{number:string, number_id:string}> */
     public function listOwnedNumbers(): array;

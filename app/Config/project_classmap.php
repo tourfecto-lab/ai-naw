@@ -962,4 +962,7 @@ return [
     'VoicePostCallGateway' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallGateway.php',
     'VoicePostCallCrmGateway' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallCrmGateway.php',
     'VoicePostCallService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallService.php',
+    'VoiceAdminController' => dirname(__DIR__,2).'/app/Controllers/VoiceAdminController.php',
+    'VoiceAdminReports' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAdminReports.php',
+    'VoicePlatformCredentials' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePlatformCredentials.php',
 ];

@@ -29,6 +29,9 @@ final class VoiceTenantIsolationTest extends TestCase
         $problems = [];
         $checked = 0;
         foreach ($this->files() as $f) {
+            if (basename($f) === 'VoiceAdminReports.php') {
+                continue; // the one deliberately cross-company class; see testCrossCompanyReportsAreAdminOnly
+            }
             foreach (token_get_all(file_get_contents($f)) as $t) {
                 if (!is_array($t) || !in_array($t[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
                     continue;
@@ -94,5 +97,34 @@ final class VoiceTenantIsolationTest extends TestCase
         $this->assertMatchesRegularExpression("/'voice_max_numbers' => \[[^\]]*'type' => 'number'/s", $src);
         // no stock plan grants it: the catalogue entry only makes it editable
         $this->assertStringNotContainsString('voice_agent', file_get_contents(dirname(__DIR__, 2) . '/app/Services/Subscription/BillingPlanCatalog.php'));
+    }
+
+    public function testCrossCompanyReportsAreAdminOnly(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $users = [];
+        foreach (array_merge(glob($root . '/app/Services/*/*.php'), glob($root . '/app/Services/*.php'), glob($root . '/app/Controllers/*.php'), glob($root . '/cron/*.php')) as $f) {
+            if (strpos(file_get_contents($f), 'VoiceAdminReports') !== false && basename($f) !== 'VoiceAdminReports.php') {
+                $users[] = basename($f);
+            }
+        }
+        $this->assertSame(['VoiceAdminController.php'], $users);
+        foreach (file($root . '/app/routes/voice_agent.php') as $line) {
+            if (strpos($line, 'VoiceAdminController') !== false) {
+                $this->assertStringContainsString("'AdminMiddleware'", $line);
+                $this->assertStringContainsString('/api/admin/voice/', $line);
+            }
+        }
+        $ctl = file_get_contents($root . '/app/Controllers/VoiceAdminController.php');
+        $this->assertStringContainsString("['admin', 'super_admin']", $ctl);
+    }
+
+    public function testNoCustomerFacingControllerHandlesProviderSecrets(): void
+    {
+        foreach (glob(dirname(__DIR__, 2) . '/app/Controllers/Voice*.php') as $f) {
+            $src = file_get_contents($f);
+            $this->assertStringNotContainsString('credentials_enc', $src, basename($f));
+            $this->assertStringNotContainsString('->decrypt(', $src, basename($f));
+        }
     }
 }

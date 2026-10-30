@@ -23,7 +23,7 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
     public function capabilities(): array
     {
         return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => true, 'sip' => true,
-            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => true, 'inline_voice' => true, 'turn_mode' => true];
+            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => true, 'inline_voice' => true, 'turn_mode' => true, 'subaccounts' => true];
     }
 
     private function auth(): array
@@ -104,6 +104,15 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
             }
         }
         return ['monthly' => null, 'currency' => (string) ($d['price_unit'] ?? 'USD')];
+    }
+
+    public function createSubaccount(string $label): array
+    {
+        $d = $this->json('POST', self::API . '/Accounts.json', ['FriendlyName' => mb_substr(trim($label), 0, 60)], [], $this->auth());
+        if (empty($d['sid']) || empty($d['auth_token'])) {
+            throw new VoiceProviderException('Twilio did not return sub-account credentials');
+        }
+        return ['account_id' => (string) $d['sid'], 'credentials' => ['account_sid' => (string) $d['sid'], 'auth_token' => (string) $d['auth_token']]];
     }
 
     public function listOwnedNumbers(): array

@@ -23,7 +23,7 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
     public function capabilities(): array
     {
         return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => true, 'sip' => true,
-            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => false, 'inline_voice' => false, 'turn_mode' => false];
+            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => false, 'inline_voice' => false, 'turn_mode' => false, 'subaccounts' => false];
     }
 
     private function h(): array

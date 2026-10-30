@@ -44,6 +44,12 @@ abstract class AbstractVoiceProviderAdapter implements VoiceProviderAdapter
         return '+' . $d;
     }
 
+    /** @return array{account_id:string, credentials:array} credentials a tenant-scoped adapter can use */
+    public function createSubaccount(string $label): array
+    {
+        throw new LogicException('Sub-accounts are not supported by this provider');
+    }
+
     public function turnInstructions(array $opts): array
     {
         throw new LogicException('Turn mode is not supported by this provider');

@@ -88,7 +88,7 @@ class VoiceNumberService
         }
         $usage = null;
         try {
-            $usage = $this->providers->adapter($tenantId, $provider)->usageRates($iso, $type);
+            $usage = $this->providers->readAdapter($tenantId, $provider)->usageRates($iso, $type);
         } catch (VoiceProviderException $e) {
             VoiceProviderErrorLog::record($tenantId, $provider, 'usage_rates', $e);
         }

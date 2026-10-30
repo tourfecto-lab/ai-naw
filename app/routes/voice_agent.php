@@ -51,3 +51,11 @@ $router->post('/api/voice-agent/consents/withdraw','VoiceOutboundController','wi
 $router->get('/api/voice-agent/dnc','VoiceOutboundController','dnc',['AuthMiddleware']);
 $router->post('/api/voice-agent/dnc','VoiceOutboundController','addDnc',['AuthMiddleware']);
 $router->post('/api/voice-agent/dnc/remove','VoiceOutboundController','removeDnc',['AuthMiddleware']);
+
+// Phase 2 (platform admin): provider health, catalogue, errors and costs across companies
+$router->get('/api/admin/voice/providers','VoiceAdminController','providers',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/providers/{provider}/test','VoiceAdminController','test',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/providers/{provider}/countries','VoiceAdminController','countries',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/providers/{provider}/numbers','VoiceAdminController','numbers',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/errors','VoiceAdminController','errors',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/costs','VoiceAdminController','costs',['AuthMiddleware','AdminMiddleware']);
