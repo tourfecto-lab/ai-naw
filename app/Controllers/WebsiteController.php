@@ -1121,9 +1121,14 @@ JS;
         if (!$website || (int) $website->getAttribute('user_id') !== (int) $userId) {
             return $this->error('الموقع غير موجود', 404);
         }
+        $siteId = (int) $website->getAttribute('id');
+        $hadWhatsAppQr = (bool) $this->db()->query("SELECT id FROM platform_connections WHERE website_id = ? AND platform = 'whatsapp_qr' LIMIT 1", [$siteId]);
 
         if (!$website->delete()) {
             return $this->error('تعذر حذف الموقع', 500);
+        }
+        if ($hadWhatsAppQr && class_exists('WhatsAppQrGateway')) {
+            WhatsAppQrGateway::releaseWebsites([$siteId]);
         }
 
         return $this->success([], 'تم حذف الموقع');

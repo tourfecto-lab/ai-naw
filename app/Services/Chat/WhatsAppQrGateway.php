@@ -86,6 +86,25 @@ final class WhatsAppQrGateway
         return self::parseProfile(json_decode($r['body'], true) ?: []);
     }
 
+    /**
+     * موقع أو حساب اتمسح: نفك جلسات واتساب بتاعته عند البوابة. من غير كده الموبايل بيفضل مربوط بجهاز
+     * مالوش صاحب، والرسايل بتروح لموقع مش موجود. فشل البوابة مابيوقفش المسح.
+     * @param int[] $websiteIds
+     */
+    public static function releaseWebsites(array $websiteIds, ?self $gateway = null): void
+    {
+        $websiteIds = array_values(array_filter(array_unique(array_map('intval', $websiteIds)), fn ($id) => $id > 0));
+        if (!$websiteIds || (!$gateway && !self::enabled())) return;
+        $gw = $gateway ?? new self();
+        foreach ($websiteIds as $wid) {
+            try {
+                $gw->logout(self::instanceName($wid));
+            } catch (Throwable $e) {
+                if (class_exists('Logger')) Logger::warning('WhatsApp QR release failed', ['website_id' => $wid, 'error' => $e->getMessage()]);
+            }
+        }
+    }
+
     public function logout(string $name): bool
     {
         $a = $this->call('DELETE', '/instance/logout/' . rawurlencode($name));

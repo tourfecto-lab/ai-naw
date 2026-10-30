@@ -26,8 +26,11 @@
             stopPolling();
             c.innerHTML = qrHead() + '<div class="alert alert-success">✔ ' + L('واتساب مربوط', 'WhatsApp connected') + (d.phone ? ': <b dir="ltr">+' + esc(d.phone) + '</b>' : '') + (d.name ? ' · ' + esc(d.name) : '') + '</div>'
                 + '<p class="p-cell-muted" style="font-size:13px">' + L('الشات بوت بيرد على الرسايل اللي بتوصل الرقم ده، والتذكير وطلبات التقييم بتطلع منه. سيب الموبايل متصل بالإنترنت.', 'The chat bot replies to messages on this number, and reminders and review requests are sent from it. Keep the phone online.') + '</p>'
-                + '<button class="p-btn outline xs" id="waQrDisc">' + L('فصل الربط', 'Disconnect') + '</button>';
+                + '<p class="p-cell-muted" style="font-size:13px">' + L('زي واتساب ويب بالظبط: تقدر تفصل الرقم في أي وقت من هنا، أو من الموبايل (واتساب ← الأجهزة المرتبطة ← اختار الجهاز ← تسجيل الخروج)، وترجع تربطه أو تربط رقم تاني بنفس الخطوات.', 'Just like WhatsApp Web: disconnect any time here or from the phone (WhatsApp → Linked devices → tap the device → Log out), then link it again or link another number the same way.') + '</p>'
+                + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="p-btn outline xs" id="waQrSwap">🔄 ' + L('اربط رقم تاني', 'Link another number') + '</button>'
+                + '<button class="p-btn outline xs" id="waQrDisc">' + L('فصل الربط', 'Disconnect') + '</button></div>';
             document.getElementById('waQrDisc').onclick = disconnectQr;
+            document.getElementById('waQrSwap').onclick = swapNumber;
             return;
         }
         var steps = '<ol style="margin:8px 0 12px;padding-inline-start:20px;line-height:1.9;font-size:13.5px">'
@@ -45,7 +48,7 @@
             return;
         }
         c.innerHTML = qrHead() + steps + (d.last_error ? '<div class="alert alert-warning">' + esc(d.last_error) + '</div>' : '')
-            + '<button class="p-btn primary" id="waQrStart">' + L('اربط واتساب', 'Connect WhatsApp') + '</button><div id="waQrAlert" class="alert alert-danger" style="display:none;margin-top:10px"></div>';
+            + '<button class="p-btn primary" id="waQrStart">' + (d.last_error ? L('اربط واتساب تاني', 'Connect WhatsApp again') : L('اربط واتساب', 'Connect WhatsApp')) + '</button><div id="waQrAlert" class="alert alert-danger" style="display:none;margin-top:10px"></div>';
         document.getElementById('waQrStart').onclick = startQr;
     }
     async function loadQr() {
@@ -76,9 +79,17 @@
         }, 4000);
     }
     async function disconnectQr() {
-        if (!confirm(L('فصل رقم واتساب؟ البوت هيبطّل يرد عليه.', 'Disconnect this WhatsApp number? The bot will stop replying.'))) return;
+        if (!confirm(L('فصل رقم واتساب؟ البوت هيبطّل يرد عليه، وتقدر تربطه تاني في أي وقت.', 'Disconnect this WhatsApp number? The bot will stop replying, and you can link it again any time.'))) return;
         var r = await post('/api/whatsapp-qr/disconnect', { website_id: wid });
         if (r.success) { toast(L('اتفصل', 'Disconnected'), 'success'); renderQr(r.data); } else toast(r.error || L('تعذر الفصل', 'Could not disconnect'), 'error');
+    }
+    // تغيير الرقم في خطوة واحدة: فصل الحالي وكود QR جديد على طول
+    async function swapNumber() {
+        if (!confirm(L('هنفصل الرقم الحالي ونطلعلك كود جديد تمسحه من موبايل الرقم التاني. نكمّل؟', 'We will disconnect the current number and show a new code to scan from the other phone. Continue?'))) return;
+        var r = await post('/api/whatsapp-qr/disconnect', { website_id: wid });
+        if (!r.success) { toast(r.error || L('تعذر الفصل', 'Could not disconnect'), 'error'); return; }
+        renderQr(r.data);
+        startQr();
     }
 
     // ------------------------------------------------------------------ ماسنجر / إنستجرام

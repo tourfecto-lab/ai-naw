@@ -1969,6 +1969,15 @@ JS;
         }
 
         $userId = (int) $user->getAttribute('id');
+        // أرقام واتساب المربوطة بالـ QR: بنفكها عند البوابة بعد المسح (الـCASCADE بيمسح الربط من عندنا بس)
+        try {
+            $qrSites = array_column($this->db->query(
+                "SELECT pc.website_id FROM platform_connections pc JOIN websites w ON w.id = pc.website_id WHERE w.user_id = ? AND pc.platform = 'whatsapp_qr'",
+                [$userId]
+            ) ?: [], 'website_id');
+        } catch (Throwable $e) {
+            $qrSites = [];
+        }
 
         // Business Control Center (Phase 16): قبل الـCASCADE اللي هياخد
         // كل الـBusinesses بتاعت المستخدم معاه، بنجهّز استمرارية الأعمال:
@@ -1982,6 +1991,7 @@ JS;
             });
         }catch(RuntimeException $e){return $this->error($e->getMessage(),409);}
         if(!$deleted)return $this->error('Unable to delete account',500);
+        if ($qrSites && class_exists('WhatsAppQrGateway')) WhatsAppQrGateway::releaseWebsites($qrSites);
         BrowserSessionService::revoke();
 
         // نسجّل الحدث ده بعد نجاح الحذف فعليًا - وبتصميم: جدول
