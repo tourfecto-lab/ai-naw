@@ -254,4 +254,32 @@ class VoiceAdminController extends Controller
         (new VoiceConsentService())->removeDnc(0, (int) $this->user['id'], (string) $this->get('phone', ''));
         return $this->success([], 'Removed');
     }
+
+    /** GET /api/admin/voice/access?q=email-or-company - find accounts and see whether they have the voice feature */
+    public function accessSearch(array $params = []): array
+    {
+        return $this->admin() ?? $this->success(['users' => (new VoiceFeatureAccess())->search((string) $this->get('q', ''))]);
+    }
+
+    /** POST /api/admin/voice/access/{id} {enabled: 1|0|"plan", max_numbers?} - grant, revoke, or hand the decision back to the plan */
+    public function accessSet(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        $id = (int) ($params['id'] ?? 0);
+        try {
+            $raw = $this->get('enabled');
+            $enabled = $raw === 'plan' ? null : in_array($raw, [1, '1', true, 'true'], true);
+            $max = $this->get('max_numbers') !== null && $this->get('max_numbers') !== '' ? (int) $this->get('max_numbers') : null;
+            (new VoiceFeatureAccess())->set($id, $enabled, $max, (int) $this->user['id']);
+            VoiceAuditService::record($id, (int) $this->user['id'], 'admin.voice_access_' . ($enabled === null ? 'reset' : ($enabled ? 'granted' : 'revoked')), 'user', $id, ['max_numbers' => $max]);
+            return $this->success([], $enabled === null ? 'The plan decides again' : ($enabled ? 'Voice agent enabled for this account' : 'Voice agent disabled for this account'));
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        }
+    }
 }

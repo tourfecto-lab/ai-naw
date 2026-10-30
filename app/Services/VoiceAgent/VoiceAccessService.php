@@ -57,6 +57,25 @@ class VoiceAccessService
     /** Module is sold through plan features / admin overrides; no existing plan gets it automatically. */
     public static function featureEnabled(int $tenantId): bool
     {
-        return FeatureResolver::has($tenantId, self::FEATURE_KEY);
+        $g = self::grant($tenantId);
+        return $g !== null ? (bool) $g['enabled'] : FeatureResolver::has($tenantId, self::FEATURE_KEY); // an admin grant (or revoke) wins over the plan
+    }
+
+    /** @return array{enabled:int, max_numbers:?int}|null the admin's decision for this account, if any */
+    public static function grant(int $tenantId): ?array
+    {
+        try {
+            $r = Database::getInstance()->query('SELECT enabled, max_numbers FROM voice_feature_grants WHERE tenant_user_id = ? LIMIT 1', [$tenantId]);
+        } catch (Throwable $e) {
+            return null; // migration not applied yet: the plan decides
+        }
+        return $r ? ['enabled' => (int) $r[0]['enabled'], 'max_numbers' => $r[0]['max_numbers'] !== null ? (int) $r[0]['max_numbers'] : null] : null;
+    }
+
+    /** Phone numbers this account may hold: the admin's limit if set, else the plan's. */
+    public static function maxNumbers(int $tenantId): int
+    {
+        $g = self::grant($tenantId);
+        return $g !== null && $g['enabled'] && $g['max_numbers'] !== null ? $g['max_numbers'] : VoiceNumberRules::maxNumbers(FeatureResolver::value($tenantId, 'voice_max_numbers'));
     }
 }

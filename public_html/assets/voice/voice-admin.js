@@ -87,6 +87,28 @@
       act('data-live', function () { var c = window.prompt('Type I UNDERSTAND to take this company out of test mode. Real numbers and calls become possible (each still needs approval).'); return c === 'I UNDERSTAND' ? { sandbox_mode: 0, confirm: c } : null; });
       act('data-test-mode', function () { return { sandbox_mode: 1 }; });
     }],
+    ['User access', function () {
+      return Promise.resolve('<p class="va-muted">Turn the AI Voice Agent on for specific accounts. This overrides the plan for that account (on or off); "Back to plan" removes the override. Staff members follow their account owner.</p>' +
+        '<form class="va-form" data-search><label>Search by email or company<input name="q" placeholder="name@example.com" minlength="2" required></label><div><button class="va-btn" type="submit">Search</button> <span data-msg></span></div></form><div data-results></div>');
+    }, function (el) {
+      var f = el.querySelector('[data-search]'), out = el.querySelector('[data-results]');
+      function load() {
+        api('/api/admin/voice/access?q=' + encodeURIComponent(f.q.value)).then(function (r) {
+          out.innerHTML = table([['Account', function (u) { return esc(u.company_name || u.email) + '<br><span class="va-muted">' + esc(u.email) + ' #' + (+u.id) + '</span>'; }],
+            ['Voice agent', function (u) { return (u.voice_enabled ? badge('on · up to ' + u.voice_max_numbers + ' numbers', 'ok') : badge('off')) + ' <span class="va-muted">set by ' + esc(u.source) + '</span>'; }],
+            ['', function (u) {
+              if (u.is_staff_of) return '<span class="va-muted">staff of #' + (+u.is_staff_of) + '</span>';
+              return (u.voice_enabled ? '<button class="va-btn sec" data-off="' + (+u.id) + '">Turn off</button>' : '<button class="va-btn" data-on="' + (+u.id) + '">Turn on</button>') +
+                (u.source === 'admin' ? ' <button class="va-btn sec" data-plan="' + (+u.id) + '">Back to plan</button>' : '');
+            }]], r.users);
+          out.querySelectorAll('[data-on]').forEach(function (b) { b.addEventListener('click', function () { set(+b.getAttribute('data-on'), 1); }); });
+          out.querySelectorAll('[data-plan]').forEach(function (b) { b.addEventListener('click', function () { set(+b.getAttribute('data-plan'), 'plan'); }); });
+          out.querySelectorAll('[data-off]').forEach(function (b) { b.addEventListener('click', function () { set(+b.getAttribute('data-off'), 0); }); });
+        }).catch(function (e) { say(el, e.message, true); });
+      }
+      function set(id, on) { api('/api/admin/voice/access/' + id, { enabled: on, max_numbers: on === 1 ? 3 : null }).then(function () { say(el, 'Saved'); load(); }).catch(function (e) { say(el, e.message, true); }); }
+      f.addEventListener('submit', function (e) { e.preventDefault(); load(); });
+    }],
     ['Quality & margins', function () {
       return Promise.all([api('/api/admin/voice/quality'), api('/api/admin/voice/margins')]).then(function (r) {
         var m = r[1];
@@ -106,8 +128,8 @@
       });
     }, function (el) {
       var f = el.querySelector('[data-dnc]');
-      f.addEventListener('submit', function (e) { e.preventDefault(); var b = {}; new FormData(f).forEach(function (v, k) { b[k] = v; }); api('/api/admin/voice/dnc', b).then(function () { show(5); }).catch(function (er) { say(el, er.message, true); }); });
-      el.querySelectorAll('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { api('/api/admin/voice/dnc/remove', { phone: b.getAttribute('data-rm') }).then(function () { show(5); }).catch(function (er) { say(el, er.message, true); }); }); });
+      f.addEventListener('submit', function (e) { e.preventDefault(); var b = {}; new FormData(f).forEach(function (v, k) { b[k] = v; }); api('/api/admin/voice/dnc', b).then(function () { show(6); }).catch(function (er) { say(el, er.message, true); }); });
+      el.querySelectorAll('[data-rm]').forEach(function (b) { b.addEventListener('click', function () { api('/api/admin/voice/dnc/remove', { phone: b.getAttribute('data-rm') }).then(function () { show(6); }).catch(function (er) { say(el, er.message, true); }); }); });
     }]
   ];
   var active = 0;

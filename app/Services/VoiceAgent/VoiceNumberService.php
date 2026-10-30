@@ -31,7 +31,7 @@ class VoiceNumberService
 
     private function assertRoom(int $tenantId): void
     {
-        $max = VoiceNumberRules::maxNumbers(FeatureResolver::value($tenantId, 'voice_max_numbers'));
+        $max = VoiceAccessService::maxNumbers($tenantId);
         $n = (int) ($this->db()->query('SELECT COUNT(*) AS n FROM voice_numbers WHERE tenant_user_id = ?', [$tenantId])[0]['n'] ?? 0);
         if ($n >= $max) {
             throw new InvalidArgumentException("Number limit reached ($max). Release a number or upgrade your plan.");
