@@ -100,4 +100,23 @@ class VoiceAdminController extends Controller
     {
         return $this->admin() ?? $this->success(['summary' => VoicePlatformLoad::summary((int) $this->get('days', 30))]);
     }
+
+    /** GET /api/admin/voice/margins?month=YYYY-MM */
+    public function margins(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        try {
+            return $this->success((new VoiceAdminReports())->margins((string) $this->get('month', gmdate('Y-m'))));
+        } catch (InvalidArgumentException $ex) {
+            return $this->error($ex->getMessage(), 422);
+        }
+    }
+
+    /** GET /api/admin/voice/quality?days=7 */
+    public function quality(array $params = []): array
+    {
+        return $this->admin() ?? $this->success((new VoiceAdminReports())->quality((int) $this->get('days', 7)));
+    }
 }

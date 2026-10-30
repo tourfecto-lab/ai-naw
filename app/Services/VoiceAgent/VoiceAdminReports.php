@@ -94,4 +94,45 @@ class VoiceAdminReports
         usort($out, static fn ($a, $b) => $b['total_usd'] <=> $a['total_usd']);
         return ['month' => $month, 'companies' => $out, 'totals' => array_map(static fn ($v) => round($v, 4), $totals)];
     }
+
+    /** Margin per company for a month: what Tourfecto paid vs what the company was charged. Pure maths in margin(). */
+    public function margins(string $month): array
+    {
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
+            throw new InvalidArgumentException('Invalid month');
+        }
+        $rows = $this->db()->query(
+            "SELECT tenant_user_id, SUM(cost_usd) AS cost, SUM(price_usd) AS price, SUM(cost_source = 'none' AND component LIKE '%minutes') AS unknown_cost_rows
+             FROM voice_usage_ledger WHERE occurred_at >= ? AND occurred_at < DATE_ADD(?, INTERVAL 1 MONTH) GROUP BY tenant_user_id ORDER BY price DESC LIMIT 200",
+            [$month . '-01 00:00:00', $month . '-01 00:00:00']
+        ) ?: [];
+        $out = ['month' => $month, 'companies' => [], 'total' => self::margin(0, 0)];
+        $cost = $price = 0.0;
+        foreach ($rows as $r) {
+            $out['companies'][] = ['company' => (int) $r['tenant_user_id'], 'unknown_cost_rows' => (int) $r['unknown_cost_rows']] + self::margin((float) $r['cost'], (float) $r['price']);
+            $cost += (float) $r['cost'];
+            $price += (float) $r['price'];
+        }
+        $out['total'] = self::margin($cost, $price);
+        return $out;
+    }
+
+    public static function margin(float $cost, float $price): array
+    {
+        return ['cost_usd' => round($cost, 4), 'price_usd' => round($price, 4), 'margin_usd' => round($price - $cost, 4), 'margin_pct' => $price > 0 ? round(($price - $cost) / $price * 100, 1) : null];
+    }
+
+    /** Conversation quality across companies for the last N days: reply time, fallback share, provider error counts. Numbers only. */
+    public function quality(int $days = 7): array
+    {
+        $days = max(1, min(90, $days));
+        $c = $this->db()->query(
+            "SELECT COUNT(*) AS calls, SUM(mode = 'fallback') AS fallback, SUM(latency_ms_total) AS lat, SUM(turns) AS turns FROM voice_calls WHERE started_at >= NOW() - INTERVAL $days DAY"
+        )[0] ?? [];
+        $e = (int) ($this->db()->query("SELECT COUNT(*) AS n FROM voice_provider_errors WHERE created_at >= NOW() - INTERVAL $days DAY")[0]['n'] ?? 0);
+        $calls = (int) ($c['calls'] ?? 0);
+        $turns = (int) ($c['turns'] ?? 0);
+        return ['days' => $days, 'calls' => $calls, 'fallback_rate_pct' => $calls ? round((int) $c['fallback'] / $calls * 100, 1) : null,
+            'avg_reply_ms' => $turns ? (int) round((int) $c['lat'] / $turns) : null, 'provider_errors' => $e];
+    }
 }

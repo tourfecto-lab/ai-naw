@@ -55,7 +55,7 @@ final class VoiceAgentDatabaseTest extends TestCase
         $ids = [self::A, self::B];
         $in = implode(',', $ids);
         foreach (['voice_agent_settings', 'voice_agents', 'voice_numbers', 'voice_number_orders', 'voice_providers', 'voice_provider_errors', 'voice_call_costs', 'voice_webhook_events', 'voice_calls', 'voice_call_turns', 'voice_outbound_jobs',
-            'voice_outbound_attempts', 'voice_campaigns', 'voice_consents', 'voice_dnc', 'voice_post_call_actions', 'voice_staff', 'voice_call_reviews'] as $t) {
+            'voice_outbound_attempts', 'voice_campaigns', 'voice_consents', 'voice_dnc', 'voice_post_call_actions', 'voice_staff', 'voice_call_reviews', 'voice_usage_ledger', 'voice_budget_alerts', 'voice_invoices', 'voice_recordings'] as $t) {
             $this->db()->exec("DELETE FROM $t WHERE tenant_user_id IN ($in)");
         }
         $this->db()->exec("DELETE FROM voice_dnc WHERE tenant_user_id = 0 AND reason = 'phpunit'");
@@ -622,5 +622,53 @@ final class VoiceAgentDatabaseTest extends TestCase
         $m = VoiceCostTracker::monthSummary(self::A, 0.01);
         $this->assertTrue($m['over_budget']);
         $this->assertSame(0.0, VoiceCostTracker::monthSummary(self::B, 10.0)['month_usd']);
+    }
+
+    public function testLedgerBudgetAlertsFireOnceAndBlockPolicyIsHonoured(): void
+    {
+        $usage = new VoiceUsageService();
+        $now = gmdate('Y-m-d H:i:s');
+        $usage->upsert(self::A, 'call:1', 'inbound_minutes', 2, 'minute', 0.5, 0.6, 'estimated', $now);
+        $usage->upsert(self::A, 'call:1', 'inbound_minutes', 2, 'minute', 0.8, 0.96, 'provider', $now); // the real price replaces the estimate
+        $usage->upsert(self::B, 'call:1', 'inbound_minutes', 2, 'minute', 9, 9, 'provider', $now);
+        $m = $usage->month(self::A);
+        $this->assertSame(0.96, $m['price_usd']);
+        $this->assertSame(0.8, $m['cost_usd']);
+        $settings = ['monthly_budget_usd' => 1.0, 'budget_policy' => 'block', 'daily_minutes_cap' => 0];
+        $svc = new VoiceBudgetService($usage);
+        $this->assertSame('warning', $svc->state(self::A, $settings)['state']);
+        $this->assertNull($svc->blockReason(self::A, $settings));
+        $svc->blockReason(self::A, $settings); // second check must not repeat the alert
+        $this->assertSame(1, (int) $this->db()->query('SELECT COUNT(*) AS n FROM voice_budget_alerts WHERE tenant_user_id = ?', [self::A])[0]['n']);
+        $usage->upsert(self::A, 'call:2', 'inbound_minutes', 1, 'minute', 0.1, 0.2, 'provider', $now);
+        $this->assertSame('budget_reached', $svc->blockReason(self::A, $settings));
+        $this->assertNull($svc->blockReason(self::A, ['budget_policy' => 'warn'] + $settings)); // warn only
+        $this->assertNull($svc->blockReason(self::B, array_merge($settings, ['monthly_budget_usd' => 50.0]))); // other company untouched
+    }
+
+    public function testInvoiceIsOnePerMonthAndNeverChargesWhileBillingIsOff(): void
+    {
+        $usage = new VoiceUsageService();
+        $usage->upsert(self::A, 'call:1', 'outbound_minutes', 1, 'minute', 1, 1.25, 'provider', '2026-09-10 10:00:00');
+        $billing = new VoiceBillingService($usage);
+        $billing->invoice(self::A, '2026-09');
+        $billing->invoice(self::A, '2026-09');
+        $this->assertSame(1, (int) $this->db()->query('SELECT COUNT(*) AS n FROM voice_invoices WHERE tenant_user_id = ?', [self::A])[0]['n']);
+        $this->assertSame('skipped_disabled', $billing->settle(self::A, '2026-09'));
+        $this->assertSame('open', $billing->statement(self::A, '2026-09')['invoice']['status']);
+        $this->assertSame(0.0, $billing->statement(self::B, '2026-09')['total_usd']);
+    }
+
+    public function testErasingAPhoneRemovesTranscriptsButKeepsDoNotCall(): void
+    {
+        $this->db()->exec("INSERT INTO voice_calls (tenant_user_id, provider, call_sid, direction, from_e164, to_e164, mode, summary, started_at) VALUES (?, 'twilio', 'CAerase', 'inbound', '+201001234567', '+2025550100', 'turn', 'secret summary', NOW())", [self::A]);
+        $id = (int) $this->db()->query("SELECT id FROM voice_calls WHERE call_sid = 'CAerase' AND tenant_user_id = ?", [self::A])[0]['id'];
+        $this->db()->exec("INSERT INTO voice_call_turns (tenant_user_id, call_id, seq, role, text, created_at) VALUES (?,?,1,'caller','my passport number',NOW())", [self::A, $id]);
+        $this->db()->exec("INSERT INTO voice_dnc (tenant_user_id, phone_key, e164, reason, created_at) VALUES (?, ?, '+201001234567', 'phpunit', NOW())", [self::A, VoiceDataStore::phoneKey('+201001234567')]);
+        $r = (new VoiceRetentionService())->erasePhone(self::A, '+201001234567');
+        $this->assertSame(1, $r['calls']);
+        $this->assertSame(0, (int) $this->db()->query('SELECT COUNT(*) AS n FROM voice_call_turns WHERE call_id = ?', [$id])[0]['n']);
+        $this->assertNull($this->db()->query('SELECT summary FROM voice_calls WHERE id = ?', [$id])[0]['summary']);
+        $this->assertSame(1, (int) $this->db()->query('SELECT COUNT(*) AS n FROM voice_dnc WHERE tenant_user_id = ?', [self::A])[0]['n']);
     }
 }

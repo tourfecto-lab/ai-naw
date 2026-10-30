@@ -8,11 +8,11 @@ class VoiceSettingsService
     public const DEFAULTS = [
         'enabled' => 0, 'sandbox_mode' => 1, 'default_language' => 'en', 'outbound_enabled' => 0,
         'recording_enabled' => 0, 'monthly_budget_usd' => null, 'human_handoff_phone' => null,
-        'supervisor_enabled' => 1, 'supervisor_sample_pct' => 20, 'supervisor_daily_cap' => 20, 'timezone' => null, 'after_hours_mode' => 'ai', 'knowledge_website_id' => null, 'daily_outbound_cap' => 100, 'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'post_call_wa_template' => null, 'post_call_wa_template_lang' => null, 'auto_abandoned_recovery' => 0, 'auto_trip_reminders' => 0, 'auto_booking_confirmation' => 0, 'auto_followups_live_approved' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
+        'budget_policy' => 'block', 'daily_minutes_cap' => 0, 'recording_retention_days' => 30, 'transcript_retention_days' => 90, 'allowed_dial_countries' => null, 'supervisor_enabled' => 1, 'supervisor_sample_pct' => 20, 'supervisor_daily_cap' => 20, 'timezone' => null, 'after_hours_mode' => 'ai', 'knowledge_website_id' => null, 'daily_outbound_cap' => 100, 'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'post_call_wa_template' => null, 'post_call_wa_template_lang' => null, 'auto_abandoned_recovery' => 0, 'auto_trip_reminders' => 0, 'auto_booking_confirmation' => 0, 'auto_followups_live_approved' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
     ];
 
     public const BOOKING_MODES = ['request_only', 'create_pending', 'auto_confirm'];
-    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'supervisor_enabled', 'supervisor_sample_pct', 'supervisor_daily_cap', 'timezone', 'after_hours_mode', 'knowledge_website_id', 'daily_outbound_cap', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'post_call_wa_template', 'post_call_wa_template_lang', 'auto_abandoned_recovery', 'auto_trip_reminders', 'auto_booking_confirmation', 'auto_followups_live_approved', 'payment_link_pct', 'whatsapp_website_id'];
+    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'budget_policy', 'daily_minutes_cap', 'recording_retention_days', 'transcript_retention_days', 'allowed_dial_countries', 'supervisor_enabled', 'supervisor_sample_pct', 'supervisor_daily_cap', 'timezone', 'after_hours_mode', 'knowledge_website_id', 'daily_outbound_cap', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'post_call_wa_template', 'post_call_wa_template_lang', 'auto_abandoned_recovery', 'auto_trip_reminders', 'auto_booking_confirmation', 'auto_followups_live_approved', 'payment_link_pct', 'whatsapp_website_id'];
 
     /** Pure: validate and normalise user input into the writable settings columns. */
     public static function sanitizeSettings(array $in): array
@@ -54,7 +54,26 @@ class VoiceSettingsService
             }
             $out['post_call_wa_template_lang'] = $v === '' ? null : $v;
         }
-        foreach (['supervisor_sample_pct' => [0, 100], 'supervisor_daily_cap' => [0, 500]] as $k => [$lo, $hi]) {
+        if (array_key_exists('budget_policy', $in)) {
+            if (!in_array((string) $in['budget_policy'], ['block', 'warn'], true)) {
+                throw new InvalidArgumentException('Budget policy must be block or warn');
+            }
+            $out['budget_policy'] = (string) $in['budget_policy'];
+        }
+        if (array_key_exists('allowed_dial_countries', $in)) {
+            $isos = is_array($in['allowed_dial_countries']) ? $in['allowed_dial_countries'] : array_filter(array_map('trim', explode(',', (string) $in['allowed_dial_countries'])));
+            $known = array_column(VoiceMarkets::targets(), 'iso');
+            $clean = [];
+            foreach ($isos as $c) {
+                $c = strtoupper((string) $c);
+                if (!in_array($c, $known, true)) {
+                    throw new InvalidArgumentException('Outbound calling is only available to supported countries: ' . implode(', ', $known));
+                }
+                $clean[$c] = $c;
+            }
+            $out['allowed_dial_countries'] = $clean ? implode(',', $clean) : null;
+        }
+        foreach (['daily_minutes_cap' => [0, 1440], 'recording_retention_days' => [1, 365], 'transcript_retention_days' => [1, 730], 'supervisor_sample_pct' => [0, 100], 'supervisor_daily_cap' => [0, 500]] as $k => [$lo, $hi]) {
             if (array_key_exists($k, $in)) {
                 $v = filter_var($in[$k], FILTER_VALIDATE_INT);
                 if ($v === false || $v < $lo || $v > $hi) {

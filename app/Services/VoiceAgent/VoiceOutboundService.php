@@ -106,6 +106,10 @@ class VoiceOutboundService
         }
         $to = VoiceNumberRules::normalizeE164((string) ($in['to'] ?? ''));
         $key = VoiceConsentService::key($to);
+        $allowed = ((new VoiceSettingsService())->get($tenantId)['allowed_dial_countries'] ?? null);
+        if (!VoiceFraudGuard::destinationAllowed($to, $allowed ? explode(',', (string) $allowed) : null)) {
+            throw new InvalidArgumentException('Calls to this destination are not allowed for your account. Allowed countries can be changed in Settings.');
+        }
         $number = $this->db()->query("SELECT * FROM voice_numbers WHERE id = ? AND tenant_user_id = ? AND status IN ('active','simulated') LIMIT 1", [(int) ($in['number_id'] ?? 0), $tenantId])[0] ?? null;
         if (!$number || empty($number['provider'])) {
             throw new InvalidArgumentException('Choose one of your active numbers that belongs to a provider account (caller ID)');
@@ -227,9 +231,8 @@ class VoiceOutboundService
         if (!$number || !$agent || empty($number['provider'])) {
             return $this->block($job, 'number_or_agent_unavailable');
         }
-        $budget = $settings['monthly_budget_usd'] !== null ? (float) $settings['monthly_budget_usd'] : null;
-        if (VoiceCostTracker::monthSummary($t, $budget)['over_budget']) {
-            return $this->block($job, 'budget_reached');
+        if (($why = (new VoiceBudgetService())->blockReason($t, $settings)) !== null) {
+            return $this->block($job, $why);
         }
         if (!empty($job['campaign_id'])) {
             $c = $this->db()->query('SELECT status FROM voice_campaigns WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$job['campaign_id'], $t])[0]['status'] ?? 'cancelled';
@@ -241,6 +244,11 @@ class VoiceOutboundService
                 $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at = NOW() + INTERVAL 1 HOUR, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $t]);
                 return 'waiting';
             }
+        }
+        $recent = (int) ($this->db()->query('SELECT COUNT(*) AS n FROM voice_outbound_attempts WHERE tenant_user_id = ? AND simulated = 0 AND created_at >= NOW() - INTERVAL 10 MINUTE', [$t])[0]['n'] ?? 0);
+        if (VoiceFraudGuard::dialRateExceeded($recent)) {
+            $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at = NOW() + INTERVAL 10 MINUTE, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $t]);
+            return 'waiting'; // burst limit against runaway loops and toll fraud
         }
         $real24 = (int) ($this->db()->query('SELECT COUNT(*) AS n FROM voice_outbound_attempts WHERE tenant_user_id = ? AND simulated = 0 AND created_at >= NOW() - INTERVAL 1 DAY', [$t])[0]['n'] ?? 0);
         if (VoiceCapacity::dailyCapReached($real24, (int) ($settings['daily_outbound_cap'] ?? 100))) {

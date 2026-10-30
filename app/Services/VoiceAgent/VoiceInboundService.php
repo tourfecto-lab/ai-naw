@@ -141,8 +141,8 @@ class VoiceInboundService
             $reason = 'module_disabled';
         } elseif (!$agent || $agent['status'] !== 'active') {
             $reason = 'no_active_agent';
-        } elseif (VoiceCostTracker::monthSummary($tenantId, $budget)['over_budget']) {
-            $reason = 'budget_reached';
+        } elseif (($why = (new VoiceBudgetService())->blockReason($tenantId, $settings)) !== null) {
+            $reason = $why;
         } else {
             $platformCap = (int) (new SystemSettingsService())->get('voice_platform_max_concurrent', (string) VoiceCapacity::DEFAULT_PLATFORM_CAP);
             $cap = VoiceCapacity::decide($this->store->activeCalls($tenantId), (int) ($settings['max_concurrent_calls'] ?? 3), VoicePlatformLoad::activeCalls(), $platformCap);

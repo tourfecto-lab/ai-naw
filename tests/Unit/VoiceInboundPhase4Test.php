@@ -48,7 +48,7 @@ final class VoiceInboundPhase4Test extends TestCase
         $this->assertStringContainsString("'at_capacity'", $s);
         $this->assertStringContainsString('VoicePlatformLoad::activeCalls()', $s);
         // order matters: a lapsed plan is checked before anything that would use the AI
-        $this->assertLessThan(strpos($s, "'budget_reached'"), strpos($s, "'subscription_inactive'"));
+        $this->assertLessThan(strpos($s, 'VoiceBudgetService'), strpos($s, "'subscription_inactive'"));
     }
 
     public function testTwilioStreamTokenTravelsAsAParameterBecauseTwilioDropsQueryStrings(): void

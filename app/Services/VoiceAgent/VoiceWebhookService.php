@@ -60,6 +60,18 @@ class VoiceWebhookService
                 }
             }
             VoiceCostTracker::record($tenantId, $provider, $ev['call_id'], $ev['direction'], $ev['duration_s'], $cost, $source);
+            try {
+                $row = $db->query('SELECT id FROM voice_calls WHERE tenant_user_id = ? AND provider = ? AND call_sid = ? LIMIT 1', [$tenantId, $provider, $ev['call_id']]);
+                if ($row) {
+                    (new VoiceUsageService())->recordCall($tenantId, (int) $row[0]['id'], $cost);
+                    $st = (new VoiceSettingsService())->get($tenantId);
+                    (new VoiceBudgetService())->alert($tenantId, (new VoiceBudgetService())->state($tenantId, $st));
+                }
+            } catch (Throwable $e) {
+                if (class_exists('Logger')) {
+                    Logger::error('VoiceWebhookService: usage ledger failed', ['error' => $e->getMessage()]);
+                }
+            }
         }
         return [200, 'ok'];
     }

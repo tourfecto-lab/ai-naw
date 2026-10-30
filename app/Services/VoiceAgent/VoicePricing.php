@@ -33,4 +33,10 @@ class VoicePricing
         }
         return ['inbound_per_min' => self::apply($rates['inbound_per_min'], $markupPct), 'outbound_per_min' => self::apply($rates['outbound_per_min'], $markupPct), 'currency' => $rates['currency']];
     }
+
+    /** Same as apply() but to 6 decimals, for per-minute usage where cents would round a call to nothing. */
+    public static function applyPrecise(?float $cost, float $markupPct): ?float
+    {
+        return $cost === null ? null : ceil(round($cost * (100 + self::clamp($markupPct)) * 10000, 4)) / 1000000;
+    }
 }

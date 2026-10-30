@@ -163,7 +163,9 @@ class VoiceTelephonyController extends Controller
             return $g['error'];
         }
         $s = (new VoiceSettingsService())->get($g['tenant']);
-        $budget = isset($s['monthly_budget_usd']) && $s['monthly_budget_usd'] !== null ? (float) $s['monthly_budget_usd'] : null;
-        return $this->success(['costs' => VoiceCostTracker::monthSummary($g['tenant'], $budget)]);
+        $usage = new VoiceUsageService();
+        $b = (new VoiceBudgetService($usage))->state($g['tenant'], $s);
+        $m = $usage->month($g['tenant']);
+        return $this->success(['costs' => ['month_usd' => $m['price_usd'], 'by_component' => array_map(static fn ($c) => ['usd' => $c['price_usd'], 'quantity' => $c['quantity']], $m['by_component']), 'budget_usd' => $b['budget_usd'], 'percent' => $b['percent'], 'state' => $b['state'], 'over_budget' => $b['blocked'], 'policy' => $s['budget_policy'] ?? 'block']]);
     }
 }

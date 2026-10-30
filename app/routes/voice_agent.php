@@ -87,3 +87,9 @@ $router->get('/api/voice-agent/analytics','VoiceAnalyticsController','overview',
 $router->get('/api/voice-agent/analytics/reviews','VoiceAnalyticsController','reviews',['AuthMiddleware']);
 $router->post('/api/voice-agent/numbers/{id}/attribution','VoiceAnalyticsController','setAttribution',['AuthMiddleware']);
 $router->get('/api/admin/voice/analytics','VoiceAdminController','analytics',['AuthMiddleware','AdminMiddleware']);
+
+// Phase 9: billing, usage, privacy, admin margins and quality
+$router->get('/api/voice-agent/billing','VoiceBillingController','statement',['AuthMiddleware']);
+$router->post('/api/voice-agent/privacy/erase','VoiceBillingController','erase',['AuthMiddleware']);
+$router->get('/api/admin/voice/margins','VoiceAdminController','margins',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/quality','VoiceAdminController','quality',['AuthMiddleware','AdminMiddleware']);

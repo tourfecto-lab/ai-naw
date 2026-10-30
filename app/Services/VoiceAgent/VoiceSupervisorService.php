@@ -58,8 +58,7 @@ class VoiceSupervisorService
         $useModel = !empty($settings['supervisor_enabled']) && VoiceSupervisorRules::needsModel($flags, VoiceSupervisorRules::sampled($callId, (int) ($settings['supervisor_sample_pct'] ?? 20)));
         if ($useModel) {
             $today = (int) ($this->db()->query("SELECT COUNT(*) AS n FROM voice_call_reviews WHERE tenant_user_id = ? AND source = 'model' AND created_at >= CURDATE()", [$tenantId])[0]['n'] ?? 0);
-            $budget = isset($settings['monthly_budget_usd']) && $settings['monthly_budget_usd'] !== null ? (float) $settings['monthly_budget_usd'] : null;
-            if ($today >= (int) ($settings['supervisor_daily_cap'] ?? 20) || VoiceCostTracker::monthSummary($tenantId, $budget)['over_budget']) {
+            if ($today >= (int) ($settings['supervisor_daily_cap'] ?? 20) || (new VoiceBudgetService())->state($tenantId, $settings)['state'] === 'exhausted') {
                 $useModel = false; // cap or budget reached: the free rules-only note still records the warning signs
             }
         }
