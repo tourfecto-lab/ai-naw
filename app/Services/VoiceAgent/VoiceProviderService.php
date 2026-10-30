@@ -184,6 +184,28 @@ class VoiceProviderService
         VoiceAuditService::record($tenantId, null, 'provider.account_created', 'provider', $provider, ['account' => $accountId]);
     }
 
+    /** Platform account adapter (read access to the numbers Tourfecto itself holds). Admin flows only. */
+    public function platformAdapter(string $provider): VoiceProviderAdapter
+    {
+        $platform = VoicePlatformCredentials::forProvider($provider);
+        if ($platform === null) {
+            throw new InvalidArgumentException('This provider is not configured in Integrations');
+        }
+        return VoiceProviderRegistry::make($provider, $platform, $this->http);
+    }
+
+    /** Link a company to the platform account of a provider that has no sub-accounts (Telnyx). Creates nothing at the provider. */
+    public function ensurePlatformAccount(int $tenantId, string $provider): void
+    {
+        if (!empty(self::capabilitiesOf($provider)['subaccounts'])) {
+            throw new InvalidArgumentException('This provider needs a company sub-account; it is created with the first approved live action');
+        }
+        Database::getInstance()->exec(
+            "INSERT IGNORE INTO voice_providers (tenant_user_id, provider, mode, provider_account_id, credentials_enc, status, created_at, updated_at) VALUES (?,?,'platform',NULL,?,'ok',NOW(),NOW())",
+            [$tenantId, $provider, $this->enc()->encrypt(json_encode((object) []), self::salt($tenantId, $provider))]
+        );
+    }
+
     /** Read-only provider call with error monitoring. */
     private function read(int $tenantId, string $provider, string $operation, callable $fn)
     {

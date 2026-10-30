@@ -74,7 +74,7 @@
             ['Outbound', function (c) { return +c.outbound_enabled ? 'on' : 'off'; }], ['Numbers', 'active_numbers'], ['Calls (month)', 'month_calls'], ['Charge (month)', function (c) { return money(c.month_price_usd); }],
             ['Budget', function (c) { return c.monthly_budget_usd == null ? '—' : money(c.monthly_budget_usd); }],
             ['Actions', function (c) {
-              return '<button class="va-btn sec" data-stop="' + (+c.company) + '">Stop</button> ' + (+c.sandbox_mode
+              return '<button class="va-btn sec" data-addnum="' + (+c.company) + '">Add platform number</button> <button class="va-btn sec" data-stop="' + (+c.company) + '">Stop</button> ' + (+c.sandbox_mode
                 ? '<button class="va-btn sec" data-live="' + (+c.company) + '">Take out of test mode</button>'
                 : '<button class="va-btn sec" data-test-mode="' + (+c.company) + '">Back to test mode</button>');
             }]], r.companies);
@@ -89,6 +89,13 @@
           });
         });
       }
+      el.querySelectorAll('[data-addnum]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var n = window.prompt('Number to give this company (E.164, e.g. +14155550123). It must already be bought in your Telnyx account.');
+          if (!n) return;
+          api('/api/admin/voice/companies/' + (+b.getAttribute('data-addnum')) + '/numbers', { provider: 'telnyx', number: n }).then(function (d) { say(el, 'Attached. ' + (d.webhook_note || '')); show(2); }).catch(function (e) { say(el, e.message, true); });
+        });
+      });
       act('data-stop', function () { return window.confirm('Stop this company and cancel its queued calls?') ? { stop: 1 } : null; });
       act('data-live', function () { var c = window.prompt('Type I UNDERSTAND to take this company out of test mode. Real numbers and calls become possible (each still needs approval).'); return c === 'I UNDERSTAND' ? { sandbox_mode: 0, confirm: c } : null; });
       act('data-test-mode', function () { return { sandbox_mode: 1 }; });
