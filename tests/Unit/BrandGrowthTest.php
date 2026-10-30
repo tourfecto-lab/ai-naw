@@ -41,6 +41,14 @@ final class BrandGrowthTest extends TestCase
         $this->assertSame(['http_error'], $this->codes(BrandSiteAudit::analyzePage('https://tourfecto.pro/gone', 404, '', 100, 'tourfecto.pro')));
     }
 
+    public function testCanonicalElsewhereIsFlagged(): void
+    {
+        $html = str_replace('https://tourfecto.pro/features"', 'https://tourfecto.pro/contact?lang=en"', $this->good());
+        $this->assertContains('canonical_elsewhere', $this->codes(BrandSiteAudit::analyzePage('https://tourfecto.pro/help/contact', 200, $html, 300, 'tourfecto.pro')));
+        $same = str_replace('https://tourfecto.pro/features"', 'https://tourfecto.pro/features?lang=en"', $this->good());
+        $this->assertSame([], BrandSiteAudit::analyzePage('https://tourfecto.pro/features?lang=ar', 200, $same, 300, 'tourfecto.pro')['issues'], 'language variants of the same path are fine');
+    }
+
     public function testScore(): void
     {
         $ok = BrandSiteAudit::analyzePage('https://tourfecto.pro/', 200, $this->good(), 500, 'tourfecto.pro');

@@ -226,7 +226,7 @@
       const pageRows = a ? (a.pages || []).filter(p => p.issues.length).sort((x, y) => y.issues.filter(i => i[0] === 'critical').length - x.issues.filter(i => i[0] === 'critical').length).slice(0, 40)
         .map(p => `<tr><td dir="ltr"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\/[^/]+/, '') || '/')}</a></td><td>${p.code}</td><td>${num(p.ms)} ms</td><td>${p.issues.map(i => `${SEV[i[0]] || ''} ${esc(i[2])}`).join('<br>')}</td></tr>`).join('') : '';
       const conns = pr.website ? (pr.connections === null ? '<p class="br-muted">Connections unavailable.</p>' : `<p>Connected: ${pr.connections.length ? pr.connections.map(c => `${esc(c.platform)} (${esc(c.status)})`).join(' · ') : 'nothing yet'}</p>`) : '';
-      return `<section class="br-card"><div class="br-head"><div><h3>Tourfecto website SEO / AEO</h3><p class="br-muted">${esc(brand.site_url)} · free check of up to 40 pages from the sitemap (titles, descriptions, indexing, canonical, structured data, speed, llms.txt). It runs weekly from the cron.</p></div>
+      return `<section class="br-card"><div class="br-head"><div><h3>Tourfecto website SEO / AEO</h3><p class="br-muted">${esc(brand.site_url)} · free check of up to 60 pages from the sitemap (titles, descriptions, indexing, canonical, structured data, speed, llms.txt). It runs weekly from the cron.</p></div>
           <div class="br-actions"><button type="button" class="p-btn primary xs" id="bgAudit">Run audit now</button></div></div>
         ${a ? `<div class="br-tiles">${tile(a.score + '/100', 'SEO score', delta)}${tile(num(a.summary.pages), 'Pages checked', num(a.summary.ok_pages) + ' OK')}${tile(num(a.summary.critical), 'Critical issues')}${tile(a.summary.avg_ms === null ? '—' : num(a.summary.avg_ms) + ' ms', 'Avg load')}</div>
           <p class="br-muted">Last run ${esc(a.run_at)} UTC</p>
@@ -429,8 +429,9 @@
           ${h.components.map(c => `<tr><td>${esc(c.label)}</td><td>${c.weight}</td><td><b>${c.value === null ? 'no data' : c.value}</b></td><td>${c.previous ?? '—'}</td><td><small>${esc(c.method)}</small></td></tr>`).join('')}</tbody></table></div></section>
 
         <section class="br-card"><h3>Today's executive report</h3>
-          <dl class="br-facts"><dt>What happened</dt><dd>${list(t.happened)}</dd><dt>Improved</dt><dd>${list(t.improved)}</dd><dt>Declined</dt><dd>${list(t.declined)}</dd><dt>Main problem</dt><dd dir="auto">${esc(t.problem || 'none')}</dd>
-          <dt>Priorities</dt><dd>${list(t.priorities)}</dd><dt>Needs your approval</dt><dd>${list(t.needs_approval)}</dd><dt>Real results</dt><dd>${list(t.results)}</dd><dt>Next step</dt><dd dir="auto"><b>${esc(t.next_step)}</b></dd></dl>
+          <div class="p-table-scroll"><table class="p-table"><tbody>${[['What happened', list(t.happened)], ['Improved', list(t.improved)], ['Declined', list(t.declined)], ['Main problem', `<span dir="auto">${esc(t.problem || 'none')}</span>`],
+            ['Priorities', list(t.priorities)], ['Needs your approval', list(t.needs_approval)], ['Real results', list(t.results)], ['Next step', `<b dir="auto">${esc(t.next_step)}</b>`]]
+            .map(([k, v]) => `<tr><th scope="row" style="width:180px;vertical-align:top">${esc(k)}</th><td>${v}</td></tr>`).join('')}</tbody></table></div>
           ${ex.reports.length ? `<details class="br-past"><summary>Saved daily & weekly reports (${ex.reports.length})</summary>${ex.reports.map(r => `<p><b>${esc(r.title)}</b><br><span style="white-space:pre-wrap" dir="auto">${esc(r.body || '')}</span></p>`).join('')}</details>` : '<p class="br-muted">The hourly cron saves a daily report, and a weekly one on Mondays.</p>'}</section>
 
         <section class="br-card"><h3>AI CEO self-review (30 days)</h3><p>${Object.entries(rv.totals).map(([k, v]) => `${esc(k.replace('_', ' '))} ${num(v)}`).join(' · ')}${rv.resolution_rate !== null ? ` · resolution rate ${num(rv.resolution_rate)}%` : ''}</p>

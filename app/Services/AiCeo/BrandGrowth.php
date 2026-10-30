@@ -13,7 +13,9 @@ require_once __DIR__ . '/AiCostIntelligence.php';
  */
 final class BrandGrowth
 {
-    private const NON_PUBLIC = "(v.page_url LIKE '%/admin%' OR v.page_url LIKE '%/api/%' OR v.page_url LIKE '%/dashboard%' OR v.page_url LIKE '%/assets/%' OR v.page_url LIKE '%/login%' OR v.page_url LIKE '%/register%' OR v.page_url LIKE '%/logout%')";
+    private const NON_PUBLIC = "(v.page_url LIKE '%/admin%' OR v.page_url LIKE '%/api/%' OR v.page_url LIKE '%/dashboard%' OR v.page_url LIKE '%/assets/%' OR v.page_url LIKE '%/login%' OR v.page_url LIKE '%/register%' OR v.page_url LIKE '%/logout%'
+        OR v.page_url LIKE '%wp-%' OR v.page_url LIKE '%xmlrpc%' OR v.page_url LIKE '%.php%' OR v.page_url LIKE '%.js%' OR v.page_url LIKE '%.env%' OR v.page_url LIKE '%/widget/%'
+        OR COALESCE(v.device_type, '') = 'bot')";
     private const CUSTOMER = "u.deleted_at IS NULL AND u.role NOT IN ('admin','super_admin') AND (u.owner_user_id IS NULL OR u.owner_user_id = 0)";
 
     private Database $db;

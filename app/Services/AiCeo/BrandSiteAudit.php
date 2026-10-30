@@ -12,7 +12,7 @@ require_once __DIR__ . '/../Brain/BrainSchema.php';
  */
 final class BrandSiteAudit
 {
-    public const MAX_PAGES = 40;
+    public const MAX_PAGES = 60;
     private const WEIGHTS = ['critical' => 25, 'warn' => 8, 'info' => 2];
 
     private Database $db;
@@ -57,11 +57,17 @@ final class BrandSiteAudit
         $pages = [];
         foreach ($urls as $u) {
             $r = ($this->fetch)($u);
-            $pages[] = self::analyzePage($u, $r['code'], $r['body'], $r['ms'], $host);
+            $page = self::analyzePage($u, $r['code'], $r['body'], $r['ms'], $host);
+            // صفحة في السايت ماب بتحوّل لصفحة تانية: المفروض السايت ماب يحط الصفحة النهائية
+            if (!empty($r['redirects'])) array_unshift($page['issues'], ['warn', 'redirect_in_sitemap', 'Listed in the sitemap but redirects to another page: list the final page instead']);
+            $pages[] = $page;
         }
-        // عناوين مكررة على أكتر من صفحة
+        // عناوين مكررة على أكتر من صفحة (الصفحات اللي بتحوّل أو الـ canonical بتاعها صفحة تانية مش بتتحسب: مش هي اللي بتتفهرس)
         $titles = [];
-        foreach ($pages as $p) if ($p['title'] !== '') $titles[mb_strtolower($p['title'])][] = $p['url'];
+        foreach ($pages as $p) {
+            $skip = (bool) array_filter($p['issues'], static fn ($i) => in_array($i[1], ['redirect_in_sitemap', 'canonical_elsewhere'], true));
+            if ($p['title'] !== '' && !$skip) $titles[mb_strtolower($p['title'])][] = $p['url'];
+        }
         foreach ($titles as $t => $list) if (count($list) > 1) $siteIssues[] = ['warn', 'duplicate_title', count($list) . ' pages share the title "' . mb_substr($t, 0, 60) . '"'];
 
         $summary = self::summarize($pages, $siteIssues);
@@ -117,6 +123,7 @@ final class BrandSiteAudit
             elseif ($h1 > 1) $issues[] = ['info', 'h1_multiple', $h1 . ' H1 headings'];
             if ($canonical === '') $issues[] = ['warn', 'canonical_missing', 'No canonical link'];
             elseif (($ch = strtolower((string) parse_url($canonical, PHP_URL_HOST))) !== '' && $ch !== $host) $issues[] = ['critical', 'canonical_other_host', 'Canonical points to ' . $ch];
+            elseif (rtrim((string) parse_url($canonical, PHP_URL_PATH), '/') !== rtrim((string) parse_url($url, PHP_URL_PATH), '/')) $issues[] = ['warn', 'canonical_elsewhere', 'Canonical is ' . parse_url($canonical, PHP_URL_PATH) . ': this URL should not be in the sitemap'];
             if (!$types) $issues[] = ['info', 'structured_data_missing', 'No JSON-LD structured data (helps rich results and AI answers)'];
             if (!$og) $issues[] = ['info', 'open_graph_missing', 'No og:title/og:image (link previews on social)'];
             if ($words < 250) $issues[] = ['warn', 'thin_content', 'Only ' . $words . ' words of text'];
@@ -154,6 +161,7 @@ final class BrandSiteAudit
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
         $code = 0;
         $body = '';
+        $redirects = 0;
         for ($hop = 0; $hop < 4; $hop++) {
             $ch = curl_init($url);
             curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_TIMEOUT => 12, CURLOPT_MAXFILESIZE => 3000000,
@@ -163,9 +171,9 @@ final class BrandSiteAudit
             $next = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
             curl_close($ch);
             // بنتبع التحويل على نفس الدومين بس
-            if ($code >= 300 && $code < 400 && $next !== '' && strtolower((string) parse_url($next, PHP_URL_HOST)) === $host) { $url = $next; continue; }
+            if ($code >= 300 && $code < 400 && $next !== '' && strtolower((string) parse_url($next, PHP_URL_HOST)) === $host) { $url = $next; $redirects++; continue; }
             break;
         }
-        return ['code' => $code, 'body' => mb_substr($body, 0, 3000000), 'ms' => (int) round((microtime(true) - $started) * 1000)];
+        return ['code' => $code, 'body' => mb_substr($body, 0, 3000000), 'ms' => (int) round((microtime(true) - $started) * 1000), 'redirects' => $redirects];
     }
 }
