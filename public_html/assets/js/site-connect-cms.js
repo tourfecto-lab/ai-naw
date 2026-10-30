@@ -62,9 +62,14 @@
         if (m === 'webhook') {
             const sample = JSON.stringify({ title: 'Luxor Day Tours: …', content_html: '<p>…</p>', content_markdown: '…', meta_description: '…', slug: 'luxor-day-tours', suggested_keywords: ['luxor day tours'], article_id: 123, is_test: false, source: 'tourfecto' }, null, 2);
             const mail = 'mailto:?subject=' + encodeURIComponent(t('ربط موقعنا بـ Tourfecto', 'Connect our site to Tourfecto')) + '&body=' + encodeURIComponent(t('محتاجين endpoint (POST, https) بيستقبل JSON زي ده وينشر المقال ويرجع 200 و {"url":"رابط المقال"}:\n\n', 'We need an HTTPS POST endpoint that accepts JSON like this, publishes the article and returns 200 with {"url":"article URL"}:\n\n') + sample + t('\n\nالطلب فيه Authorization: Bearer <SECRET> للتأكد إنه من Tourfecto. لما is_test=true ماتنشروش.', '\n\nRequests carry Authorization: Bearer <SECRET>. When is_test=true, do not publish.'));
-            return `<p class="scc-p">${t('المبرمج بتاعك يعمل رابط واحد بيستقبل المقال وينشره — وإحنا بنبعتله كل مقال لوحده.', 'Your developer adds one endpoint that receives and publishes the article — we send every article to it automatically.')}</p>
+            // ملف جاهز بدل ما المبرمج يكتب من الصفر: يحطه على الموقع ويعدّل سطر الحفظ في مدونتهم
+            const receiver = "<?php\n// tourfecto-receive.php - Tourfecto بيبعت كل مقال هنا\n$secret = 'PUT_THE_SECRET_HERE';\n$auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';\nif (!hash_equals('Bearer ' . $secret, $auth)) { http_response_code(401); exit; }\n$a = json_decode(file_get_contents('php://input'), true) ?: [];\nheader('Content-Type: application/json');\nif (!empty($a['is_test'])) { echo json_encode(['ok' => true]); exit; }\n// TODO: save to your blog: $a['title'], $a['content_html'], $a['slug'], $a['meta_description']\n$url = 'https://' . $_SERVER['HTTP_HOST'] . '/blog/' . rawurlencode($a['slug'] ?? '');\necho json_encode(['url' => $url]);\n";
+            const wa = 'https://wa.me/?text=' + encodeURIComponent(t('محتاجين نربط مدونة موقعنا بـ Tourfecto عشان المقالات تتنشر لوحدها. ده ملف جاهز: حطه على الموقع (مثلًا /api/tourfecto-receive.php) وكمّل سطر الحفظ في مدونتنا، وابعتلي الرابط:\n\n', 'Please connect our site blog to Tourfecto so articles publish automatically. Here is a ready file: put it on the site (e.g. /api/tourfecto-receive.php), finish the save line for our blog, and send me the URL:\n\n') + receiver);
+            return `<p class="scc-p">${t('المبرمج بتاعك يحط ملف واحد على الموقع (جاهز تحت) ويكمّل سطر الحفظ — وإحنا بنبعتله كل مقال لوحده.', 'Your developer puts one ready file on the site (below) and finishes the save line — we send every article to it automatically.')}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><a class="p-btn primary xs" href="${wa}" target="_blank" rel="noopener">📤 ${t('ابعته للمبرمج على واتساب', 'Send it to your developer on WhatsApp')}</a>
+                <a class="p-btn outline xs" href="${mail}">✉️ ${t('أو بالإيميل', 'Or by email')}</a></div>
+                <details class="scc-dev"><summary>${t('الملف الجاهز (PHP)', 'Ready file (PHP)')}</summary><pre dir="ltr">${esc(receiver)}</pre></details>
                 <details class="scc-dev"><summary>${t('شكل البيانات اللي بتتبعت', 'Payload format')}</summary><pre dir="ltr">${esc(sample)}</pre></details>
-                <a class="p-btn outline xs" href="${mail}">✉️ ${t('ابعت التعليمات للمبرمج', 'Email instructions to your developer')}</a>
                 <label class="form-label" style="margin-top:12px">${t('رابط الاستقبال (https)', 'Endpoint URL (https)')}</label><input class="form-control" id="sccEndpoint" dir="ltr" placeholder="https://yoursite.com/api/tourfecto">
                 <label class="form-label">${t('المفتاح السري (اختياري — هنعمله لو فاضي)', 'Secret (optional — we generate one)')}</label><input class="form-control" id="sccSecret" dir="ltr" autocomplete="off">
                 <button type="button" class="p-btn primary" data-scc-go="webhook">${t('اختبر واربط', 'Test & connect')}</button>`;
@@ -124,8 +129,20 @@
             return;
         }
         if (D.method === 'wordpress' && !method) { root.innerHTML = ''; return; }
-        // موقع مبرمج خاص عنده مدونة بالفعل: الأنسب المقالات تتنشر فيها هي (Webhook)، مش مدونة منفصلة
         const hasBlog = !!(D.platform && D.platform.blog_url);
+        // موقع مبرمج خاص (أو نظام مش معروف): كان بيبدأ بـ«المبرمج يعمل رابط استقبال» وده أصعب حاجة.
+        // دلوقتي العميل يختار، والأسهل (من غير مبرمج) الأول وعليه قد إيه بياخد مجهود.
+        if (!method && D.method === 'copy') {
+            const opt = (k, title, sub, badge) => `<button type="button" class="scc-opt" data-scc-method="${k}"><span>${METHODS[k].icon}</span><b>${title}</b><small>${sub}</small>${badge ? `<em class="pill ${badge[0]}" style="margin-top:6px">${badge[1]}</em>` : ''}</button>`;
+            root.innerHTML = `<div class="p-card scc">${header()}
+                <h4 class="scc-h">${t('المقالات تتنشر فين؟ اختار الأسهل ليك', 'Where should articles publish? Pick what is easiest for you')}</h4>
+                <div class="scc-grid">
+                    ${opt('hosted', t('مدونة جاهزة - من غير مبرمج', 'Ready blog - no developer'), t('شغالة في دقيقة بلوجو شركتك، وممكن تبقى على blog.موقعك.com', 'Live in a minute with your logo, can sit on blog.yoursite.com'), ['green', t('الأسهل · دقيقة', 'Easiest · 1 minute')])}
+                    ${opt('webhook', t('في مدونة موقعك الحالية', 'In your current site blog'), hasBlog ? t('على', 'On') + ' ' + esc(D.platform.blog_url.replace(/^https?:\/\//, '')) + ' - ' + t('المبرمج يضيف ملف واحد مرة واحدة', 'your developer adds one file, once') : t('المبرمج يضيف ملف واحد مرة واحدة', 'Your developer adds one file, once'), ['gray', t('محتاج المبرمج مرة', 'Developer once')])}
+                    ${opt('copy', t('أنسخها بنفسي', 'I copy them myself'), t('كل مقال بيوصلك جاهز تلصقه في محرر موقعك', 'Every article arrives ready to paste in your editor'), null)}
+                </div></div>`;
+            return;
+        }
         const m = method || (D.method === 'copy' ? (hasBlog ? 'webhook' : 'hosted') : D.method);
         const others = Object.keys(METHODS).filter(k => k !== m);
         root.innerHTML = `<div class="p-card scc">${header()}
