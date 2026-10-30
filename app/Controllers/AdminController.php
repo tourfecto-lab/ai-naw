@@ -3881,7 +3881,8 @@ JS;
     <script src="{$adminPagesJsUrl}"></script>
     <script src="{$adminInsightsJsUrl}"></script>
     <style>body.hide-balances .is-money{filter:blur(8px);user-select:none;pointer-events:none;transition:filter .15s}</style>
-    <script>window.I18N = {$this->i18nJson()}; window.ADMIN_PERMS = {$adminPermsJson}; window.ADMIN_ROLE = {$adminRoleJson};</script>
+    {$this->i18nScriptTag()}
+    <script>window.ADMIN_PERMS = {$adminPermsJson}; window.ADMIN_ROLE = {$adminRoleJson};</script>
     <script>{$script}</script>
 </body>
 </html>

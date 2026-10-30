@@ -960,7 +960,7 @@ class OnboardingController extends Controller
     <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/style.css">
     <script src="{$panelJsUrl}"></script>
-    <script>window.I18N = {$this->i18nJson()};</script>
+    {$this->i18nScriptTag()}
     <style>
         :root { --ob-bg:#F4F5F8; --ob-card:#FFFFFF; --ob-line:#E3E6EC; --ob-text:#0F1B2D; --ob-muted:#5D687C; --ob-gold:#1F4FFF; --ob-green:#0E9F6E; --ob-red:#D92D20; --ob-soft:#EEF1F6; color-scheme:light; }
         html[data-theme="dark"] { --ob-bg:#080D18; --ob-card:#0F1729; --ob-line:#1B2438; --ob-text:#E8ECF5; --ob-muted:#93A0B8; --ob-gold:#6C8CFF; --ob-green:#34D399; --ob-red:#FF7A70; --ob-soft:#1B2438; color-scheme:dark; }

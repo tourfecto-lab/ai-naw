@@ -29,6 +29,22 @@ class AssetController extends Controller
         return $this->serveFile(dirname(__DIR__, 2) . '/public_html/assets/' . $relative);
     }
 
+    /** GET /i18n-dict?lang=ar&v=<mtime>&s=<0|1> - قاموس الترجمة كملف قابل للتخزين بدل حقنه في كل صفحة */
+    public function i18nDict(array $params = []): array
+    {
+        $lang = (string) ($_GET['lang'] ?? '');
+        if (!in_array($lang, UI_SUPPORTED_LANGUAGES, true)) {
+            $lang = UI_DEFAULT_LANGUAGE;
+        }
+        // s في الرابط لمفتاح الكاش بس؛ الأدمن بيتحدد من الجلسة الحقيقية مش من الرابط
+        $body = 'window.I18N = ' . $this->i18nJsonFor($lang, $this->user ?? null) . ';';
+        header('Content-Type: application/javascript; charset=utf-8');
+        header('Cache-Control: private, max-age=31536000, immutable');
+        header('Content-Length: ' . strlen($body));
+        echo $body;
+        exit;
+    }
+
     /** GET /favicon.ico */
     public function favicon(array $params = []): array
     {

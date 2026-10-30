@@ -402,6 +402,7 @@ $router->any('/500', 'ErrorController', 'serverError');
 // ============================================
 $router->get('/assets/{path}', 'AssetController', 'serve');
 $router->get('/favicon.ico', 'AssetController', 'favicon');
+$router->get('/i18n-dict', 'AssetController', 'i18nDict');
 $router->get('/robots.txt', 'AssetController', 'robots');
 // إثبات دومين الوكالة لازم يتسجل قبل المسار العام لـ .well-known وإلا عمره ما بيتنفّذ
 $router->get('/.well-known/tourfecto-agency','ServiceCenterController','domainProof');

@@ -397,9 +397,28 @@ abstract class Controller
      */
     protected function i18nJson(): string
     {
-        $dict = load_translations(current_lang());
+        return $this->i18nJsonFor(current_lang(), $this->user ?? null);
+    }
+
+    /**
+     * وسم <script> بدل حقن القاموس (حوالي 160KB) جوه كل صفحة: الملف بيتخزن في كاش المتصفح
+     * والرابط بيتغير لما ملف اللغة يتعدل (v) أو لما اللغة/نوع المستخدم يتغير.
+     * مسار من غير .js عشان nginx بيرجّع 404 لأي مسار .js.
+     */
+    protected function i18nScriptTag(): string
+    {
+        $lang = current_lang();
+        $isStaff = class_exists('VendorMask') && VendorMask::isStaff($this->user ?? null);
+        $file = __DIR__ . '/../Lang/' . $lang . '.php';
+        $v = (int) @filemtime(file_exists($file) ? $file : __DIR__ . '/../Lang/' . UI_DEFAULT_LANGUAGE . '.php');
+        return '<script src="/i18n-dict?lang=' . $lang . '&amp;v=' . $v . '&amp;s=' . ($isStaff ? 1 : 0) . '"></script>';
+    }
+
+    protected function i18nJsonFor(string $lang, $user): string
+    {
+        $dict = load_translations($lang);
         // نصوص الأدمن التقنية (أسماء مزوّدين ومتغيّرات إعدادات وأكواد) ما تتبعتش لمتصفح العميل خالص (كانت بتظهر في view-source)
-        if (class_exists('VendorMask') && !VendorMask::isStaff($this->user ?? null)) {
+        if (class_exists('VendorMask') && !VendorMask::isStaff($user)) {
             foreach (array_keys($dict) as $k) {
                 if (strpos($k, 'ai.articles.image_err.') === 0 || strpos($k, 'ai.articles.imgchk.') === 0) {
                     unset($dict[$k]);
@@ -1217,7 +1236,7 @@ abstract class Controller
 
     <div id="toastStack"></div>
 
-    <script>window.I18N = {$this->i18nJson()};</script>
+    {$this->i18nScriptTag()}
     <script src="/assets/vendor/chart-4.4.0.umd.js"></script>
     <script src="{$panelJsUrl}"></script>
 {$customerReadinessAssets}
