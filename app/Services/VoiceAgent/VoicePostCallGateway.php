@@ -43,7 +43,7 @@ interface VoicePostCallGateway
     public function triggerAutomation(int $tenantId, string $event, array $context): void;
 
     /** @return array{status:string, ref:?string, detail:?string}|null what was already done for this call */
-    public function action(int $callId, string $action): ?array;
+    public function action(int $tenantId, int $callId, string $action): ?array;
 
     public function logAction(int $tenantId, int $callId, string $action, string $status, ?string $ref = null, ?string $detail = null): void;
 }

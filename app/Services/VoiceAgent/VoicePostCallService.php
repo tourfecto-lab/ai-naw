@@ -250,7 +250,7 @@ class VoicePostCallService
      */
     private function step(int $tenantId, int $callId, array &$res, string $name, callable $fn): array
     {
-        $prev = $this->gw->action($callId, $name);
+        $prev = $this->gw->action($tenantId, $callId, $name);
         if ($prev && in_array($prev['status'], ['done', 'skipped'], true)) {
             $res[$name] = 'already_' . $prev['status'];
             return ['status' => $prev['status'], 'reused' => true, 'detail' => $prev['detail']];

@@ -105,7 +105,7 @@ class VoiceInboundService
             $reason = 'budget_reached';
         }
         if ($awaiting) {
-            (new VoiceNumberService($this->providers))->recordInboundArrival($to);
+            (new VoiceNumberService($this->providers))->recordInboundArrival($tenantId, $to);
         }
         if ($reason !== null) {
             $this->store->createCall($tenantId, $number, $agent['id'] ?? null, $provider, $ev['call_id'], $ev['from'], $to, 'fallback', $lang, null);

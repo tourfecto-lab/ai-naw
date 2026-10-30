@@ -148,7 +148,7 @@ class VoiceNumberService
             $res = $this->providers->guarded($tenantId, $actorUserId, $o['provider'], 'purchase_number', ['number' => $o['e164']], true,
                 fn (VoiceProviderAdapter $a) => $a->purchaseNumber($o['e164'], $opts));
         } catch (Throwable $e) {
-            $this->db()->exec("UPDATE voice_number_orders SET status='failed', result_json=? WHERE id=?", [json_encode(['error' => mb_substr($e->getMessage(), 0, 300)]), $orderId]);
+            $this->db()->exec("UPDATE voice_number_orders SET status='failed', result_json=? WHERE id=? AND tenant_user_id=?", [json_encode(['error' => mb_substr($e->getMessage(), 0, 300)]), $orderId, $tenantId]);
             throw $e;
         }
         $simulated = !empty($res['simulated']);
@@ -161,11 +161,11 @@ class VoiceNumberService
         if (!$saved) {
             // The provider already bought it: never lose track of a paid number.
             VoiceAuditService::record($tenantId, $actorUserId, 'number.purchase_record_failed', 'order', $orderId, ['number' => $o['e164'], 'provider_number_id' => $res['number_id'] ?? null]);
-            $this->db()->exec("UPDATE voice_number_orders SET status='failed', result_json=? WHERE id=?", [json_encode(['error' => 'purchased_but_not_recorded', 'provider_number_id' => $res['number_id'] ?? null]), $orderId]);
+            $this->db()->exec("UPDATE voice_number_orders SET status='failed', result_json=? WHERE id=? AND tenant_user_id=?", [json_encode(['error' => 'purchased_but_not_recorded', 'provider_number_id' => $res['number_id'] ?? null]), $orderId, $tenantId]);
             throw new RuntimeException('The number was purchased but could not be saved. Support has been alerted with the order reference ' . $orderId);
         }
         $numberId = (int) $this->db()->getConnection()->lastInsertId();
-        $this->db()->exec("UPDATE voice_number_orders SET status='completed', result_json=? WHERE id=?", [json_encode(['simulated' => $simulated, 'reason' => $res['reason'] ?? null, 'number_id' => $numberId]), $orderId]);
+        $this->db()->exec("UPDATE voice_number_orders SET status='completed', result_json=? WHERE id=? AND tenant_user_id=?", [json_encode(['simulated' => $simulated, 'reason' => $res['reason'] ?? null, 'number_id' => $numberId]), $orderId, $tenantId]);
         return ['number_id' => $numberId, 'status' => $status, 'simulated' => $simulated, 'reason' => $res['reason'] ?? null];
     }
 
@@ -315,9 +315,9 @@ class VoiceNumberService
     }
 
     /** Called by the inbound call handler (Phase 4) when a real call reaches a number that is waiting for its link test. */
-    public function recordInboundArrival(string $e164): void
+    public function recordInboundArrival(int $tenantId, string $e164): void
     {
-        $this->db()->exec("UPDATE voice_numbers SET status='active', link_tested_at=NOW(), updated_at=NOW() WHERE e164=? AND status='awaiting_link_test'", [$e164]);
+        $this->db()->exec("UPDATE voice_numbers SET status='active', link_tested_at=NOW(), updated_at=NOW() WHERE tenant_user_id=? AND e164=? AND status='awaiting_link_test'", [$tenantId, $e164]);
     }
 
     public function assign(int $tenantId, int $numberId, ?int $agentId, ?string $forwardTo): array

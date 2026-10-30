@@ -122,7 +122,7 @@ final class VoiceFakeGateway implements VoicePostCallGateway
         $this->automations[] = [$event, $ctx];
     }
 
-    public function action(int $callId, string $action): ?array
+    public function action(int $tenantId, int $callId, string $action): ?array
     {
         $r = $this->log[$callId . ':' . $action] ?? null;
         return $r ? ['status' => $r[0], 'ref' => $r[1], 'detail' => $r[2]] : null;

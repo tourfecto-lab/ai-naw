@@ -101,9 +101,9 @@ class VoicePostCallCrmGateway implements VoicePostCallGateway
         (new CrmAutomationService())->trigger($event, $tenantId, $context);
     }
 
-    public function action(int $callId, string $action): ?array
+    public function action(int $tenantId, int $callId, string $action): ?array
     {
-        $r = $this->db()->query('SELECT status, ref, detail FROM voice_post_call_actions WHERE call_id = ? AND action = ? LIMIT 1', [$callId, $action]);
+        $r = $this->db()->query('SELECT status, ref, detail FROM voice_post_call_actions WHERE tenant_user_id = ? AND call_id = ? AND action = ? LIMIT 1', [$tenantId, $callId, $action]);
         return $r ? ['status' => (string) $r[0]['status'], 'ref' => $r[0]['ref'], 'detail' => $r[0]['detail']] : null;
     }
 

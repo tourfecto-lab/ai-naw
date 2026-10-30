@@ -35,7 +35,7 @@ class VoiceWebhookService
             return [200, 'ignored'];
         }
         $db = Database::getInstance();
-        if ($db->query('SELECT id FROM voice_webhook_events WHERE provider = ? AND event_id = ? LIMIT 1', [$provider, $ev['event_id']])) {
+        if ($db->query('SELECT id FROM voice_webhook_events WHERE tenant_user_id = ? AND provider = ? AND event_id = ? LIMIT 1', [$tenantId, $provider, $ev['event_id']])) {
             return [200, 'duplicate'];
         }
         // INSERT IGNORE + the unique key keep a concurrent retry from double-inserting; cost recording is an idempotent upsert.

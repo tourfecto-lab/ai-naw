@@ -201,6 +201,18 @@ class PlanFeature
                 'category' => 'general',
                 'type' => 'number'
             ],
+            'voice_agent' => [
+                'name' => 'AI Voice & Sales Agent',
+                'description' => 'AI voice assistant that answers and places calls, books trips and follows up with customers',
+                'category' => 'voice',
+                'type' => 'boolean'
+            ],
+            'voice_max_numbers' => [
+                'name' => 'Voice phone numbers',
+                'description' => 'Maximum phone numbers an account can hold for the AI voice assistant',
+                'category' => 'voice',
+                'type' => 'number'
+            ],
             'advanced_analytics' => [
                 'name' => 'تحليلات متقدمة',
                 'description' => 'تفعيل لوحات التحكم المتقدمة والتقارير المفصلة',
@@ -244,6 +256,11 @@ class PlanFeature
                 'name' => 'الذكاء الاصطناعي',
                 'icon' => 'brain',
                 'description' => 'ميزات الذكاء الاصطناعي والتحليلات'
+            ],
+            'voice' => [
+                'name' => 'AI Voice & Sales Agent',
+                'icon' => 'phone',
+                'description' => 'AI phone assistant, numbers and outbound calling'
             ],
             'chat' => [
                 'name' => 'المحادثات',

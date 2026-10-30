@@ -183,8 +183,8 @@ class VoiceOutboundService
         }
         $rows = $this->db()->query("SELECT * FROM voice_outbound_jobs WHERE status = 'scheduled' AND next_attempt_at <= NOW() ORDER BY next_attempt_at LIMIT " . max(1, min(50, $limit))) ?: [];
         foreach ($rows as $job) {
-            $st = $this->db()->getConnection()->prepare("UPDATE voice_outbound_jobs SET status='dialing', updated_at=NOW() WHERE id=? AND status='scheduled'");
-            $st->execute([$job['id']]);
+            $st = $this->db()->getConnection()->prepare("UPDATE voice_outbound_jobs SET status='dialing', updated_at=NOW() WHERE id=? AND tenant_user_id=? AND status='scheduled'");
+            $st->execute([$job['id'], $job['tenant_user_id']]);
             if ($st->rowCount() !== 1) {
                 continue; // another worker took it
             }
@@ -193,7 +193,7 @@ class VoiceOutboundService
                 $r = $this->process($job, $now);
             } catch (Throwable $e) {
                 Logger::error('Voice outbound job failed', ['job' => $job['id'], 'error' => $e->getMessage()]);
-                $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at = NOW() + INTERVAL 30 MINUTE, updated_at=NOW() WHERE id=?", [$job['id']]);
+                $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at = NOW() + INTERVAL 30 MINUTE, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $job['tenant_user_id']]);
                 $r = 'waiting';
             }
             $sum[$r]++;
@@ -203,7 +203,7 @@ class VoiceOutboundService
 
     private function block(array $job, string $reason): string
     {
-        $this->db()->exec("UPDATE voice_outbound_jobs SET status='blocked', blocked_reason=?, updated_at=NOW() WHERE id=?", [$reason, $job['id']]);
+        $this->db()->exec("UPDATE voice_outbound_jobs SET status='blocked', blocked_reason=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$reason, $job['id'], $job['tenant_user_id']]);
         VoiceAuditService::record((int) $job['tenant_user_id'], null, 'outbound.blocked', 'job', $job['id'], ['reason' => $reason]);
         return 'blocked';
     }
@@ -230,7 +230,7 @@ class VoiceOutboundService
             return $this->block($job, $d['reason']);
         }
         if ($d['action'] === 'wait') {
-            $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at=?, updated_at=NOW() WHERE id=?", [date('Y-m-d H:i:s', (int) $d['retry_at']), $job['id']]);
+            $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [date('Y-m-d H:i:s', (int) $d['retry_at']), $job['id'], $t]);
             return 'waiting';
         }
         $approved = (bool) $job['approved_live'];
@@ -249,17 +249,17 @@ class VoiceOutboundService
         } catch (VoiceProviderException $e) {
             // the provider refused the call: it counts as an attempt, then the normal retry rules apply
             $this->db()->exec('INSERT INTO voice_outbound_attempts (tenant_user_id, job_id, phone_key, simulated, result, created_at) VALUES (?,?,?,0,\'failed\',NOW())', [$t, $job['id'], $job['phone_key']]);
-            $this->db()->exec("UPDATE voice_outbound_jobs SET attempts=attempts+1, last_attempt_at=NOW(), updated_at=NOW() WHERE id=?", [$job['id']]);
+            $this->db()->exec("UPDATE voice_outbound_jobs SET attempts=attempts+1, last_attempt_at=NOW(), updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $t]);
             $this->applyResult($job, 'failed', $now);
             return 'waiting';
         }
         $simulated = !empty($res['simulated']);
         $this->db()->exec('INSERT INTO voice_outbound_attempts (tenant_user_id, job_id, phone_key, simulated, result, created_at) VALUES (?,?,?,?,?,NOW())', [$t, $job['id'], $job['phone_key'], $simulated ? 1 : 0, $simulated ? 'simulated' : 'dialing']);
         if ($simulated) {
-            $this->db()->exec("UPDATE voice_outbound_jobs SET status='completed', attempts=attempts+1, last_attempt_at=NOW(), last_result='simulated', blocked_reason=?, updated_at=NOW() WHERE id=?", [$res['reason'] ?? null, $job['id']]);
+            $this->db()->exec("UPDATE voice_outbound_jobs SET status='completed', attempts=attempts+1, last_attempt_at=NOW(), last_result='simulated', blocked_reason=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$res['reason'] ?? null, $job['id'], $t]);
             return 'simulated';
         }
-        $this->db()->exec("UPDATE voice_outbound_jobs SET attempts=attempts+1, last_attempt_at=NOW(), last_call_sid=?, updated_at=NOW() WHERE id=?", [$res['call_id'] ?? null, $job['id']]);
+        $this->db()->exec("UPDATE voice_outbound_jobs SET attempts=attempts+1, last_attempt_at=NOW(), last_call_sid=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$res['call_id'] ?? null, $job['id'], $t]);
         return 'dialed';
     }
 
@@ -267,14 +267,14 @@ class VoiceOutboundService
     public function applyResult(array $job, string $result, ?int $now = null): void
     {
         $now = $now ?? time();
-        $job = $this->db()->query('SELECT * FROM voice_outbound_jobs WHERE id = ? LIMIT 1', [$job['id']])[0] ?? $job;
+        $job = $this->db()->query('SELECT * FROM voice_outbound_jobs WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$job['id'], $job['tenant_user_id']])[0] ?? $job;
         $delay = VoiceCompliance::retryDelay($result, (int) $job['attempts'], (string) $job['purpose'], (int) $job['max_attempts']);
         if ($delay !== null) {
-            $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', last_result=?, next_attempt_at=?, updated_at=NOW() WHERE id=?", [$result, date('Y-m-d H:i:s', $now + $delay), $job['id']]);
+            $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', last_result=?, next_attempt_at=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$result, date('Y-m-d H:i:s', $now + $delay), $job['id'], $job['tenant_user_id']]);
             return;
         }
         $final = in_array($result, ['answered', 'voicemail'], true) ? 'completed' : 'exhausted';
-        $this->db()->exec('UPDATE voice_outbound_jobs SET status=?, last_result=?, updated_at=NOW() WHERE id=?', [$final, $result, $job['id']]);
+        $this->db()->exec('UPDATE voice_outbound_jobs SET status=?, last_result=?, updated_at=NOW() WHERE id=? AND tenant_user_id=?', [$final, $result, $job['id'], $job['tenant_user_id']]);
     }
 
     // ------------------------------------------------------------------ provider callbacks
@@ -317,7 +317,7 @@ class VoiceOutboundService
             return [200, $r['content_type'], $r['body']];
         }
         $ctx = json_decode((string) $job['context_json'], true) ?: [];
-        $this->db()->exec("UPDATE voice_outbound_jobs SET last_result='answered', updated_at=NOW() WHERE id=?", [$job['id']]);
+        $this->db()->exec("UPDATE voice_outbound_jobs SET last_result='answered', updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $tenantId]);
         $r = $a->turnInstructions([
             'say' => VoiceLanguages::outboundOpening($lang, (string) ($agent['name'] ?? 'the assistant'), $business, $ctx['first_name'] ?? null),
             'voice' => $voice, 'language' => VoiceLanguages::speechLocale($lang),

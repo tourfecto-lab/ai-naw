@@ -33,15 +33,4 @@ CREATE TABLE IF NOT EXISTS voice_agents (
  updated_at DATETIME NOT NULL,
  KEY idx_voice_agents_tenant (tenant_user_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS voice_audit_log (
- id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- tenant_user_id INT(11) NOT NULL,
- actor_user_id INT(11) NULL,
- action VARCHAR(60) NOT NULL,
- subject_type VARCHAR(40) NULL,
- subject_id VARCHAR(40) NULL,
- meta TEXT NULL,
- created_at DATETIME NOT NULL,
- KEY idx_voice_audit_tenant (tenant_user_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Auditing reuses the platform's activity_logs (module 'voice'); no table of our own.
