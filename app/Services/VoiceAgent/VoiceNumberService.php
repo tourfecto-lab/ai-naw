@@ -179,7 +179,7 @@ class VoiceNumberService
             throw new InvalidArgumentException('This order was already processed');
         }
 
-        $urls = VoiceInboundService::webhookUrls(defined('APP_URL') ? APP_URL : '', $o['provider'], $tenantId);
+        $urls = VoiceInboundService::webhookUrls(VoicePublicUrl::base(), $o['provider'], $tenantId);
         $opts = ['voice_url' => $urls['inbound'], 'status_callback' => $urls['status']];
         foreach (['address_sid', 'bundle_sid'] as $k) {
             if (!empty($providerRefs[$k]) && preg_match('/^[A-Za-z0-9]{10,64}$/', (string) $providerRefs[$k])) {
@@ -279,7 +279,7 @@ class VoiceNumberService
             $dom = trim((new SystemSettingsService())->get('voice_sip_domain', ''));
             $target = $dom !== '' ? 'sip:' . ltrim($e164, '+') . '@' . $dom : null;
         } elseif ($method === 'provider_native') {
-            $target = VoiceInboundService::webhookUrls(defined('APP_URL') ? APP_URL : '', (string) $provider, $tenantId)['inbound'];
+            $target = VoiceInboundService::webhookUrls(VoicePublicUrl::base(), (string) $provider, $tenantId)['inbound'];
         }
         return ['number_id' => $id, 'status' => $status, 'steps' => VoiceNumberRules::connectionSteps($method, $e164, $target), 'target' => $target];
     }
