@@ -138,7 +138,7 @@ final class VoiceTenantIsolationTest extends TestCase
             $cls = basename($f, '.php');
             if (!isset($map[$cls]) || realpath($map[$cls]) !== realpath($f)) {
                 $missing[] = $cls;
-            } elseif (!preg_match('/\b(class|interface)\s+' . $cls . '\b/', file_get_contents($f))) {
+            } elseif (!preg_match('/\b(class|interface|trait)\s+' . $cls . '\b/', file_get_contents($f))) {
                 $missing[] = $cls . ' (file does not declare it)';
             }
         }

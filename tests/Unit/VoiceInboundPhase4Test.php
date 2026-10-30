@@ -63,12 +63,11 @@ final class VoiceInboundPhase4Test extends TestCase
         $this->assertStringNotContainsString('?t=', $this->src('app/Services/VoiceAgent/VoiceInboundService.php'));
     }
 
-    public function testTelnyxPassesStreamParametersAsClientState(): void
+    public function testTelnyxDoesNotClaimTheRealtimeStreamUntilItIsVerified(): void
     {
         $x = new TelnyxVoiceAdapter(['api_key' => 'k', 'connection_id' => 'c', 'public_key' => 'p'], new VoiceFakeHttp());
-        $cmds = json_decode($x->inboundInstructions(['stream_url' => 'wss://b.test/s', 'stream_params' => ['token' => 'tt']])['body'], true)['commands'];
-        $this->assertSame('streaming_start', $cmds[1]['action']);
-        $this->assertSame(['token' => 'tt'], json_decode(base64_decode($cmds[1]['body']['client_state']), true));
+        $this->assertFalse($x->capabilities()['streaming']); // so a Telnyx call is never put in stream mode
+        $this->assertFalse($x->capabilities()['outbound']); // inbound only in this version
     }
 
     public function testSignatureVectorMatchesTheNodeBridge(): void

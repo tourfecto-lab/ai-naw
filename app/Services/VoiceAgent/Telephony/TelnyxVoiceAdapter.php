@@ -7,6 +7,8 @@
  */
 class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
 {
+    use TexmlInstructions;
+
     private const API = 'https://api.telnyx.com/v2';
     private const TYPES = ['local', 'toll_free', 'national', 'mobile'];
 
@@ -22,8 +24,8 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
 
     public function capabilities(): array
     {
-        return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => true, 'sip' => true,
-            'transfer' => true, 'recording' => false, 'streaming' => true, 'porting' => false, 'cost_lookup' => false, 'inline_voice' => false, 'turn_mode' => false, 'subaccounts' => false];
+        return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => false, 'sip' => true,
+            'transfer' => true, 'recording' => false, 'streaming' => false, 'porting' => false, 'cost_lookup' => false, 'inline_voice' => false, 'turn_mode' => true, 'subaccounts' => false];
     }
 
     private function h(): array
@@ -145,32 +147,14 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
         return true;
     }
 
-    /** Telnyx is command driven: the webhook reply is empty and these actions are sent to the Call Control API. */
-    public function inboundInstructions(array $opts): array
+    /** Valid Telnyx signature, or the platform token carried in the URL (TeXML callbacks). Anything else is refused. */
+    public function verifyWebhook(string $url, array $headers, string $rawBody, array $params): bool
     {
-        $cmds = [['action' => 'answer', 'body' => []]];
-        if (!empty($opts['stream_url'])) {
-            if (!preg_match('#^wss://#i', (string) $opts['stream_url'])) {
-                throw new InvalidArgumentException('stream_url must be wss://');
-            }
-            $body = ['stream_url' => (string) $opts['stream_url']];
-            if (!empty($opts['stream_params'])) {
-                $body['client_state'] = base64_encode(json_encode($opts['stream_params'])); // Telnyx hands this back to the stream
-            }
-            $cmds[] = ['action' => 'streaming_start', 'body' => $body];
-        } elseif (!empty($opts['forward_to'])) {
-            $cmds[] = ['action' => 'transfer', 'body' => ['to' => self::e164($opts['forward_to'])]];
-        } elseif (!empty($opts['sip_uri'])) {
-            $cmds[] = ['action' => 'transfer', 'body' => ['to' => (string) $opts['sip_uri']]];
-        }
-        if (!empty($opts['record'])) {
-            $cmds[] = ['action' => 'record_start', 'body' => ['format' => 'mp3', 'channels' => 'dual']];
-        }
-        return ['content_type' => 'application/json', 'body' => json_encode(['commands' => $cmds])];
+        return $this->signatureValid($headers, $rawBody) || VoiceWebhookToken::valid('telnyx', VoiceWebhookToken::fromUrl($url));
     }
 
     /** ed25519 over "{timestamp}|{rawBody}", 5 minute replay window. */
-    public function verifyWebhook(string $url, array $headers, string $rawBody, array $params): bool
+    private function signatureValid(array $headers, string $rawBody): bool
     {
         $sig = $headers['telnyx-signature-ed25519'] ?? '';
         $ts = $headers['telnyx-timestamp'] ?? '';
@@ -187,6 +171,17 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
 
     public function parseStatusEvent(array $headers, string $rawBody, array $params): ?array
     {
+        if (!empty($params['CallSid'])) { // TeXML callbacks use the same form fields as TwiML
+            $status = (string) ($params['CallStatus'] ?? '');
+            return [
+                'event_id' => (string) $params['CallSid'] . ':' . $status . ':' . ($params['SequenceNumber'] ?? '0'),
+                'call_id' => (string) $params['CallSid'], 'status' => $status,
+                'direction' => str_starts_with(strtolower((string) ($params['Direction'] ?? '')), 'outbound') ? 'outbound' : 'inbound',
+                'from' => (string) ($params['From'] ?? ''), 'to' => (string) ($params['To'] ?? ''),
+                'duration_s' => isset($params['CallDuration']) ? (int) $params['CallDuration'] : null,
+                'cost_usd' => null, 'cost_source' => null, 'recording_url' => null,
+            ];
+        }
         $j = json_decode($rawBody, true);
         $data = is_array($j) ? ($j['data'] ?? null) : null;
         if (!is_array($data) || empty($data['payload']['call_control_id'])) {

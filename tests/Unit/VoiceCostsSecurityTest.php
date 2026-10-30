@@ -223,4 +223,30 @@ final class VoiceCostsSecurityTest extends TestCase
         $this->assertSame(50, VoiceFeatureAccess::clampMax(9999));
         $this->assertSame(1, VoiceFeatureAccess::clampMax(0));
     }
+
+    public function testTelnyxTexmlGreetingGatherAndStatusParsing(): void
+    {
+        $x = new TelnyxVoiceAdapter(['api_key' => 'k', 'connection_id' => 'c', 'public_key' => 'p'], new VoiceFakeHttp());
+        $body = $x->turnInstructions(['say' => 'Hello & welcome', 'voice' => 'Polly.Joanna', 'language' => 'en-US', 'gather_url' => 'https://t.test/webhooks/voice/telnyx/5/turn?call=9&n=1&k=abc'])['body'];
+        $this->assertStringContainsString('<Gather input="speech"', $body);
+        $this->assertStringContainsString('Hello &amp; welcome', $body);
+        $this->assertStringContainsString('&amp;k=abc', $body); // the token survives inside the XML attribute
+        $ev = $x->parseStatusEvent([], '', ['CallSid' => 'CS1', 'CallStatus' => 'completed', 'CallDuration' => '75', 'From' => '+2010', 'To' => '+1415', 'Direction' => 'inbound']);
+        $this->assertSame(['CS1', 'completed', 75, 'inbound'], [$ev['call_id'], $ev['status'], $ev['duration_s'], $ev['direction']]);
+    }
+
+    public function testTelnyxWebhookNeedsTheTokenOrASignature(): void
+    {
+        if (!defined('ENCRYPTION_KEY') || ENCRYPTION_KEY === '') {
+            $this->markTestSkipped('no ENCRYPTION_KEY in this environment');
+        }
+        $x = new TelnyxVoiceAdapter(['api_key' => 'k', 'connection_id' => 'c', 'public_key' => base64_encode(str_repeat('a', 32))], new VoiceFakeHttp());
+        $k = VoiceWebhookToken::make('telnyx');
+        $this->assertSame(32, strlen($k));
+        $this->assertTrue($x->verifyWebhook('https://t.test/webhooks/voice/telnyx/0/inbound?k=' . $k, [], '', []));
+        $this->assertFalse($x->verifyWebhook('https://t.test/webhooks/voice/telnyx/0/inbound', [], '', []));
+        $this->assertFalse($x->verifyWebhook('https://t.test/webhooks/voice/telnyx/0/inbound?k=' . strrev($k), [], '', []));
+        $this->assertFalse($x->verifyWebhook('https://t.test/webhooks/voice/telnyx/0/inbound?k=', [], '', []));
+        $this->assertNotSame($k, VoiceWebhookToken::make('twilio')); // a token is per provider
+    }
 }

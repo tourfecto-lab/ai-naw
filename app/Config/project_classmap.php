@@ -949,6 +949,8 @@ return [
     'VoicePlatformSettings' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePlatformSettings.php',
     'VoiceAdminPageController' => dirname(__DIR__,2).'/app/Controllers/VoiceAdminPageController.php',
     'VoiceFeatureAccess' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceFeatureAccess.php',
+    'VoiceWebhookToken' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceWebhookToken.php',
+    'TexmlInstructions' => dirname(__DIR__,2).'/app/Services/VoiceAgent/Telephony/TexmlInstructions.php',
     'VoiceCostTracker' => dirname(__DIR__,2).'/app/Services/VoiceAgent/Telephony/VoiceCostTracker.php',
     'VoiceNumberController' => dirname(__DIR__,2).'/app/Controllers/VoiceNumberController.php',
     'VoiceNumberService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceNumberService.php',

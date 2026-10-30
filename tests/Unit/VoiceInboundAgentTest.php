@@ -298,9 +298,9 @@ final class VoiceInboundAgentTest extends TestCase
         $this->assertStringContainsString('<Dial>+201001234567</Dial>', $t->turnInstructions(['say' => 'bye', 'transfer_to' => '+201001234567'])['body']);
         $this->assertStringContainsString('<Hangup/>', $t->turnInstructions(['say' => 'bye', 'hangup' => true])['body']);
         $x = new TelnyxVoiceAdapter(['api_key' => 'k', 'connection_id' => 'c', 'public_key' => 'p'], new VoiceFakeHttp());
-        $this->assertFalse($x->capabilities()['turn_mode']);
-        $this->expectException(LogicException::class);
-        $x->turnInstructions(['say' => 'hi']);
+        $this->assertTrue($x->capabilities()['turn_mode']); // Telnyx answers through a TeXML application: the same XML verbs
+        $this->assertStringContainsString('<Dial>+201001234567</Dial>', $x->turnInstructions(['say' => 'bye', 'transfer_to' => '+201001234567'])['body']);
+        $this->assertStringContainsString('<Hangup/>', $x->turnInstructions(['say' => 'bye'])['body']);
     }
 
     // ---- bridge auth
