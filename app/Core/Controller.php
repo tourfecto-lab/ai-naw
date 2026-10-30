@@ -574,7 +574,7 @@ abstract class Controller
 .tf-step.done .tf-num{background:#22c55e;border-color:#22c55e;color:#fff;opacity:1}
 .tf-step.next .tf-num{background:var(--panel-accent,#6366f1);border-color:var(--panel-accent,#6366f1);color:#fff;opacity:1}
 .tf-step-txt{display:flex;flex-direction:column;flex:1;min-width:0;line-height:1.25}
-.tf-step-sub{font-size:11px;font-weight:400;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf-step-sub{font-size:11px;font-weight:400;opacity:.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tf-next-pill{font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--panel-accent,#6366f1);color:#fff}
 .tf-step .panel-nav-group-body{padding-inline-start:18px;border-inline-start:1px dashed rgba(127,127,127,.3);margin-inline-start:21px}
 .tf-step{margin-bottom:4px}

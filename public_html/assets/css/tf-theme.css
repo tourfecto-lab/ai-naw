@@ -136,7 +136,7 @@ body.ap-theme .stat-tile, body.ap-theme .kcard { transform: none !important; }
 body.ap-theme .p-grid { perspective: none; }
 body.ap-theme .p-card-head h3 { font-size: 15px; font-weight: 600; }
 body.ap-theme .stat-tile .stat-icon { border-radius: 10px; }
-body.ap-theme .stat-tile .stat-value { font-size: 26px; font-weight: 600; letter-spacing: -.01em; }
+body.ap-theme .stat-tile .stat-value { font-size: clamp(17px, 1.9vw, 26px); font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
 body.ap-theme .p-table th { background: var(--ap-surface-2); color: var(--panel-text-muted); font-weight: 500; font-size: 12.5px; text-transform: none; letter-spacing: 0; border-bottom: 1px solid var(--ap-line); }
 body.ap-theme .p-table td { border-bottom: 1px solid var(--ap-line); color: var(--panel-text); }
 body.ap-theme .p-table tbody tr:hover td { background: var(--ap-hover); }

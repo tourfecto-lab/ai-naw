@@ -967,7 +967,7 @@ class OnboardingController extends Controller
         body { background: var(--ob-bg); color: var(--ob-text); font-family: 'Readex Pro', 'Segoe UI', Tahoma, sans-serif; margin:0; }
         .ob-nav { padding:18px 24px; border-bottom:1px solid var(--ob-line); display:flex; align-items:center; justify-content:space-between; gap:16px; }
         .ob-nav-brand { font-weight:700; font-size:18px; }
-        .ob-nav-skip { color: var(--ob-muted); font-size:13px; text-decoration:none; border:1px solid var(--ob-line); border-radius:20px; padding:6px 16px; transition: color .2s, border-color .2s; }
+        .ob-nav-skip { white-space:nowrap; flex-shrink:0; color: var(--ob-muted); font-size:13px; text-decoration:none; border:1px solid var(--ob-line); border-radius:20px; padding:6px 16px; transition: color .2s, border-color .2s; }
         .ob-nav-skip:hover { color: var(--ob-text); border-color: var(--ob-muted); }
         .ob-wrap { min-height: calc(100vh - 64px); display:flex; align-items:center; justify-content:center; padding: 32px 16px; }
         .ob-card { width:100%; max-width:640px; background: var(--ob-card); border:1px solid var(--ob-line); border-radius:16px; padding:36px; box-shadow: 0 24px 60px -28px rgba(11,27,51,.35); }
