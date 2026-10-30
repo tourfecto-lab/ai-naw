@@ -7,7 +7,7 @@
  */
 class VoiceLiveGuard
 {
-    public const NEEDS_APPROVAL = ['purchase_number', 'start_call', 'transfer_call'];
+    public const NEEDS_APPROVAL = ['purchase_number', 'release_number', 'start_call', 'transfer_call'];
     public const MUTATING = ['purchase_number', 'release_number', 'start_call', 'transfer_call', 'hangup_call'];
 
     /** @return array{live:bool, reason:string} */

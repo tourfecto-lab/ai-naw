@@ -17,3 +17,15 @@ $router->get('/api/voice-agent/providers/{provider}/numbers','VoiceTelephonyCont
 $router->get('/api/voice-agent/provider-errors','VoiceTelephonyController','errors',['AuthMiddleware']);
 $router->get('/api/voice-agent/costs','VoiceTelephonyController','costs',['AuthMiddleware']);
 $router->post('/webhooks/voice/{provider}/{tenant}/status','VoiceWebhookController','status',[]);
+
+// Phase 3: phone numbers
+$router->get('/api/voice-agent/numbers','VoiceNumberController','index',['AuthMiddleware']);
+$router->get('/api/voice-agent/markets','VoiceNumberController','markets',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/quote','VoiceNumberController','quote',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/orders/{id}/approve','VoiceNumberController','approve',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/connect','VoiceNumberController','connect',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/verify/start','VoiceNumberController','verifyStart',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/verify/confirm','VoiceNumberController','verifyConfirm',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/test','VoiceNumberController','test',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/assign','VoiceNumberController','assign',['AuthMiddleware']);
+$router->post('/api/voice-agent/numbers/{id}/release','VoiceNumberController','release',['AuthMiddleware']);

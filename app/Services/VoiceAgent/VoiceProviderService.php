@@ -46,6 +46,12 @@ class VoiceProviderService
         return 'voice:' . $tenantId . ':' . $provider;
     }
 
+    /** Capability map of a provider class without credentials. */
+    public static function capabilitiesOf(string $provider): array
+    {
+        return (new ReflectionClass(VoiceProviderRegistry::classFor($provider)))->newInstanceWithoutConstructor()->capabilities();
+    }
+
     public function listProviders(int $tenantId): array
     {
         $rows = [];
@@ -60,7 +66,7 @@ class VoiceProviderService
                 'provider' => $k, 'configured' => $r !== null, 'status' => $r['status'] ?? 'not_configured',
                 'last_test_at' => $r['last_test_at'] ?? null, 'last_test_detail' => $r['last_test_detail'] ?? null,
                 'credential_fields' => $class::credentialFields(),
-                'capabilities' => (new ReflectionClass($class))->newInstanceWithoutConstructor()->capabilities(),
+                'capabilities' => self::capabilitiesOf($k),
             ];
         }
         return $out;

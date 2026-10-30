@@ -46,6 +46,14 @@ interface VoiceProviderAdapter
     /** @return array<string,mixed>|null normalised: event_id,call_id,status,direction,from,to,duration_s,cost_usd,cost_source,recording_url */
     public function parseStatusEvent(array $headers, string $rawBody, array $params): ?array;
 
+    /** Numbers already in the customer's own provider account (authoritative ownership proof for "bring your own account").
+     * @return list<array{number:string, number_id:string}> */
+    public function listOwnedNumbers(): array;
+
+    /** Published per-minute usage rates for a country, or null when the provider API does not expose them.
+     * @return array{inbound_per_min:?float, outbound_per_min:?float, currency:string}|null */
+    public function usageRates(string $iso, string $type): ?array;
+
     /** @return array{cost_usd:float, currency:string}|null null = provider cannot look this up */
     public function fetchCallCost(string $callId): ?array;
 }

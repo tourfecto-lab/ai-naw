@@ -935,4 +935,8 @@ return [
     'VoiceLiveGuard' => dirname(__DIR__,2).'/app/Services/VoiceAgent/Telephony/VoiceLiveGuard.php',
     'VoiceProviderErrorLog' => dirname(__DIR__,2).'/app/Services/VoiceAgent/Telephony/VoiceProviderErrorLog.php',
     'VoiceCostTracker' => dirname(__DIR__,2).'/app/Services/VoiceAgent/Telephony/VoiceCostTracker.php',
+    'VoiceNumberController' => dirname(__DIR__,2).'/app/Controllers/VoiceNumberController.php',
+    'VoiceNumberService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceNumberService.php',
+    'VoiceNumberRules' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceNumberRules.php',
+    'VoiceMarkets' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceMarkets.php',
 ];

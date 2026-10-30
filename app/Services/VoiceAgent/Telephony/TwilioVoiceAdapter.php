@@ -23,7 +23,7 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
     public function capabilities(): array
     {
         return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => true, 'sip' => true,
-            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => true];
+            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => true, 'inline_voice' => true];
     }
 
     private function auth(): array
@@ -106,6 +106,42 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
         return ['monthly' => null, 'currency' => (string) ($d['price_unit'] ?? 'USD')];
     }
 
+    public function listOwnedNumbers(): array
+    {
+        $d = $this->json('GET', $this->acct() . '/IncomingPhoneNumbers.json?PageSize=1000', null, [], $this->auth());
+        $out = [];
+        foreach ($d['incoming_phone_numbers'] ?? [] as $n) {
+            $out[] = ['number' => (string) $n['phone_number'], 'number_id' => (string) $n['sid']];
+        }
+        return $out;
+    }
+
+    public function usageRates(string $iso, string $type): ?array
+    {
+        $iso = strtoupper($iso);
+        if (!preg_match('/^[A-Z]{2}$/', $iso)) {
+            return null;
+        }
+        try {
+            $d = $this->json('GET', self::PRICING . '/Voice/Countries/' . $iso, null, [], $this->auth());
+        } catch (VoiceProviderException $e) {
+            return null;
+        }
+        $want = $type === 'toll_free' ? 'toll free' : $type;
+        $in = null;
+        foreach ($d['inbound_call_prices'] ?? [] as $p) {
+            if (strtolower((string) ($p['number_type'] ?? '')) === $want) {
+                $in = (float) ($p['current_price'] ?? $p['base_price'] ?? 0);
+            }
+        }
+        $out = null;
+        foreach ($d['outbound_prefix_prices'] ?? [] as $p) {
+            $v = (float) ($p['current_price'] ?? $p['base_price'] ?? 0);
+            $out = $out === null ? $v : max($out, $v); // worst case across prefixes: never under-quote
+        }
+        return ['inbound_per_min' => $in, 'outbound_per_min' => $out, 'currency' => (string) ($d['price_unit'] ?? 'USD')];
+    }
+
     public function purchaseNumber(string $e164, array $opts = []): array
     {
         $body = ['PhoneNumber' => self::e164($e164)];
@@ -126,10 +162,11 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
 
     public function startCall(string $from, string $to, array $opts = []): array
     {
-        if (empty($opts['url'])) {
-            throw new InvalidArgumentException('url (instructions webhook) is required');
+        if (empty($opts['url']) && empty($opts['twiml'])) {
+            throw new InvalidArgumentException('url (instructions webhook) or twiml is required');
         }
-        $body = ['From' => self::e164($from), 'To' => self::e164($to), 'Url' => (string) $opts['url']];
+        $body = ['From' => self::e164($from), 'To' => self::e164($to)];
+        $body += !empty($opts['twiml']) ? ['Twiml' => (string) $opts['twiml']] : ['Url' => (string) $opts['url']];
         if (!empty($opts['status_callback'])) {
             $body['StatusCallback'] = (string) $opts['status_callback'];
             $body['StatusCallbackEvent'] = 'initiated ringing answered completed';

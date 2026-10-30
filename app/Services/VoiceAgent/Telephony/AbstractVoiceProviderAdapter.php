@@ -44,6 +44,11 @@ abstract class AbstractVoiceProviderAdapter implements VoiceProviderAdapter
         return '+' . $d;
     }
 
+    public function usageRates(string $iso, string $type): ?array
+    {
+        return null;
+    }
+
     public function fetchCallCost(string $callId): ?array
     {
         return null;

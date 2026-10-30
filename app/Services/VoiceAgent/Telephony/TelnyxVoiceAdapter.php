@@ -23,7 +23,7 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
     public function capabilities(): array
     {
         return ['numbers_search' => true, 'numbers_purchase' => true, 'inbound' => true, 'outbound' => true, 'sip' => true,
-            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => false];
+            'transfer' => true, 'recording' => true, 'streaming' => true, 'porting' => false, 'cost_lookup' => false, 'inline_voice' => false];
     }
 
     private function h(): array
@@ -89,6 +89,16 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
                 'address_required' => 'unknown', // Telnyx publishes requirements per country/order, checked at order time (Phase 3)
                 'provider' => 'telnyx',
             ];
+        }
+        return $out;
+    }
+
+    public function listOwnedNumbers(): array
+    {
+        $d = $this->call('GET', '/phone_numbers?page[size]=250');
+        $out = [];
+        foreach ($d['data'] ?? [] as $n) {
+            $out[] = ['number' => (string) ($n['phone_number'] ?? ''), 'number_id' => (string) ($n['id'] ?? '')];
         }
         return $out;
     }
