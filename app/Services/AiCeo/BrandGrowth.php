@@ -89,8 +89,11 @@ final class BrandGrowth
     public function presence(string $siteUrl): array
     {
         $host = self::host($siteUrl);
-        $site = $this->db->query("SELECT w.id, w.user_id, w.company_name, w.main_url FROM websites w JOIN users u ON u.id = w.user_id
-            WHERE u.role IN ('admin','super_admin') AND LOWER(REPLACE(SUBSTRING_INDEX(SUBSTRING_INDEX(w.main_url, '://', -1), '/', 1), 'www.', '')) = ? ORDER BY w.id LIMIT 1", [$host])[0] ?? null;
+        // أعمدة websites على السيرفر مختلفة (domain/brand_name بدل main_url/company_name): لازم من WebsiteSchema
+        if (!class_exists('WebsiteSchema')) require_once __DIR__ . '/../../Models/WebsiteSchema.php';
+        $url = 'w.`' . WebsiteSchema::url() . '`';
+        $site = $this->db->query('SELECT w.id, w.user_id, ' . WebsiteSchema::nameExpr('w') . " AS company_name, {$url} AS main_url FROM websites w JOIN users u ON u.id = w.user_id
+            WHERE u.role IN ('admin','super_admin') AND LOWER(REPLACE(SUBSTRING_INDEX(SUBSTRING_INDEX({$url}, '://', -1), '/', 1), 'www.', '')) = ? ORDER BY w.id LIMIT 1", [$host])[0] ?? null;
         if (!$site) return ['website' => null, 'note' => 'No website for ' . $host . ' in an admin account. Add tourfecto.pro as a website in the owner account to use the platform\'s own SEO, social, reviews and studio for Tourfecto.'];
         $wid = (int) $site['id'];
         $uid = (int) $site['user_id'];
