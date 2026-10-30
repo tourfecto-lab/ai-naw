@@ -22,7 +22,7 @@ class VoiceCallsController extends Controller
         return ['user' => $userId, 'tenant' => $tenantId];
     }
 
-    /** GET /api/voice-agent/calls?limit=50 */
+    /** GET /api/voice-agent/calls?limit=50&direction=inbound|outbound */
     public function index(array $params = []): array
     {
         $g = $this->guard(VoiceAccessService::CAP_VIEW);
@@ -30,10 +30,11 @@ class VoiceCallsController extends Controller
             return $g['error'];
         }
         $limit = max(1, min(100, (int) $this->get('limit', 50)));
+        $dir = in_array($this->get('direction'), ['inbound', 'outbound'], true) ? $this->get('direction') : null;
         $rows = Database::getInstance()->query(
             'SELECT id, number_id, agent_id, direction, from_e164, to_e164, mode, status, language, identity_verified, turns, outcome, handoff_reason, summary, next_step, post_call_status, booking_id, crm_lead_id, ai_cost_usd, started_at, ended_at, duration_s
-             FROM voice_calls WHERE tenant_user_id = ? ORDER BY id DESC LIMIT ' . $limit,
-            [$g['tenant']]
+             FROM voice_calls WHERE tenant_user_id = ?' . ($dir ? ' AND direction = ?' : '') . ' ORDER BY id DESC LIMIT ' . $limit,
+            $dir ? [$g['tenant'], $dir] : [$g['tenant']]
         ) ?: [];
         return $this->success(['calls' => $rows]);
     }

@@ -482,6 +482,7 @@ abstract class Controller
                 'crm' => [t('sidebar.crm'), 'file-text', '/crm'],
                 'ai_chat_leads' => [t('sidebar.ai_chat_leads'), 'target', '/chat/leads'],
                 'ai_chat_settings' => [$L('إعدادات الرسايل والقنوات', 'Messaging & channels settings'), 'settings', '/chat/settings'],
+                'voice_agent' => [$L('مساعد المكالمات الصوتي', 'AI Voice & Sales Agent'), 'phone', '/voice-agent'],
             ]],
             // 3 صفحات منافسين كانت متداخلة في القائمة - بقوا مدخل واحد وجواه تبويبات (competitorTabsHtml)
             'competitors' => [$L('المنافسين', 'Competitors'), $L('راقب أسعارهم وعروضهم', 'Watch their prices and offers'), [

@@ -1,0 +1,25 @@
+.va{--va-bg:#fff;--va-fg:#1b2430;--va-mut:#667085;--va-line:#e4e7ec;--va-accent:#0b6bcb;--va-ok:#087443;--va-warn:#b54708;--va-bad:#b42318;color:var(--va-fg);max-width:100%;overflow-x:hidden}
+@media (prefers-color-scheme:dark){.va{--va-bg:#14181f;--va-fg:#e6e9ef;--va-mut:#98a2b3;--va-line:#2b3340;--va-accent:#6aa9ff;--va-ok:#4cc38a;--va-warn:#f5a45d;--va-bad:#ff8a80}}
+.va *{box-sizing:border-box}
+.va-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--va-line);margin-bottom:16px;-webkit-overflow-scrolling:touch}
+.va-tab{flex:0 0 auto;padding:10px 14px;border:0;background:none;color:var(--va-mut);font:inherit;cursor:pointer;border-bottom:2px solid transparent;min-height:44px}
+.va-tab[aria-selected=true]{color:var(--va-accent);border-bottom-color:var(--va-accent);font-weight:600}
+.va-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.va-card{border:1px solid var(--va-line);border-radius:10px;padding:12px;background:var(--va-bg);min-width:0}
+.va-card b{display:block;font-size:1.4rem;overflow-wrap:anywhere}
+.va-muted{color:var(--va-mut)}
+.va-tablewrap{overflow-x:auto;border:1px solid var(--va-line);border-radius:10px;margin-bottom:16px}
+.va table{border-collapse:collapse;width:100%;min-width:480px}
+.va th,.va td{padding:8px 10px;text-align:start;border-bottom:1px solid var(--va-line);vertical-align:top}
+.va th{color:var(--va-mut);font-weight:600;font-size:.85rem}
+.va-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.va-form label{display:flex;flex-direction:column;gap:4px;font-size:.9rem;min-width:0}
+.va input,.va select,.va textarea{font:inherit;padding:8px;border:1px solid var(--va-line);border-radius:8px;background:var(--va-bg);color:var(--va-fg);min-height:40px;width:100%}
+.va-btn{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--va-accent);background:var(--va-accent);color:#fff;cursor:pointer;min-height:40px}
+.va-btn.sec{background:none;color:var(--va-accent)}
+.va-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.78rem;border:1px solid var(--va-line)}
+.va-badge.ok{color:var(--va-ok)}.va-badge.warn{color:var(--va-warn)}.va-badge.bad{color:var(--va-bad)}
+.va-note{border-inline-start:3px solid var(--va-warn);padding:8px 12px;margin-bottom:16px;background:rgba(245,164,93,.1);overflow-wrap:anywhere}
+.va-err{color:var(--va-bad)}
+.va h3{margin:20px 0 8px;font-size:1.05rem}
+@media (max-width:600px){.va-form{grid-template-columns:1fr}}

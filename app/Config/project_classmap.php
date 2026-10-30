@@ -944,6 +944,7 @@ return [
     'VoiceBillingService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceBillingService.php',
     'VoiceRetentionService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceRetentionService.php',
     'VoiceBillingController' => dirname(__DIR__,2).'/app/Controllers/VoiceBillingController.php',
+    'VoiceAgentPageController' => dirname(__DIR__,2).'/app/Controllers/VoiceAgentPageController.php',
     'VoiceCostTracker' => dirname(__DIR__,2).'/app/Services/VoiceAgent/Telephony/VoiceCostTracker.php',
     'VoiceNumberController' => dirname(__DIR__,2).'/app/Controllers/VoiceNumberController.php',
     'VoiceNumberService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceNumberService.php',
