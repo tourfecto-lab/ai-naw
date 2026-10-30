@@ -22,6 +22,20 @@ class VoiceAdminController extends Controller
         return $this->admin() ?? $this->success(['providers' => (new VoiceAdminReports())->providers(), 'live_operations_enabled' => (new SystemSettingsService())->get('voice_live_operations_enabled', '0') === '1', 'own_provider_accounts_allowed' => VoiceProviderService::ownAccountsAllowed(), 'telnyx_setup' => $this->telnyxSetup()]);
     }
 
+    /** POST /api/admin/voice/webhook-token/rotate - new secret in the provider URLs; the old URLs stop working immediately */
+    public function rotateWebhookToken(array $params = []): array
+    {
+        if ($e = $this->admin()) {
+            return $e;
+        }
+        if ($csrf = $this->verifyCsrf()) {
+            return $csrf;
+        }
+        VoiceWebhookToken::rotate();
+        VoiceAuditService::record(0, (int) $this->user['id'], 'platform.webhook_token_rotated', 'platform');
+        return $this->success(['telnyx_setup' => $this->telnyxSetup()], 'New secret URLs created. Update them in Telnyx now: the old ones no longer work.');
+    }
+
     /** What to paste into the Telnyx TeXML application. The token inside is a platform secret: admin only, never shown to customers. */
     private function telnyxSetup(): array
     {
