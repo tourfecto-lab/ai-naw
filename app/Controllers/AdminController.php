@@ -3902,8 +3902,13 @@ HTML;
                 'admin-brain' => ['العقل الاستراتيجي', 'brain', '/admin/brain'],
                 'ai-usage' => [$this->tr('admin.nav.ai_usage'), 'brain', '/admin/ai-usage'],
                 'ai-service-routing' => ['توزيع خدمات AI', 'settings', '/admin/ai-routing'],
-                'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
                 'creative-studio-ops' => ['استوديو الوسائط', 'image', '/admin/creative-studio'],
+            ],
+            'المحتوى والسيو' => [
+                'blog' => ['المدونة', 'edit', '/admin/blog'],
+                'hosted-blogs' => ['المدونات المستضافة', 'globe', '/admin/hosted-blogs'],
+                'seo-markets' => ['الكلمات والأسواق (SEO)', 'globe', '/admin/seo-markets'],
+                'seo-data-costs' => ['تكلفة DataForSEO', 'dollar', '/admin/seo-data-costs'],
             ],
             'العملاء والمبيعات' => [
                 'users' => [$this->tr('admin.nav.users'), 'users', '/admin/users'],
@@ -3921,6 +3926,7 @@ HTML;
                 'plans' => [$this->tr('admin.nav.plans'), 'dollar', '/admin/plans'],
                 'plans-studio' => ['الباقات والعملات والدفع (XPay)', 'credit-card', '/admin/plans-studio'],
                 'finance' => [$this->tr('admin.nav.finance'), 'credit-card', '/admin/finance'],
+                'usage-reservations' => ['مراجعة الاستخدام المعلق', 'clock', '/admin/usage-reservations'],
             ],
             'التشغيل وصحة المنصة' => [
                 'health' => ['صحة المنصة', 'activity', '/admin/health'],
@@ -3944,7 +3950,7 @@ HTML;
                 'settings' => [$this->tr('admin.nav.settings'), 'settings', '/admin/settings'],
                 'integrations' => [$this->tr('admin.nav.integrations'), 'plug', '/admin/integrations'],
                 'api-keys' => [$this->tr('admin.nav.api_keys'), 'key', '/admin/api-keys'],
-                'blog' => ['المدونة', 'edit', '/admin/blog'],
+                'meta-review' => ['جاهزية مراجعة Meta', 'flag', '/admin/meta-review'],
             ],
         ];
 
@@ -4432,7 +4438,10 @@ HTML;
                 $metaSetupBox = $this->metaSetupBox();
                 $stripeRedirect = htmlspecialchars(rtrim(defined('APP_URL') ? (string) APP_URL : '', '/') . '/payments/stripe/callback', ENT_QUOTES, 'UTF-8');
                 $tiktokRedirect = htmlspecialchars(rtrim(defined('APP_URL') ? (string) APP_URL : '', '/') . '/social/connect/tiktok/callback', ENT_QUOTES, 'UTF-8');
+                // الصفحة كانت 9500 بيكسل: كل كارت (الهوية، القانوني، المميزات، النظام، الأسئلة الشائعة) بقى تبويب
+                $tabsJs = htmlspecialchars(asset_v('/assets/js/admin-section-tabs.js'), ENT_QUOTES, 'UTF-8');
                 return <<<HTML
+                <div data-section-tabs="settings" data-section-selector=".p-card">
                 <div class="p-card" style="margin-bottom:20px;">
                     <div class="p-card-head"><h3>🎨 {$this->tr('admin.brand.title')}</h3><span class="p-card-sub">{$this->tr('admin.brand.subtitle')}</span></div>
 
@@ -4610,11 +4619,16 @@ HTML;
                     <button class="p-btn primary" style="margin-top:10px;" onclick="saveSystemSettings()">{$this->tr('common.save')}</button>
                 </div>
 
+                <div class="p-card">
+                <div class="p-card-head"><h3>❓ FAQ</h3></div>
                 <div class="p-toolbar">
                     <button class="p-btn" onclick="openEditFaq(null)">+ {$this->tr('admin.faq.new')}</button>
                 </div>
                 <p class="p-cell-muted" style="margin-bottom:14px;">{$this->tr('admin.faq.hint')}</p>
                 <div id="faqList"><div class="p-empty">{$this->tr('common.loading')}</div></div>
+                </div>
+                </div>
+                <script src="{$tabsJs}"></script>
 
                 <div class="p-modal-overlay" id="editFaqModal">
                     <div class="p-modal">

@@ -258,7 +258,9 @@ class PlansStudioController extends Controller
         $js = htmlspecialchars(asset_v('/assets/js/plans-studio-admin.js'), ENT_QUOTES, 'UTF-8');
         $xjs = htmlspecialchars(asset_v('/assets/js/xpay-admin.js'), ENT_QUOTES, 'UTF-8');
         $sjs = htmlspecialchars(asset_v('/assets/js/social-packages-admin.js'), ENT_QUOTES, 'UTF-8');
-        $body = '<link rel="stylesheet" href="' . $css . '"><section id="xpayAdmin" class="ps ps-box ps-adm" dir="rtl"><p>جاري التحميل…</p></section><section id="plansAdmin" class="ps" dir="rtl"><p>جاري التحميل…</p></section><section id="socialPkgAdmin" class="ps" dir="rtl" style="margin-top:16px"><p>جاري التحميل…</p></section><script src="' . $js . '"></script><script src="' . $xjs . '"></script><script src="' . $sjs . '"></script>';
+        // الصفحة كانت 8500 بيكسل: الأقسام التلاتة بقوا تبويبات
+        $tjs = htmlspecialchars(asset_v('/assets/js/admin-section-tabs.js'), ENT_QUOTES, 'UTF-8');
+        $body = '<link rel="stylesheet" href="' . $css . '"><div data-section-tabs="plans" data-section-selector=":scope > section" data-section-min="2"><section id="plansAdmin" class="ps" dir="rtl" data-st-title="الباقات والإضافات"><p>جاري التحميل…</p></section><section id="xpayAdmin" class="ps ps-box ps-adm" dir="rtl" data-st-title="الدفع والعملات (XPay)"><p>جاري التحميل…</p></section><section id="socialPkgAdmin" class="ps" dir="rtl" data-st-title="باقات السوشيال"><p>جاري التحميل…</p></section></div><script src="' . $js . '"></script><script src="' . $xjs . '"></script><script src="' . $sjs . '"></script><script src="' . $tjs . '"></script>';
         echo $this->renderPanelPage('plans-studio', 'الباقات والعملات والدفع', 'ربط XPay، باقات جاهزة، إضافات حسب الطلب، ابني باقتك، باقات السوشيال، وأسعار الصرف', $body, 'window.XPayAdmin&&window.XPayAdmin.init(window.Panel);window.PlansAdmin&&window.PlansAdmin.init(window.Panel);window.SocialPackagesAdmin&&window.SocialPackagesAdmin.init(window.Panel);');
         exit;
     }
