@@ -49,6 +49,7 @@ final class PlatformSnapshot
             'success' => $this->section('success', fn () => $this->success()),
             'ops' => $this->section('ops', fn () => (new OpsAdvisor($this->db))->summary()),
             'finance' => $this->section('finance', fn () => $this->finance()),
+            'voice' => $this->section('voice', fn () => class_exists('VoicePlatformLoad') ? VoicePlatformLoad::summary() : null),
             'generated_at' => gmdate('Y-m-d H:i:s'),
         ];
         // المرحلة 9: مؤشر صحة الشركة وجودة البيانات (محسوبين من باقي الأقسام، فبيتعملوا في الآخر)

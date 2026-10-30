@@ -147,3 +147,6 @@ public_html/storage/cache/*
 /storage/private/meta-webhook-log.json
 /storage/private/contact-photos/
 /storage/private/outbound-media/
+
+# voice bridge dependencies
+voice-bridge/node_modules/

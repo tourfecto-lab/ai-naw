@@ -1,0 +1,77 @@
+<?php
+
+/**
+ * Tourfecto - AI Voice & Sales Agent: call history API. Tenant from the session; transcripts need the view_recordings capability
+ * because they can contain personal data.
+ */
+class VoiceCallsController extends Controller
+{
+    private function guard(string $cap): array
+    {
+        if (!$this->isAuthenticated()) {
+            return ['error' => $this->error('Unauthorized', 401)];
+        }
+        $userId = (int) $this->user['id'];
+        $tenantId = VoiceAccessService::tenantFor($userId);
+        if (!VoiceAccessService::featureEnabled($tenantId)) {
+            return ['error' => $this->error('AI Voice Agent is not enabled for this plan', 403)];
+        }
+        if (!VoiceAccessService::can($userId, $cap)) {
+            return ['error' => $this->error('Forbidden', 403)];
+        }
+        return ['user' => $userId, 'tenant' => $tenantId];
+    }
+
+    /** GET /api/voice-agent/calls?limit=50&direction=inbound|outbound */
+    public function index(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_VIEW);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        $limit = max(1, min(100, (int) $this->get('limit', 50)));
+        $dir = in_array($this->get('direction'), ['inbound', 'outbound'], true) ? $this->get('direction') : null;
+        $rows = Database::getInstance()->query(
+            'SELECT id, number_id, agent_id, direction, from_e164, to_e164, mode, status, language, identity_verified, turns, outcome, handoff_reason, summary, next_step, post_call_status, booking_id, crm_lead_id, ai_cost_usd, started_at, ended_at, duration_s
+             FROM voice_calls WHERE tenant_user_id = ?' . ($dir ? ' AND direction = ?' : '') . ' ORDER BY id DESC LIMIT ' . $limit,
+            $dir ? [$g['tenant'], $dir] : [$g['tenant']]
+        ) ?: [];
+        return $this->success(['calls' => $rows]);
+    }
+
+    /** GET /api/voice-agent/calls/{id} */
+    public function show(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_VIEW_RECORDINGS);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        $store = new VoiceDataStore();
+        $call = $store->getCall($g['tenant'], (int) ($params['id'] ?? 0));
+        if (!$call) {
+            return $this->error('Call not found', 404);
+        }
+        $turns = array_values(array_filter($store->recentTurns($g['tenant'], (int) $call['id'], 300), static fn ($t) => $t['role'] !== 'tool'));
+        $actions = Database::getInstance()->query('SELECT action, status, ref, detail, created_at FROM voice_post_call_actions WHERE call_id = ? AND tenant_user_id = ? ORDER BY id', [(int) $call['id'], $g['tenant']]) ?: [];
+        return $this->success(['call' => $call, 'turns' => $turns, 'post_call_actions' => $actions]);
+    }
+
+    /** GET /api/voice-agent/calls/{id}/recording - audio through our authenticated endpoint only; needs the recordings capability */
+    public function recording(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_VIEW_RECORDINGS);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        $audio = (new VoiceRecordingService())->audio($g['tenant'], $g['user'], (int) ($params['id'] ?? 0));
+        if ($audio === null) {
+            return $this->error('Recording not available', 404);
+        }
+        header('Content-Type: ' . $audio['content_type']);
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . strlen($audio['body']));
+        echo $audio['body'];
+        exit;
+    }
+}

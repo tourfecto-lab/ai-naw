@@ -733,6 +733,9 @@ JS;
         $v = fn (string $k): string => $this->integrationValue($k);
         if(array_key_exists($key,OtaProviderCatalog::all())||$key==='bokun_app')return OtaIntegrationAdmin::verify($key,$v);
         switch ($key) {
+            case 'twilio_voice':
+            case 'telnyx_voice':
+                return VoicePlatformCredentials::adminTest($key, $v);
             case 'openai':
                 return $this->httpCheck('GET', 'https://api.openai.com/v1/models', ['Authorization: Bearer ' . $v('OPENAI_API_KEY')], 'OpenAI');
             case 'anthropic':
