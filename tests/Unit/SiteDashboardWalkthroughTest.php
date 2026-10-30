@@ -96,4 +96,32 @@ final class SiteDashboardWalkthroughTest extends TestCase
         $src = $this->source('app/Controllers/WebsiteBuilderController.php');
         $this->assertStringContainsString("r.data.nights?' ('+r.data.nights+' × '+r.data.adult_price", $src);
     }
+
+    public function testEnquiryAndReviewAnswersUseTheSiteLanguageAndOwnersAreNotified(): void
+    {
+        $src = $this->source('app/Controllers/WebsiteBuilderController.php');
+        foreach (['submitLead', 'submitReview'] as $fn) {
+            $start = strpos($src, 'public function ' . $fn . '(');
+            $body = substr($src, $start, (int) strpos($src, "
+    }
+", $start) - $start);
+            $this->assertDoesNotMatchRegularExpression("/->(success|error)\((\[\],\s*)?'[^']*[\x{0600}-\x{06FF}]/u", $body, "$fn returns a hard-coded Arabic message");
+        }
+        $this->assertStringContainsString("'site_lead_new'", $src);
+        $this->assertStringContainsString("'site_lead_new' => 'leads'", $this->source('app/Models/Notification.php'));
+        $map = require self::ROOT . 'app/Config/site_interface_en.php';
+        foreach (['تم إرسال طلبك، هيتم التواصل معاك قريبًا', 'اكتب اسمك من فضلك', 'الإيميل مش صحيح', 'غير موجود'] as $k) {
+            $this->assertArrayHasKey($k, $map);
+        }
+    }
+
+    public function testCustomerDashboardShowsTheCustomersWebsiteAndPendingBookings(): void
+    {
+        $src = $this->source('app/Controllers/DashboardController.php');
+        $this->assertStringContainsString('getSiteStats', $src);
+        $this->assertStringContainsString('renderSiteCard(data.site', $src);
+        foreach (['ar', 'en'] as $lang) {
+            $this->assertStringContainsString("'dashboard.site.pending'", $this->source("app/Lang/$lang.php"));
+        }
+    }
 }

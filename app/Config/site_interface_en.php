@@ -179,4 +179,10 @@ return [
     'كود الخصم وصل للحد الأقصى من الاستخدام'=>'This discount code has reached its usage limit',
     'كود الخصم لا ينطبق على هذا الحجز'=>'This discount code does not apply to this booking',
     'الحجز أقل من الحد الأدنى لكود الخصم'=>'The booking is below the minimum for this discount code',
+    'تم إرسال طلبك، هيتم التواصل معاك قريبًا'=>'Your enquiry was sent - we will get back to you soon',
+    'اكتب اسمك من فضلك'=>'Please enter your name',
+    'اكتب اسمك وتقييمك من فضلك'=>'Please enter your name and rating',
+    'التقييم لازم يكون من 1 لـ 5'=>'The rating must be between 1 and 5',
+    'شكرًا لتقييمك! هيظهر بعد مراجعة صاحب الموقع'=>'Thank you for your review! It will appear after the site owner approves it',
+    'غير موجود'=>'Not found',
 ];

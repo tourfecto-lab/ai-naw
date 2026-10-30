@@ -226,6 +226,7 @@ class DashboardController extends Controller
 
             // إحصائيات الموديولات المدموجة (2026-07-14)
             $modulesStats = $this->getModulesStats();
+            $siteStats = $this->getSiteStats();
 
             $trial = null;
             if (empty($subscription['valid'])) {
@@ -247,6 +248,7 @@ class DashboardController extends Controller
                 'reports' => $reportStats,
                 'api' => $apiStats,
                 'modules' => $modulesStats,
+                'site' => $siteStats,
                 'timestamp' => date('Y-m-d H:i:s')
             ]);
 
@@ -307,6 +309,27 @@ class DashboardController extends Controller
      * الحصول على إحصائيات الشات
      * @return array
      */
+    /** The customer's newest generated website and how many booking requests wait for an answer */
+    private function getSiteStats(): array
+    {
+        try {
+            $owner = (int) $this->user['id'];
+            $site = $this->db->query('SELECT id, slug, status, content_json FROM generated_websites WHERE user_id = ? ORDER BY id DESC LIMIT 1', [$owner])[0] ?? null;
+            $count = (int) ($this->db->query('SELECT COUNT(*) c FROM generated_websites WHERE user_id = ?', [$owner])[0]['c'] ?? 0);
+            if (!$site) {
+                return ['count' => 0];
+            }
+            $content = json_decode((string) $site['content_json'], true) ?: [];
+            $pending = (int) ($this->db->query(
+                "SELECT COUNT(*) c FROM bookings b JOIN crm_products p ON p.id = b.product_id WHERE b.user_id = ? AND b.status = 'pending' AND p.website_id IS NOT NULL",
+                [$owner]
+            )[0]['c'] ?? 0);
+            return ['count' => $count, 'id' => (int) $site['id'], 'name' => (string) ($content['business_name'] ?? $site['slug']), 'status' => (string) $site['status'], 'pending_bookings' => $pending];
+        } catch (Throwable $e) {
+            return ['count' => 0];
+        }
+    }
+
     private function getChatStats(): array
     {
         $sql = "SELECT 
@@ -890,6 +913,23 @@ class DashboardController extends Controller
         return result.data || {};
     }
 
+    function renderSiteCard(site) {
+        const box = document.getElementById('siteCard');
+        if (!box) return;
+        const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        box.style.display = '';
+        if (!site.count) {
+            box.innerHTML = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><div style="flex:1;min-width:220px;"><strong>🌐 ' + esc(I18N['dashboard.site.none_title']) + '</strong><p style="margin:4px 0 0;opacity:.8;font-size:13px;">' + esc(I18N['dashboard.site.none_sub']) + '</p></div><a class="p-btn primary" href="/website-builder">' + esc(I18N['dashboard.site.build']) + '</a></div>';
+            return;
+        }
+        const live = site.status === 'published';
+        const pending = Number(site.pending_bookings || 0);
+        box.innerHTML = '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><div style="flex:1;min-width:220px;"><strong>🌐 ' + esc(site.name) + '</strong><p style="margin:4px 0 0;opacity:.8;font-size:13px;">' +
+            esc(live ? I18N['dashboard.site.live'] : I18N['dashboard.site.draft']) + (pending > 0 ? ' · ' + esc(I18N['dashboard.site.pending']) + ': ' + pending : '') + '</p></div>' +
+            '<a class="p-btn outline" href="/bookings">' + esc(I18N['dashboard.site.bookings']) + '</a>' +
+            '<a class="p-btn primary" href="/dashboard/sites/' + Number(site.id) + '">' + esc(I18N['dashboard.site.open']) + '</a></div>';
+    }
+
     function setDashboardStat(id, value) {
         const element = document.getElementById(id);
         element.textContent = value;
@@ -904,6 +944,7 @@ class DashboardController extends Controller
         setDashboardStat('statChat', (data.chat && data.chat.total_messages) ?? 0);
         setDashboardStat('statReports', (data.reports && data.reports.total) ?? 0);
         setDashboardStat('statSubscription', planLabel(data.subscription, data.trial));
+        renderSiteCard(data.site || {});
         // اسم الباقة + «تجربة مجانية» أطول من رقم: نصغّر الخط بدل ما يتكسر على سطرين كبار
         document.getElementById('statSubscription').style.fontSize = planLabel(data.subscription, data.trial).length > 12 ? '18px' : '';
         const planTile = document.getElementById('statSubscription').closest('.stat-tile');
@@ -1858,6 +1899,7 @@ HTML;
                     </div>
                 </div>
 
+                <div class="p-card" id="siteCard" style="margin-bottom:18px;display:none;"></div>
                 <div class="p-grid cols-4" style="margin-bottom:18px;">
                     <div class="p-card stat-tile orbit-glow"><div class="stat-icon blue">⭐</div><div class="stat-info"><div class="stat-value dashboard-value-pending" id="statReviews">—</div><div class="stat-label">{$this->tr('dashboard.kpi.reviews_30d')}</div></div></div>
                     <div class="p-card stat-tile orbit-glow"><div class="stat-icon green">💬</div><div class="stat-info"><div class="stat-value dashboard-value-pending" id="statChat">—</div><div class="stat-label">{$this->tr('dashboard.kpi.chat_messages')}</div></div></div>

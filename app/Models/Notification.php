@@ -25,6 +25,7 @@ class Notification extends Model
         'social_post_published' => 'content_publishing',
         'media_generated' => 'content_publishing',
         'chat_pending_approval' => 'leads',
+        'site_lead_new' => 'leads',
         'ai_chat_new_message' => 'leads',
         'ai_chat_channel_error' => 'system',
         'admin_broadcast' => 'system',

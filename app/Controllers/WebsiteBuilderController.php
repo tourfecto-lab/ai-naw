@@ -750,22 +750,51 @@ JS;
         return $this->success([], 'تم النشر');
     }
 
+    /** Website enquiries and bookings land in the owner's CRM contacts (found by email, then phone) so the CRM is not empty for a site that works */
+    private function syncCrmContact(int $ownerId, string $name, string $email, string $phone, string $note): void
+    {
+        try {
+            $name = mb_substr(trim($name), 0, 200);
+            $email = mb_substr(trim($email), 0, 190);
+            $phone = mb_substr(trim($phone), 0, 40);
+            if ($ownerId <= 0 || $name === '' || ($email === '' && $phone === '')) {
+                return;
+            }
+            $existing = null;
+            if ($email !== '') {
+                $existing = $this->db->query('SELECT id FROM crm_contacts WHERE user_id = ? AND email = ? LIMIT 1', [$ownerId, $email])[0] ?? null;
+            }
+            if (!$existing && $phone !== '') {
+                $existing = $this->db->query('SELECT id FROM crm_contacts WHERE user_id = ? AND phone = ? LIMIT 1', [$ownerId, $phone])[0] ?? null;
+            }
+            if ($existing) {
+                return;
+            }
+            $this->db->query(
+                'INSERT INTO crm_contacts (user_id, name, email, phone, source, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                [$ownerId, $name, $email !== '' ? $email : null, $phone !== '' ? $phone : null, 'website_form', mb_substr($note, 0, 500)]
+            );
+        } catch (Throwable $e) {
+            Logger::warning('crm contact sync failed', ['error' => CustomerError::message($e->getMessage(), 500)]);
+        }
+    }
+
     /** POST /sites/{slug}/lead - طلب حجز/تواصل من زائر الموقع المنشور (بدون تسجيل دخول) */
     public function submitLead(array $params = []): array
     {
         $website = $this->findViewableWebsite((string) ($params['slug'] ?? ''));
         if (!$website) {
-            return $this->error('غير موجود', 404);
+            return $this->error($this->siteUi('غير موجود'), 404);
         }
-        if ($guard = $this->siteFormGuard('lead', 8, 600, 'تم إرسال طلبك، هيتم التواصل معاك قريبًا')) {
+        if ($guard = $this->siteFormGuard('lead', 8, 600, $this->siteUi('تم إرسال طلبك، هيتم التواصل معاك قريبًا'))) {
             return $guard;
         }
         if (!$this->validate(['visitor_name' => 'required'])) {
-            return $this->error('اكتب اسمك من فضلك', 422);
+            return $this->error($this->siteUi('اكتب اسمك من فضلك'), 422);
         }
         $leadEmail = trim((string) $this->get('email', ''));
         if ($leadEmail !== '' && !filter_var($leadEmail, FILTER_VALIDATE_EMAIL)) {
-            return $this->error('الإيميل مش صحيح', 422);
+            return $this->error($this->siteUi('الإيميل مش صحيح'), 422);
         }
 
         $lead = new WebsiteLead();
@@ -778,7 +807,17 @@ JS;
         $lead->setAttribute('status', 'new');
         $lead->save();
 
-        return $this->success([], 'تم إرسال طلبك، هيتم التواصل معاك قريبًا', 201);
+        $this->syncCrmContact((int) $website->getAttribute('user_id'), (string) $this->get('visitor_name'), $leadEmail, (string) $this->get('phone', ''), mb_substr((string) $this->get('message', ''), 0, 300));
+
+        // the owner used to find enquiries only by opening the dashboard
+        try {
+            $name = mb_substr(trim((string) $this->get('visitor_name')), 0, 80);
+            Notification::notify((int) $website->getAttribute('user_id'), 'site_lead_new', 'طلب تواصل جديد من موقعك', $name . ' - ' . mb_substr(trim((string) $this->get('message', '')), 0, 120), '/dashboard/sites/' . (int) $website->getAttribute('id'));
+        } catch (Throwable $e) {
+            Logger::warning('new site lead notify failed', ['error' => CustomerError::message($e->getMessage(), 500)]);
+        }
+
+        return $this->success([], $this->siteUi('تم إرسال طلبك، هيتم التواصل معاك قريبًا'), 201);
     }
 
     /**
@@ -830,17 +869,17 @@ JS;
     {
         $website = $this->findViewableWebsite((string) ($params['slug'] ?? ''));
         if (!$website) {
-            return $this->error('غير موجود', 404);
+            return $this->error($this->siteUi('غير موجود'), 404);
         }
-        if ($guard = $this->siteFormGuard('review', 5, 600, 'شكرًا لتقييمك! هيظهر بعد مراجعة صاحب الموقع')) {
+        if ($guard = $this->siteFormGuard('review', 5, 600, $this->siteUi('شكرًا لتقييمك! هيظهر بعد مراجعة صاحب الموقع'))) {
             return $guard;
         }
         if (!$this->validate(['visitor_name' => 'required', 'rating' => 'required'])) {
-            return $this->error('اكتب اسمك وتقييمك من فضلك', 422);
+            return $this->error($this->siteUi('اكتب اسمك وتقييمك من فضلك'), 422);
         }
         $rating = (int) $this->get('rating');
         if ($rating < 1 || $rating > 5) {
-            return $this->error('التقييم لازم يكون من 1 لـ 5', 422);
+            return $this->error($this->siteUi('التقييم لازم يكون من 1 لـ 5'), 422);
         }
 
         $review = new WebsiteReview();
@@ -852,7 +891,7 @@ JS;
         $review->setAttribute('status', 'pending');
         $review->save();
 
-        return $this->success([], 'شكرًا لتقييمك! هيظهر بعد مراجعة صاحب الموقع', 201);
+        return $this->success([], $this->siteUi('شكرًا لتقييمك! هيظهر بعد مراجعة صاحب الموقع'), 201);
     }
 
     /**
@@ -2505,6 +2544,7 @@ HTML;
             SocialAttribution::attachToBooking($bookingId, $userId);
         }
 
+        $this->syncCrmContact((int) $userId, (string) $this->get('customer_name'), (string) $this->get('customer_email', ''), (string) $this->get('customer_phone', ''), 'Website booking ' . $reference);
         // صاحب النشاط ماكانش بيتبلّغ بالحجز الجديد خالص (كان لازم يدخل يدوّر)
         try {
             $count = (int) ($this->db->query('SELECT COUNT(*) AS c FROM bookings WHERE user_id = ?', [$userId])[0]['c'] ?? 0);
