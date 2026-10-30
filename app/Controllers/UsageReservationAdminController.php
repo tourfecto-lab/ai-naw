@@ -11,7 +11,7 @@ class UsageReservationAdminController extends Controller
     {
         if (!$this->allowed()) return $this->error('غير مصرح',403);
         $body='<section class="p-card"><h2>مراجعة الاستخدام المعلق / Pending usage</h2><p>راجع نتيجة الطلب الأصلي قبل التسوية. اختر «تم التنفيذ» إذا استلم العميل الخدمة، أو «لم ينفذ» إذا تأكدت أنها لم تنفذ. الوقت وحده لا يثبت الفشل. لا تحرر رصيد طلب لا يزال يعمل.</p><a href="/admin/billing-ops">الدفع والكوبونات</a> · <a href="/admin/jobs">مهام واتساب وإعادة المحاولة</a><div id="urNotice" data-csrf="'.htmlspecialchars(Csrf::token(),ENT_QUOTES,'UTF-8').'" role="status"></div><div id="urList"></div><h3>استقبال واتساب</h3><p>الحالة uncertain تعني أن الرسالة محفوظة وقد يكون الرد أرسل؛ راجع المحادثة قبل إرسال رد يدوي. لا تتم إعادة إرسال رد غير محسوم تلقائيًا.</p><div id="urWhatsApp"></div></section><script src="'.htmlspecialchars(asset_v('/assets/js/usage-reservations.js'),ENT_QUOTES,'UTF-8').'"></script>';
-        echo $this->renderPanelPage('subscription','مراجعة الاستخدام المعلق','تسوية بعد التحقق من النتيجة',$body); exit;
+        echo $this->renderPanelPage('usage-reservations','مراجعة الاستخدام المعلق','تسوية بعد التحقق من النتيجة',$body); exit;
     }
     public function listing(array $params=[]): array
     {

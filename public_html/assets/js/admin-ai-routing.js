@@ -15,14 +15,15 @@ window.AdminAiRouting = (() => {
     }
     function init(P){
         const $=id=>document.getElementById(id),esc=P.esc;
-        let data=null,draft={},base={},group='all',saving=false,blocked=false,loading=false;
+        let data=null,draft={},base={},group='content',saving=false,blocked=false,loading=false;
         const status=$('airStatus'),search=$('airSearch'),cards=$('airCards'),dialog=$('airDialog');
         const dirtyIds=()=>Object.keys(draft).filter(id=>!equal(draft[id],base[id]));
         const providerOptions=(entry,selected,exclude=[],allowNone=false)=>(allowNone?'<option value="">بدون بديل</option>':'')+entry.providers.filter(p=>p===selected||!exclude.includes(p)).map(p=>`<option value="${esc(p)}" ${p===selected?'selected':''}>${esc(data.providers[p].name)}${data.providers[p].configured?'':' — مفتاح ناقص'}</option>`).join('');
         function effective(entry){return draft[entry.id]||(entry.kind==='text'?draft.default:null);}
         function missing(entry){const r=effective(entry);return !!r?.enabled&&r.chain.some(p=>!data.providers[p]?.configured);}
         function visible(){return data.catalog.filter(e=>{
-            if(group!=='all'&&e.group!==group)return false;
+            // الصفحة كانت 12 ألف بيكسل: بتفتح على فئة واحدة، والبحث أو فلتر الحالة بيدوّروا في كل الفئات
+            if(group!=='all'&&e.group!==group&&!search.value.trim()&&status.value==='all')return false;
             if(search.value.trim()&&!`${e.title} ${e.id} ${(draft[e.id]?.chain||[]).join(' ')}`.toLowerCase().includes(search.value.trim().toLowerCase()))return false;
             const r=draft[e.id];
             return status.value==='all'||(status.value==='custom'&&r!==null)||(status.value==='inherited'&&r===null)||(status.value==='disabled'&&effective(e)?.enabled===false)||(status.value==='missing'&&missing(e))||(status.value==='dirty'&&!equal(r,base[e.id]));

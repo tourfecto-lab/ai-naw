@@ -119,6 +119,8 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
 <select id="grFApproval" class="p-select"><option value="">الكل</option><option value="pending" ${filters.approval === 'pending' ? 'selected' : ''}>مستنية موافقتي (${s.awaiting_approval || 0})</option></select>
 <input id="grFQ" class="p-select" placeholder="دوّر باسم الشركة أو الإيميل أو المدينة" value="${esc(filters.q)}"></div><div id="grLeads" class="gr-leads"></div></section>
 <dialog id="grDlg" class="gr-dlg"><div class="gr-dlg-head"><b id="grDlgTitle"></b><button class="p-btn outline xs" data-close>إغلاق</button></div><div id="grDlgNeeds" class="gr-muted"></div><iframe id="grDlgFrame" class="gr-preview" sandbox title="preview"></iframe><div class="gr-actions" id="grDlgActs"></div></dialog>`;
+        // الصفحة كانت 11 ألف بيكسل: كل قسم (المسارات، الدول، قبل ما تشغّل، الاستيراد، الرسايل، الإعدادات، الشركات) بقى تبويب
+        if (window.SectionTabs) window.SectionTabs.apply(root, { key: 'growth', selector: 'section.gr-box', label: 'أقسام تسويق المنصة' });
         preview();
         loadLeads();
     };

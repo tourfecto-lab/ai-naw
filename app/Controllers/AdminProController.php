@@ -17,7 +17,7 @@ class AdminProController extends Controller
     private const PROBE = "page_url REGEXP '(wp-admin|wp-login|wp-content|wp-includes|xmlrpc|phpmyadmin|/[.]env|/[.]git|[.]php$|cgi-bin|/vendor/|/actuator)'";
 
     /** زيارة حقيقية = مش طلب API ومش محاولة مسح آلي */
-    private const CLEAN = "page_url NOT LIKE '/api/%' AND page_url NOT REGEXP '(wp-admin|wp-login|wp-content|wp-includes|xmlrpc|phpmyadmin|/[.]env|/[.]git|[.]php$|cgi-bin|/vendor/|/actuator)'";
+    private const CLEAN = "page_url NOT LIKE '/api/%' AND page_url NOT REGEXP '(wp-admin|wp-login|wp-content|wp-includes|xmlrpc|phpmyadmin|/[.]env|/[.]git|[.]php$|cgi-bin|/vendor/|/actuator|[.]js$|/widget/)'";
 
     /** GET /api/admin/pro/overview?range=7|30|90 */
     public function overview(array $params = []): array

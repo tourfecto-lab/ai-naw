@@ -49,7 +49,7 @@ class PlatformOutreachController extends Controller
         }
         $css = htmlspecialchars(asset_v('/assets/css/admin-growth.css'), ENT_QUOTES, 'UTF-8');
         $js = htmlspecialchars(asset_v('/assets/js/admin-growth.js'), ENT_QUOTES, 'UTF-8');
-        $body = '<link rel="stylesheet" href="' . $css . '"><section id="growthRoot" class="gr" dir="rtl"><p>جاري التحميل…</p></section><script src="' . $js . '"></script>';
+        $body = '<link rel="stylesheet" href="' . $css . '"><section id="growthRoot" class="gr" dir="rtl"><p>جاري التحميل…</p></section><script src="' . htmlspecialchars(asset_v('/assets/js/admin-section-tabs.js'), ENT_QUOTES, 'UTF-8') . '"></script><script src="' . $js . '"></script>';
         echo $this->renderPanelPage('platform-growth', 'تسويق المنصة', 'جيب شركات سياحة جديدة بالإيميل - بشكل احترافي وآمن', $body, 'window.AdminGrowth&&window.AdminGrowth.init(window.Panel);');
         exit;
     }
