@@ -1292,13 +1292,16 @@ JS;
         }
 
         $publishName = $publish ? ($publish['platform'] === 'wordpress' ? 'WordPress' : ucfirst((string) strtok((string) $publish['external_location_id'], ':'))) : '';
+        if ($publish && preg_match('~^(connector|hosted)://~', (string) $publish['external_location_id']) && $publish['external_location_name']) {
+            $publishName = ''; // الاسم المحفوظ بيوصفها كفاية («ملف Tourfecto (‎/guides)») - من غير «Connector ·»
+        }
         return $this->success([
             'url' => (string) $website->getAttribute('main_url'),
             'reachable' => $this->get('check') ? $codes !== null : null,
             'seo_code' => ['ready' => $seoReady, 'installed' => $codes['seo'] ?? null],
             'chat_code' => ['off' => $chatOff, 'installed' => $codes['chat'] ?? null],
             'connector' => ['linked' => $connectorLinked, 'present' => $codes['connector'] ?? null, 'download' => '/api/website-optimizer/edge/php-connector?website_id=' . $id],
-            'publish' => ['connected' => (bool) $publish, 'name' => $publish ? ($publishName . ($publish['external_location_name'] ? ' · ' . $publish['external_location_name'] : '')) : ''],
+            'publish' => ['connected' => (bool) $publish, 'name' => $publish ? implode(' · ', array_filter([$publishName, (string) $publish['external_location_name']], 'strlen')) : ''],
             'search_console' => ['connected' => (bool) $gsc, 'name' => (string) ($gsc['external_location_id'] ?? '')],
             'analytics' => ['connected' => (bool) $ga],
             'verified' => (int) $website->getAttribute('is_verified') === 1,

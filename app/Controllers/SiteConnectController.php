@@ -31,7 +31,10 @@ class SiteConnectController extends Controller
         if (!$rows) return null;
         $r = $rows[0];
         $kind = $r['platform'] === 'wordpress' ? 'wordpress' : (preg_match('~^(shopify|webflow|ghost|hosted|connector)://~', (string) $r['external_location_id'], $m) ? $m[1] : 'webhook');
-        return ['kind' => $kind, 'name' => (string) $r['external_location_name'], 'last_synced_at' => $r['last_synced_at'], 'last_error' => $r['last_error']];
+        $out = ['kind' => $kind, 'name' => (string) $r['external_location_name'], 'last_synced_at' => $r['last_synced_at'], 'last_error' => $r['last_error']];
+        // ملف الربط: المقالات على /guides/slug ولا /?tf_article=slug (السيرفر مش بيودّي /guides لـ index.php)
+        if ($kind === 'connector') $out['path'] = str_ends_with((string) $r['external_location_id'], '/q') ? '/?tf_article=' : '/guides/';
+        return $out;
     }
 
     /** GET /api/site-connect/{id} - النظام المكتشف + الطريقة المقترحة + حالة الربط */
@@ -180,12 +183,18 @@ class SiteConnectController extends Controller
         return $this->success(['connection' => $this->connection($id)], self::L('المقالات هتتنشر على موقعك في ‎/guides', 'Articles will publish on your site under /guides'));
     }
 
-    /** /guides/... بيوصل لـ index.php؟ الملف بيطبع meta tourfecto-connector في أي صفحة بيشغّلها، فلو ظهرت يبقى أيوه */
+    /** /guides/... بيوصل لـ index.php؟ الملف هو اللي بيرد على مقال مش موجود («Guide not found.») أو بيطبع meta tourfecto-connector */
     private static function guidesRouted(string $mainUrl): bool
     {
         $host = (string) parse_url(preg_match('~^https?://~i', $mainUrl) ? $mainUrl : 'https://' . $mainUrl, PHP_URL_HOST);
         if ($host === '') return false;
         $r = SafeHttp::exec('https://' . $host . '/guides/tourfecto-route-check', [CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_USERAGENT => 'TourfectoBot/1.0 (+https://tourfecto.pro)', CURLOPT_ENCODING => ''], 3);
-        return is_string($r['response']) && stripos($r['response'], 'tourfecto-connector') !== false;
+        return is_string($r['response']) && self::connectorAnswered($r['response']);
+    }
+
+    /** رد من tourfecto-connect.php نفسه (مش من السيرفر أو الموقع) */
+    public static function connectorAnswered(string $body): bool
+    {
+        return stripos($body, 'tourfecto-connector') !== false || (bool) preg_match('/^\s*Guide (not found|temporarily unavailable)\./', $body);
     }
 }

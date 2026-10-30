@@ -94,6 +94,16 @@ final class OneInstallConnectorTest extends TestCase
         $this->assertArrayNotHasKey('tourfecto-seo/modules/tourfecto-site-code.php', TourfectoPluginBundle::files(5, 'https://tourfecto.pro/api/edge/rules', 'example.com'));
     }
 
+    public function testTheGuidesRouteCheckRecognisesTheFileOwnAnswers(): void
+    {
+        // tourfecto.com answers /guides/unknown with the file's plain-text reply (no <head>, so no meta): /guides works there
+        $this->assertTrue(SiteConnectController::connectorAnswered('Guide temporarily unavailable. Please try again later.'));
+        $this->assertTrue(SiteConnectController::connectorAnswered('Guide not found.'));
+        $this->assertTrue(SiteConnectController::connectorAnswered('<html><head><meta name="tourfecto-connector" content="4"></head>'));
+        $this->assertFalse(SiteConnectController::connectorAnswered("<html><head><title>404 Not Found</title></head><body><center>nginx</center></body></html>"));
+        $this->assertFalse(SiteConnectController::connectorAnswered('<p>Our guide to Guide not found. pages</p>'));
+    }
+
     public function testTheCodeLoadedByTheFileRunsServicesOnly(): void
     {
         $db = Database::getInstance();

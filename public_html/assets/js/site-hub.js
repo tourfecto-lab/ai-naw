@@ -69,10 +69,7 @@
             var php = mode === 'php';
             var cn = s && s.connector;
             var dl = php ? (cn ? cn.download : '/api/website-optimizer/edge/php-connector?website_id=' + id) : '/api/website-optimizer/edge/plugin?website_id=' + id;
-            html += step(2, php ? L('ملف Tourfecto جنب index.php', 'Tourfecto file next to index.php') : L('إضافة Tourfecto لووردبريس', 'Tourfecto plugin for WordPress'), fileBadge(s),
-                muted(L('ملف واحد بيعمل كل حاجة: السيو من السيرفر، وشات الموقع، ونشر المقالات - من غير ما يبطّأ موقعك، ولو المنصة وقفت موقعك بيفضل شغال عادي.', 'One file does it all: SEO on the server, the website chat and article publishing - without slowing your site, which keeps working even if the platform is unreachable.'))
-                + (cn && cn.present && !cn.linked ? '<div class="alert alert-warning" style="margin:0 0 8px;font-size:13px">' + L('موقعك عليه نسخة Tourfecto تبع نسخة أو حساب تاني. نزّل الجديدة وحطها مكان القديمة بنفس الاسم.', 'Your site has a Tourfecto copy from another copy or account. Download the new one and put it in place of the old one.') + '</div>' : '')
-                + '<a class="p-btn primary sm" href="' + esc(dl) + '">⬇️ ' + (php ? L('نزّل tourfecto-connect.php', 'Download tourfecto-connect.php') : L('نزّل إضافة Tourfecto (zip)', 'Download the Tourfecto plugin (zip)')) + '</a>'
+            var install = '<a class="p-btn primary sm" href="' + esc(dl) + '">⬇️ ' + (php ? L('نزّل tourfecto-connect.php', 'Download tourfecto-connect.php') : L('نزّل إضافة Tourfecto (zip)', 'Download the Tourfecto plugin (zip)')) + '</a>'
                 + (php
                     ? '<ol style="margin:10px 0;padding-inline-start:20px;line-height:1.9;font-size:13.5px"><li>' + L('ارفع الملف جنب index.php على الاستضافة (مكان القديم لو موجود).', 'Upload the file next to index.php on your hosting (replacing the old one if any).') + '</li>'
                         + '<li>' + L('أول مرة بس: حط السطر ده في أول index.php:', 'First time only: add this line at the top of index.php:') + '<code class="tf-hub-code" dir="ltr" style="margin-top:4px">require_once __DIR__ . \'/tourfecto-connect.php\';</code></li>'
@@ -81,7 +78,15 @@
                         + '<li>' + L('لو عندك إضافة Tourfecto قديمة: ووردبريس هيسألك «Replace current with uploaded» - وافق.', 'If an older Tourfecto plugin is installed, WordPress asks “Replace current with uploaded” - accept.') + '</li>'
                         + '<li>' + L('دوس «اتأكد إنه اتركّب».', 'Press “Check it is installed”.') + '</li></ol>')
                 + '<button type="button" class="p-btn outline sm" data-hub-recheck>' + L('اتأكد إنه اتركّب', 'Check it is installed') + '</button>'
-                + (php ? ftpBox() : ''));
+                + (php ? ftpBox() : '');
+            // بعد ما يشتغل: خلاص مش محتاج خطوات - بس نسخة جديدة لو احتاجها بعدين
+            html += step(2, php ? L('ملف Tourfecto جنب index.php', 'Tourfecto file next to index.php') : L('إضافة Tourfecto لووردبريس', 'Tourfecto plugin for WordPress'), fileBadge(s),
+                linked
+                    ? muted(L('شغال على موقعك ومش محتاج تعمل حاجة تاني. أي حاجة تشغّلها تحت بتوصل لموقعك لوحدها.', 'Running on your site; nothing else to do. Anything you switch on below reaches your site by itself.'))
+                        + '<details><summary style="cursor:pointer;font-size:13px">' + L('نزّل نسخة جديدة (لو طلبنا منك تحدّثه)', 'Download a new copy (if we ask you to update)') + '</summary><div style="margin-top:8px">' + install + '</div></details>'
+                    : muted(L('ملف واحد بيعمل كل حاجة: السيو من السيرفر، وشات الموقع، ونشر المقالات - من غير ما يبطّأ موقعك، ولو المنصة وقفت موقعك بيفضل شغال عادي.', 'One file does it all: SEO on the server, the website chat and article publishing - without slowing your site, which keeps working even if the platform is unreachable.'))
+                        + (cn && cn.present ? '<div class="alert alert-warning" style="margin:0 0 8px;font-size:13px">' + L('موقعك عليه نسخة Tourfecto تبع نسخة أو حساب تاني. نزّل الجديدة وحطها مكان القديمة بنفس الاسم.', 'Your site has a Tourfecto copy from another copy or account. Download the new one and put it in place of the old one.') + '</div>' : '')
+                        + install);
 
             // ③ الخدمات اللي الملف/الإضافة بيشغّلوها - من هنا من غير ما تلمس الموقع تاني
             var articlesOn = !!(conn && conn.kind === 'connector');
@@ -93,7 +98,8 @@
                 + (php ? toggle('data-hub-articles', articlesOn, L('نشر «مقالات SEO» على موقعك (‎/guides)', 'Publish “SEO articles” on your site (/guides)'),
                     !(linked || articlesOn) ? L('بيتفعّل بعد ما الملف يشتغل على موقعك', 'Available once the file runs on your site')
                         : conn && !articlesOn ? L('هيبقى بدل النشر الحالي', 'Replaces your current publishing') + ' (' + esc(conn.name) + ')'
-                        : L('كل مقال بيتنشر على موقعك جوه تصميمه، ومركز السيو بينشر عليه كمان', 'Every article goes live inside your site design; the SEO center publishes there too'), !(linked || articlesOn)) : '')
+                        : L('كل مقال بيتنشر على موقعك جوه تصميمه، ومركز السيو بينشر عليه كمان', 'Every article goes live inside your site design; the SEO center publishes there too')
+                            + (articlesOn && conn.path ? ' <span dir="ltr">(' + esc(String(state.platform.url || '').replace(/^https?:\/\//, '').replace(/\/$/, '') + conn.path) + '…)</span>' : ''), !(linked || articlesOn)) : '')
                 + '</div>'
                 + (php && !articlesOn && !conn && !state.showOther ? '<button type="button" class="p-btn ghost xs" data-hub-other>' + L('عايز المقالات في مكان تاني؟', 'Publish articles somewhere else?') + '</button>' : ''));
             if (!php) {
