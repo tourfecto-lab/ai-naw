@@ -95,3 +95,14 @@ $router->get('/api/admin/voice/margins','VoiceAdminController','margins',['AuthM
 $router->get('/api/admin/voice/quality','VoiceAdminController','quality',['AuthMiddleware','AdminMiddleware']);
 $router->get('/voice-agent','VoiceAgentPageController','index',['AuthMiddleware']);
 $router->get('/api/voice-agent/calls/{id}/recording','VoiceCallsController','recording',['AuthMiddleware']);
+
+// Admin control (platform switches, companies, emergency stop, platform do-not-call) and the admin page
+$router->get('/api/admin/voice/settings','VoiceAdminController','getSettings',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/settings','VoiceAdminController','saveSettings',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/emergency-stop','VoiceAdminController','emergencyStop',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/companies','VoiceAdminController','companies',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/companies/{id}/control','VoiceAdminController','controlCompany',['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/voice/dnc','VoiceAdminController','dnc',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/dnc','VoiceAdminController','addDnc',['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/voice/dnc/remove','VoiceAdminController','removeDnc',['AuthMiddleware','AdminMiddleware']);
+$router->get('/admin/voice','VoiceAdminPageController','index',['AuthMiddleware','AdminMiddleware']);

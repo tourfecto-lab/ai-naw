@@ -191,4 +191,29 @@ final class VoiceCostsSecurityTest extends TestCase
         $this->assertStringContainsString("if (\$rec['record'] && \$mode !== 'fallback')", $src);
         $this->assertStringNotContainsString("!empty(\$settings['recording_enabled']), \$agent['opening_text']", $src);
     }
+
+    public function testPlatformSettingsValidationAndConfirmation(): void
+    {
+        $c = VoicePlatformSettings::sanitize(['voice_live_operations_enabled' => '1', 'voice_markup_pct' => '25', 'voice_recording_countries' => 'eg, sa', 'voice_platform_max_concurrent' => '50', 'unknown_key' => 'x', 'voice_rates_json' => '{"inbound_per_min":0.01}', 'voice_stream_url' => 'wss://bridge.example.com/ws']);
+        $this->assertEquals(['voice_live_operations_enabled' => '1', 'voice_markup_pct' => '25', 'voice_recording_countries' => 'EG,SA', 'voice_platform_max_concurrent' => '50', 'voice_rates_json' => '{"inbound_per_min":0.01}', 'voice_stream_url' => 'wss://bridge.example.com/ws'], $c); // unknown keys are never stored
+        $cur = ['voice_live_operations_enabled' => '0'];
+        $this->assertSame(['voice_live_operations_enabled'], VoicePlatformSettings::dangerousChanges($c, $cur));
+        $this->assertSame([], VoicePlatformSettings::dangerousChanges(['voice_live_operations_enabled' => '0'], ['voice_live_operations_enabled' => '1'])); // turning OFF never needs confirmation
+        $this->assertSame([], VoicePlatformSettings::dangerousChanges(['voice_live_operations_enabled' => '1'], ['voice_live_operations_enabled' => '1']));
+        $this->assertSame(['voice_marketing_countries'], VoicePlatformSettings::dangerousChanges(['voice_marketing_countries' => 'EG,SA'], ['voice_marketing_countries' => 'EG']));
+        $this->assertSame([], VoicePlatformSettings::dangerousChanges(['voice_marketing_countries' => 'EG'], ['voice_marketing_countries' => 'EG,SA']));
+    }
+
+    /** @dataProvider badSettings */
+    public function testPlatformSettingsRejectBadValues(array $in): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        VoicePlatformSettings::sanitize($in);
+    }
+
+    public static function badSettings(): array
+    {
+        return [[['voice_markup_pct' => '900']], [['voice_platform_max_concurrent' => '0']], [['voice_recording_countries' => 'KP']], [['voice_stream_url' => 'http://x']],
+            [['voice_rates_json' => '{"inbound_per_min":-1}']], [['voice_rates_json' => '{"evil":1}']], [['voice_sip_domain' => 'a b;rm']]];
+    }
 }
