@@ -190,17 +190,49 @@ class WhatsAppCloudController extends Controller
         $secretEnc = $appSecret !== '' ? $enc->encrypt($appSecret) : null;
         if ($existing) {
             $old = json_decode((string) ($existing[0]['meta_json'] ?? ''), true) ?: [];
+            self::releaseNumberElsewhere($pnid, (int) $existing[0]['id']);
             $this->db->query(
                 "UPDATE platform_connections SET user_id = ?, access_token = ?, refresh_token = ?, external_account_id = ?, external_location_id = ?, external_location_name = ?, status = 'connected', last_error = NULL, connected_at = NOW(), meta_json = ? WHERE id = ?",
                 [(int) $this->user['id'], $enc->encrypt($token), $secretEnc, $pnid, $waba, $name, json_encode(array_merge($old, $meta), JSON_UNESCAPED_UNICODE), (int) $existing[0]['id']]
             );
             return (int) $existing[0]['id'];
         }
-        return (int) $this->db->query(
+        $id = (int) $this->db->query(
             "INSERT INTO platform_connections (website_id, user_id, platform, access_token, refresh_token, external_account_id, external_location_id, external_location_name, status, connected_at, meta_json)
              VALUES (?, ?, 'whatsapp_cloud', ?, ?, ?, ?, ?, 'connected', NOW(), ?)",
             [$wid, (int) $this->user['id'], $enc->encrypt($token), $secretEnc, $pnid, $waba, $name, json_encode($meta, JSON_UNESCAPED_UNICODE)]
         );
+        self::releaseNumberElsewhere($pnid, $id);
+        return $id;
+    }
+
+    /**
+     * الرقم اتربط هنا (أو Meta أكدت إن مفتاح الربط ده بيوصل للرقم): أي ربط تاني لنفس الرقم على موقع أو حساب تاني بيتفصل.
+     * من غير كده الرقم بيبقى «مربوط» في مكانين، والـ webhook مابيعرفش الرسالة بتاعة مين فبيرميها
+     * (حصل لما عميل نقل رقمه لحساب جديد من غير ما يفصله من القديم). الفصل في المنصة بس - الرقم عند Meta مابيتلمسش.
+     * @return int عدد الربطات اللي اتفصلت
+     */
+    public static function releaseNumberElsewhere(string $pnid, int $keepConnId): int
+    {
+        if ($pnid === '' || $keepConnId <= 0) {
+            return 0;
+        }
+        $db = Database::getInstance();
+        $ids = array_map('intval', array_column($db->query(
+            "SELECT id FROM platform_connections WHERE platform = 'whatsapp_cloud' AND status = 'connected' AND external_account_id = ? AND id <> ?",
+            [$pnid, $keepConnId]
+        ) ?: [], 'id'));
+        if (!$ids) {
+            return 0;
+        }
+        $db->query(
+            "UPDATE platform_connections SET status = 'disconnected', access_token = NULL, refresh_token = NULL, last_error = ? WHERE id IN (" . implode(',', array_fill(0, count($ids), '?')) . ')',
+            array_merge(['الرقم ده اتربط على موقع أو حساب تاني على المنصة'], $ids)
+        );
+        if (class_exists('Logger')) {
+            Logger::info('WhatsApp number released from older connections', ['kept_connection_id' => $keepConnId, 'released' => count($ids)]);
+        }
+        return count($ids);
     }
 
     /** GET /api/whatsapp-cloud/embedded-config - بيانات زرار "اربط بضغطة" (لو الأدمن ظبطها) */
@@ -327,7 +359,10 @@ class WhatsAppCloudController extends Controller
             $fixed = $re['ok'];
         }
         $info = $api->phoneInfo();
+        // Meta أكدت إن مفتاح الحساب ده بيوصل للرقم: لو نفس الرقم لسه «مربوط» في حساب تاني، الرسايل كانت بتضيع - نفكه من هناك
+        $released = $info['ok'] && $row ? self::releaseNumberElsewhere((string) $row['external_account_id'], (int) $row['id']) : 0;
         $checks = [
+            'released_elsewhere' => $released,
             'app_subscribed' => $subscribed || $fixed,
             'resubscribed_now' => $fixed,
             'subscribe_error' => $sub['ok'] ? null : $sub['error'],
@@ -364,7 +399,9 @@ class WhatsAppCloudController extends Controller
         if ($checks['webhook_bad_signature_at'] && (!$checks['webhook_last_event_at'] || $checks['webhook_bad_signature_at'] > $checks['webhook_last_event_at'])) {
             $hints[] = 'Meta بتبعت الرسايل بس التوقيع مش مطابق: الـ App Secret المحفوظ في إعدادات الأدمن غلط. انسخه تاني من App settings ← Basic واحفظه.';
         }
-        if ($checks['webhook_unknown_number_at'] && !$checks['this_number_last_event_at']) {
+        if ($released) {
+            $hints[] = 'الرقم كان لسه مربوط على حساب أو موقع تاني على المنصة، فالرسايل الواردة كانت بتضيع. فصلناه من هناك (الرقم عند Meta زي ما هو). ابعت رسالة تاني من موبايلك.';
+        } elseif ($checks['webhook_unknown_number_at'] && !$checks['this_number_last_event_at']) {
             $hints[] = 'Meta بعتت رسايل لرقم مش متربط بأي موقع على المنصة.';
         }
         if (!$checks['webhook_last_event_at'] && !$checks['webhook_bad_signature_at'] && $checks['app_subscribed'] && !$fixed) {
@@ -1066,8 +1103,9 @@ class WhatsAppCloudController extends Controller
                 }
                 unset($shape);
                 $pn = (string) ($ch['value']['metadata']['phone_number_id'] ?? '');
-                $rows = $pn !== '' ? $db->query("SELECT c.id,c.website_id,c.user_id FROM platform_connections c JOIN websites w ON w.id=c.website_id AND w.user_id=c.user_id WHERE c.platform='whatsapp_cloud' AND c.status='connected' AND c.external_account_id=? ORDER BY c.id DESC LIMIT 2",[$pn]) : [];
-                $row=count($rows)===1?$rows[0]:null;
+                $rows = $pn !== '' ? $db->query("SELECT c.id,c.website_id,c.user_id FROM platform_connections c JOIN websites w ON w.id=c.website_id AND w.user_id=c.user_id WHERE c.platform='whatsapp_cloud' AND c.status='connected' AND c.external_account_id=? ORDER BY c.connected_at DESC, c.id DESC LIMIT 1",[$pn]) : [];
+                // نفس الرقم مربوط في مكانين (ربط قديم ماتفصلش): الأحدث هو اللي Meta أكدته آخر مرة، فالرسالة بتروحله بدل ما تضيع
+                $row=$rows[0]??null;
                 if (!$row) {
                     self::markPlatform('wa_platform_webhook_unknown_at');
                     // Do not log raw IDs or payloads. Count failures to match a connected site.
