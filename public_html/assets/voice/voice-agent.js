@@ -140,7 +140,7 @@
       var agentOpts = [['', '— none —']].concat(agents.map(function (a) { return [a.id, a.name]; }));
       var cols = [['Number', 'e164'], ['Country', 'country'], ['Provider', 'provider'], ['Status', function (n) { return badge(n.status + (n.live_usable ? '' : '')); }],
         ['Assistant', function (n) { return '<select data-assign="' + (+n.id) + '">' + opts(agentOpts, n.agent_id || '') + '</select>'; }],
-        ['', function (n) { return (n.status === 'pending_verification' && /^(forward|sip)$/.test(n.connect_method || '') ? '<button class="va-btn" data-verify="' + (+n.id) + '">Verify ownership</button> ' : '') + '<button class="va-btn sec" data-test="' + (+n.id) + '">Check link</button> <button class="va-btn sec" data-default="' + (+n.id) + '">Make default</button> <button class="va-btn sec" data-release="' + (+n.id) + '">Release</button>'; }]];
+        ['', function (n) { return (n.status === 'pending_verification' && /^(forward|sip)$/.test(n.connect_method || '') ? '<button class="va-btn" data-verify="' + (+n.id) + '">Verify I own this number</button> ' : '') + '<button class="va-btn sec" data-test="' + (+n.id) + '">Test connection</button> <button class="va-btn sec" data-default="' + (+n.id) + '">Make default</button> <button class="va-btn sec" data-release="' + (+n.id) + '">Remove number</button>'; }]];
       var urls = provs.map(function (p) { return '<li><b>' + esc(p.provider) + '</b><br>Voice URL: <code>' + esc(p.webhook_urls.inbound) + '</code><br>Status URL: <code>' + esc(p.webhook_urls.status) + '</code></li>'; }).join('');
       return '<p data-msg></p><div data-info></div>' + table(cols, r[0].numbers) +
         '<details class="va-card"><summary><b>Get a new number</b> (you approve the exact price before anything is bought)</summary><form class="va-form" data-search>' +
@@ -161,7 +161,7 @@
     el.querySelectorAll('[data-assign]').forEach(function (s) { s.addEventListener('change', function () { post('/api/voice-agent/numbers/' + (+s.getAttribute('data-assign')) + '/assign', { agent_id: s.value }); }); });
     el.querySelectorAll('[data-test]').forEach(function (b) { b.addEventListener('click', function () { api('/api/voice-agent/numbers/' + (+b.getAttribute('data-test')) + '/test', {}).then(function (d) { note(el, 'Status: ' + String(d.state || d.status || 'unknown').replace(/_/g, ' ') + (d.detail ? ' - ' + d.detail : '')); }).catch(function (e) { note(el, e.message, true); }); }); });
     el.querySelectorAll('[data-default]').forEach(function (b) { b.addEventListener('click', function () { post('/api/voice-agent/numbers/' + (+b.getAttribute('data-default')) + '/default'); }); });
-    el.querySelectorAll('[data-release]').forEach(function (b) { b.addEventListener('click', function () { if (window.confirm('Release this number? You will lose it.')) post('/api/voice-agent/numbers/' + (+b.getAttribute('data-release')) + '/release', { approve_release: true }); }); });
+    el.querySelectorAll('[data-release]').forEach(function (b) { b.addEventListener('click', function () { if (window.confirm('Remove this number from your account? You will lose it.')) post('/api/voice-agent/numbers/' + (+b.getAttribute('data-release')) + '/release', { approve_release: true }); }); });
     el.querySelectorAll('[data-verify]').forEach(function (b) {
       b.addEventListener('click', function () {
         var id = +b.getAttribute('data-verify');
