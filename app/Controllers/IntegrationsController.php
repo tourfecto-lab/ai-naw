@@ -181,6 +181,22 @@ class IntegrationsController extends Controller
             // الجدول مش موجود - نتعامل مع الكل كغير مربوط
         }
 
+        // Search Console بيتربط لموقع بعينه: الزرار كان رايح /search-console/choose، ودي من غير رجوع من جوجل
+        // بترجّع العميل لقايمة المواقع من غير ما يحصل أي ربط. دلوقتي الربط بيبدأ لموقعه على طول.
+        $gscSites = [];
+        try {
+            $gscSites = (new Website())->where(['user_id' => $userId], ['created_at' => 'DESC']);
+        } catch (Throwable $e) {
+            Logger::error('Search Console website list failed', ['message' => $e->getMessage()]);
+        }
+        if (isset($platforms['google_search_console'])) {
+            $platforms['google_search_console']['connect'] = count($gscSites) === 1 ? '/search-console/connect/' . (int) $gscSites[0]->getAttribute('id') : null;
+        }
+        // Google Business نفس الحكاية: موقع واحد = الربط على طول، غير كده صفحة المنصات اللي فيها زرار لكل موقع
+        if (isset($platforms['google_business'])) {
+            $platforms['google_business']['connect'] = count($gscSites) === 1 ? '/reputation/connect/google/' . (int) $gscSites[0]->getAttribute('id') : '/reputation/platforms';
+        }
+
         $cardsHtml = '';
         $soonHtml = '';
         foreach ($platforms as $key => $p) {
@@ -212,6 +228,18 @@ class IntegrationsController extends Controller
                 $pill = '<span class="pill gray">غير مربوط</span>';
                 $account = '';
                 $action = $p['connect'] ? '<a href="' . $p['connect'] . '" class="p-btn primary xs">ربط الحساب</a>' : '<span class="p-cell-muted" style="font-size:12px;">لا يحتاج ربط</span>';
+            }
+
+            if ($key === 'google_search_console' && count($gscSites) !== 1) {
+                if (!$gscSites) {
+                    $action = '<a class="p-btn primary xs" href="/websites">أضف موقعك الأول</a>';
+                } else {
+                    $action = $tools;
+                    foreach ($gscSites as $site) {
+                        $action .= '<div style="margin:8px 0;overflow-wrap:anywhere;"><div class="p-cell-muted" dir="ltr">' . $e($site->getAttribute('main_url')) . '</div>'
+                            . '<a class="p-btn ' . ($conn ? 'outline' : 'primary') . ' xs" href="/search-console/connect/' . (int) $site->getAttribute('id') . '">' . ($conn ? 'إعادة الربط' : 'ربط Search Console') . '</a></div>';
+                    }
+                }
             }
 
             if ($key === 'google_analytics') {

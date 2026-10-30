@@ -65,6 +65,38 @@ class SearchConsoleController extends Controller
         $p=parse_url($property);if(!$p||!in_array($p['scheme']??'', ['http','https'],true)||!empty($p['user'])||!empty($p['pass']))return false;
         return preg_replace('/^www\./','',strtolower($p['host']??''))===$host;
     }
+    private static function hostOf(string $url): string
+    {
+        if (!preg_match('#^https?://#i', $url)) $url = 'https://' . $url;
+        return (string) preg_replace('/^www\./', '', strtolower((string) parse_url($url, PHP_URL_HOST)));
+    }
+
+    /** خصائص Search Console اللي بتطابق الموقع، الأنسب الأول: Domain (بتغطي كل الموقع) ← https ← http */
+    public static function matchingProperties(array $sites, string $websiteUrl): array
+    {
+        $m = array_values(array_filter($sites, fn ($s) => self::propertyMatches((string) ($s['site_url'] ?? ''), $websiteUrl)));
+        $rank = fn (array $s) => (($s['permission_level'] ?? '') === 'siteUnverifiedUser' ? 10 : 0)
+            + (str_starts_with((string) $s['site_url'], 'sc-domain:') ? 0 : (str_starts_with((string) $s['site_url'], 'https://') ? 1 : 2));
+        usort($m, fn ($a, $b) => $rank($a) <=> $rank($b));
+        return $m;
+    }
+
+    /** الخاصية اللي نربطها من غير ما نسأل: واحدة بس متوثّقة بتطابق، أو Domain متوثّقة. غير كده العميل يختار. */
+    public static function autoProperty(array $matches): ?string
+    {
+        $usable = array_values(array_filter($matches, fn ($s) => ($s['permission_level'] ?? '') !== 'siteUnverifiedUser'));
+        if (!$usable) return null;
+        if (count($usable) === 1 || str_starts_with((string) $usable[0]['site_url'], 'sc-domain:')) return (string) $usable[0]['site_url'];
+        return null;
+    }
+
+    /** بعد الربط: صفحة الموقع نفسه (بيظهر فيها الربط والأرقام) بدل قايمة المواقع */
+    private static function afterConnectPath(array $temp): string
+    {
+        $path = self::returnPath($temp['return_to'] ?? '/websites');
+        return $path === '/websites' ? '/websites/' . (int) ($temp['website_id'] ?? 0) : $path;
+    }
+
     private bool $allowSitemapSubmit=false;
     public function allowSitemapSubmit(array $params=[]): array {
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);
@@ -187,37 +219,60 @@ class SearchConsoleController extends Controller
             $this->renderOAuthError('تعذر تحميل مواقع Search Console. أعد الربط أو حاول مرة أخرى لاحقًا.');
             exit;
         }
-        if (empty($sitesResult['sites'])) {
-            $this->renderOAuthError('لا توجد مواقع Search Console متاحة لهذا الحساب. تأكد من اختيار الحساب الصحيح وصلاحية الوصول.');
-            exit;
-        }
 
         $website=(new Website())->find((int)$temp['website_id']);if(!$website||(int)$website->getAttribute('user_id')!==(int)$this->userId()){$this->renderOAuthError('الموقع غير متاح لهذا الحساب');exit;}
         $websiteUrl=(string)$website->getAttribute('main_url');
+
+        // العميل مايختارش حاجة لو موقعه واضح: خاصية واحدة بتطابقه (أو Domain اللي بتغطي الموقع كله) = ربط على طول
+        $matches = self::matchingProperties($sitesResult['sites'], $websiteUrl);
+        $auto = self::autoProperty($matches);
+        if ($auto !== null) {
+            $saved = $this->saveConnection($temp, $auto);
+            if ($saved['ok']) {
+                header('Location: ' . self::afterConnectPath($temp));
+                exit;
+            }
+            $this->renderOAuthError($saved['error']);
+            exit;
+        }
+        $matchUrls = array_column($matches, 'site_url');
+        $sites = array_merge($matches, array_values(array_filter($sitesResult['sites'], fn ($s) => !in_array($s['site_url'] ?? '', $matchUrls, true))));
+        foreach ($sites as &$s) {
+            $s['match'] = in_array($s['site_url'] ?? '', $matchUrls, true);
+        }
+        unset($s);
+
         $returnJson=json_encode(self::returnPath($temp['return_to']??'/websites'));
         $csrfJson=json_encode(Csrf::token());
-        $optionsJson = json_encode($sitesResult['sites'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $optionsJson = json_encode($sites, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $host = htmlspecialchars(self::hostOf($websiteUrl), ENT_QUOTES, 'UTF-8');
+        $retry = '/search-console/connect/' . (int) $temp['website_id'];
+        $head = $matches
+            ? '<h3>ده موقعك على Search Console؟</h3><span class="p-card-sub">لقينا أكتر من خاصية لـ ' . $host . ' - الموصى بيها الأولى</span>'
+            : '<h3>مالقيناش ' . $host . ' في حساب جوجل ده</h3><span class="p-card-sub">ضيفه في Search Console مرة واحدة، أو اربط بحساب جوجل تاني</span>';
+        $help = $matches ? '' : '<div class="alert alert-info" style="line-height:1.9">'
+            . '1) افتح <a href="https://search.google.com/search-console/welcome" target="_blank" rel="noopener">Search Console</a> واختار «Domain» واكتب <b dir="ltr">' . $host . '</b>.<br>'
+            . '2) جوجل هيديك سطر TXT يتحط في إعدادات الدومين (لو مش بتعدّلها بنفسك ابعته للي عامل موقعك).<br>'
+            . '3) بعد ما جوجل يأكد، ارجع هنا ودوس «اربط تاني».'
+            . '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><a class="p-btn primary sm" href="' . $retry . '">🔄 اربط تاني</a><a class="p-btn outline sm" href="' . $retry . '">حساب جوجل تاني</a></div></div>'
+            . ($sites ? '<p class="p-cell-muted">أو اختار من المواقع اللي في حسابك:</p>' : '');
 
-        $body = <<<'HTML'
-        <div class="p-card">
-            <div class="p-card-head"><h3>اختر موقعك على Search Console</h3><span class="p-card-sub">لقينا أكتر من موقع مرتبط بحسابك</span></div>
-            <div id="siteOptions"></div>
-        </div>
-HTML;
+        $body = '<div class="p-card"><div class="p-card-head">' . $head . '</div>' . $help . '<div id="siteOptions"></div></div>';
 
         $script = <<<'JS'
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
     const sites = __OPTIONS_JSON__;
+    const PERM = { siteOwner: 'مالك', siteFullUser: 'صلاحية كاملة', siteRestrictedUser: 'صلاحية محدودة', siteUnverifiedUser: 'مش متوثّق - مش هيجيب بيانات' };
 
     document.getElementById('siteOptions').innerHTML = sites.map((s, i) => `
-        <div class="p-card" style="background:var(--panel-bg,#f7f8fa);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="p-card" style="background:var(--panel-bg,#f7f8fa);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
             <div>
-                <strong style="direction:ltr;display:inline-block;">${esc(s.site_url)}</strong><br>
-                <span class="p-cell-muted">${esc(s.permission_level)}</span>
+                <strong style="direction:ltr;display:inline-block;">${esc(s.site_url)}</strong>${i === 0 && s.match ? ' <span class="pill green">موصى بيه</span>' : ''}<br>
+                <span class="p-cell-muted">${esc(PERM[s.permission_level] || s.permission_level)}</span>
             </div>
-            <button class="p-btn primary" onclick="selectSite(${i})">اختيار</button>
+            <button class="p-btn ${s.match ? 'primary' : 'outline'}" onclick="selectSite(${i})">اختيار</button>
         </div>`).join('');
 
     window.selectSite = async function (i) {
@@ -263,11 +318,29 @@ JS;
             return $this->error('اختيار الموقع مطلوب', 422);
         }
 
+        if(!is_string($siteUrl)||strlen($siteUrl)>2000)return $this->error('اختيار الموقع غير صالح',422);
         try {
-            if(time()-(int)($temp['issued_at']??0)>900)return $this->error('انتهت جلسة اختيار الموقع؛ أعد الربط',422);
-            $website=(new Website())->find((int)$temp['website_id']);if(!$website||(int)$website->getAttribute('user_id')!==(int)$this->userId())return $this->error('الموقع غير متاح',403);
-            if(!is_string($siteUrl)||strlen($siteUrl)>2000)return $this->error('اختيار الموقع غير صالح',422);
             $available=(new GoogleSearchConsoleAPI($temp['access_token']))->listSites();if(empty($available['success'])||!in_array($siteUrl,array_column($available['sites'],'site_url'),true))return $this->error('تعذر التحقق من صلاحية خاصية Search Console المختارة؛ أعد الربط بالحساب الصحيح',422);
+        } catch (Exception $e) {
+            Logger::error('Finalize Search Console Connection Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر حفظ الربط', 500);
+        }
+        $saved = $this->saveConnection($temp, $siteUrl);
+        if (!$saved['ok']) {
+            return $this->error($saved['error'], $saved['code']);
+        }
+        return $this->success(['return_to' => self::afterConnectPath($temp)], 'تم ربط Google Search Console بنجاح');
+    }
+
+    /**
+     * بيحفظ ربط Search Console لخاصية اتأكدنا إنها في حساب جوجل بتاع العميل (من listSites).
+     * @return array{ok:bool,error:string,code:int}
+     */
+    private function saveConnection(array $temp, string $siteUrl): array
+    {
+        try {
+            if(time()-(int)($temp['issued_at']??0)>900)return ['ok'=>false,'error'=>'انتهت جلسة اختيار الموقع؛ أعد الربط','code'=>422];
+            $website=(new Website())->find((int)$temp['website_id']);if(!$website||(int)$website->getAttribute('user_id')!==(int)$this->userId())return ['ok'=>false,'error'=>'الموقع غير متاح','code'=>403];
             $encryption = new Encryption();
             $existing = (new PlatformConnection())->where([
                 'website_id' => $temp['website_id'],
@@ -293,7 +366,7 @@ JS;
             if (!empty($existing)) {
                 $connection = $existing[0];
                 if ((int) $connection->getAttribute('user_id') !== (int) $this->userId()) {
-                    return $this->error('غير مصرّح لك بتعديل هذا الاتصال', 403);
+                    return ['ok' => false, 'error' => 'غير مصرّح لك بتعديل هذا الاتصال', 'code' => 403];
                 }
                 foreach ($data as $key => $value) {
                     $connection->setAttribute($key, $value);
@@ -314,10 +387,10 @@ JS;
 
             $this->log('Google Search Console Connected', ['website_id' => $temp['website_id'], 'site_url' => $siteUrl]);
 
-            return $this->success(['return_to'=>self::returnPath($temp['return_to']??'/websites')], 'تم ربط Google Search Console بنجاح');
+            return ['ok' => true, 'error' => '', 'code' => 200];
         } catch (Exception $e) {
             Logger::error('Finalize Search Console Connection Error', ['message' => $e->getMessage()]);
-            return $this->error('تعذر حفظ الربط', 500);
+            return ['ok' => false, 'error' => 'تعذر حفظ الربط', 'code' => 500];
         }
     }
 
