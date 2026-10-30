@@ -17,7 +17,7 @@ class GenerateVideoJob implements QueueJobInterface
             if(isset($payload['poll_attempt'])&&(int)$payload['poll_attempt']!==(int)$item->getAttribute('poll_attempts'))return;
             if($item->getAttribute('file_path')&&$item->getAttribute('generation_stage')==='billing'){GenerationLifecycle::complete($item,'media_video');return;}
             $client=$this->clientFactory?($this->clientFactory)():GeminiOmniClient::forModel(json_decode((string)$item->getAttribute('generation_meta'),true)['routing_snapshot']['models']['veo']??null);
-            $operation=(string)$item->getAttribute('provider_ref');
+            $operation=(string)$item->getAttribute('provider_ref');$prompt='';$ratio='';$secs=0;
             if($operation===''){
                 if($item->getAttribute('generation_stage')==='starting')throw new RuntimeException('Interrupted video start: outcome uncertain, automatic duplicate request blocked');
                 GenerationLifecycle::stage($item,'starting');
