@@ -19,6 +19,7 @@
         webhook: { icon: '🔗', name: t('موقع مبرمج خاص', 'Custom-built site'), sub: 'Webhook / API' },
         hosted: { icon: '📰', name: t('مدونة جاهزة من Tourfecto', 'Hosted blog by Tourfecto'), sub: t('من غير أي ربط', 'No setup needed') },
         copy: { icon: '📋', name: t('نسخ جاهز', 'Ready to copy'), sub: t('أي نظام', 'Any platform') },
+        connector: { icon: '🧩', name: t('ملف Tourfecto على موقعك', 'Tourfecto file on your site'), sub: '/guides' },
     };
     const HB = '/api/hosted-blog/' + encodeURIComponent(id);
     let H = null;
@@ -144,7 +145,7 @@
             return;
         }
         const m = method || (D.method === 'copy' ? (hasBlog ? 'webhook' : 'hosted') : D.method);
-        const others = Object.keys(METHODS).filter(k => k !== m);
+        const others = Object.keys(METHODS).filter(k => k !== m && k !== 'connector');
         root.innerHTML = `<div class="p-card scc">${header()}
             <h4 class="scc-h">${METHODS[m].icon} ${t('أنسب طريقة لموقعك', 'Best way to connect your site')}: ${esc(METHODS[m].name)}</h4>
             ${hasBlog && (m === 'webhook' || m === 'hosted') ? `<div class="scc-p" style="padding:10px 12px;border-radius:10px;background:rgba(234,179,8,.12)">📝 ${t('موقعك فيه مدونة بالفعل:', 'Your site already has a blog:')} <a href="${esc(D.platform.blog_url)}" target="_blank" rel="noopener" dir="ltr">${esc(D.platform.blog_url.replace(/^https?:\/\//, ''))}</a> — ${m === 'hosted' ? t('مدونة Tourfecto هتبقى منفصلة عنها ومقالاتها مش هتظهر في مدونة موقعك.', 'a Tourfecto blog would be separate from it and its articles won’t appear on your site’s blog.') : t('الأفضل المقالات تتنشر فيها هي: المبرمج بتاعك يعمل رابط استقبال واحد (الخطوات تحت).', 'articles should publish there: your developer adds one receiving endpoint (steps below).')}</div>` : ''}

@@ -1070,7 +1070,7 @@ JS;
             exit;
         }
 
-        echo $this->embed->buildEmbedJavaScript($token);
+        echo $this->embed->buildEmbedJavaScript($token, ($_GET['via'] ?? '') === 'connector');
         exit;
     }
 

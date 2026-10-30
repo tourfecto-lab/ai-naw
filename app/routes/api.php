@@ -162,6 +162,7 @@ $router->post('/api/site-connect/{id}/webflow', 'SiteConnectController', 'webflo
 $router->post('/api/site-connect/{id}/ghost', 'SiteConnectController', 'ghost', ['AuthMiddleware']);
 $router->post('/api/site-connect/{id}/webhook', 'SiteConnectController', 'webhook', ['AuthMiddleware']);
 $router->post('/api/site-connect/{id}/disconnect', 'SiteConnectController', 'disconnect', ['AuthMiddleware']);
+$router->post('/api/site-connect/{id}/connector', 'SiteConnectController', 'connector', ['AuthMiddleware']);
 $router->get('/api/hosted-blog/{id}', 'HostedBlogController', 'status', ['AuthMiddleware']);
 $router->post('/api/content-calendar/activate-built', 'ContentCalendarController', 'activateBuilt', ['AuthMiddleware']);
 $router->get('/api/social-plan', 'SocialPlanController', 'show', ['AuthMiddleware']);

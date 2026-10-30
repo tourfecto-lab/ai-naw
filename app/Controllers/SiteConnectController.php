@@ -30,7 +30,7 @@ class SiteConnectController extends Controller
         $rows = $this->db->query("SELECT id, platform, external_location_id, external_location_name, status, last_error, last_synced_at FROM platform_connections WHERE website_id=? AND platform IN ('wordpress','custom_api') AND status='connected' ORDER BY platform='wordpress' DESC, id DESC LIMIT 1", [$websiteId]);
         if (!$rows) return null;
         $r = $rows[0];
-        $kind = $r['platform'] === 'wordpress' ? 'wordpress' : (preg_match('~^(shopify|webflow|ghost|hosted)://~', (string) $r['external_location_id'], $m) ? $m[1] : 'webhook');
+        $kind = $r['platform'] === 'wordpress' ? 'wordpress' : (preg_match('~^(shopify|webflow|ghost|hosted|connector)://~', (string) $r['external_location_id'], $m) ? $m[1] : 'webhook');
         return ['kind' => $kind, 'name' => (string) $r['external_location_name'], 'last_synced_at' => $r['last_synced_at'], 'last_error' => $r['last_error']];
     }
 
@@ -153,5 +153,39 @@ class SiteConnectController extends Controller
         if ($e) return $e;
         $this->db->exec("UPDATE platform_connections SET status='disconnected' WHERE website_id=? AND platform='custom_api'", [(int) $site->getAttribute('id')]);
         return $this->success([], self::L('الربط اتلغى', 'Disconnected'));
+    }
+
+    /**
+     * POST /api/site-connect/{id}/connector - «مقالات SEO» تتنشر على موقع PHP من خلال tourfecto-connect.php (/guides/{slug}).
+     * لازم الملف يكون كلّمنا من الموقع ده (آخر 48 ساعة)، وإلا الروابط هتطلع 404 على موقع العميل.
+     */
+    public function connector(array $params = []): array
+    {
+        [$site, $e] = $this->guard($params);
+        if ($e) return $e;
+        $id = (int) $site->getAttribute('id');
+        try {
+            $seen = (string) ($this->db->query('SELECT last_seen_at FROM edge_connections WHERE website_id = ? LIMIT 1', [$id])[0]['last_seen_at'] ?? '');
+        } catch (Throwable $ex) {
+            $seen = '';
+        }
+        if ($seen === '' || strtotime($seen) < time() - 172800) {
+            return $this->error(self::L('ركّب ملف Tourfecto على موقعك الأول، وبعد ما يشتغل فعّل النشر من خلاله.', 'Install the Tourfecto file on your site first, then turn on publishing through it.'), 422);
+        }
+        // مواقع PHP كتير السيرفر بيرجّع 404 لـ /guides/... من غير ما يشغّل index.php: ساعتها المقالات تبقى على /?tf_article=slug (بتشتغل دايمًا مع الملف)
+        $endpoint = 'connector://' . $id . (self::guidesRouted((string) $site->getAttribute('main_url')) ? '' : '/q');
+        $ok = PublishConnection::saveCustomApi($this->db, $id, (int) $this->user['id'], (new Encryption())->encrypt(bin2hex(random_bytes(8))), $endpoint, self::L('ملف Tourfecto (‎/guides)', 'Tourfecto file (/guides)'));
+        if (!$ok) return $this->error(self::L('تعذر الحفظ', 'Could not save'), 500);
+        $this->log('Site Connected', ['website_id' => $id, 'method' => 'connector']);
+        return $this->success(['connection' => $this->connection($id)], self::L('المقالات هتتنشر على موقعك في ‎/guides', 'Articles will publish on your site under /guides'));
+    }
+
+    /** /guides/... بيوصل لـ index.php؟ الملف بيطبع meta tourfecto-connector في أي صفحة بيشغّلها، فلو ظهرت يبقى أيوه */
+    private static function guidesRouted(string $mainUrl): bool
+    {
+        $host = (string) parse_url(preg_match('~^https?://~i', $mainUrl) ? $mainUrl : 'https://' . $mainUrl, PHP_URL_HOST);
+        if ($host === '') return false;
+        $r = SafeHttp::exec('https://' . $host . '/guides/tourfecto-route-check', [CURLOPT_TIMEOUT => 10, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_USERAGENT => 'TourfectoBot/1.0 (+https://tourfecto.pro)', CURLOPT_ENCODING => ''], 3);
+        return is_string($r['response']) && stripos($r['response'], 'tourfecto-connector') !== false;
     }
 }

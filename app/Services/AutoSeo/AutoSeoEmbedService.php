@@ -318,7 +318,7 @@ class AutoSeoEmbedService
      * توليد محتوى embed.js الفعلي اللي المتصفح هيشغّله.
      * ده الجزء اللي بيخلّي التنفيذ "تلقائي" بجد.
      */
-    public function buildEmbedJavaScript(string $embedToken): string
+    public function buildEmbedJavaScript(string $embedToken, bool $servicesOnly = false): string
     {
         // كود واحد لكل خدمات الموقع: إصلاحات السيو بس لو السيو التلقائي شغال، والشات لو العميل مشغّله في «ربط موقعك»
         $sites = $this->db->query(
@@ -330,7 +330,8 @@ class AutoSeoEmbedService
         }
 
         $site  = $sites[0];
-        $seoOn = (int) $site['is_connected'] === 1;
+        // من ملف الربط/إضافة ووردبريس (via=connector): السيو بيتطبّق من السيرفر، فالكود هنا للخدمات بس (الشات) - مايتكررش
+        $seoOn = (int) $site['is_connected'] === 1 && !$servicesOnly;
         $fixes = $seoOn ? $this->db->query(
             "SELECT field_name, injected_code FROM auto_seo_applied_fixes
               WHERE website_id = ? AND is_active = 1",
@@ -376,6 +377,9 @@ JS;
 // Tourfecto AI - Auto SEO Engine
 // site: {$domain} | mode: {$mode} | fixes: {$count} | generated: {$now}
 (function () {
+  // الكود ممكن يتحط مرتين (ملصوق يدوي + من الملف أو الإضافة): أول نسخة بس هي اللي تشتغل
+  if (window.__tourfectoCode) return;
+  window.__tourfectoCode = 1;
   function apply() {
 {$body}
   }

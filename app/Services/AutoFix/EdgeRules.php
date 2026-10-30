@@ -223,6 +223,21 @@ class EdgeRules
                 $img=$before['article_image']??null;
                 if(is_array($img)&&preg_match('#^https://[^\s"<>]{8,490}$#',(string)($img['src']??''))){$articles[$slug]['image']=(string)$img['src'];$articles[$slug]['image_alt']=mb_substr(self::line((string)($img['alt']??'')),0,150);}
             }
+            // «مقالات SEO» اللي اتنشرت من خلال ملف الربط (connector:// ← /guides/{slug}) - نفس عرض مقالات مركز السيو
+            try{
+                foreach($db->query("SELECT id,title,content,meta_description,published_url,published_at FROM ai_articles WHERE website_id=? AND status='published' AND (published_url LIKE '%/guides/%' OR published_url LIKE '%tf_article=%') ORDER BY id DESC LIMIT 50",[$websiteId]) as $a){
+                    parse_str((string)parse_url((string)$a['published_url'],PHP_URL_QUERY),$q);
+                    $slug=isset($q['tf_article'])&&is_string($q['tf_article'])?$q['tf_article']:basename((string)parse_url((string)$a['published_url'],PHP_URL_PATH));
+                    if(!preg_match('/^[a-z0-9][a-z0-9-]{0,120}$/D',$slug)||isset($articles[$slug]))continue;
+                    $title=self::line((string)$a['title']);$body=trim(str_replace("\r",'',strip_tags((string)$a['content'])));
+                    if($title===''||$body==='')continue;
+                    $articleSources[$slug]='article:'.(int)$a['id'];
+                    $desc=self::line((string)$a['meta_description'])?:self::line((string)preg_replace('/[#*\[\]]+/','',$body));
+                    $articles[$slug]=['url'=>(string)$a['published_url'],'title'=>mb_substr($title,0,150),'description'=>mb_substr($desc,0,155),'body'=>mb_substr($body,0,12000),'published_at'=>substr((string)($a['published_at']?:date('Y-m-d')),0,10)];
+                }
+            }catch(Throwable $e){
+                error_log('[EdgeRules] connector articles skipped: '.$e->getMessage());
+            }
             if($articles)$rules['articles']=$articles;
         }
         require_once dirname(__DIR__).'/Seo/ContentQualityService.php';
@@ -528,7 +543,8 @@ PHP
      * الصفحات (زي inc.php / header.php) أو auto_prepend_file.
      * الكود كله إنجليزي عمدًا: بيتحمّل كملف ومش لازم يعدّي على الترجمة.
      */
-    public static function phpConnector(int $websiteId, string $endpoint): string
+    /** $siteCode: رابط embed.js?via=connector للموقع - الملف بيحطه في الـ<head> لوحده (الشات وخدمات المنصة) بدل سطر تاني يدوي */
+    public static function phpConnector(int $websiteId, string $endpoint, string $siteCode = ''): string
     {
         $token = self::token($websiteId);
         $endpoint = rtrim($endpoint, '/') . '/index.php?__tf_api=%2Fapi%2Fedge%2Frules';
@@ -555,6 +571,7 @@ define('TF_EDGE_RUNTIME_V4', true);
 TF_GUIDE_CONTENT_CLASS
 define('TF_EDGE_ENDPOINT', '__ENDPOINT__');
 define('TF_EDGE_TOKEN', '__TOKEN__');
+define('TF_SITE_CODE', '__SITECODE__');
 
 function tf_edge_cache_file()
 {
@@ -782,6 +799,8 @@ function tf_edge_buffer($html, $override = null)
         $head = strtr(substr($masked, $open, $close - $open), $hidden);
         $head=preg_replace('/<meta\b[^>]*\bname=["\']tourfecto-connector(?:-features)?["\'][^>]*>/i','',$head);
         $marker = "\n<meta name=\"tourfecto-connector\" content=\"4\"><meta name=\"tourfecto-connector-features\" content=\"body links\">\n";
+        // كود Tourfecto (الشات وخدمات المنصة): مرة واحدة، ولو الموقع حاطه بنفسه مانكررهوش
+        if(TF_SITE_CODE!=='' && stripos($head,'/embed.js?token=')===false)$marker.='<script async src="'.tf_edge_e(TF_SITE_CODE).'"></script>';
         if(!empty(tf_edge_rules()['articles']) && stripos($head,'rel="sitemap"')===false)$marker.='<link rel="sitemap" type="application/xml" href="'.tf_edge_e(tf_edge_site().'/?tf_guides_sitemap=1').'">';
         $newHead = $marker . ($r ? tf_edge_apply_head($head, $r) : $head);
         $rest = substr($masked, $close);
@@ -981,7 +1000,7 @@ if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
     ob_start('tf_edge_buffer');
 }
 PHPCODE;
-        return strtr($code, ['__ENDPOINT__' => addslashes($endpoint), '__TOKEN__' => addslashes($token), '__SITE__' => (string) $websiteId, 'TF_EDGE_BODY_HELPERS' => self::bodyHelpers(), 'TF_GUIDE_CONTENT_CLASS'=>preg_replace('/^<\?php\s*/','',file_get_contents(dirname(__DIR__).'/Seo/GuideContent.php'))]);
+        return strtr($code, ['__ENDPOINT__' => addslashes($endpoint), '__TOKEN__' => addslashes($token), '__SITECODE__' => addslashes($siteCode), '__SITE__' => (string) $websiteId, 'TF_EDGE_BODY_HELPERS' => self::bodyHelpers(), 'TF_GUIDE_CONTENT_CLASS'=>preg_replace('/^<\?php\s*/','',file_get_contents(dirname(__DIR__).'/Seo/GuideContent.php'))]);
     }
 
     /**

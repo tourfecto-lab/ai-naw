@@ -36,6 +36,17 @@ class EdgeFixController extends Controller
         return rtrim((string) (defined('APP_URL') ? APP_URL : (function_exists('env') ? env('APP_URL') : '')), '/');
     }
 
+    /** كود Tourfecto للموقع (embed.js?via=connector): الملف/الإضافة بيحطوه في الصفحة لوحدهم - الشات وخدمات المنصة من غير سطر يدوي */
+    private function siteCodeUrl(int $websiteId): string
+    {
+        try {
+            $token = (new AutoSeoEmbedService($this->db))->ensureEmbedToken($this->uid(), $websiteId);
+        } catch (Throwable $e) {
+            $token = null;
+        }
+        return $token ? $this->appUrl() . '/embed.js?token=' . $token . '&via=connector' : '';
+    }
+
     private function uid(): int
     {
         return (int) ($this->user['id'] ?? 0);
@@ -162,7 +173,7 @@ class EdgeFixController extends Controller
         $tmp = false;
         $zip = null;
         try {
-            $files = TourfectoPluginBundle::files($websiteId, $this->appUrl(), $this->siteHost((string) $site[0]['main_url']));
+            $files = TourfectoPluginBundle::files($websiteId, $this->appUrl(), $this->siteHost((string) $site[0]['main_url']), $this->siteCodeUrl($websiteId));
             $tmp = tempnam(sys_get_temp_dir(), 'tfwp');
             if ($tmp === false) throw new RuntimeException('Temporary archive unavailable.');
             $zip = new ZipArchive();
@@ -200,7 +211,7 @@ class EdgeFixController extends Controller
         if (empty($site)) {
             return $this->error('Not found', 404);
         }
-        $code = EdgeRules::phpConnector($websiteId, $this->appUrl());
+        $code = EdgeRules::phpConnector($websiteId, $this->appUrl(), $this->siteCodeUrl($websiteId));
         header('Content-Type: application/x-httpd-php; charset=utf-8');
         header('Content-Disposition: attachment; filename="tourfecto-connect.php"');
         header('Content-Length: ' . strlen($code));
@@ -265,7 +276,7 @@ class EdgeFixController extends Controller
         $result = (new PhpConnectorInstaller())->install(
             ['host' => $host, 'port' => $port, 'username' => $user, 'password' => $pass, 'path' => $path],
             WordPressConnector::normalizeSiteUrl((string) $site[0]['main_url']),
-            EdgeRules::phpConnector($websiteId, $this->appUrl())
+            EdgeRules::phpConnector($websiteId, $this->appUrl(), $this->siteCodeUrl($websiteId))
         );
         Logger::info('PHP connector auto-install', ['website_id' => $websiteId, 'ok' => $result['ok'], 'root' => $result['root'] ?? null]);
         if ($result['ok'] && class_exists('SeoExpertService')) {

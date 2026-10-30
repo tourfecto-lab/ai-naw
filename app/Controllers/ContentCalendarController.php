@@ -42,6 +42,9 @@ class ContentCalendarController extends Controller
         if (!$c) return ['kind' => 'none'];
         if ($c['platform'] === 'wordpress') return ['kind' => 'wordpress', 'name' => 'WordPress'];
         $ep = (string) $c['external_location_id'];
+        if (str_starts_with($ep, 'connector://')) {
+            return ['kind' => 'connector', 'name' => self::L('ملف Tourfecto على موقعك (‎/guides)', 'Tourfecto file on your site (/guides)')];
+        }
         if (str_starts_with($ep, 'hosted://')) {
             $b = (new HostedBlogService())->get($websiteId);
             return ['kind' => 'hosted', 'name' => self::L('مدونة Tourfecto', 'Tourfecto blog'), 'url' => $b ? HostedBlogService::baseUrl($b) : null];

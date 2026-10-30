@@ -11,3 +11,5 @@ add_action('plugins_loaded', static function (): void {
 }, 20);
 
 require_once __DIR__.'/tourfecto-international.php';
+
+if (is_file(__DIR__.'/tourfecto-site-code.php')) require_once __DIR__.'/tourfecto-site-code.php';

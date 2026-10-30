@@ -25,9 +25,37 @@ class CmsPublisher
         $this->transport = $transport;
     }
 
+    /**
+     * موقع PHP عليه tourfecto-connect.php: مفيش طلب خارجي. المقال بيتعرض على موقع العميل نفسه في /guides/{slug}
+     * من خلال الملف (EdgeRules بيضم المقالات المنشورة بالرابط ده)، فاللي بنرجّعه هو الرابط اللي بيتحفظ مع المقال.
+     * $query: السيرفر مش بيودّي /guides لـ index.php، فالرابط يبقى /?tf_article={slug} (connector://ID/q).
+     */
+    public static function publishViaConnector(int $websiteId, array $a, bool $isTest = false, bool $query = false): array
+    {
+        $db = Database::getInstance();
+        $main = (string) ($db->query('SELECT main_url FROM websites WHERE id = ? LIMIT 1', [$websiteId])[0]['main_url'] ?? '');
+        $host = strtolower((string) parse_url(preg_match('~^https?://~i', $main) ? $main : 'https://' . $main, PHP_URL_HOST));
+        if ($host === '') return ['success' => false, 'error' => self::L('الموقع غير موجود', 'Website not found')];
+        $base = 'https://' . $host . ($query ? '/?tf_article=' : '/guides/');
+        if ($isTest) return ['success' => true, 'url' => $base];
+        $title = trim((string) ($a['title'] ?? ''));
+        if ($title === '' || trim(strip_tags((string) ($a['content_html'] ?? $a['content_markdown'] ?? ''))) === '') {
+            return ['success' => false, 'error' => self::L('المقال فاضي', 'The article is empty')];
+        }
+        $id = (int) ($a['article_id'] ?? 0);
+        // الملف بيقبل [a-z0-9-] بس: slug المقال، أو العنوان، أو guide-{id} لو العنوان عربي
+        $ascii = static fn (string $s): string => trim(substr(trim(strtolower((string) preg_replace('/[^A-Za-z0-9]+/', '-', $s)), '-'), 0, 100), '-');
+        $slug = $ascii((string) ($a['slug'] ?? '')) ?: $ascii($title) ?: 'guide-' . ($id ?: substr(bin2hex(random_bytes(3)), 0, 6));
+        $candidate = $slug;
+        for ($n = 2; $n < 50 && $db->query('SELECT id FROM ai_articles WHERE website_id = ? AND published_url = ? AND id <> ? LIMIT 1', [$websiteId, $base . $candidate, $id]); $n++) {
+            $candidate = $slug . '-' . $n;
+        }
+        return ['success' => true, 'url' => $base . $candidate];
+    }
+
     public static function isCmsEndpoint(string $endpoint): bool
     {
-        return (bool) preg_match('~^(shopify|webflow|ghost|hosted)://~', $endpoint);
+        return (bool) preg_match('~^(shopify|webflow|ghost|hosted|connector)://~', $endpoint);
     }
 
     /** عنوان داخلي للتخزين: shopify://store.myshopify.com/123 | webflow://COLLECTION_ID | ghost://blog.example.com */
@@ -124,6 +152,9 @@ class CmsPublisher
         // مدونة مستضافة عندنا (Wix وغيره): مفيش طلب خارجي - بنخزن المقال ونرجع رابطه
         if (preg_match('~^hosted://(\d+)$~', $endpoint, $hm)) {
             return (new HostedBlogService())->publish((int) $hm[1], $a, $isTest);
+        }
+        if (preg_match('~^connector://(\d+)(/q)?$~', $endpoint, $cm)) {
+            return self::publishViaConnector((int) $cm[1], $a, $isTest, !empty($cm[2]));
         }
         if (!preg_match('~^(shopify|webflow|ghost)://([^/]+)(?:/(.+))?$~', $endpoint, $m)) {
             return ['success' => false, 'error' => self::L('نوع ربط غير معروف', 'Unknown connection type')];

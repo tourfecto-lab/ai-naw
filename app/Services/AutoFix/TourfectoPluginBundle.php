@@ -2,7 +2,8 @@
 /** Builds a site-bound connector with locally shipped, reviewed modules. */
 final class TourfectoPluginBundle
 {
-    public static function files(int $websiteId, string $endpoint, string $host): array
+    /** $siteCode: رابط embed.js?via=connector - الإضافة بتحطه في wp_head (الشات وخدمات المنصة) فالعميل مايلصقش كود تاني */
+    public static function files(int $websiteId, string $endpoint, string $host, string $siteCode = ''): array
     {
         $base = EdgeRules::pluginFiles($websiteId, $endpoint, $host);
         $main = str_replace(['Plugin Name: Tourfecto SEO', 'Version: 2.0.0', 'Requires PHP: 7.2'], ['Plugin Name: Tourfecto Connect', 'Version: 3.7.1', 'Requires PHP: 8.1'], $base['php']);
@@ -26,6 +27,14 @@ final class TourfectoPluginBundle
             $bytes=@file_get_contents($path);
             if ($bytes===false || $bytes==='') throw new RuntimeException('Unified plugin module unavailable.');
             $files['tourfecto-seo/modules/'.$name]=$bytes;
+        }
+        if ($siteCode !== '') {
+            // modules/bootstrap.php بيحمّله لو موجود: كود Tourfecto في wp_head بدل ما العميل يلصقه
+            $files['tourfecto-seo/modules/tourfecto-site-code.php'] = "<?php\nif (!defined('ABSPATH')) exit;\n"
+                . "// Tourfecto site code (website chat and platform services), generated for this site at download time\n"
+                . "add_action('wp_head', static function (): void {\n"
+                . "    echo '<script async src=\"' . esc_url(" . var_export($siteCode, true) . ") . '\"></script>' . \"\\n\";\n"
+                . "}, 1);\n";
         }
         return $files;
     }
