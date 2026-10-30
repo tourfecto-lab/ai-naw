@@ -69,7 +69,7 @@ class WebsiteBuilderService
             $countMsg = count($items) > 0 ? ' (عندك دلوقتي ' . count($items) . ' ' . $industryMeta['item_plural'] . ' مسجّلة)' : '';
             $question = count($items) === 0
                 ? $known . "دلوقتي احكيلي عن الـ{$itemLabel} اللي بتقدّمها - واحدة في كل رسالة. لما تخلّص كل الـ{$industryMeta['item_plural']} اكتب \"خلصت\"."
-                : "تمام، سجّلتها! في {$itemLabel} تانية؟{$countMsg} (اكتبها، أو دوس \"خلصت\" لو خلصت)";
+                : "تمام، سجّلتها! في {$itemLabel} تانية؟{$countMsg} (اكتبها، أو دوس \"خلصت\" للانتهاء)";
             $options = count($items) > 0 ? ['خلصت'] : [];
             return ['done' => false, 'step' => 'items', 'question' => $question, 'items_count' => count($items), 'options' => $options];
         }

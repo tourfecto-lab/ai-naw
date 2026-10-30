@@ -164,7 +164,7 @@ HTML;
     const siteId = {$id};
 
     window.sdSwitchTab = function (tab) {
-        ['overview', 'design', 'seo', 'reviews', 'leads'].forEach(t => {
+        ['overview', 'design', 'seo', 'bookings', 'team', 'analytics', 'coupons', 'reviews', 'leads'].forEach(t => {
             document.getElementById('sdTab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = (t === tab) ? '' : 'none';
             document.getElementById('sdTab' + t.charAt(0).toUpperCase() + t.slice(1) + 'Btn').classList.toggle('active', t === tab);
         });
@@ -181,8 +181,8 @@ HTML;
         const res = await fetchJSON(`/api/site-dashboard/\${siteId}/overview`);
         if (!res.success) return;
         const d = res.data;
-        document.getElementById('sdStatusBadge').textContent = d.status === 'published' ? '🟢 منشور' : '⚪ مسوّدة';
-        document.getElementById('sdOverStatus').textContent = d.status === 'published' ? 'منشور' : 'مسوّدة';
+        document.getElementById('sdStatusBadge').textContent = d.status === 'published' ? '🟢 موقع منشور' : '⚪ مسوّدة';
+        document.getElementById('sdOverStatus').textContent = d.status === 'published' ? 'موقع منشور' : 'مسوّدة';
         document.getElementById('sdOverViews').textContent = d.views_count ?? 0;
         document.getElementById('sdOverRating').textContent = d.average_rating > 0 ? ('⭐ ' + d.average_rating) : 'لا يوجد بعد';
         document.getElementById('sdThemeColor').value = d.theme_color || 'gold';
@@ -196,7 +196,11 @@ HTML;
 
     window.sdPublish = async function () {
         const res = await fetchJSON(`/api/website-builder/\${siteId}/publish`, { method: 'POST' });
-        if (res.success) { toast('تم النشر بنجاح'); sdLoadOverview(); } else { toast(res.error || 'حصل خطأ', 'error'); }
+        if (res.success) { toast('تم النشر بنجاح', 'success'); sdLoadOverview(); }
+        else if (res.need_site_subscription || (res.data && res.data.need_site_subscription) || (res.details && res.details.need_site_subscription)) {
+            toast(res.error || 'عشان تنشر الموقع فعّل اشتراكه الأول.', 'error');
+            setTimeout(function () { location.href = '/website-builder?subscribe=' + siteId; }, 1200);
+        } else { toast(res.error || 'حصل خطأ', 'error'); }
     };
 
     async function sdLoadTemplates() {
@@ -348,7 +352,7 @@ HTML;
         if (!res.success) toast(res.error || 'حصل خطأ', 'error'); else { toast('تم', 'success'); sdFetchBookings(); }
     };
 
-    const roleLabel = { manager: 'مدير', editor: 'محرر', viewer: 'مشاهدة فقط' };
+    const roleLabel = { manager: 'مدير', editor: 'محرر الموقع', viewer: 'مشاهدة فقط' };
     document.getElementById('sdAdminUrl').textContent = location.origin + '/site-admin/login';
     window.sdTmGenerate = function () {
         const a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = new Uint32Array(14);

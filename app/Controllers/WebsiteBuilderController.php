@@ -464,6 +464,11 @@ HTML;
 
     loadState();
     loadMyWebsites();
+    // the site dashboard sends owners here to activate the site plan before publishing
+    try {
+        const subscribeId = parseInt(new URLSearchParams(location.search).get('subscribe') || '', 10);
+        if (subscribeId > 0) setTimeout(function () { if (window.SiteSub) SiteSub.open(subscribeId, true); }, 600);
+    } catch (e) {}
 })();
 JS;
 
@@ -2831,8 +2836,8 @@ HTML;
             }
             if (res.success) {
                 var text = (res.message || '{$this->siteJs('تم استلام طلبك')}');
-                if (res.data && res.data.booking_reference) {
-                    text += ' - {$this->siteJs('كود الحجز')}: ' + res.data.booking_reference;
+                if (res.data && res.data.booking_reference && text.indexOf(res.data.booking_reference) === -1) {
+                    text += ' -{$this->siteJs('كود الحجز')}: ' + res.data.booking_reference;
                 }
                 msg.className = 'ws-booking-msg ws-ok';
                 msg.textContent = text;

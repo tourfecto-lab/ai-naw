@@ -157,7 +157,7 @@ class SiteManagerService
         return $r[0] ?? null;
     }
 
-    /** The invited person chooses their password; the link works once. @return array{ok:bool,error?:string,username?:string} */
+    /** The invited person chooses their password; the link works once. @return array{ok:bool,error?:string,username?:string,account_id?:int,website_id?:int} */
     public function acceptInvite(string $token, string $password): array
     {
         $acc = $this->inviteInfo($token);
@@ -174,7 +174,7 @@ class SiteManagerService
         // two parallel uses of one link: only the request whose password was actually stored succeeds
         $row = $this->db->query('SELECT password_hash, invite_token_hash FROM site_manager_accounts WHERE id = ?', [(int) $acc['id']])[0] ?? null;
         $stored = $row && $row['invite_token_hash'] === null && password_verify($password, (string) $row['password_hash']);
-        return $stored ? ['ok' => true, 'username' => (string) $acc['username']] : ['ok' => false, 'error' => 'رابط الدعوة اتستخدم قبل كده'];
+        return $stored ? ['ok' => true, 'username' => (string) $acc['username'], 'account_id' => (int) $acc['id'], 'website_id' => (int) $acc['website_id']] : ['ok' => false, 'error' => 'رابط الدعوة اتستخدم قبل كده'];
     }
 
     /** @return array[] accounts of a site (never the hash) */

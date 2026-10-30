@@ -172,7 +172,16 @@ HTML;
             return $e;
         }
         $r = (new SiteManagerService())->acceptInvite((string) $this->get('token', ''), (string) $this->get('password', ''));
-        return $r['ok'] ? $this->success(['redirect' => '/site-admin/login'], 'تم حفظ كلمة السر') : $this->error($r['error'], 422);
+        if (!$r['ok']) {
+            return $this->error($r['error'], 422);
+        }
+        // the person just proved they hold the one-time link and chose their password: sign them in, as the button says
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+        $_SESSION['site_manager'] = ['id' => $r['account_id'], 'website_id' => $r['website_id'], 'at' => time()];
+        (new SiteManagerService())->log($r['account_id'], $r['website_id'], 'login');
+        return $this->success(['redirect' => '/site-admin'], 'تم حفظ كلمة السر');
     }
 
     // ------------------------------------------------------------ the dashboard page

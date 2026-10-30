@@ -306,6 +306,8 @@ Tea", 'price' => '1 EGP'], ['slug' => 'unknown', 'short_description' => 'x']],
         $this->assertFalse($weak['ok']);
         $this->assertNotNull($this->svc->inviteInfo($r['token']), 'a weak password does not burn the link');
         $ok = $this->svc->acceptInvite($r['token'], 'My-own-pass-42');
+        $this->assertGreaterThan(0, $ok['account_id'] ?? 0, 'the controller signs the person in with these ids');
+        $this->assertGreaterThan(0, $ok['website_id'] ?? 0);
         $this->assertTrue($ok['ok']);
         $this->assertTrue($this->svc->authenticate('invited.two', 'My-own-pass-42', '')['ok']);
         $this->assertNull($this->svc->inviteInfo($r['token']), 'the link is single use');
