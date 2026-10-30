@@ -7,14 +7,14 @@
     en: {
       overview: 'Overview', numbers: 'Phone Numbers', assistants: 'AI Assistants', incoming: 'Incoming Calls', outgoing: 'Outgoing Campaigns',
       history: 'Call History', crm: 'Booking & CRM Integration', whatsapp: 'WhatsApp Integration', analytics: 'Analytics', billing: 'Billing & Usage',
-      settings: 'Settings', admin: 'Voice Administration', loading: 'Loading…', save: 'Save', none: 'Nothing here yet.', failed: 'Could not load this section.',
+      settings: 'Settings', done: 'Done', admin: 'Voice Administration', loading: 'Loading…', save: 'Save', none: 'Nothing here yet.', failed: 'Could not load this section.',
       sandbox: 'Test mode is on: no real numbers are bought and no real calls are placed.', notEnabled: 'AI Voice Agent is not included in your plan.',
       saved: 'Saved', calls: 'Calls', booked: 'Bookings', spent: 'Spent this month', budget: 'Budget'
     },
     ar: {
       overview: 'نظرة عامة', numbers: 'أرقام الهاتف', assistants: 'المساعدون الأذكياء', incoming: 'المكالمات الواردة', outgoing: 'حملات المكالمات الصادرة',
       history: 'سجل المكالمات', crm: 'الحجوزات وإدارة العملاء', whatsapp: 'ربط واتساب', analytics: 'التحليلات', billing: 'الفواتير والاستخدام',
-      settings: 'الإعدادات', admin: 'إدارة الصوت', loading: 'جارٍ التحميل…', save: 'حفظ', none: 'لا يوجد شيء بعد.', failed: 'تعذر تحميل هذا القسم.',
+      settings: 'الإعدادات', done: 'تم', admin: 'إدارة الصوت', loading: 'جارٍ التحميل…', save: 'حفظ', none: 'لا يوجد شيء بعد.', failed: 'تعذر تحميل هذا القسم.',
       sandbox: 'وضع التجربة مفعّل: لا يتم شراء أرقام حقيقية ولا إجراء مكالمات حقيقية.', notEnabled: 'ميزة المساعد الصوتي غير متضمنة في باقتك.',
       saved: 'تم الحفظ', calls: 'المكالمات', booked: 'الحجوزات', spent: 'المصروف هذا الشهر', budget: 'الميزانية'
     }
@@ -32,7 +32,7 @@
       opt.body = JSON.stringify(body);
     }
     return fetch(path, opt).then(function (r) { return r.json().catch(function () { return { success: false, message: 'Bad response' }; }); })
-      .then(function (j) { if (!j || j.success === false) { throw new Error((j && j.message) || t('failed')); } return j.data || {}; });
+      .then(function (j) { if (!j || j.success === false) { throw new Error((j && (j.error || j.message)) || t('failed')); } return j.data || {}; });
   }
   function badge(s) { var c = /^(active|ok|completed|charged|live|booked)$/.test(s) ? 'ok' : /(fail|block|exhaust|error|bad)/.test(s) ? 'bad' : 'warn'; return '<span class="va-badge ' + c + '">' + esc(s) + '</span>'; }
   function cards(items) { return '<div class="va-cards">' + items.map(function (i) { return '<div class="va-card"><span class="va-muted">' + esc(i[0]) + '</span><b>' + esc(i[1]) + '</b></div>'; }).join('') + '</div>'; }
@@ -66,6 +66,111 @@
       return '<div class="va-bar"><span class="va-bar-l">' + esc(i.key) + '</span><span class="va-bar-t"><span class="va-bar-f" style="width:' + Math.round((+i.count || 0) / max * 100) + '%"></span></span><span class="va-bar-n">' + esc(i.count) + '</span></div>';
     }).join('') + '</div>';
   }
+
+  function opts(list, cur) { return list.map(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + esc(l) + '</option>'; }).join(''); }
+  function field(name, label, kind, val, extra) {
+    var v = val == null ? '' : val;
+    if (kind === 'select') return '<label>' + esc(label) + '<select name="' + name + '">' + opts(extra, v) + '</select></label>';
+    if (kind === 'textarea') return '<label>' + esc(label) + '<textarea name="' + name + '" rows="3">' + esc(v) + '</textarea></label>';
+    return '<label>' + esc(label) + '<input name="' + name + '" value="' + esc(v) + '"' + (extra || '') + '></label>';
+  }
+  function collect(f) { var b = {}; new FormData(f).forEach(function (v, k) { b[k] = v; }); return b; }
+  function note(el, text, bad) { var m = el.querySelector('[data-msg]'); if (m) { m.textContent = text; m.className = bad ? 'va-err' : 'va-muted'; } }
+  var ROLES = ['reception', 'sales', 'booking', 'support'], TONES = ['friendly', 'professional', 'formal', 'warm'], LANGS = ['en', 'ar', 'fr', 'de', 'es', 'it', 'ru', 'tr'], TYPES = ['local', 'national', 'toll_free', 'mobile'];
+
+  function assistantsTab() {
+    return api('/api/voice-agent/agents').then(function (r) {
+      window.__vaAgents = r.agents || [];
+      return '<h3>Assistants</h3>' + table([['Name', 'name'], ['Role', 'role'], ['Language', 'language'], ['Status', function (a) { return badge(a.status); }],
+        ['', function (a) { return '<button class="va-btn sec" data-edit="' + (+a.id) + '">Edit</button>'; }]], r.agents) +
+        '<h3 data-title>Add an assistant</h3><form class="va-form" data-agent><input type="hidden" name="id" value="">' +
+        field('name', 'Name', 'text', '', ' required maxlength="120"') + field('role', 'Role', 'select', 'reception', ROLES) + field('tone', 'Tone', 'select', 'friendly', TONES) +
+        field('language', 'Main language', 'select', 'en', LANGS) + field('languages', 'Other languages it may switch to (comma separated)', 'text', '') +
+        field('status', 'Status', 'select', 'draft', ['draft', 'active', 'paused']) + field('opening_text', 'Opening sentence (the AI notice is added automatically)', 'textarea', '') +
+        field('instructions', 'Extra instructions (prices are never invented; this only adds rules)', 'textarea', '') +
+        '<div><button class="va-btn" type="submit">Save assistant</button> <span data-msg></span></div></form>';
+    });
+  }
+  function bindAssistants(el) {
+    var f = el.querySelector('[data-agent]');
+    el.querySelectorAll('[data-edit]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = (window.__vaAgents || []).filter(function (x) { return +x.id === +b.getAttribute('data-edit'); })[0]; if (!a) return;
+        ['id', 'name', 'role', 'tone', 'language', 'languages', 'status', 'opening_text', 'instructions'].forEach(function (k) { if (f.elements[k]) f.elements[k].value = a[k] == null ? '' : a[k]; });
+        el.querySelector('[data-title]').textContent = 'Edit assistant';
+        f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var body = collect(f), id = body.id; delete body.id;
+      api(id ? '/api/voice-agent/agents/' + (+id) : '/api/voice-agent/agents', body).then(function () { render(); }).catch(function (err) { note(el, err.message, true); });
+    });
+  }
+
+  function numbersTab() {
+    return Promise.all([api('/api/voice-agent/numbers'), api('/api/voice-agent/agents'), api('/api/voice-agent/providers'), api('/api/voice-agent/markets')]).then(function (r) {
+      var agents = r[1].agents || [], provs = (r[2].providers || []).filter(function (p) { return p.available; }), markets = r[3].markets || [];
+      window.__vaProvs = provs;
+      var agentOpts = [['', '— none —']].concat(agents.map(function (a) { return [a.id, a.name]; }));
+      var cols = [['Number', 'e164'], ['Country', 'country'], ['Provider', 'provider'], ['Status', function (n) { return badge(n.status + (n.live_usable ? '' : '')); }],
+        ['Assistant', function (n) { return '<select data-assign="' + (+n.id) + '">' + opts(agentOpts, n.agent_id || '') + '</select>'; }],
+        ['', function (n) { return (n.status === 'pending_verification' && /^(forward|sip)$/.test(n.connect_method || '') ? '<button class="va-btn" data-verify="' + (+n.id) + '">Verify ownership</button> ' : '') + '<button class="va-btn sec" data-test="' + (+n.id) + '">Check link</button> <button class="va-btn sec" data-default="' + (+n.id) + '">Make default</button> <button class="va-btn sec" data-release="' + (+n.id) + '">Release</button>'; }]];
+      var urls = provs.map(function (p) { return '<li><b>' + esc(p.provider) + '</b><br>Voice URL: <code>' + esc(p.webhook_urls.inbound) + '</code><br>Status URL: <code>' + esc(p.webhook_urls.status) + '</code></li>'; }).join('');
+      return '<p data-msg></p><div data-info></div>' + table(cols, r[0].numbers) +
+        '<details class="va-card"><summary><b>Get a new number</b> (you approve the exact price before anything is bought)</summary><form class="va-form" data-search>' +
+        field('country', 'Country', 'select', markets.length ? markets[0].iso : '', markets.map(function (m) { return [m.iso, m.name]; })) + field('type', 'Type', 'select', 'local', TYPES) +
+        field('provider', 'Provider', 'select', provs.length ? provs[0].provider : '', provs.map(function (p) { return [p.provider, p.provider]; })) +
+        '<div><button class="va-btn" type="submit"' + (provs.length ? '' : ' disabled') + '>Search</button></div></form>' + (provs.length ? '' : '<p class="va-muted">No phone provider is available yet.</p>') + '<div data-results></div><div data-quote></div></details>' +
+        '<details class="va-card"><summary><b>Use a number I already own</b></summary><form class="va-form" data-connect>' + field('number', 'Number (E.164, e.g. +201001234567)', 'text', '', ' required') +
+        field('method', 'How it reaches us', 'select', 'forward', [['provider_native', 'It is already with the provider'], ['forward', 'Forward calls from my carrier'], ['sip', 'SIP trunk'], ['port', 'Port it over']]) +
+        field('country', 'Country', 'select', '', [['', 'Detect from the number']].concat(markets.map(function (m) { return [m.iso, m.name]; }))) +
+        field('provider', 'Provider (only if the number is in your own provider account)', 'select', '', [['', '—']].concat(provs.map(function (p) { return [p.provider, p.provider]; }))) +
+        '<div><button class="va-btn" type="submit">Add number</button></div></form>' +
+        (urls ? '<p class="va-muted">For a number you own at the provider, set these in the provider console:</p><ul>' + urls + '</ul>' : '') + '</details>';
+    });
+  }
+  function bindNumbers(el) {
+    function post(path, body) { return api(path, body || {}).then(function (d) { window.__vaNote = (d.simulated ? 'Test mode: simulated, nothing was bought or changed at the provider. ' : '') + t('done'); window.__vaInfo = d.steps ? { steps: d.steps, target: d.target } : null; render(); }).catch(function (e) { note(el, e.message, true); }); }
+    el.querySelectorAll('[data-assign]').forEach(function (s) { s.addEventListener('change', function () { post('/api/voice-agent/numbers/' + (+s.getAttribute('data-assign')) + '/assign', { agent_id: s.value }); }); });
+    el.querySelectorAll('[data-test]').forEach(function (b) { b.addEventListener('click', function () { api('/api/voice-agent/numbers/' + (+b.getAttribute('data-test')) + '/test', {}).then(function (d) { note(el, 'Status: ' + String(d.state || d.status || 'unknown').replace(/_/g, ' ') + (d.detail ? ' - ' + d.detail : '')); }).catch(function (e) { note(el, e.message, true); }); }); });
+    el.querySelectorAll('[data-default]').forEach(function (b) { b.addEventListener('click', function () { post('/api/voice-agent/numbers/' + (+b.getAttribute('data-default')) + '/default'); }); });
+    el.querySelectorAll('[data-release]').forEach(function (b) { b.addEventListener('click', function () { if (window.confirm('Release this number? You will lose it.')) post('/api/voice-agent/numbers/' + (+b.getAttribute('data-release')) + '/release', { approve_release: true }); }); });
+    el.querySelectorAll('[data-verify]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = +b.getAttribute('data-verify');
+        if (!window.confirm('We will call this number to read you a 6-digit code (a real call when live mode is on). Continue?')) return;
+        api('/api/voice-agent/numbers/' + id + '/verify/start', { approve_call: true }).then(function (d) {
+          var code = window.prompt('Enter the 6-digit code you heard on the call.' + (d.sandbox_code ? ' (Test mode: no call was placed. Your test code is ' + d.sandbox_code + ')' : ''));
+          if (!code) return;
+          return api('/api/voice-agent/numbers/' + id + '/verify/confirm', { code: code }).then(function () { window.__vaNote = 'Verified'; render(); });
+        }).catch(function (e) { note(el, e.message, true); });
+      });
+    });
+    var c = el.querySelector('[data-connect]');
+    c.addEventListener('submit', function (e) { e.preventDefault(); post('/api/voice-agent/numbers/connect', collect(c)); });
+    var s = el.querySelector('[data-search]'), res = el.querySelector('[data-results]'), qbox = el.querySelector('[data-quote]');
+    s.addEventListener('submit', function (e) {
+      e.preventDefault(); var b = collect(s); qbox.innerHTML = ''; res.innerHTML = '<p class="va-muted">Searching…</p>';
+      api('/api/voice-agent/providers/' + encodeURIComponent(b.provider) + '/numbers?country=' + encodeURIComponent(b.country) + '&type=' + encodeURIComponent(b.type)).then(function (d) {
+        res.innerHTML = table([['Number', 'number'], ['Monthly (provider)', function (n) { return n.monthly_cost == null ? 'no price' : esc(n.monthly_cost) + ' ' + esc(n.currency); }], ['', function (n) { return n.voice && n.monthly_cost != null ? '<button class="va-btn sec" data-q="' + esc(n.number) + '">Get exact quote</button>' : ''; }]], d.numbers);
+        res.querySelectorAll('[data-q]').forEach(function (qb) {
+          qb.addEventListener('click', function () {
+            api('/api/voice-agent/numbers/quote', { provider: b.provider, number: qb.getAttribute('data-q'), country: b.country, type: b.type }).then(function (r) {
+              var q = r.quote;
+              qbox.innerHTML = '<div class="va-note"><b>' + esc(q.number) + '</b><br>Monthly: ' + esc(q.monthly_cost) + ' ' + esc(q.currency) + ' · Setup: ' + esc(q.setup_cost) + '<br><b>Charged now: ' + esc(q.first_charge) + ' ' + esc(q.currency) + '</b><br>' + esc(q.usage_note) +
+                '<br>Valid for ' + Math.round(q.expires_in_seconds / 60) + ' minutes.' + (q.requirements && q.requirements.needs_ack ? '<br><label><input type="checkbox" data-ack> I have read the regulatory requirements for this number</label>' : '') +
+                '<br><button class="va-btn" data-buy>Approve ' + esc(q.first_charge) + ' ' + esc(q.currency) + ' and get this number</button></div>';
+              qbox.querySelector('[data-buy]').addEventListener('click', function () {
+                var ack = qbox.querySelector('[data-ack]');
+                post('/api/voice-agent/numbers/orders/' + (+q.order_id) + '/approve', { accept_total: q.first_charge, requirements_ack: ack ? ack.checked : true });
+              });
+            }).catch(function (er) { qbox.innerHTML = '<p class="va-err">' + esc(er.message) + '</p>'; });
+          });
+        });
+      }).catch(function (er) { res.innerHTML = '<p class="va-err">' + esc(er.message) + '</p>'; });
+    });
+  }
   function money(v) { return '$' + (Number(v) || 0).toFixed(2); }
 
   var TABS = [
@@ -76,16 +181,8 @@
           cards([[t('calls'), (a.calls && a.calls.total) || 0], [t('booked'), (a.bookings && a.bookings.count) || 0], [t('spent'), money(c.month_usd)], [t('budget'), c.budget_usd == null ? '—' : money(c.budget_usd)]]);
       });
     }],
-    ['numbers', function () {
-      return api('/api/voice-agent/numbers').then(function (r) {
-        return table([['Number', 'e164'], ['Country', 'country'], ['Type', 'number_type'], ['Provider', 'provider'], ['Status', function (n) { return badge(n.status); }]], r.numbers);
-      });
-    }],
-    ['assistants', function () {
-      return api('/api/voice-agent/agents').then(function (r) {
-        return table([['Name', 'name'], ['Role', 'role'], ['Language', 'language'], ['Status', function (a) { return badge(a.status); }]], r.agents);
-      });
-    }],
+    ['numbers', numbersTab, bindNumbers],
+    ['assistants', assistantsTab, bindAssistants],
     ['incoming', function () {
       return api('/api/voice-agent/calls?direction=inbound&limit=50').then(function (r) { return callsTable(r.calls); });
     }],
@@ -147,7 +244,7 @@
       return '<button class="va-tab" role="tab" aria-selected="' + (i === active) + '" data-i="' + i + '">' + esc(t(tb[0])) + '</button>';
     }).join('') + '</div><div class="va-body" role="tabpanel"><p class="va-muted">' + esc(t('loading')) + '</p></div>';
     var body = root.querySelector('.va-body');
-    TABS[active][1]().then(function (html) { body.innerHTML = html; bindSettings(body); })
+    TABS[active][1]().then(function (html) { body.innerHTML = html; if (window.__vaNote) { var m0 = body.querySelector('[data-msg]'); if (m0) m0.textContent = window.__vaNote; window.__vaNote = null; } if (window.__vaInfo) { var inf = body.querySelector('[data-info]'); if (inf) inf.innerHTML = '<div class="va-note"><b>Next steps</b><ol>' + (Array.isArray(window.__vaInfo.steps) ? window.__vaInfo.steps : (window.__vaInfo.steps[BOOT.lang] || window.__vaInfo.steps.en || [])).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>' + (window.__vaInfo.target ? '<p>Send calls to: <code>' + esc(window.__vaInfo.target) + '</code></p>' : '') + '</div>'; window.__vaInfo = null; } bindSettings(body); if (TABS[active][2]) TABS[active][2](body); })
       .catch(function (e) { body.innerHTML = '<p class="va-err">' + esc(e.message || t('failed')) + '</p>'; });
   }
   root.addEventListener('click', function (e) {
