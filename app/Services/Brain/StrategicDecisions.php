@@ -217,6 +217,33 @@ final class StrategicDecisions
                 '/bookings', ['جهّز الباقة', 'Set up the package'], null, null, null);
         }
 
+        $pf = $g['profitability'] ?? null;
+        if ($pf) {
+            $cur = (string) $pf['currency'];
+            $pid = static fn (array $p): string => $p['product_id'] !== null ? (string) (int) $p['product_id'] : sprintf('%u', crc32((string) $p['product']));
+            foreach ((array) $pf['loss_makers'] as $p) {
+                $out[] = self::d('loss_maker_' . $pid($p), 'market', 3,
+                    ['"' . $p['product'] . '" بتخسر بعد التكاليف والعمولة', '"' . $p['product'] . '" loses money after costs and commission'],
+                    ['كل حجز جديد ليها بيقلل ربحك. ارفع السعر، أو قلل التكلفة، أو وقّف الإعلانات عليها لحد ما تتصلّح.', 'Every new booking lowers your profit. Raise the price, cut the cost, or pause ads for it until fixed.'],
+                    [['صافي الربح ' . $p['net_profit'] . ' ' . $cur . ' على إيراد ' . $p['revenue'] . ' (آخر 90 يوم)', 'Net profit ' . $p['net_profit'] . ' ' . $cur . ' on revenue ' . $p['revenue'] . ' (last 90 days)']],
+                    '/revenue/intelligence', ['افتح الربحية', 'Open profitability'], null, null, null);
+            }
+            foreach ((array) $pf['thin_margin'] as $p) {
+                $out[] = self::d('thin_margin_' . $pid($p), 'market', 2,
+                    ['هامش "' . $p['product'] . '" رفيع', 'The margin on "' . $p['product'] . '" is thin'],
+                    ['أي زيادة في التكلفة أو خصم هتحوّلها لخسارة. راجع السعر أو التكلفة.', 'Any cost increase or discount turns it into a loss. Review the price or the cost.'],
+                    [['هامش ' . $p['margin_percent'] . '% (أقل من 15%) على إيراد ' . $p['revenue'] . ' ' . $cur, 'Margin ' . $p['margin_percent'] . '% (below 15%) on revenue ' . $p['revenue'] . ' ' . $cur]],
+                    '/revenue/intelligence', ['افتح الربحية', 'Open profitability'], null, null, null);
+            }
+            if ($pf['coverage_percent'] !== null && $pf['coverage_percent'] < 50) {
+                $out[] = self::d('record_trip_costs', 'data', 1,
+                    ['سجّل تكلفة رحلاتك عشان العقل يحسب الربح', 'Record your trip costs so the brain can compute profit'],
+                    ['العقل مابيفترضش تكلفة صفر: الرحلة من غير تكلفة مسجّلة مابتدخلش في حساب الربح.', 'The brain never assumes zero cost: trips without recorded costs are left out of profit.'],
+                    [['التكاليف مسجّلة لـ ' . $pf['coverage_percent'] . '% بس من الإيراد', 'Costs recorded for only ' . $pf['coverage_percent'] . '% of revenue']],
+                    '/revenue/intelligence', ['سجّل التكاليف', 'Record costs'], null, null, null);
+            }
+        }
+
         $rising = [];
         foreach (($s['growth']['focus_trips'] ?? []) as $t) if (in_array($t['reason'] ?? '', ['rising_demand', 'top_seller'], true)) $rising[(int) $t['id']] = true;
         foreach ((array) ($g['pricing'] ?? []) as $p) {

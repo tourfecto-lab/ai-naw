@@ -51,4 +51,24 @@ class GrowthAdvisorTest extends TestCase
         $this->assertContains('price_room_5', $keys); // أرخص والطلب عالي
         $this->assertSame([], StrategicDecisions::growthDecisions(['growth_advice' => null]));
     }
+
+    public function testProfitabilitySummaryIgnoresProductsWithoutCosts(): void
+    {
+        $this->assertNull(GrowthAdvisor::profitability(null));
+        $this->assertNull(GrowthAdvisor::profitability(['has_data' => false]));
+        $r = ['has_data' => true, 'currency' => 'USD', 'coverage_percent' => 40.0, 'totals' => ['margin_percent' => 12.5], 'products' => [
+            ['product_id' => 1, 'product_name' => 'Loss', 'revenue' => 1000.0, 'net_profit' => -50.0, 'margin_percent' => -5.0],
+            ['product_id' => 2, 'product_name' => 'Thin', 'revenue' => 1000.0, 'net_profit' => 100.0, 'margin_percent' => 10.0],
+            ['product_id' => 3, 'product_name' => 'Healthy', 'revenue' => 1000.0, 'net_profit' => 400.0, 'margin_percent' => 40.0],
+            ['product_id' => 4, 'product_name' => 'No costs', 'revenue' => 5000.0, 'net_profit' => null, 'margin_percent' => null]]];
+        $p = GrowthAdvisor::profitability($r);
+        $this->assertSame(['Loss'], array_column($p['loss_makers'], 'product'));
+        $this->assertSame(['Thin'], array_column($p['thin_margin'], 'product'));
+
+        $keys = array_column(StrategicDecisions::growthDecisions(['growth_advice' => ['profitability' => $p]]), 'key');
+        $this->assertContains('loss_maker_1', $keys);
+        $this->assertContains('thin_margin_2', $keys);
+        $this->assertContains('record_trip_costs', $keys); // التغطية 40%
+        $this->assertNotContains('loss_maker_4', $keys);
+    }
 }
