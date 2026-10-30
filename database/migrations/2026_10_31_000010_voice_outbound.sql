@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS voice_outbound_jobs (
  blocked_reason VARCHAR(60) NULL,
  attempts TINYINT NOT NULL DEFAULT 0,
  max_attempts TINYINT NOT NULL DEFAULT 3,
+ min_gap_hours TINYINT UNSIGNED NULL COMMENT 'hours between attempts to the same person (1-48); NULL = policy default',
+ campaign_id BIGINT UNSIGNED NULL,
  next_attempt_at DATETIME NOT NULL,
  last_attempt_at DATETIME NULL,
  last_result VARCHAR(20) NULL COMMENT 'answered, busy, no-answer, voicemail, failed, simulated',
@@ -27,6 +29,24 @@ CREATE TABLE IF NOT EXISTS voice_outbound_jobs (
  KEY idx_voice_jobs_due (status, next_attempt_at),
  KEY idx_voice_jobs_tenant (tenant_user_id, status),
  KEY idx_voice_jobs_phone (tenant_user_id, phone_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voice_campaigns (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ tenant_user_id INT(11) NOT NULL,
+ name VARCHAR(120) NOT NULL,
+ purpose VARCHAR(30) NOT NULL,
+ number_id INT(11) NOT NULL,
+ agent_id INT(11) NOT NULL,
+ status ENUM('active','paused','cancelled') NOT NULL DEFAULT 'active',
+ max_attempts TINYINT NOT NULL DEFAULT 3,
+ min_gap_hours TINYINT UNSIGNED NULL,
+ tz VARCHAR(60) NULL COMMENT 'default time zone for recipients without their own',
+ approve_live TINYINT(1) NOT NULL DEFAULT 0,
+ created_by_user_id INT(11) NOT NULL,
+ created_at DATETIME NOT NULL,
+ updated_at DATETIME NOT NULL,
+ KEY idx_voice_campaigns_tenant (tenant_user_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voice_consents (

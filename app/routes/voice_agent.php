@@ -65,3 +65,10 @@ $router->post('/api/voice-agent/numbers/{id}/default','VoiceNumberController','s
 
 // Phase 4: realtime bridge call control
 $router->post('/api/voice-bridge/control','VoiceBridgeController','control',[]);
+
+// Phase 5: call lists (campaigns)
+$router->get('/api/voice-agent/outbound/campaigns','VoiceOutboundController','campaigns',['AuthMiddleware']);
+$router->post('/api/voice-agent/outbound/campaigns','VoiceOutboundController','createCampaign',['AuthMiddleware']);
+$router->get('/api/voice-agent/outbound/campaigns/{id}','VoiceOutboundController','campaignStats',['AuthMiddleware']);
+$router->post('/api/voice-agent/outbound/campaigns/{id}/recipients','VoiceOutboundController','addRecipients',['AuthMiddleware']);
+$router->post('/api/voice-agent/outbound/campaigns/{id}/status','VoiceOutboundController','campaignStatus',['AuthMiddleware']);

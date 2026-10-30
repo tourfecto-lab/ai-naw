@@ -133,4 +133,51 @@ class VoiceOutboundController extends Controller
             return ['removed' => true];
         });
     }
+
+    /** GET /api/voice-agent/outbound/campaigns */
+    public function campaigns(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_VIEW);
+        return isset($g['error']) ? $g['error'] : $this->success(['campaigns' => (new VoiceCampaignService())->list($g['tenant'])]);
+    }
+
+    /** POST /api/voice-agent/outbound/campaigns {name, purpose, number_id, agent_id, max_attempts?, min_gap_hours?, tz?, approve_live?} */
+    public function createCampaign(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_PLACE_CALLS, true);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        return $this->run($g, fn ($t, $u) => ['campaign_id' => (new VoiceCampaignService())->create($t, $u, $this->all())]);
+    }
+
+    /** POST /api/voice-agent/outbound/campaigns/{id}/recipients {recipients:[{to, contact_id?, country?, tz?, context?}]} */
+    public function addRecipients(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_PLACE_CALLS, true);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        return $this->run($g, fn ($t, $u) => (new VoiceCampaignService())->addRecipients($t, $u, (int) ($params['id'] ?? 0), (array) $this->get('recipients', [])));
+    }
+
+    /** POST /api/voice-agent/outbound/campaigns/{id}/status {action: pause|resume|cancel} */
+    public function campaignStatus(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_PLACE_CALLS, true);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        return $this->run($g, fn ($t, $u) => (new VoiceCampaignService())->setStatus($t, $u, (int) ($params['id'] ?? 0), (string) $this->get('action', '')));
+    }
+
+    /** GET /api/voice-agent/outbound/campaigns/{id} */
+    public function campaignStats(array $params = []): array
+    {
+        $g = $this->guard(VoiceAccessService::CAP_VIEW);
+        if (isset($g['error'])) {
+            return $g['error'];
+        }
+        return $this->run($g, fn ($t, $u) => (new VoiceCampaignService())->stats($t, (int) ($params['id'] ?? 0)));
+    }
 }

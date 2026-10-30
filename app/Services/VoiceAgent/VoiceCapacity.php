@@ -16,4 +16,9 @@ class VoiceCapacity
         }
         return ['allowed' => true, 'reason' => null];
     }
+
+    public static function dailyCapReached(int $attemptsLast24h, int $cap): bool
+    {
+        return $attemptsLast24h >= max(1, $cap);
+    }
 }

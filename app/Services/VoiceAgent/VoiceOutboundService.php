@@ -127,6 +127,8 @@ class VoiceOutboundService
         }
         $ctx = self::sanitizeContext((array) ($in['context'] ?? []));
         $max = max(1, min(5, (int) ($in['max_attempts'] ?? 3)));
+        $gapHours = isset($in['min_gap_hours']) && $in['min_gap_hours'] !== '' ? max(1, min(48, (int) $in['min_gap_hours'])) : null;
+        $campaignId = isset($in['campaign_id']) ? (int) $in['campaign_id'] : null;
         $at = $now;
         if (!empty($in['scheduled_at'])) {
             $req = strtotime((string) $in['scheduled_at']);
@@ -135,16 +137,16 @@ class VoiceOutboundService
             }
             $at = max($now, $req);
         }
-        $job = ['tenant_user_id' => $tenantId, 'to_e164' => $to, 'phone_key' => $key, 'contact_id' => $contactId, 'country' => $iso, 'tz' => $tz, 'purpose' => $purpose, 'attempts' => 0, 'max_attempts' => $max, 'context_json' => json_encode($ctx)];
+        $job = ['tenant_user_id' => $tenantId, 'to_e164' => $to, 'phone_key' => $key, 'contact_id' => $contactId, 'country' => $iso, 'tz' => $tz, 'purpose' => $purpose, 'attempts' => 0, 'max_attempts' => $max, 'min_gap_hours' => $gapHours, 'context_json' => json_encode($ctx)];
         $d = VoiceCompliance::evaluate($job, $this->facts($job, $now), $at);
         if ($d['action'] === 'block') {
             throw new InvalidArgumentException(self::REASONS[$d['reason']] ?? $d['reason']);
         }
         $first = $d['action'] === 'wait' ? (int) $d['retry_at'] : $at;
         $this->db()->exec(
-            "INSERT INTO voice_outbound_jobs (tenant_user_id, number_id, agent_id, contact_id, to_e164, phone_key, country, tz, purpose, category, context_json, status, max_attempts, next_attempt_at, approved_live, created_by_user_id, created_at, updated_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,'scheduled',?,?,?,?,NOW(),NOW())",
-            [$tenantId, $number['id'], (int) $in['agent_id'], $contactId, $to, $key, $iso, $tz, $purpose, $category, json_encode($ctx), $max, date('Y-m-d H:i:s', $first), !empty($in['approve_live']) && filter_var($in['approve_live'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0, $actorUserId]
+            "INSERT INTO voice_outbound_jobs (tenant_user_id, number_id, agent_id, contact_id, to_e164, phone_key, country, tz, purpose, category, context_json, status, max_attempts, min_gap_hours, campaign_id, next_attempt_at, approved_live, created_by_user_id, created_at, updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,'scheduled',?,?,?,?,?,?,NOW(),NOW())",
+            [$tenantId, $number['id'], (int) $in['agent_id'], $contactId, $to, $key, $iso, $tz, $purpose, $category, json_encode($ctx), $max, $gapHours, $campaignId, date('Y-m-d H:i:s', $first), !empty($in['approve_live']) && filter_var($in['approve_live'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0, $actorUserId]
         );
         $id = (int) $this->db()->getConnection()->lastInsertId();
         VoiceAuditService::record($tenantId, $actorUserId, 'outbound.queued', 'job', $id, ['purpose' => $purpose, 'basis_attested' => array_intersect_key($ctx, ['inquiry_at' => 1, 'callback_requested_at' => 1])]);
@@ -224,6 +226,22 @@ class VoiceOutboundService
         $budget = $settings['monthly_budget_usd'] !== null ? (float) $settings['monthly_budget_usd'] : null;
         if (VoiceCostTracker::monthSummary($t, $budget)['over_budget']) {
             return $this->block($job, 'budget_reached');
+        }
+        if (!empty($job['campaign_id'])) {
+            $c = $this->db()->query('SELECT status FROM voice_campaigns WHERE id = ? AND tenant_user_id = ? LIMIT 1', [$job['campaign_id'], $t])[0]['status'] ?? 'cancelled';
+            if ($c === 'cancelled') {
+                $this->db()->exec("UPDATE voice_outbound_jobs SET status='cancelled', blocked_reason='campaign_cancelled', updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $t]);
+                return 'blocked';
+            }
+            if ($c === 'paused') { // wait without spending an attempt
+                $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at = NOW() + INTERVAL 1 HOUR, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $t]);
+                return 'waiting';
+            }
+        }
+        $real24 = (int) ($this->db()->query('SELECT COUNT(*) AS n FROM voice_outbound_attempts WHERE tenant_user_id = ? AND simulated = 0 AND created_at >= NOW() - INTERVAL 1 DAY', [$t])[0]['n'] ?? 0);
+        if (VoiceCapacity::dailyCapReached($real24, (int) ($settings['daily_outbound_cap'] ?? 100))) {
+            $this->db()->exec("UPDATE voice_outbound_jobs SET status='scheduled', next_attempt_at = NOW() + INTERVAL 1 HOUR, updated_at=NOW() WHERE id=? AND tenant_user_id=?", [$job['id'], $t]);
+            return 'waiting'; // the company's daily limit: try again later, nothing is lost
         }
         $d = VoiceCompliance::evaluate($job, $this->facts($job, $now), $now);
         if ($d['action'] === 'block') {

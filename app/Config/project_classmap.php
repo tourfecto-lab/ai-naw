@@ -968,4 +968,5 @@ return [
     'VoicePricing' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePricing.php',
     'VoiceCapacity' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCapacity.php',
     'VoicePlatformLoad' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePlatformLoad.php',
+    'VoiceCampaignService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCampaignService.php',
 ];

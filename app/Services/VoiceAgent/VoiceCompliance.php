@@ -31,6 +31,12 @@ class VoiceCompliance
     public const MAX_PER_DAY = 2;
     public const MAX_PER_WEEK = 5;
 
+    /** Seconds between attempts to one person: the company's choice (1-48 h), never below one hour, default 4 h. */
+    public static function gapSeconds($hours): int
+    {
+        return is_numeric($hours) && (int) $hours >= 1 ? min(48, (int) $hours) * 3600 : self::MIN_GAP_SECONDS;
+    }
+
     public static function category(string $purpose): ?string
     {
         return self::PURPOSES[$purpose][0] ?? null;
@@ -97,8 +103,9 @@ class VoiceCompliance
 
         // frequency limits wait instead of failing: the job is still valid, just not now
         $wait = null;
-        if (!empty($facts['last_attempt_ts']) && $now - (int) $facts['last_attempt_ts'] < self::MIN_GAP_SECONDS) {
-            $wait = (int) $facts['last_attempt_ts'] + self::MIN_GAP_SECONDS;
+        $gap = self::gapSeconds($job['min_gap_hours'] ?? null);
+        if (!empty($facts['last_attempt_ts']) && $now - (int) $facts['last_attempt_ts'] < $gap) {
+            $wait = (int) $facts['last_attempt_ts'] + $gap;
         }
         if ((int) ($facts['calls_24h'] ?? 0) >= self::MAX_PER_DAY) {
             $wait = max((int) $wait, $now + 86400);
