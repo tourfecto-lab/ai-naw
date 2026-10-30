@@ -891,15 +891,15 @@ HTML;
                         ? row(true, L('كود المنصة متركّب على موقعك', 'Platform code is on your site'), L('إصلاحات السيو بتتطبّق على موقعك لوحدها.', 'SEO fixes apply to your site automatically.'))
                         : row(seo.installed === null && d.reachable === false ? null : false, L('كود المنصة (سطر واحد في موقعك)', 'Platform code (one line on your site)'),
                             seo.ready ? L('الكود جاهز: انسخه وحطه قبل &lt;/head&gt; في موقعك، أو ابعته للي عامل موقعك.', 'Your code is ready: paste it before &lt;/head&gt; or send it to your web developer.')
-                                      : L('شغّل السيو التلقائي وخد السطر ده، وحطه قبل &lt;/head&gt; في موقعك.', 'Turn on Auto SEO to get this line, then paste it before &lt;/head&gt;.'),
-                            '/auto-seo', seo.ready ? L('انسخ الكود', 'Copy the code') : L('هات الكود', 'Get the code')));
+                                      : L('خد كود Tourfecto من «ربط موقعك» وحطه قبل &lt;/head&gt; في موقعك - سطر واحد لكل الخدمات.', 'Get your Tourfecto code from «Connect your website» and paste it before &lt;/head&gt; - one line for every service.'),
+                            '/integrations?site=' + id + '#site-hub', seo.ready ? L('انسخ الكود', 'Copy the code') : L('هات الكود', 'Get the code')));
                     rows.push(chat.off
-                        ? row(null, L('شات الموقع مقفول', 'Website chat is off'), L('شغّله لو عايز السياح يكلموك من موقعك والذكاء الاصطناعي يرد.', 'Turn it on so travellers can chat from your site.'), '#siteWebChat', L('شغّله', 'Turn on'))
+                        ? row(null, L('شات الموقع مقفول', 'Website chat is off'), L('شغّله لو عايز السياح يكلموك من موقعك والذكاء الاصطناعي يرد.', 'Turn it on so travellers can chat from your site.'), '/integrations?site=' + id + '#site-hub', L('شغّله', 'Turn on'))
                         : chat.installed === true ? row(true, L('شات الموقع ظاهر على موقعك', 'Website chat is live on your site'), L('الرسايل بتوصل صندوق الوارد.', 'Messages arrive in your inbox.'))
-                        : row(false, L('شات الموقع لسه مش ظاهر على موقعك', 'Website chat is not on your site yet'), L('انسخ كود الشات من تحت وحطه في موقعك.', 'Copy the chat code below and add it to your site.'), '#siteWebChat', L('كود الشات', 'Chat code')));
+                        : row(false, L('شات الموقع لسه مش ظاهر على موقعك', 'Website chat is not on your site yet'), L('شغّله من «ربط موقعك» وبيشتغل بنفس كود Tourfecto.', 'Turn it on in «Connect your website»; it runs with the same Tourfecto code.'), '/integrations?site=' + id + '#site-hub', L('كود الشات', 'Chat code')));
                     rows.push(d.publish.connected
                         ? row(true, L('النشر على موقعك مربوط', 'Publishing to your site is connected'), esc(d.publish.name))
-                        : row(false, L('النشر التلقائي على موقعك', 'Auto-publishing to your site'), L('المقالات والإصلاحات بتنزل على موقعك لوحدها: ووردبريس بضغطة، أو Shopify / Webflow / Ghost.', 'Articles and fixes go live on their own: WordPress in one click, or Shopify / Webflow / Ghost.'), '#siteConnect', L('اربط', 'Connect')));
+                        : row(false, L('النشر التلقائي على موقعك', 'Auto-publishing to your site'), L('المقالات والإصلاحات بتنزل على موقعك لوحدها: ووردبريس بضغطة، أو Shopify / Webflow / Ghost.', 'Articles and fixes go live on their own: WordPress in one click, or Shopify / Webflow / Ghost.'), '/integrations?site=' + id + '#site-hub', L('اربط', 'Connect')));
                     rows.push(d.search_console.connected
                         ? row(true, 'Google Search Console', '<span dir="ltr">' + esc(d.search_console.name) + '</span>')
                         : row(false, 'Google Search Console', L('ظهورك وكلماتك الحقيقية في جوجل.', 'Your real Google visibility and keywords.'), '/search-console/connect/' + id, L('اربط', 'Connect')));
@@ -1293,6 +1293,85 @@ JS;
             'analytics' => ['connected' => (bool) $ga],
             'verified' => (int) $website->getAttribute('is_verified') === 1,
         ]);
+    }
+
+    /**
+     * GET  /api/websites/{id}/site-code             «كود Tourfecto» للموقع + الخدمات اللي بيشغّلها
+     * POST /api/websites/{id}/site-code {service, on}  تشغيل/إيقاف خدمة من نفس الكود (seo | chat)
+     */
+    public function siteCode(array $params): array
+    {
+        $userId = (int) $this->userId();
+        $website = $userId ? (new Website())->find((int) ($params['id'] ?? 0)) : null;
+        if (!$website || (int) $website->getAttribute('user_id') !== $userId) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+        $id = (int) $website->getAttribute('id');
+        $svc = new AutoSeoEmbedService($this->db());
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+            if ($e = $this->verifyCsrf()) {
+                return $e;
+            }
+            $service = (string) $this->get('service');
+            $on = filter_var($this->get('on'), FILTER_VALIDATE_BOOLEAN);
+            try {
+                if ($service === 'chat') {
+                    $svc->ensureEmbedToken($userId, $id);
+                    $svc->setSiteService($id, 'chat', $on);
+                    if (class_exists('WebChatService')) {
+                        (new WebChatService())->setEnabled($userId, $id, $on);
+                    }
+                } elseif ($service === 'seo') {
+                    $on ? $svc->connectWebsite($userId, $id, 'script') : $svc->disconnectWebsite($userId, $id);
+                } else {
+                    return $this->error('خدمة غير معروفة', 422);
+                }
+            } catch (Throwable $e) {
+                Logger::error('Site code toggle failed', ['website_id' => $id, 'service' => $service, 'message' => $e->getMessage()]);
+                return $this->error($e->getMessage() ?: 'تعذر الحفظ', 422);
+            }
+        }
+        $token = $svc->ensureEmbedToken($userId, $id);
+        if ($token === null) {
+            return $this->error('الموقع غير موجود', 404);
+        }
+        $seoOn = (bool) $this->db()->query('SELECT id FROM websites WHERE id = ? AND is_connected = 1 LIMIT 1', [$id]);
+        $chatOn = $svc->siteServices($id)['chat'] && !(class_exists('WebChatService') && (new WebChatService())->isSwitchedOff($id));
+        return $this->success(['code' => $svc->buildEmbedCode($token), 'seo' => $seoOn, 'chat' => $chatOn]);
+    }
+
+    /**
+     * ويزارد النشر على الموقع (ووردبريس بضغطة + Shopify/Webflow/Ghost/API) - نفس اللي في صفحة الموقع،
+     * عشان صفحة الربط والتكاملات تعرضه. محتاج <div id="siteConnect"> في الصفحة.
+     */
+    public function siteConnectAssets(Website $website): string
+    {
+        $id = (int) $website->getAttribute('id');
+        $instructions = $this->verificationInstructions($website);
+        $scKeys = ['sc.title', 'sc.step1', 'sc.step2', 'sc.step3', 'sc.detecting', 'sc.wp_detected', 'sc.not_wp', 'sc.not_wp_hint', 'sc.btn_force_wp',
+            'sc.oneclick_title', 'sc.oneclick_desc', 'sc.btn_oneclick', 'sc.oneclick_unavailable', 'sc.manual_title', 'sc.field_user', 'sc.field_pass',
+            'sc.field_pass_hint', 'sc.btn_connect', 'sc.connecting', 'sc.howto_title', 'sc.howto_1', 'sc.howto_2', 'sc.howto_3', 'sc.howto_4', 'sc.howto_5',
+            'sc.howto_missing', 'sc.trouble_title', 'sc.trouble_body', 'sc.safe_note', 'sc.verified_title', 'sc.connected_title', 'sc.connected_as',
+            'sc.btn_test', 'sc.btn_disconnect', 'sc.disconnect_confirm', 'sc.test_ok', 'sc.connect_wp_title', 'sc.connect_wp_desc', 'sc.result_ok',
+            'sc.result_ok_unverified', 'sc.result_rejected', 'sc.copy', 'sc.copied', 'sc.err.bad_credentials', 'sc.err.auth_header_stripped',
+            'sc.err.app_passwords_disabled', 'sc.err.rest_disabled', 'sc.err.not_wordpress', 'sc.err.not_https', 'sc.err.host_mismatch', 'sc.err.host_not_public',
+            'sc.err.network', 'sc.err.forbidden', 'sc.err.invalid_response', 'sc.err.state_invalid', 'sc.err.missing_fields', 'sc.err.redirect_other_host', 'sc.err.unknown',
+            'sc.easy_title', 'sc.easy_desc', 'sc.easy_1', 'sc.easy_2', 'sc.easy_3', 'sc.easy_4', 'sc.easy_5', 'sc.btn_verify', 'sc.verifying',
+            'sc.no_plugin', 'sc.verify_failed_title', 'sc.apdisabled_title', 'sc.apdisabled_body', 'sc.pub_title', 'sc.pub_desc', 'sc.pub_warn',
+            'sc.btn_recheck', 'sc.advanced_title', 'sc.easy_alt_title', 'sc.err.wrong_password', 'sc.err.wrong_username', 'sc.err.unauthorized', 'sc.err.tech', 'sc.err.enable_with_snippet',
+            'websites.verify_reason_blocked', 'websites.verify_reason_fetch', 'websites.verify_reason_tag', 'websites.verify_reason_file', 'websites.verify_reason_dns', 'websites.verified_msg'];
+        $i18n = [];
+        foreach ($scKeys as $k) {
+            $i18n[$k] = t($k);
+        }
+        $cfg = json_encode(['id' => $id, 'verified' => (int) $website->getAttribute('is_verified') === 1, 'url' => (string) $website->getAttribute('main_url'), 'i18n' => $i18n,
+            'snippet' => "add_action( 'wp_head', function () {\n    echo '" . $instructions['meta_tag'] . "' . \"\\n\";\n}, 1 );",
+            'appSnippet' => "add_filter( 'wp_is_application_passwords_available', '__return_true', 999 );\nadd_filter( 'wp_is_application_passwords_available_for_user', '__return_true', 999 );",
+            'meta' => $instructions['meta_tag']], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $css = htmlspecialchars(asset_v('/assets/css/site-connect-cms.css'), ENT_QUOTES, 'UTF-8');
+        $js = htmlspecialchars(asset_v('/assets/js/site-connect-cms.js'), ENT_QUOTES, 'UTF-8');
+        return '<script>window.SC_CFG = ' . $cfg . ';</script><script src="/assets/js/site-connect.js"></script>'
+            . '<link rel="stylesheet" href="' . $css . '"><div id="siteConnectCms" data-site="' . $id . '"></div><script defer src="' . $js . '"></script>';
     }
 
     /** POST /api/websites/{id}/competitors */

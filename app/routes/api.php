@@ -487,6 +487,8 @@ $router->put('/api/websites/{id}', 'WebsiteController', 'update', ['AuthMiddlewa
 $router->delete('/api/websites/{id}', 'WebsiteController', 'destroy', ['AuthMiddleware']);
 $router->post('/api/websites/{id}/verify', 'WebsiteController', 'verify', ['AuthMiddleware']);
 $router->get('/api/websites/{id}/connect-status', 'WebsiteController', 'connectStatus', ['AuthMiddleware']);
+$router->get('/api/websites/{id}/site-code', 'WebsiteController', 'siteCode', ['AuthMiddleware']);
+$router->post('/api/websites/{id}/site-code', 'WebsiteController', 'siteCode', ['AuthMiddleware']);
 // ربط WordPress (بضغطة واحدة أو يدوي) + توثيق الملكية تلقائيًا لحساب الأدمن
 $router->get('/api/websites/{id}/platform', 'WordPressConnectController', 'platform', ['AuthMiddleware']);
 $router->post('/api/websites/{id}/wordpress/connect', 'WordPressConnectController', 'connect', ['AuthMiddleware']);

@@ -54,8 +54,10 @@ class AutoSeoEmbedService
             throw new Exception('لا يمكن ربط دومين المنصة نفسها بخدمة Auto SEO. اربط موقع عميل أو موقعك الخاص.');
         }
 
-        $embedToken = 'emb_' . bin2hex(random_bytes(12));
-        $apiKey     = 'tpk_' . bin2hex(random_bytes(16));
+        // الكود اللي العميل حطه في موقعه بيفضل هو هو: تشغيل السيو تاني كان بيولّد توكن جديد فالكود المتركّب يبطل
+        $prev = $this->db->query("SELECT embed_token, embed_api_key FROM websites WHERE id = ? AND user_id = ? LIMIT 1", [$websiteId, $userId])[0] ?? [];
+        $embedToken = preg_match('/^emb_[a-f0-9]{24}$/', (string) ($prev['embed_token'] ?? '')) ? (string) $prev['embed_token'] : 'emb_' . bin2hex(random_bytes(12));
+        $apiKey     = (string) ($prev['embed_api_key'] ?? '') !== '' ? (string) $prev['embed_api_key'] : 'tpk_' . bin2hex(random_bytes(16));
 
         // مركز الأتمتة: بعد الربط الإصلاحات بتشتغل لوحدها (balanced) إلا لو
         // العميل مختار "يدوي". كل إصلاح بيعدّي على بوابة المحرك قبل التطبيق.
@@ -126,6 +128,55 @@ class AutoSeoEmbedService
             [$websiteId, $userId]
         );
         $this->db->exec("UPDATE auto_seo_applied_fixes SET is_active = 0 WHERE website_id = ?", [$websiteId]);
+    }
+
+    /**
+     * «كود Tourfecto» لموقع: سطر واحد بيشغّل كل خدمات المنصة اللي العميل مشغّلها على الموقع (إصلاحات السيو، شات الموقع).
+     * بيتعمل من غير ما يشغّل السيو التلقائي. الموقع اللي بياخد كوده من هنا لأول مرة الشات بيبقى متشغّل فيه.
+     */
+    public function ensureEmbedToken(int $userId, int $websiteId): ?string
+    {
+        $row = $this->db->query("SELECT embed_token FROM websites WHERE id = ? AND user_id = ? LIMIT 1", [$websiteId, $userId])[0] ?? null;
+        if (!$row) return null;
+        if (preg_match('/^emb_[a-f0-9]{24}$/', (string) $row['embed_token'])) return (string) $row['embed_token'];
+        $token = 'emb_' . bin2hex(random_bytes(12));
+        $this->db->exec("UPDATE websites SET embed_token = ? WHERE id = ? AND user_id = ?", [$token, $websiteId, $userId]);
+        $this->setSiteService($websiteId, 'chat', true);
+        return $token;
+    }
+
+    /** الخدمات اللي الكود بيشغّلها غير السيو (السيو = is_connected). الكود القديم اللي اتعمل للسيو بس مايشغّلش شات من غير ما العميل يختار. */
+    public function siteServices(int $websiteId): array
+    {
+        $row = $this->db->query('SELECT setting_value FROM system_settings WHERE setting_key = ? LIMIT 1', ['site_code_' . $websiteId])[0] ?? null;
+        $v = $row ? json_decode((string) $row['setting_value'], true) : null;
+        return ['chat' => !empty($v['chat'])];
+    }
+
+    public function setSiteService(int $websiteId, string $service, bool $on): void
+    {
+        $services = $this->siteServices($websiteId);
+        $services[$service] = $on;
+        $key = 'site_code_' . $websiteId;
+        $json = json_encode($services);
+        if ($this->db->query('SELECT id FROM system_settings WHERE setting_key = ? LIMIT 1', [$key])) {
+            $this->db->exec('UPDATE system_settings SET setting_value = ? WHERE setting_key = ?', [$json, $key]);
+        } else {
+            $this->db->exec('INSERT INTO system_settings (setting_key, setting_value, is_secret) VALUES (?, ?, 0)', [$key, $json]);
+        }
+    }
+
+    /** سطر بيحمّل شات الموقع (لو مش متركّب لوحده في الصفحة) - فاضي لو الشات مش متشغّل للموقع ده */
+    private function chatLoaderLine(int $websiteId): string
+    {
+        if (!$this->siteServices($websiteId)['chat'] || !class_exists('WebChatService') || (new WebChatService())->isSwitchedOff($websiteId)) {
+            return '';
+        }
+        $src = json_encode(rtrim(defined('APP_URL') ? (string) APP_URL : '', '/') . '/widget/chat?site=' . $websiteId . '&t=' . WebChatService::token($websiteId), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
+        $mark = json_encode('/widget/chat?site=' . $websiteId, JSON_UNESCAPED_SLASHES);
+        return "    if (!Array.prototype.some.call(document.scripts, function (s) { return (s.src || '').indexOf({$mark}) !== -1; })) {\n"
+            . "      var c = document.createElement('script'); c.src = {$src}; c.async = true; document.head.appendChild(c);\n"
+            . "    }";
     }
 
     /** كود التثبيت اللي العميل بيحطه قبل </head> */
@@ -269,8 +320,9 @@ class AutoSeoEmbedService
      */
     public function buildEmbedJavaScript(string $embedToken): string
     {
+        // كود واحد لكل خدمات الموقع: إصلاحات السيو بس لو السيو التلقائي شغال، والشات لو العميل مشغّله في «ربط موقعك»
         $sites = $this->db->query(
-            "SELECT id, COALESCE(NULLIF(main_url,''),domain) AS domain, auto_pilot_mode FROM websites WHERE embed_token = ? AND is_connected = 1 LIMIT 1",
+            "SELECT id, COALESCE(NULLIF(main_url,''),domain) AS domain, auto_pilot_mode, is_connected FROM websites WHERE embed_token = ? LIMIT 1",
             [$embedToken]
         );
         if (empty($sites)) {
@@ -278,17 +330,22 @@ class AutoSeoEmbedService
         }
 
         $site  = $sites[0];
-        $fixes = $this->db->query(
+        $seoOn = (int) $site['is_connected'] === 1;
+        $fixes = $seoOn ? $this->db->query(
             "SELECT field_name, injected_code FROM auto_seo_applied_fixes
               WHERE website_id = ? AND is_active = 1",
             [$site['id']]
-        );
+        ) : [];
 
         $lines = [];
         foreach ($fixes as $fix) {
             $lines[] = $this->buildInjectionLine($fix['field_name'], (string) $fix['injected_code']);
         }
-        $active=CompetitorSiteExecutionService::activePatch((int)$site['id']);
+        $chat = $this->chatLoaderLine((int) $site['id']);
+        if ($chat !== '') {
+            $lines[] = $chat;
+        }
+        $active=$seoOn?CompetitorSiteExecutionService::activePatch((int)$site['id']):null;
         if($active){
             $data=json_encode($active,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE);
             $lines[]=<<<JS

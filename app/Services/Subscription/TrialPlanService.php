@@ -163,7 +163,7 @@ class TrialPlanService
                     : ['done' => false, 'label' => $t('جرّب الشات كأنك سائح', 'Try the chat as a traveller'), 'why' => $t('محتاج موقعك الأول: ابنِ موقع حجز في دقايق وبعدها جرّب الشات', 'It needs your website first: build a booking site in minutes, then try the chat'), 'link' => '/website-builder'],
             ]],
             2 => ['title' => $t('خلّي المنصة تشتغل لك', 'Let the platform work for you'), 'tasks' => [
-                ['done' => $m['gbp'] > 0, 'label' => $t('اربط Google Business', 'Connect Google Business'), 'why' => $t('تقييماتك بتتسحب وبيترد عليها بلغة كل سائح', 'Your reviews are pulled and answered in each traveller’s language'), 'link' => '/reputation/platforms'],
+                ['done' => $m['gbp'] > 0, 'label' => $t('اربط Google Business', 'Connect Google Business'), 'why' => $t('تقييماتك بتتسحب وبيترد عليها بلغة كل سائح', 'Your reviews are pulled and answered in each traveller’s language'), 'link' => '/integrations'],
                 ['done' => $m['replies'] > 0, 'label' => $t('رد على أول تقييم بالذكاء الاصطناعي', 'Reply to your first review with AI'), 'why' => $t('رد محترف في ثواني، وانت بتوافق قبل النشر', 'A professional reply in seconds - you approve before it’s posted'), 'link' => '/reputation/reviews'],
                 ['done' => $m['wa'] > 0, 'label' => $t('اربط واتساب شركتك', 'Connect your business WhatsApp'), 'why' => $t('تذكير الرحلات وطلب التقييم بيوصلوا للسائح على الواتساب', 'Trip reminders and review requests reach travellers on WhatsApp'), 'link' => '/integrations'],
             ]],

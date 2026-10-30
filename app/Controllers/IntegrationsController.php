@@ -394,9 +394,35 @@ class IntegrationsController extends Controller
                 . '<div><div style="font-weight:600;" dir="ltr">' . $u . '</div><div style="margin-top:2px;">' . $waState . '</div></div>'
                 . '<a class="p-btn ' . ($wa ? 'outline' : 'primary') . ' xs" href="/chat/settings?website_id=' . $sid . '">' . ($wa ? 'إعدادات واتساب واختباره' : 'اربط واتساب شركتك') . '</a></div>';
         }
-        $topHtml = '<div class="p-grid cols-2" style="margin-bottom:16px;align-items:start;">'
-            . '<div class="p-card"><div class="p-card-head"><h3>🌐 موقعك</h3></div><div class="p-cell-muted" style="font-size:12.5px;">بنتأكد إن موقعك بيفتح وسرعته، وإن كود المنصة متركّب عليه.</div>'
-            . ($siteRows ?: '<div style="padding:12px 0;"><a class="p-btn primary xs" href="/websites">ضيف رابط موقعك</a> <a class="p-btn outline xs" href="/website-builder">ابنِ موقع حجز</a></div>') . '</div>'
+        // «ربط موقعك»: كل اللي يخص الموقع من هنا - نوعه (اكتشاف تلقائي)، كود Tourfecto الواحد لكل الخدمات، والنشر عليه
+        $hubSite = null;
+        foreach ($gscSites as $s) {
+            if ((int) $s->getAttribute('id') === (int) ($_GET['site'] ?? 0)) {
+                $hubSite = $s;
+            }
+        }
+        $hubSite = $hubSite ?? ($gscSites[0] ?? null);
+        if ($hubSite) {
+            $hubId = (int) $hubSite->getAttribute('id');
+            $picker = count($gscSites) > 1
+                ? '<select class="p-select" onchange="location.href=\'/integrations?site=\'+this.value+\'#site-hub\'" style="max-width:100%;margin-bottom:10px;">'
+                    . implode('', array_map(fn ($s) => '<option value="' . (int) $s->getAttribute('id') . '"' . ((int) $s->getAttribute('id') === $hubId ? ' selected' : '') . '>' . htmlspecialchars((string) $s->getAttribute('main_url'), ENT_QUOTES, 'UTF-8') . '</option>', $gscSites))
+                    . '</select>'
+                : '';
+            $siteHub = '<style>.tf-hub-step{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--panel-border,rgba(127,127,127,.2))}.tf-hub-n{flex:0 0 28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--panel-primary,#4c6fff);color:#fff}'
+                . '.tf-hub-b{flex:1;min-width:0}.tf-hub-code{display:block;padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.14);font-size:12px;overflow-x:auto;white-space:pre}'
+                . '.tf-hub-toggles{display:grid;gap:8px;margin-bottom:10px}.tf-hub-toggle{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.tf-hub-toggle small{display:block;font-size:12px;opacity:.75}</style>'
+                . '<div class="p-card" id="site-hub" style="margin-bottom:16px;"><div class="p-card-head"><h3>🔗 ربط موقعك</h3><span class="p-card-sub">مرة واحدة، وكل خدمات المنصة بتشتغل على موقعك</span></div>'
+                . $picker . '<div class="p-cell-muted" style="font-size:12.5px;" dir="ltr">' . htmlspecialchars((string) $hubSite->getAttribute('main_url'), ENT_QUOTES, 'UTF-8') . '</div>'
+                . '<div id="tfSiteHub" data-site="' . $hubId . '"></div>'
+                . '<div style="padding-inline-start:40px"><div id="siteConnect"></div>' . (new WebsiteController())->siteConnectAssets($hubSite) . '</div>'
+                . '<script defer src="' . htmlspecialchars(asset_v('/assets/js/site-hub.js'), ENT_QUOTES, 'UTF-8') . '"></script>'
+                . '<div style="border-top:1px solid var(--panel-border,rgba(127,127,127,.2));padding-top:10px;margin-top:6px">' . $siteRows . '</div></div>';
+        } else {
+            $siteHub = '<div class="p-card" id="site-hub" style="margin-bottom:16px;"><div class="p-card-head"><h3>🔗 ربط موقعك</h3></div>'
+                . '<div style="padding:12px 0;"><a class="p-btn primary xs" href="/websites">ضيف رابط موقعك</a> <a class="p-btn outline xs" href="/website-builder">ابنِ موقع حجز</a></div></div>';
+        }
+        $topHtml = $siteHub . '<div class="p-grid cols-2" style="margin-bottom:16px;align-items:start;">'
             . '<div class="p-card"><div class="p-card-head"><h3>💬 واتساب</h3></div><div class="p-cell-muted" style="font-size:12.5px;">رقم واتساب شركتك: الشات الذكي، وتذكير الرحلات، وطلب التقييم.</div>'
             . ($waRows ?: '<div class="p-cell-muted" style="padding:12px 0;">ضيف موقعك الأول، وبعدها اربط واتساب.</div>') . '</div></div>'
             . '<div class="p-grid cols-2" style="margin-bottom:16px;align-items:start;"><div class="p-card"><div class="p-card-head"><h3>💬 ماسنجر وإنستجرام</h3></div><div class="p-cell-muted" style="font-size:12.5px;">رسايل صفحة فيسبوك وحساب إنستجرام في نفس صندوق الرسايل، والذكاء الاصطناعي يرد عليها.</div>'
