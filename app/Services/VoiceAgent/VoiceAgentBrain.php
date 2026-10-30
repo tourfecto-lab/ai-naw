@@ -22,8 +22,14 @@ class VoiceAgentBrain
         };
     }
 
+    /** The customer's number: the caller on inbound calls, the dialled party on outbound ones. */
+    public static function customerNumber(array $call): string
+    {
+        return (string) (($call['direction'] ?? 'inbound') === 'outbound' ? ($call['to_e164'] ?? '') : ($call['from_e164'] ?? ''));
+    }
+
     /**
-     * @return array{say:string, language:string, end:bool, transfer:?string, outcome:?string}
+     * @return array{say:string, language:string, end:bool, transfer:?string, outcome:?string, opt_out:bool}
      */
     public function respond(array $call, array $agent, string $utterance, int $seq, bool $canTransfer): array
     {
@@ -34,7 +40,7 @@ class VoiceAgentBrain
         $base = $seq * 100;
         $this->data->addTurn($tenant, $callId, $base, 'caller', mb_substr($utterance, 0, 600));
 
-        $ctx = $this->data->customerContext($tenant, (string) $call['from_e164']);
+        $ctx = $this->data->customerContext($tenant, self::customerNumber($call));
         $business = $this->data->businessName($tenant);
         $parsed = null;
         $lookups = 0;
@@ -64,7 +70,7 @@ class VoiceAgentBrain
             // Model unavailable or unusable: never improvise. Hand over, or promise a callback.
             $say = $canTransfer ? VoiceLanguages::handoffPhrase($lang) : VoiceLanguages::callbackPhrase($lang);
             $this->data->addTurn($tenant, $callId, $base + 90, 'agent', $say, ['fallback' => true]);
-            return ['say' => $say, 'language' => $lang, 'end' => !$canTransfer, 'transfer' => $canTransfer ? 'ai_unavailable' : null, 'outcome' => $canTransfer ? null : 'callback_requested'];
+            return ['say' => $say, 'language' => $lang, 'end' => !$canTransfer, 'transfer' => $canTransfer ? 'ai_unavailable' : null, 'outcome' => $canTransfer ? null : 'callback_requested', 'opt_out' => false];
         }
 
         $a = $parsed['action'];
@@ -76,9 +82,16 @@ class VoiceAgentBrain
         if ($bad) {
             $say = VoiceLanguages::fallbackPhrase($lang);
         }
-        $out = ['say' => $say, 'language' => $lang, 'end' => false, 'transfer' => null, 'outcome' => null];
+        $out = ['say' => $say, 'language' => $lang, 'end' => false, 'transfer' => null, 'outcome' => null, 'opt_out' => false];
 
         switch ($a['type']) {
+            case 'opt_out':
+                $out['opt_out'] = true;
+                $out['end'] = true;
+                $out['say'] = VoiceLanguages::optOutPhrase($lang);
+                $out['outcome'] = 'opted_out';
+                break;
+            case 'record_survey':
             case 'qualify_lead':
             case 'request_booking':
                 if (!$this->persist($tenant, $call, $a)) {
@@ -123,15 +136,16 @@ class VoiceAgentBrain
                 }
                 return ['tool' => 'check_availability', 'result' => $this->data->tripAvailability($tenant, $a['product_id'], $a['date'], $a['guests'])];
             case 'verify_identity':
-                if (empty($call['contact_id']) && !$this->data->customerContext($tenant, (string) $call['from_e164'])['known']) {
+                if (empty($call['contact_id']) && !$this->data->customerContext($tenant, self::customerNumber($call))['known']) {
                     return ['tool' => 'verify_identity', 'verified' => false, 'note' => 'No customer record for this number.'];
                 }
                 if (VoiceIdentity::attemptsLeft((int) $call['verify_attempts']) < 1) {
                     return ['tool' => 'verify_identity', 'verified' => false, 'note' => 'No attempts left. Offer a human callback.'];
                 }
-                $ctx = $this->data->customerContext($tenant, (string) $call['from_e164']);
-                $ok = VoiceIdentity::matches($a['answer'], $this->data->identityFactors($tenant, (int) $ctx['contact_id']));
-                $this->data->updateCall($tenant, (int) $call['id'], $ok ? ['identity_verified' => 1, 'contact_id' => $ctx['contact_id']] : ['verify_attempts_add' => 1]);
+                $ctx = $this->data->customerContext($tenant, self::customerNumber($call));
+                $cid = (int) ($call['contact_id'] ?: $ctx['contact_id']);
+                $ok = $cid > 0 && VoiceIdentity::matches($a['answer'], $this->data->identityFactors($tenant, $cid));
+                $this->data->updateCall($tenant, (int) $call['id'], $ok ? ['identity_verified' => 1, 'contact_id' => $cid] : ['verify_attempts_add' => 1]);
                 return ['tool' => 'verify_identity', 'verified' => $ok, 'note' => $ok ? 'Identity verified; existing bookings may now be discussed.' : 'Did not match.'];
         }
         return ['tool' => $a['type'], 'error' => 'unsupported'];
@@ -161,6 +175,10 @@ class VoiceAgentBrain
     /** Saves lead qualification / a booking request on the call. False = a booking request that could not be honoured. */
     private function persist(int $tenant, array $call, array $a): bool
     {
+        if ($a['type'] === 'record_survey') {
+            $this->mergeJson($tenant, $call, 'qualification', ['survey_score' => $a['score'], 'survey_comment' => $a['comment']]);
+            return true;
+        }
         if ($a['type'] === 'qualify_lead') {
             $this->mergeJson($tenant, $call, 'qualification', array_diff_key($a, ['type' => 1]));
             return true;

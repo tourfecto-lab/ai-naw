@@ -52,4 +52,13 @@ class VoiceWebhookController extends Controller
         $this->send($code, $type, $body);
         return [];
     }
+
+    /** POST /webhooks/voice/{provider}/{tenant}/outbound?job=ID - someone answered a call we placed */
+    public function outbound(array $params = []): array
+    {
+        [$url, $headers, $raw] = $this->request();
+        [$code, $type, $body] = (new VoiceOutboundService())->handleAnswer(strtolower((string) ($params['provider'] ?? '')), (int) ($params['tenant'] ?? 0), $url, $headers, $raw, $_POST, (int) ($_GET['job'] ?? 0));
+        $this->send($code, $type, $body);
+        return [];
+    }
 }

@@ -8,8 +8,8 @@
 class VoiceReplyParser
 {
     public const READ_ACTIONS = ['search_trips', 'check_availability', 'verify_identity'];
-    public const ACTIONS = ['none', 'search_trips', 'check_availability', 'verify_identity', 'qualify_lead', 'request_booking', 'transfer_human', 'end_call'];
-    public const OUTCOMES = ['resolved', 'lead_captured', 'callback_requested', 'not_interested', 'other'];
+    public const ACTIONS = ['none', 'search_trips', 'check_availability', 'verify_identity', 'qualify_lead', 'request_booking', 'transfer_human', 'end_call', 'opt_out', 'record_survey'];
+    public const OUTCOMES = ['resolved', 'lead_captured', 'callback_requested', 'not_interested', 'survey_completed', 'other'];
     public const MAX_SAY = 420;
 
     private static function str($v, int $max): string
@@ -63,6 +63,10 @@ class VoiceReplyParser
                 break;
             case 'transfer_human':
                 $action['reason'] = self::str($a['reason'] ?? '', 200);
+                break;
+            case 'record_survey':
+                $action['score'] = max(1, min(5, (int) ($a['score'] ?? 0)));
+                $action['comment'] = self::str($a['comment'] ?? '', 300);
                 break;
             case 'end_call':
                 $o = (string) ($a['outcome'] ?? 'other');

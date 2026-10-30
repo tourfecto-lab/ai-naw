@@ -39,7 +39,7 @@ class VoicePromptBuilder
         $p[] = 'ACTIONS (put exactly one in "action"): '
             . '{"type":"none"} | {"type":"search_trips","query":"..."} | {"type":"check_availability","product_id":N,"date":"YYYY-MM-DD","guests":N} | {"type":"verify_identity","answer":"booking reference or email the caller said"} | '
             . '{"type":"qualify_lead","name":"","email":"","party_size":"","travel_dates":"","budget":"","interest":"","intent_level":"hot|warm|cold"} | {"type":"request_booking","product_id":N,"date":"YYYY-MM-DD","guests":N,"name":""} | '
-            . '{"type":"transfer_human","reason":""} | {"type":"end_call","outcome":"resolved|lead_captured|callback_requested|not_interested|other"}';
+            . '{"type":"transfer_human","reason":""} | {"type":"opt_out"} (caller asks not to be called again) | {"type":"record_survey","score":1-5,"comment":""} | {"type":"end_call","outcome":"resolved|lead_captured|callback_requested|not_interested|survey_completed|other"}';
         $p[] = 'OUTPUT: only JSON {"say":"what to speak now","language":"2-letter code of the language you speak","action":{...}}. When you use a lookup action (search_trips, check_availability, verify_identity), "say" may be a short filler; you will receive the result and then answer.';
 
         if (!empty($ctx['known'])) {
@@ -53,6 +53,9 @@ class VoicePromptBuilder
             }
         } else {
             $p[] = 'CALLER: no customer record matches this number (treat as a new caller).';
+        }
+        if (!empty($call['outbound'])) {
+            $p[] = self::outboundSection($call['outbound'], $verified);
         }
         if (!empty($agent['greeting'])) {
             $p[] = 'COMPANY NOTES FROM THE OWNER (tone/greeting): ' . mb_substr((string) $agent['greeting'], 0, 600);
@@ -69,6 +72,35 @@ class VoicePromptBuilder
         }
         $p[] = "CONVERSATION SO FAR:\n" . ($lines ? implode("\n", $lines) : '(call just started)');
         return implode("\n\n", $p);
+    }
+
+    /** Booking reference and email are never put in the prompt (they are the verification answers); amounts only after verification. */
+    public static function outboundSection(array $o, bool $verified): string
+    {
+        $facts = array_diff_key((array) ($o['facts'] ?? []), ['booking_ref' => 1, 'email' => 1, 'first_name' => 1]);
+        if (!$verified) {
+            unset($facts['amount'], $facts['currency']);
+        }
+        $name = !empty($o['facts']['first_name']) ? $o['facts']['first_name'] : 'the customer';
+        $scripts = [
+            'booking_confirmation' => 'Confirm the trip, date and number of guests; ask if anything should change.',
+            'trip_reminder' => 'Remind them of the trip date/time; ask if they have questions about meeting point or what to bring.',
+            'payment_followup' => 'Only after verify_identity succeeds: say a payment is still pending and (if given) the amount; offer that a team member sends a payment link. You cannot take card details by phone.',
+            'booking_followup' => 'They started a booking but did not finish. Ask if they still want it; offer help; use request_booking if they confirm.',
+            'lead_followup' => 'They asked about our trips recently. Ask if they are still interested, answer questions, qualify (dates, party size, budget).',
+            'inquiry_followup' => 'They asked about our trips recently. Ask if they are still interested, answer questions, qualify (dates, party size, budget).',
+            'callback' => 'They asked us to call them back. Help with their request.',
+            'survey' => 'Ask for a 1-5 satisfaction score and one open question, then record_survey and end_call with outcome survey_completed.',
+            'post_trip' => 'Ask how the trip went (1-5 score and one open question), then record_survey and end_call with outcome survey_completed.',
+            'marketing' => 'Present the offer once, briefly, without pressure. If they are not interested, thank them and end_call with outcome not_interested.',
+        ];
+        $purpose = (string) ($o['purpose'] ?? '');
+        return "OUTBOUND CALL: WE placed this call. Our fixed opening already said who we are, that we are an AI, asked for $name and explained they can say stop.\n"
+            . "PURPOSE: $purpose. " . ($scripts[$purpose] ?? '') . "\n"
+            . "FACTS (share only after the person confirms they are $name): " . json_encode($facts, JSON_UNESCAPED_UNICODE) . "\n"
+            . "- If someone else answers or it is the wrong number: apologise, share nothing, end_call with outcome other.\n"
+            . "- If they ask not to be called again, or say stop, use opt_out at once.\n"
+            . "- Keep it short; if it is a bad time, offer a callback and end_call with outcome callback_requested.";
     }
 
     public static function greeting(string $business, ?string $agentName, string $lang, bool $recording): string

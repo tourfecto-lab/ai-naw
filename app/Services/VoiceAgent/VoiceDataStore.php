@@ -3,7 +3,7 @@
 /** Tourfecto - AI Voice Agent: database implementation of VoiceDataSource. Every query carries the tenant id. */
 class VoiceDataStore implements VoiceDataSource
 {
-    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s'];
+    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by'];
 
     private function db(): Database
     {
@@ -17,11 +17,11 @@ class VoiceDataStore implements VoiceDataSource
         return substr($d, -9);
     }
 
-    public function createCall(int $tenantId, array $number, ?int $agentId, string $provider, string $callSid, string $from, string $to, string $mode, string $language, ?int $contactId): int
+    public function createCall(int $tenantId, array $number, ?int $agentId, string $provider, string $callSid, string $from, string $to, string $mode, string $language, ?int $contactId, string $direction = 'inbound', ?int $jobId = null): int
     {
         $this->db()->exec(
-            'INSERT IGNORE INTO voice_calls (tenant_user_id, number_id, agent_id, provider, call_sid, direction, from_e164, to_e164, mode, language, contact_id, started_at) VALUES (?,?,?,?,?,\'inbound\',?,?,?,?,?,NOW())',
-            [$tenantId, $number['id'] ?? null, $agentId, $provider, $callSid, $from, $to, $mode, $language, $contactId]
+            'INSERT IGNORE INTO voice_calls (tenant_user_id, number_id, agent_id, provider, call_sid, direction, from_e164, to_e164, mode, language, contact_id, job_id, started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NOW())',
+            [$tenantId, $number['id'] ?? null, $agentId, $provider, $callSid, $direction, $from, $to, $mode, $language, $contactId, $jobId]
         );
         $r = $this->db()->query('SELECT id FROM voice_calls WHERE provider = ? AND call_sid = ? AND tenant_user_id = ? LIMIT 1', [$provider, $callSid, $tenantId]);
         return $r ? (int) $r[0]['id'] : 0;

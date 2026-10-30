@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS voice_calls (
  mode ENUM('turn','stream','fallback') NOT NULL DEFAULT 'turn',
  status ENUM('in_progress','completed','transferred','missed','failed') NOT NULL DEFAULT 'in_progress',
  language VARCHAR(10) NULL,
+ job_id BIGINT UNSIGNED NULL COMMENT 'outbound job that placed this call',
+ answered_by VARCHAR(20) NULL COMMENT 'human / machine / fax / unknown (voicemail detection)',
  contact_id INT(11) NULL,
  identity_verified TINYINT(1) NOT NULL DEFAULT 0,
  verify_attempts TINYINT NOT NULL DEFAULT 0,

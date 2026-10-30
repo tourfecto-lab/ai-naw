@@ -96,4 +96,64 @@ class VoiceLanguages
         ];
         return $p[self::normalize($lang)];
     }
+
+    public static function optOutPhrase(string $lang): string
+    {
+        $p = [
+            'en' => "Understood. I've removed your number from our call list and you won't be called again. Goodbye.",
+            'ar' => 'تم. حذفنا رقمك من قائمة الاتصال ولن نتصل بك مرة أخرى. مع السلامة.',
+            'fr' => "Entendu. J'ai retiré votre numéro de notre liste d'appels, vous ne serez plus appelé. Au revoir.",
+            'de' => 'Verstanden. Ihre Nummer wurde aus unserer Anrufliste entfernt, Sie werden nicht mehr angerufen. Auf Wiedersehen.',
+            'es' => 'Entendido. He eliminado su número de nuestra lista de llamadas y no volverá a recibir llamadas. Adiós.',
+            'it' => 'Capito. Ho rimosso il suo numero dal nostro elenco e non sarà più chiamato. Arrivederci.',
+            'ru' => 'Понял. Я удалил ваш номер из списка обзвона, вам больше не будут звонить. До свидания.',
+            'tr' => 'Anlaşıldı. Numaranızı arama listemizden çıkardım, bir daha aranmayacaksınız. Hoşça kalın.',
+        ];
+        return $p[self::normalize($lang)];
+    }
+
+    /** Fixed opening of an outbound call: who is calling, that it is an AI, who we want, and how to stop. %1$s agent %2$s business %3$s name */
+    public static function outboundOpening(string $lang, string $agent, string $business, ?string $firstName): string
+    {
+        $who = [
+            'en' => $firstName ? "Am I speaking with $firstName?" : 'Is this a good moment to talk?',
+            'ar' => $firstName ? "هل أتحدث مع {$firstName}؟" : 'هل هذا وقت مناسب للحديث؟',
+            'fr' => $firstName ? "Suis-je bien en ligne avec {$firstName} ?" : 'Est-ce le bon moment pour parler ?',
+            'de' => $firstName ? "Spreche ich mit {$firstName}?" : 'Passt es gerade kurz?',
+            'es' => $firstName ? "¿Hablo con {$firstName}?" : '¿Es un buen momento para hablar?',
+            'it' => $firstName ? "Parlo con {$firstName}?" : 'È un buon momento per parlare?',
+            'ru' => $firstName ? "Я говорю с {$firstName}?" : 'Вам сейчас удобно говорить?',
+            'tr' => $firstName ? "{$firstName} ile mi görüşüyorum?" : 'Şu an konuşmak için uygun mu?',
+        ];
+        $head = [
+            'en' => "Hello, this is {$agent}, an AI assistant calling from {$business}.", 'ar' => "مرحبًا، معك {$agent}، مساعد ذكاء اصطناعي من {$business}.",
+            'fr' => "Bonjour, ici {$agent}, un assistant IA de {$business}.", 'de' => "Guten Tag, hier ist {$agent}, ein KI-Assistent von {$business}.",
+            'es' => "Hola, le habla {$agent}, un asistente de IA de {$business}.", 'it' => "Buongiorno, sono {$agent}, un assistente IA di {$business}.",
+            'ru' => "Здравствуйте, это {$agent}, ИИ-ассистент компании {$business}.", 'tr' => "Merhaba, ben {$business} şirketinden {$agent}, bir yapay zeka asistanıyım.",
+        ];
+        $stop = [
+            'en' => 'You can say "stop calling" at any time and we will not call again.', 'ar' => 'يمكنك قول "لا تتصل" في أي وقت ولن نتصل بك مرة أخرى.',
+            'fr' => 'Dites « ne m\'appelez plus » à tout moment et nous ne rappellerons pas.', 'de' => 'Sagen Sie jederzeit „nicht mehr anrufen“, dann rufen wir nicht wieder an.',
+            'es' => 'Puede decir «no me llame» en cualquier momento y no volveremos a llamar.', 'it' => 'Può dire «non chiamatemi più» in qualsiasi momento e non richiameremo.',
+            'ru' => 'Скажите «не звоните» в любой момент, и мы больше не позвоним.', 'tr' => 'İstediğiniz an "beni aramayın" derseniz bir daha aramayız.',
+        ];
+        $l = self::normalize($lang);
+        return $head[$l] . ' ' . $who[$l] . ' ' . $stop[$l];
+    }
+
+    /** Voicemail message: says only who called and to call back. No reason, no booking or payment detail. */
+    public static function voicemailPhrase(string $lang, string $business): string
+    {
+        $p = [
+            'en' => "Hello, this is {$business} calling. We tried to reach you. Please call us back when you can. Thank you.",
+            'ar' => "مرحبًا، هنا {$business}. حاولنا الاتصال بك. يرجى معاودة الاتصال بنا عند الإمكان. شكرًا لك.",
+            'fr' => "Bonjour, ici {$business}. Nous avons essayé de vous joindre. Merci de nous rappeler dès que possible.",
+            'de' => "Guten Tag, hier ist {$business}. Wir haben versucht, Sie zu erreichen. Bitte rufen Sie uns zurück. Danke.",
+            'es' => "Hola, le llama {$business}. Intentamos contactarle. Por favor, llámenos cuando pueda. Gracias.",
+            'it' => "Buongiorno, è {$business}. Abbiamo cercato di contattarla. La preghiamo di richiamarci. Grazie.",
+            'ru' => "Здравствуйте, это {$business}. Мы пытались с вами связаться. Пожалуйста, перезвоните нам. Спасибо.",
+            'tr' => "Merhaba, {$business} arıyor. Size ulaşmaya çalıştık. Lütfen bizi geri arayın. Teşekkürler.",
+        ];
+        return $p[self::normalize($lang)];
+    }
 }

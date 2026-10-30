@@ -175,7 +175,7 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
             $body['Record'] = 'true';
         }
         if (!empty($opts['machine_detection'])) {
-            $body['MachineDetection'] = 'Enable';
+            $body['MachineDetection'] = $opts['machine_detection'] === 'message_end' ? 'DetectMessageEnd' : 'Enable';
         }
         $d = $this->json('POST', $this->acct() . '/Calls.json', $body, [], $this->auth());
         return ['call_id' => (string) $d['sid'], 'status' => (string) ($d['status'] ?? 'queued')];
@@ -220,7 +220,7 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
     {
         $x = static fn ($v) => htmlspecialchars((string) $v, ENT_XML1 | ENT_QUOTES);
         $voice = preg_match('/^[A-Za-z0-9._\-]{2,60}$/', (string) ($o['voice'] ?? '')) ? $o['voice'] : 'Polly.Joanna';
-        $say = '<Say voice="' . $x($voice) . '">' . $x($o['say'] ?? '') . '</Say>';
+        $say = trim((string) ($o['say'] ?? '')) === '' ? '' : '<Say voice="' . $x($voice) . '">' . $x($o['say']) . '</Say>';
         $inner = $say;
         if (!empty($o['gather_url'])) {
             if (!preg_match('#^https://#i', (string) $o['gather_url'])) {

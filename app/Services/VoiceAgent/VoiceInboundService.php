@@ -28,7 +28,7 @@ class VoiceInboundService
     public static function webhookUrls(string $baseUrl, string $provider, int $tenantId): array
     {
         $b = rtrim($baseUrl, '/') . '/webhooks/voice/' . $provider . '/' . $tenantId;
-        return ['inbound' => $b . '/inbound', 'status' => $b . '/status', 'turn' => $b . '/turn'];
+        return ['inbound' => $b . '/inbound', 'status' => $b . '/status', 'turn' => $b . '/turn', 'outbound' => $b . '/outbound'];
     }
 
     private function authenticate(string $provider, int $tenantId, string $url, array $headers, string $raw, array $params): ?VoiceProviderAdapter
@@ -195,8 +195,23 @@ class VoiceInboundService
         if (time() - (int) strtotime($call['started_at']) > self::MAX_SECONDS) {
             return $this->wrapUp($a, $call, $lang, $voice, $human, 'max_duration');
         }
+        $customerNumber = VoiceAgentBrain::customerNumber($call);
+        if (VoiceOptOut::detect($speech)) {
+            $this->optOut($tenantId, $call, $customerNumber);
+            return self::xml($a, ['say' => VoiceLanguages::optOutPhrase($lang), 'voice' => $voice, 'hangup' => true]);
+        }
+        if (!empty($call['job_id'])) {
+            $job = Database::getInstance()->query('SELECT purpose, context_json FROM voice_outbound_jobs WHERE id = ? AND tenant_user_id = ? LIMIT 1', [(int) $call['job_id'], $tenantId])[0] ?? null;
+            if ($job) {
+                $call['outbound'] = ['purpose' => $job['purpose'], 'facts' => json_decode((string) $job['context_json'], true) ?: []];
+            }
+        }
         $out = (new VoiceAgentBrain($this->store, $this->llm))->respond($call, $agent, $speech, $n, $human !== null);
         $l = $out['language'];
+        if (!empty($out['opt_out'])) {
+            $this->optOut($tenantId, $call, $customerNumber);
+            return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'hangup' => true]);
+        }
         if ($out['transfer'] !== null && $human) {
             $this->store->updateCall($tenantId, $callId, ['status' => 'transferred', 'handoff_reason' => mb_substr($out['transfer'], 0, 200), 'outcome' => 'transferred']);
             return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'transfer_to' => $human]);
@@ -204,11 +219,21 @@ class VoiceInboundService
         if ($out['end']) {
             $this->store->updateCall($tenantId, $callId, ['outcome' => $out['outcome'] ?? 'resolved']);
             if (($out['outcome'] ?? '') === 'callback_requested') {
-                (new VoiceMissedCallService($this->store))->record($tenantId, (string) $call['from_e164'], 'callback_requested');
+                (new VoiceMissedCallService($this->store))->record($tenantId, $customerNumber, 'callback_requested');
             }
             return self::xml($a, ['say' => $out['say'], 'voice' => VoiceLanguages::safeVoice($agent['voice'] ?? null, $l), 'hangup' => true]);
         }
         return $next($out['say'], $l);
+    }
+
+    private function optOut(int $tenantId, array $call, string $customerNumber): void
+    {
+        try {
+            (new VoiceConsentService())->optOut($tenantId, $customerNumber, (int) $call['id']);
+        } catch (Throwable $e) {
+            Logger::error('Voice opt-out failed', ['tenant' => $tenantId, 'error' => $e->getMessage()]);
+        }
+        $this->store->updateCall($tenantId, (int) $call['id'], ['outcome' => 'opted_out']);
     }
 
     private function wrapUp(VoiceProviderAdapter $a, array $call, string $lang, string $voice, ?string $human, string $why): array
@@ -219,13 +244,16 @@ class VoiceInboundService
             return self::xml($a, ['say' => VoiceLanguages::handoffPhrase($lang), 'voice' => $voice, 'transfer_to' => $human]);
         }
         $this->store->updateCall($tenantId, (int) $call['id'], ['outcome' => 'callback_requested']);
-        (new VoiceMissedCallService($this->store))->record($tenantId, (string) $call['from_e164'], $why);
+        (new VoiceMissedCallService($this->store))->record($tenantId, VoiceAgentBrain::customerNumber($call), $why);
         return self::xml($a, ['say' => VoiceLanguages::callbackPhrase($lang), 'voice' => $voice, 'hangup' => true]);
     }
 
     /** Provider status callback for an inbound call: close the call record, recover calls hung up before the AI said anything. */
     public function onStatus(int $tenantId, string $provider, array $ev): void
     {
+        if ((new VoiceOutboundService($this->providers, null, $this->store, $this->baseUrl))->onStatusBySid($tenantId, $provider, $ev)) {
+            return; // an outbound call: the job decides what happens next
+        }
         $call = $this->store->findBySid($tenantId, $provider, (string) $ev['call_id']);
         if (!$call || !in_array($ev['status'], ['completed', 'busy', 'failed', 'no-answer', 'canceled'], true)) {
             return;

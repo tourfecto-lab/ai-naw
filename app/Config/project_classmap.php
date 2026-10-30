@@ -951,4 +951,10 @@ return [
     'VoiceMissedCallService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceMissedCallService.php',
     'VoiceBridgeAuth' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceBridgeAuth.php',
     'VoiceInboundService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceInboundService.php',
+    'VoiceOutboundController' => dirname(__DIR__,2).'/app/Controllers/VoiceOutboundController.php',
+    'VoiceTimeWindows' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceTimeWindows.php',
+    'VoiceOptOut' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceOptOut.php',
+    'VoiceCompliance' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCompliance.php',
+    'VoiceConsentService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceConsentService.php',
+    'VoiceOutboundService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceOutboundService.php',
 ];

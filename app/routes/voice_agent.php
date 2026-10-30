@@ -39,3 +39,15 @@ $router->post('/api/voice-bridge/end','VoiceBridgeController','end',[]);
 // Phase 4: call history for the account
 $router->get('/api/voice-agent/calls','VoiceCallsController','index',['AuthMiddleware']);
 $router->get('/api/voice-agent/calls/{id}','VoiceCallsController','show',['AuthMiddleware']);
+
+// Phase 5: outbound calls, consent, do-not-call
+$router->post('/webhooks/voice/{provider}/{tenant}/outbound','VoiceWebhookController','outbound',[]);
+$router->get('/api/voice-agent/outbound/purposes','VoiceOutboundController','purposes',['AuthMiddleware']);
+$router->get('/api/voice-agent/outbound/jobs','VoiceOutboundController','jobs',['AuthMiddleware']);
+$router->post('/api/voice-agent/outbound/jobs','VoiceOutboundController','createJob',['AuthMiddleware']);
+$router->post('/api/voice-agent/outbound/jobs/{id}/cancel','VoiceOutboundController','cancelJob',['AuthMiddleware']);
+$router->post('/api/voice-agent/consents','VoiceOutboundController','grantConsent',['AuthMiddleware']);
+$router->post('/api/voice-agent/consents/withdraw','VoiceOutboundController','withdrawConsent',['AuthMiddleware']);
+$router->get('/api/voice-agent/dnc','VoiceOutboundController','dnc',['AuthMiddleware']);
+$router->post('/api/voice-agent/dnc','VoiceOutboundController','addDnc',['AuthMiddleware']);
+$router->post('/api/voice-agent/dnc/remove','VoiceOutboundController','removeDnc',['AuthMiddleware']);

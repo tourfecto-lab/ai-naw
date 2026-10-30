@@ -143,6 +143,12 @@ class VoiceProviderService
         return (new SystemSettingsService())->get('voice_live_operations_enabled', '0') === '1';
     }
 
+    /** Would this operation really reach the provider right now? (same decision `guarded` makes) */
+    public function wouldGoLive(int $tenantId, string $operation, bool $approved): bool
+    {
+        return VoiceLiveGuard::decide($operation, $this->settings->get($tenantId), $this->platformLive(), $approved)['live'];
+    }
+
     /**
      * Run a mutating operation: simulated unless VoiceLiveGuard allows it. Returns the result plus 'simulated' and 'reason'.
      * @param callable(VoiceProviderAdapter):array $live
