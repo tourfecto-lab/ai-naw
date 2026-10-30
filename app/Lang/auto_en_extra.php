@@ -5452,4 +5452,5 @@ return [
     'تم فتح الأيام للحجز' => 'Days opened for booking',
     'اكتب عدد متاح وعدد أيام صحيح' => 'Enter a valid number available and number of days',
     'طلب تواصل جديد من موقعك' => 'New enquiry from your website',
+    'أول حجز من موقعك' => 'Your first website booking',
 ];

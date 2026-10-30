@@ -2550,8 +2550,9 @@ HTML;
             $count = (int) ($this->db->query('SELECT COUNT(*) AS c FROM bookings WHERE user_id = ?', [$userId])[0]['c'] ?? 0);
             $itemName = (string) ($item['name'] ?? $item['title'] ?? $itemSlug);
             Notification::notify($userId, 'booking_new',
-                $count <= 1 ? $this->siteUi('🎉 أول حجز من موقعك!') : $this->siteUi('حجز جديد من موقعك'),
-                $this->get('customer_name') . $this->siteUi(' حجز "') . $itemName . $this->siteUi('" يوم ') . $startDate . ' (' . ($adults + $children) . $this->siteUi(' أفراد) - كود ') . $reference,
+                // owner-facing: written in the platform's source language (translated per viewer), not the site's language
+                $count <= 1 ? '🎉 أول حجز من موقعك!' : 'حجز جديد من موقعك',
+                $this->get('customer_name') . ' · ' . $itemName . ' · ' . $startDate . ' · ' . ($adults + $children) . ' · ' . $reference,
                 '/bookings');
         } catch (Throwable $e) {
             Logger::warning('new booking notify failed', ['error' => CustomerError::message($e->getMessage(), 500)]);
