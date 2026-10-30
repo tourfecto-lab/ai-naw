@@ -83,7 +83,7 @@ class VoiceBridgeController extends Controller
             $x['store']->addTurn($t, (int) $call['id'], 100000 + $n++, $role, mb_substr((string) ($turn['text'] ?? ''), 0, 600), ['bridge' => true]);
         }
         $o = (string) ($x['body']['outcome'] ?? 'other');
-        $x['store']->updateCall($t, (int) $call['id'], ['turns' => $n, 'outcome' => in_array($o, VoiceReplyParser::OUTCOMES, true) ? $o : 'other']);
+        $x['store']->updateCall($t, (int) $call['id'], ['turns' => $n, 'outcome' => in_array($o, VoiceReplyParser::OUTCOMES, true) ? $o : 'other', 'post_call_status' => $n > 0 ? 'pending' : 'none']);
         return $this->out(['turns_saved' => $n]);
     }
 }

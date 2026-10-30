@@ -3,7 +3,7 @@
 /** Tourfecto - AI Voice Agent: database implementation of VoiceDataSource. Every query carries the tenant id. */
 class VoiceDataStore implements VoiceDataSource
 {
-    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by'];
+    private const UPDATABLE = ['language', 'identity_verified', 'contact_id', 'status', 'outcome', 'handoff_reason', 'qualification', 'booking_request', 'summary', 'turns', 'mode', 'silent_turns', 'ended_at', 'duration_s', 'answered_by', 'next_step', 'needs', 'send_requests', 'post_call_status', 'post_processed_at', 'crm_lead_id', 'booking_id'];
 
     private function db(): Database
     {
@@ -47,6 +47,9 @@ class VoiceDataStore implements VoiceDataSource
             if ($k === 'ai_cost_usd_add') {
                 $set[] = 'ai_cost_usd = ai_cost_usd + ?';
                 $params[] = round((float) $v, 6);
+            } elseif ($k === 'post_call_attempts_add') {
+                $set[] = 'post_call_attempts = post_call_attempts + ?';
+                $params[] = (int) $v;
             } elseif ($k === 'verify_attempts_add') {
                 $set[] = 'verify_attempts = verify_attempts + ?';
                 $params[] = (int) $v;

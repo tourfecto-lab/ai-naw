@@ -91,6 +91,7 @@ class VoiceAgentBrain
                 $out['say'] = VoiceLanguages::optOutPhrase($lang);
                 $out['outcome'] = 'opted_out';
                 break;
+            case 'send_details':
             case 'record_survey':
             case 'qualify_lead':
             case 'request_booking':
@@ -175,6 +176,15 @@ class VoiceAgentBrain
     /** Saves lead qualification / a booking request on the call. False = a booking request that could not be honoured. */
     private function persist(int $tenant, array $call, array $a): bool
     {
+        if ($a['type'] === 'send_details') {
+            $cur = json_decode((string) (($this->data->getCall($tenant, (int) $call['id'])['send_requests'] ?? '') ?: '[]'), true) ?: [];
+            $row = ['channel' => $a['channel'], 'item' => $a['item'], 'product_id' => $a['product_id']];
+            if (!in_array($row, $cur, true) && count($cur) < 5) {
+                $cur[] = $row;
+            }
+            $this->data->updateCall($tenant, (int) $call['id'], ['send_requests' => json_encode($cur)]);
+            return true;
+        }
         if ($a['type'] === 'record_survey') {
             $this->mergeJson($tenant, $call, 'qualification', ['survey_score' => $a['score'], 'survey_comment' => $a['comment']]);
             return true;
@@ -211,7 +221,7 @@ class VoiceAgentBrain
             $this->data->addTurn($tenant, (int) $call['id'], 900000 + $n, 'tool', json_encode($r, JSON_UNESCAPED_UNICODE), ['action' => $a['type'], 'bridge' => true]);
             return $r;
         }
-        if (in_array($a['type'], ['qualify_lead', 'request_booking'], true)) {
+        if (in_array($a['type'], ['qualify_lead', 'request_booking', 'send_details'], true)) {
             return ['tool' => $a['type'], 'saved' => $this->persist($tenant, $call, $a)];
         }
         return ['tool' => $a['type'], 'error' => 'unsupported_for_bridge'];

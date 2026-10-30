@@ -24,13 +24,22 @@ CREATE TABLE IF NOT EXISTS voice_calls (
  qualification TEXT NULL COMMENT 'JSON collected by the agent (lead qualification)',
  booking_request TEXT NULL COMMENT 'JSON booking request captured on the call (confirmed in Phase 6)',
  summary TEXT NULL,
+ next_step VARCHAR(300) NULL,
+ needs TEXT NULL COMMENT 'JSON list of customer needs',
+ send_requests TEXT NULL COMMENT 'JSON: details / payment link the caller asked to receive',
+ post_call_status ENUM('none','pending','done','failed') NOT NULL DEFAULT 'none',
+ post_call_attempts TINYINT NOT NULL DEFAULT 0,
+ post_processed_at DATETIME NULL,
+ crm_lead_id INT(11) NULL,
+ booking_id INT(11) NULL,
  ai_cost_usd DECIMAL(10,4) NOT NULL DEFAULT 0,
  started_at DATETIME NOT NULL,
  ended_at DATETIME NULL,
  duration_s INT NULL,
  UNIQUE KEY uq_voice_call_sid (provider, call_sid),
  KEY idx_voice_calls_tenant (tenant_user_id, started_at),
- KEY idx_voice_calls_contact (tenant_user_id, contact_id)
+ KEY idx_voice_calls_contact (tenant_user_id, contact_id),
+ KEY idx_voice_calls_post (post_call_status, ended_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS voice_call_turns (

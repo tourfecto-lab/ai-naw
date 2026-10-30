@@ -8,7 +8,7 @@
 class VoiceReplyParser
 {
     public const READ_ACTIONS = ['search_trips', 'check_availability', 'verify_identity'];
-    public const ACTIONS = ['none', 'search_trips', 'check_availability', 'verify_identity', 'qualify_lead', 'request_booking', 'transfer_human', 'end_call', 'opt_out', 'record_survey'];
+    public const ACTIONS = ['none', 'search_trips', 'check_availability', 'verify_identity', 'qualify_lead', 'request_booking', 'transfer_human', 'end_call', 'opt_out', 'record_survey', 'send_details'];
     public const OUTCOMES = ['resolved', 'lead_captured', 'callback_requested', 'not_interested', 'survey_completed', 'other'];
     public const MAX_SAY = 420;
 
@@ -63,6 +63,13 @@ class VoiceReplyParser
                 break;
             case 'transfer_human':
                 $action['reason'] = self::str($a['reason'] ?? '', 200);
+                break;
+            case 'send_details':
+                $ch = (string) ($a['channel'] ?? 'any');
+                $action['channel'] = in_array($ch, ['whatsapp', 'email', 'any'], true) ? $ch : 'any';
+                $it = (string) ($a['item'] ?? 'trip_details');
+                $action['item'] = in_array($it, ['trip_details', 'payment_link'], true) ? $it : 'trip_details';
+                $action['product_id'] = max(0, (int) ($a['product_id'] ?? 0));
                 break;
             case 'record_survey':
                 $action['score'] = max(1, min(5, (int) ($a['score'] ?? 0)));

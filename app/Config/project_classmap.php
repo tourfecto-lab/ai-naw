@@ -957,4 +957,9 @@ return [
     'VoiceCompliance' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCompliance.php',
     'VoiceConsentService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceConsentService.php',
     'VoiceOutboundService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceOutboundService.php',
+    'VoicePostCallRules' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallRules.php',
+    'VoiceFollowUpMessages' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceFollowUpMessages.php',
+    'VoicePostCallGateway' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallGateway.php',
+    'VoicePostCallCrmGateway' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallCrmGateway.php',
+    'VoicePostCallService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePostCallService.php',
 ];

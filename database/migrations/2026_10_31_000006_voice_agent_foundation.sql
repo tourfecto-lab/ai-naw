@@ -10,6 +10,12 @@ CREATE TABLE IF NOT EXISTS voice_agent_settings (
  recording_enabled TINYINT(1) NOT NULL DEFAULT 0,
  monthly_budget_usd DECIMAL(10,2) NULL COMMENT 'NULL = no cap configured',
  human_handoff_phone VARCHAR(32) NULL,
+ booking_mode ENUM('request_only','create_pending','auto_confirm') NOT NULL DEFAULT 'request_only' COMMENT 'what the AI may do with a booking request taken on a call',
+ booking_max_amount DECIMAL(12,2) NULL COMMENT 'auto_confirm only bookings up to this total',
+ post_call_whatsapp TINYINT(1) NOT NULL DEFAULT 0,
+ post_call_email TINYINT(1) NOT NULL DEFAULT 0,
+ payment_link_pct TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0 = never send payment links, else deposit percent',
+ whatsapp_website_id INT(11) NULL COMMENT 'website whose WhatsApp connection sends post-call messages',
  created_at DATETIME NOT NULL,
  updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

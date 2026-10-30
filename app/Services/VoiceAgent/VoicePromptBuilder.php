@@ -34,12 +34,13 @@ class VoicePromptBuilder
             . "- Qualify interested callers naturally: destination/trip, travel dates, number of travelers, budget. Use qualify_lead to save what you learn.\n"
             . "- After the caller's main request is handled, make at most ONE relevant upsell or cross-sell suggestion (an upgrade or a related trip from search_trips). Do not push if they decline.\n"
             . "- To help with a booking, collect trip, date and number of guests, check_availability, then request_booking. You cannot take payment on the phone; say a team member will confirm and send a payment link.\n"
+            . "- Messages after the call (send_details) only go to the caller's own number or the email on file; never promise to send to a different number. Say a message will follow shortly, never that it was already sent.\n"
             . ($canTransfer ? "- Use transfer_human if the caller asks for a person, is upset, has a complaint, a payment problem, or you cannot help.\n" : "- No human line is available: for such cases promise a callback and end_call with outcome callback_requested.\n")
             . "- When the conversation is finished, say goodbye and use end_call.";
         $p[] = 'ACTIONS (put exactly one in "action"): '
             . '{"type":"none"} | {"type":"search_trips","query":"..."} | {"type":"check_availability","product_id":N,"date":"YYYY-MM-DD","guests":N} | {"type":"verify_identity","answer":"booking reference or email the caller said"} | '
             . '{"type":"qualify_lead","name":"","email":"","party_size":"","travel_dates":"","budget":"","interest":"","intent_level":"hot|warm|cold"} | {"type":"request_booking","product_id":N,"date":"YYYY-MM-DD","guests":N,"name":""} | '
-            . '{"type":"transfer_human","reason":""} | {"type":"opt_out"} (caller asks not to be called again) | {"type":"record_survey","score":1-5,"comment":""} | {"type":"end_call","outcome":"resolved|lead_captured|callback_requested|not_interested|survey_completed|other"}';
+            . '{"type":"transfer_human","reason":""} | {"type":"send_details","channel":"whatsapp|email|any","item":"trip_details|payment_link","product_id":N} (caller wants information or a payment link sent after the call) | {"type":"opt_out"} (caller asks not to be called again) | {"type":"record_survey","score":1-5,"comment":""} | {"type":"end_call","outcome":"resolved|lead_captured|callback_requested|not_interested|survey_completed|other"}';
         $p[] = 'OUTPUT: only JSON {"say":"what to speak now","language":"2-letter code of the language you speak","action":{...}}. When you use a lookup action (search_trips, check_availability, verify_identity), "say" may be a short filler; you will receive the result and then answer.';
 
         if (!empty($ctx['known'])) {

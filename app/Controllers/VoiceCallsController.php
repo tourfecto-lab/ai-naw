@@ -31,7 +31,7 @@ class VoiceCallsController extends Controller
         }
         $limit = max(1, min(100, (int) $this->get('limit', 50)));
         $rows = Database::getInstance()->query(
-            'SELECT id, number_id, agent_id, direction, from_e164, to_e164, mode, status, language, identity_verified, turns, outcome, handoff_reason, ai_cost_usd, started_at, ended_at, duration_s
+            'SELECT id, number_id, agent_id, direction, from_e164, to_e164, mode, status, language, identity_verified, turns, outcome, handoff_reason, summary, next_step, post_call_status, booking_id, crm_lead_id, ai_cost_usd, started_at, ended_at, duration_s
              FROM voice_calls WHERE tenant_user_id = ? ORDER BY id DESC LIMIT ' . $limit,
             [$g['tenant']]
         ) ?: [];
@@ -51,6 +51,7 @@ class VoiceCallsController extends Controller
             return $this->error('Call not found', 404);
         }
         $turns = array_values(array_filter($store->recentTurns($g['tenant'], (int) $call['id'], 300), static fn ($t) => $t['role'] !== 'tool'));
-        return $this->success(['call' => $call, 'turns' => $turns]);
+        $actions = Database::getInstance()->query('SELECT action, status, ref, detail, created_at FROM voice_post_call_actions WHERE call_id = ? AND tenant_user_id = ? ORDER BY id', [(int) $call['id'], $g['tenant']]) ?: [];
+        return $this->success(['call' => $call, 'turns' => $turns, 'post_call_actions' => $actions]);
     }
 }

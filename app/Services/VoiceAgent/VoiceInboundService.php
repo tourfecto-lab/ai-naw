@@ -268,5 +268,6 @@ class VoiceInboundService
             $fields['status'] = in_array($ev['status'], ['failed', 'canceled'], true) ? 'failed' : 'completed';
         }
         $this->store->updateCall($tenantId, (int) $call['id'], $fields);
+        VoicePostCallService::markPending($this->store, $tenantId, ($this->store->getCall($tenantId, (int) $call['id']) ?? $call));
     }
 }

@@ -339,6 +339,7 @@ class VoiceOutboundService
         $call = $this->store->findBySid($tenantId, $provider, (string) $ev['call_id']);
         if ($call) {
             $this->store->updateCall($tenantId, (int) $call['id'], ['ended_at' => date('Y-m-d H:i:s'), 'duration_s' => $ev['duration_s'], 'status' => $call['status'] === 'in_progress' ? ($ev['status'] === 'failed' ? 'failed' : 'completed') : $call['status']]);
+            VoicePostCallService::markPending($this->store, $tenantId, ($this->store->getCall($tenantId, (int) $call['id']) ?? $call));
         }
         if ($job['status'] === 'dialing') { // not already settled by voicemail handling
             $map = ['busy' => 'busy', 'no-answer' => 'no-answer', 'failed' => 'failed', 'canceled' => 'failed'];
