@@ -97,12 +97,18 @@ class VoiceInboundService
         $reason = null;
         if (!$usable) {
             $reason = 'number_not_live';
+        } elseif (!VoiceAccessService::featureEnabled($tenantId)) {
+            $reason = 'subscription_inactive'; // plan ended or downgraded: callers still get a polite answer, never silence
         } elseif (empty($settings['enabled'])) {
             $reason = 'module_disabled';
         } elseif (!$agent || $agent['status'] !== 'active') {
             $reason = 'no_active_agent';
         } elseif (VoiceCostTracker::monthSummary($tenantId, $budget)['over_budget']) {
             $reason = 'budget_reached';
+        } else {
+            $platformCap = (int) (new SystemSettingsService())->get('voice_platform_max_concurrent', (string) VoiceCapacity::DEFAULT_PLATFORM_CAP);
+            $cap = VoiceCapacity::decide($this->store->activeCalls($tenantId), (int) ($settings['max_concurrent_calls'] ?? 3), VoicePlatformLoad::activeCalls(), $platformCap);
+            $reason = $cap['allowed'] ? null : 'at_capacity';
         }
         if ($awaiting) {
             (new VoiceNumberService($this->providers))->recordInboundArrival($tenantId, $to);
@@ -132,7 +138,8 @@ class VoiceInboundService
 
         $greeting = VoicePromptBuilder::greeting($this->store->businessName($tenantId), $agent['name'] ?? null, $lang, !empty($settings['recording_enabled']));
         if ($mode === 'stream') {
-            $r = $a->inboundInstructions(['say' => $greeting, 'stream_url' => $streamUrl . (strpos($streamUrl, '?') === false ? '?' : '&') . 't=' . rawurlencode(VoiceBridgeAuth::makeToken($callId, $tenantId, $secret))]);
+            // Twilio ignores a query string on the stream URL, so the per-call token travels as a stream parameter
+            $r = $a->inboundInstructions(['say' => $greeting, 'stream_url' => $streamUrl, 'stream_params' => ['token' => VoiceBridgeAuth::makeToken($callId, $tenantId, $secret)]]);
             return [200, $r['content_type'], $r['body']];
         }
         if ($mode === 'turn') {
@@ -206,7 +213,9 @@ class VoiceInboundService
                 $call['outbound'] = ['purpose' => $job['purpose'], 'facts' => json_decode((string) $job['context_json'], true) ?: []];
             }
         }
+        $t0 = microtime(true);
         $out = (new VoiceAgentBrain($this->store, $this->llm))->respond($call, $agent, $speech, $n, $human !== null);
+        $this->store->updateCall($tenantId, $callId, ['latency_ms_add' => (int) round((microtime(true) - $t0) * 1000)]);
         $l = $out['language'];
         if (!empty($out['opt_out'])) {
             $this->optOut($tenantId, $call, $customerNumber);

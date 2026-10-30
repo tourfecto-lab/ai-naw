@@ -47,6 +47,9 @@ class VoiceDataStore implements VoiceDataSource
             if ($k === 'ai_cost_usd_add') {
                 $set[] = 'ai_cost_usd = ai_cost_usd + ?';
                 $params[] = round((float) $v, 6);
+            } elseif ($k === 'latency_ms_add') {
+                $set[] = 'latency_ms_total = latency_ms_total + ?, latency_samples = latency_samples + 1';
+                $params[] = max(0, (int) $v);
             } elseif ($k === 'post_call_attempts_add') {
                 $set[] = 'post_call_attempts = post_call_attempts + ?';
                 $params[] = (int) $v;
@@ -170,5 +173,11 @@ class VoiceDataStore implements VoiceDataSource
     public function hasRecentMissed(int $tenantId, string $from, int $minutes = 60): bool
     {
         return (bool) $this->db()->query("SELECT id FROM voice_calls WHERE tenant_user_id = ? AND from_e164 = ? AND status = 'missed' AND started_at >= NOW() - INTERVAL " . (int) $minutes . ' MINUTE LIMIT 1', [$tenantId, $from]);
+    }
+
+    /** Calls currently in progress (calls older than 15 minutes are treated as ended, so a lost status callback cannot block a company). */
+    public function activeCalls(int $tenantId): int
+    {
+        return (int) ($this->db()->query("SELECT COUNT(*) AS n FROM voice_calls WHERE tenant_user_id = ? AND status = 'in_progress' AND started_at >= NOW() - INTERVAL 15 MINUTE", [$tenantId])[0]['n'] ?? 0);
     }
 }

@@ -86,4 +86,41 @@ class VoiceBridgeController extends Controller
         $x['store']->updateCall($t, (int) $call['id'], ['turns' => $n, 'outcome' => in_array($o, VoiceReplyParser::OUTCOMES, true) ? $o : 'other', 'post_call_status' => $n > 0 ? 'pending' : 'none']);
         return $this->out(['turns_saved' => $n]);
     }
+
+    /** POST /api/voice-bridge/control {op: transfer|end|opt_out, reason?, outcome?} - call control the bridge cannot do itself */
+    public function control(array $params = []): array
+    {
+        $x = $this->authed();
+        $call = $x['call'];
+        $t = (int) $call['tenant_user_id'];
+        $op = (string) ($x['body']['op'] ?? '');
+        $providers = new VoiceProviderService();
+        $number = Database::getInstance()->query('SELECT forward_to FROM voice_numbers WHERE id = ? AND tenant_user_id = ? LIMIT 1', [(int) $call['number_id'], $t])[0] ?? [];
+        $settings = (new VoiceSettingsService())->get($t);
+        $human = ($number['forward_to'] ?? null) ?: ($settings['human_handoff_phone'] ?? null);
+        try {
+            if ($op === 'transfer') {
+                if (!$human) {
+                    return $this->out(['done' => false, 'reason' => 'no_human_line']);
+                }
+                // the company configured this handoff line itself, so the transfer needs no further approval
+                $r = $providers->guarded($t, $t, (string) $call['provider'], 'transfer_call', ['to' => $human], true, fn (VoiceProviderAdapter $a) => $a->transferCall((string) $call['call_sid'], (string) $human));
+                $x['store']->updateCall($t, (int) $call['id'], ['status' => 'transferred', 'handoff_reason' => mb_substr((string) ($x['body']['reason'] ?? 'requested'), 0, 200), 'outcome' => 'transferred']);
+                return $this->out(['done' => true, 'simulated' => !empty($r['simulated'])]);
+            }
+            if ($op === 'opt_out') {
+                (new VoiceConsentService())->optOut($t, VoiceAgentBrain::customerNumber($call), (int) $call['id']);
+                $x['store']->updateCall($t, (int) $call['id'], ['outcome' => 'opted_out']);
+            } elseif ($op === 'end') {
+                $o = (string) ($x['body']['outcome'] ?? 'other');
+                $x['store']->updateCall($t, (int) $call['id'], ['outcome' => in_array($o, VoiceReplyParser::OUTCOMES, true) ? $o : 'other']);
+            } else {
+                return $this->out(['done' => false, 'reason' => 'unknown_op']);
+            }
+            $r = $providers->guarded($t, $t, (string) $call['provider'], 'hangup_call', ['call' => $call['call_sid']], true, fn (VoiceProviderAdapter $a) => ['ok' => $a->hangupCall((string) $call['call_sid'])]);
+            return $this->out(['done' => true, 'simulated' => !empty($r['simulated'])]);
+        } catch (VoiceProviderException $e) {
+            return $this->out(['done' => false, 'reason' => 'provider_error']);
+        }
+    }
 }

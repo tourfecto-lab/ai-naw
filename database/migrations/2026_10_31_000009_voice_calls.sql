@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS voice_calls (
  crm_lead_id INT(11) NULL,
  booking_id INT(11) NULL,
  ai_cost_usd DECIMAL(10,4) NOT NULL DEFAULT 0,
+ latency_ms_total INT NOT NULL DEFAULT 0 COMMENT 'sum of reply times (turn mode)',
+ latency_samples INT NOT NULL DEFAULT 0,
  started_at DATETIME NOT NULL,
  ended_at DATETIME NULL,
  duration_s INT NULL,

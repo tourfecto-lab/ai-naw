@@ -1,0 +1,10 @@
+{
+  "name": "tourfecto-voice-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Realtime audio bridge for Tourfecto AI Voice: Twilio Media Streams <-> a realtime speech model, with all business logic kept in Tourfecto.",
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "node server.js", "test": "node --test test/*.test.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}

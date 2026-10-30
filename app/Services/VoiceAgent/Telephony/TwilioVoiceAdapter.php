@@ -215,7 +215,15 @@ class TwilioVoiceAdapter extends AbstractVoiceProviderAdapter
             if (!preg_match('#^wss://#i', (string) $opts['stream_url'])) {
                 throw new InvalidArgumentException('stream_url must be wss://');
             }
-            $inner .= '<Connect><Stream url="' . $x($opts['stream_url']) . '"/></Connect>';
+            $params = '';
+            foreach ((array) ($opts['stream_params'] ?? []) as $k => $v) {
+                if (preg_match('/^[A-Za-z0-9_]{1,40}$/', (string) $k)) {
+                    $params .= '<Parameter name="' . $x($k) . '" value="' . $x($v) . '"/>';
+                }
+            }
+            $inner .= $params === ''
+                ? '<Connect><Stream url="' . $x($opts['stream_url']) . '"/></Connect>'
+                : '<Connect><Stream url="' . $x($opts['stream_url']) . '">' . $params . '</Stream></Connect>';
         } elseif (!empty($opts['forward_to'])) {
             $rec = !empty($opts['record']) ? ' record="record-from-answer"' : '';
             $inner .= '<Dial' . $rec . '>' . $x(self::e164($opts['forward_to'])) . '</Dial>';

@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS voice_agent_settings (
  recording_enabled TINYINT(1) NOT NULL DEFAULT 0,
  monthly_budget_usd DECIMAL(10,2) NULL COMMENT 'NULL = no cap configured',
  human_handoff_phone VARCHAR(32) NULL,
+ max_concurrent_calls TINYINT UNSIGNED NOT NULL DEFAULT 3 COMMENT 'simultaneous AI calls this company may have',
  booking_mode ENUM('request_only','create_pending','auto_confirm') NOT NULL DEFAULT 'request_only' COMMENT 'what the AI may do with a booking request taken on a call',
  booking_max_amount DECIMAL(12,2) NULL COMMENT 'auto_confirm only bookings up to this total',
  post_call_whatsapp TINYINT(1) NOT NULL DEFAULT 0,

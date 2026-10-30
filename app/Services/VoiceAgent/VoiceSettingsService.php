@@ -8,11 +8,11 @@ class VoiceSettingsService
     public const DEFAULTS = [
         'enabled' => 0, 'sandbox_mode' => 1, 'default_language' => 'en', 'outbound_enabled' => 0,
         'recording_enabled' => 0, 'monthly_budget_usd' => null, 'human_handoff_phone' => null,
-        'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
+        'max_concurrent_calls' => 3, 'booking_mode' => 'request_only', 'booking_max_amount' => null, 'post_call_whatsapp' => 0, 'post_call_email' => 0, 'payment_link_pct' => 0, 'whatsapp_website_id' => null,
     ];
 
     public const BOOKING_MODES = ['request_only', 'create_pending', 'auto_confirm'];
-    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'payment_link_pct', 'whatsapp_website_id'];
+    private const COLUMNS = ['enabled', 'sandbox_mode', 'default_language', 'outbound_enabled', 'recording_enabled', 'monthly_budget_usd', 'human_handoff_phone', 'max_concurrent_calls', 'booking_mode', 'booking_max_amount', 'post_call_whatsapp', 'post_call_email', 'payment_link_pct', 'whatsapp_website_id'];
 
     /** Pure: validate and normalise user input into the writable settings columns. */
     public static function sanitizeSettings(array $in): array
@@ -39,6 +39,13 @@ class VoiceSettingsService
             } else {
                 $out['monthly_budget_usd'] = round((float) $v, 2);
             }
+        }
+        if (array_key_exists('max_concurrent_calls', $in)) {
+            $v = filter_var($in['max_concurrent_calls'], FILTER_VALIDATE_INT);
+            if ($v === false || $v < 1 || $v > 50) {
+                throw new InvalidArgumentException('Concurrent calls must be between 1 and 50');
+            }
+            $out['max_concurrent_calls'] = $v;
         }
         if (array_key_exists('booking_mode', $in)) {
             if (!in_array((string) $in['booking_mode'], self::BOOKING_MODES, true)) {

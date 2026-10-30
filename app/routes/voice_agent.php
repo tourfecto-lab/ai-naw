@@ -62,3 +62,6 @@ $router->get('/api/admin/voice/costs','VoiceAdminController','costs',['AuthMiddl
 
 // Phase 3: default number
 $router->post('/api/voice-agent/numbers/{id}/default','VoiceNumberController','setDefault',['AuthMiddleware']);
+
+// Phase 4: realtime bridge call control
+$router->post('/api/voice-bridge/control','VoiceBridgeController','control',[]);

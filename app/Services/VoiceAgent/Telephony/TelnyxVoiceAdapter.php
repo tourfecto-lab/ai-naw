@@ -153,7 +153,11 @@ class TelnyxVoiceAdapter extends AbstractVoiceProviderAdapter
             if (!preg_match('#^wss://#i', (string) $opts['stream_url'])) {
                 throw new InvalidArgumentException('stream_url must be wss://');
             }
-            $cmds[] = ['action' => 'streaming_start', 'body' => ['stream_url' => (string) $opts['stream_url']]];
+            $body = ['stream_url' => (string) $opts['stream_url']];
+            if (!empty($opts['stream_params'])) {
+                $body['client_state'] = base64_encode(json_encode($opts['stream_params'])); // Telnyx hands this back to the stream
+            }
+            $cmds[] = ['action' => 'streaming_start', 'body' => $body];
         } elseif (!empty($opts['forward_to'])) {
             $cmds[] = ['action' => 'transfer', 'body' => ['to' => self::e164($opts['forward_to'])]];
         } elseif (!empty($opts['sip_uri'])) {

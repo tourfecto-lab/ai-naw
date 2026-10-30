@@ -29,8 +29,8 @@ final class VoiceTenantIsolationTest extends TestCase
         $problems = [];
         $checked = 0;
         foreach ($this->files() as $f) {
-            if (basename($f) === 'VoiceAdminReports.php') {
-                continue; // the one deliberately cross-company class; see testCrossCompanyReportsAreAdminOnly
+            if (in_array(basename($f), ['VoiceAdminReports.php', 'VoicePlatformLoad.php'], true)) {
+                continue; // the one deliberately cross-company class; see testCrossCompanyReportsAreAdminOnly; VoicePlatformLoad returns one count only
             }
             foreach (token_get_all(file_get_contents($f)) as $t) {
                 if (!is_array($t) || !in_array($t[0], [T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {

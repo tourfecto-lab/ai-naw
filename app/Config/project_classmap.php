@@ -966,4 +966,6 @@ return [
     'VoiceAdminReports' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceAdminReports.php',
     'VoicePlatformCredentials' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePlatformCredentials.php',
     'VoicePricing' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePricing.php',
+    'VoiceCapacity' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCapacity.php',
+    'VoicePlatformLoad' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoicePlatformLoad.php',
 ];
