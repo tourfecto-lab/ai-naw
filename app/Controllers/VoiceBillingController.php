@@ -46,7 +46,7 @@ class VoiceBillingController extends Controller
             return $g['error'];
         }
         try {
-            return $this->success(['erased' => (new VoiceRetentionService())->erasePhone($g['tenant'], (string) $this->post('phone', ''))]);
+            return $this->success(['erased' => (new VoiceRetentionService())->erasePhone($g['tenant'], (string) $this->get('phone', ''))]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         }
