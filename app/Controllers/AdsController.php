@@ -70,12 +70,16 @@ class AdsController extends Controller
             'UTF-8'
         );
 
-        $tabsHtml = $this->adsTabsHtml('dashboard');
+        // نظرة عامة وقائمة الحملات نفس الصفحة والـ JS، بس كل واحدة بتظهر لوحدها (?view=campaigns) بدل صفحة واحدة طويلة
+        $campaignsView = (($_GET['view'] ?? '') === 'campaigns');
+        $tabsHtml = $this->adsTabsHtml($campaignsView ? 'campaigns' : 'dashboard');
+        $viewCss = $campaignsView ? '#adsOverviewSection{display:none!important}' : '#adsCampaignsSection{display:none!important}';
 
         $body = <<<HTML
         {$tabsHtml}
 
         <style>
+        {$viewCss}
         .ads-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:-6px 0 16px}
         .ads-strip .ads-strip-label{font-size:12px;opacity:.7;margin-inline-end:2px}
         .ads-steps{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
@@ -93,6 +97,7 @@ class AdsController extends Controller
 
         <div class="ads-strip" id="adsStrip" aria-live="polite"><span class="ads-strip-label">الحسابات المربوطة:</span><span class="p-cell-muted" style="font-size:12px">جارِ التحميل...</span></div>
 
+        <div id="adsOverviewSection">
         <div class="p-card" id="adsGetStarted" style="display:none;margin-bottom:16px;">
             <div class="p-card-head"><h3>🚀 ابدأ أول حملة في 3 خطوات</h3><span class="p-card-sub">بتتنشر دايمًا متوقفة ومفيش فلوس بتتصرف لحد ما تفعّلها</span></div>
             <ol class="ads-steps">
@@ -159,6 +164,16 @@ class AdsController extends Controller
         </div>
         </details>
 
+        <div class="p-card" style="margin-bottom:16px;">
+            <div class="p-card-head"><h3>الحملات</h3><span class="p-card-sub">أنشئ حملة جديدة أو راجع كل حملاتك في صفحة مستقلة</span></div>
+            <div class="p-toolbar" style="gap:10px;flex-wrap:wrap;">
+                <button class="p-btn primary" onclick="openAiWizard()">✨ حملة إعلانية بالذكاء الاصطناعي</button>
+                <button class="p-btn outline" onclick="document.getElementById('newCampaignModal').classList.add('open')">+ حملة يدوية</button>
+                <a class="p-btn outline" href="/ads?view=campaigns">عرض كل الحملات ←</a>
+            </div>
+        </div>
+        </div>
+
         <div class="p-modal-overlay" id="campaignToolsModal">
             <div class="p-modal wide">
                 <div class="p-modal-head">
@@ -196,6 +211,7 @@ class AdsController extends Controller
 
         <div id="adsWizardConfig" data-ctas="{$ctasJson}" style="display:none;"></div>
 
+        <div id="adsCampaignsSection">
         <div class="p-card-head" style="margin:6px 0 4px"><h3 id="campaignsHeading">الحملات</h3></div>
         <div class="p-toolbar" style="gap:10px;flex-wrap:wrap;">
             <button class="p-btn primary" onclick="openAiWizard()">✨ حملة إعلانية بالذكاء الاصطناعي</button>
@@ -230,6 +246,7 @@ class AdsController extends Controller
                 <tbody><tr class="p-loading-row"><td colspan="6">جارِ التحميل...</td></tr></tbody>
             </table></div>
             <div id="campaignsPagination" style="display:flex;justify-content:space-between;align-items:center;padding:10px;"></div>
+        </div>
         </div>
 
         <div class="p-modal-overlay" id="newCampaignModal">
@@ -4835,7 +4852,7 @@ JS;
 
         $body = <<<HTML
         {$tabsHtml}
-        <div style="margin-bottom:12px;"><a href="/ads#campaignsTable" class="p-cell-muted" style="text-decoration:none;">← رجوع لقائمة الحملات</a></div>
+        <div style="margin-bottom:12px;"><a href="/ads?view=campaigns" class="p-cell-muted" style="text-decoration:none;">← رجوع لقائمة الحملات</a></div>
 
         <div class="p-card" id="campaignOverviewCard" style="margin-bottom:16px;">
             <div class="p-loading-row">جارِ التحميل...</div>
@@ -6018,7 +6035,7 @@ JS;
         $groups = [
             [
                 'dashboard' => ['نظرة عامة', '/ads'],
-                'campaigns' => ['الحملات', '/ads#campaignsTable'],
+                'campaigns' => ['الحملات', '/ads?view=campaigns'],
                 'budget' => ['الميزانية والإنفاق', '/ads/budget'],
                 'reports' => ['التقارير', '/ads/reports'],
             ],
