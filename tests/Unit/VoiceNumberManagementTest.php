@@ -9,9 +9,7 @@ foreach (['VoiceHttpClient', 'VoiceProviderException', 'VoiceProviderAdapter', '
 }
 require_once __DIR__ . '/../../app/Services/VoiceAgent/VoiceMarkets.php';
 require_once __DIR__ . '/../../app/Services/VoiceAgent/VoiceNumberRules.php';
-if (!class_exists('VoiceFakeHttp')) {
-    require_once __DIR__ . '/VoiceTelephonyProvidersTest.php';
-}
+require_once __DIR__ . '/../Fixtures/VoiceFakeHttp.php';
 
 final class VoiceNumberManagementTest extends TestCase
 {
