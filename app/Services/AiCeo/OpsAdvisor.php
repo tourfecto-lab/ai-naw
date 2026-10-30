@@ -19,8 +19,8 @@ require_once __DIR__ . '/PlatformDecisions.php';
  */
 final class OpsAdvisor
 {
-    public const PUBLIC_PAGES = ['/', '/login', '/register', '/pricing', '/features', '/blog', '/help', '/help/contact', '/privacy', '/terms', '/status', '/sitemap.xml', '/robots.txt', '/api/health'];
-    public const PROTECTED_PAGES = ['/dashboard', '/websites', '/social', '/crm', '/bookings', '/creative-studio', '/reputation/overview', '/ads', '/whatsapp-marketing', '/admin', '/api/brain'];
+    public const PUBLIC_PAGES = ['/', '/login', '/register', '/pricing', '/features', '/blog', '/help', '/contact', '/privacy', '/terms', '/status', '/sitemap.xml', '/robots.txt', '/api/health'];
+    public const PROTECTED_PAGES = ['/dashboard', '/websites', '/social', '/crm', '/bookings', '/creative-studio', '/reputation/overview', '/ads', '/whatsapp-marketing', '/admin', '/api/websites'];
     public const SLOW_MS = 3000;
     /** بدائل مقترحة لو مزود وقع */
     public const ALTERNATIVES = ['gemini' => 'Route AI tasks to the OpenAI or Claude fallback in AI service routing.', 'openai' => 'Route AI tasks to Gemini or Claude in AI service routing.',
@@ -174,9 +174,37 @@ final class OpsAdvisor
         return $out;
     }
 
+    /** الإشارات اللي صاحب المنصة قال إنها متوقعة على السيرفر ده (مثلًا: موقع التطوير مالوش منظّم كرون) [ikey => reason] */
+    public function ignored(): array
+    {
+        $v = $this->safe("SELECT setting_value FROM system_settings WHERE setting_key = 'ops_ignored' LIMIT 1")[0]['setting_value'] ?? '';
+        $a = json_decode((string) $v, true);
+        return is_array($a) ? $a : [];
+    }
+
+    /** "متوقع هنا": الحادثة بتتقفل ومش بتتفتح تاني لحد ما ترجّعها. مفيش حاجة بتتمسح */
+    public function ignoreIncident(int $id, string $reason): string
+    {
+        $key = (string) ($this->db->query('SELECT ikey FROM aiceo_incidents WHERE id = ? LIMIT 1', [$id])[0]['ikey'] ?? '');
+        if ($key === '') throw new InvalidArgumentException('Incident not found');
+        $list = $this->ignored();
+        $list[$key] = mb_substr(trim($reason) ?: 'Expected on this server', 0, 200);
+        $this->upsert('ops_ignored', json_encode($list, JSON_UNESCAPED_UNICODE));
+        $this->db->query("UPDATE aiceo_incidents SET status = 'resolved', resolved_at = ?, root_cause = COALESCE(root_cause, ?) WHERE ikey = ? AND status = 'open'", [gmdate('Y-m-d H:i:s'), 'Marked expected: ' . $list[$key], $key]);
+        return $key;
+    }
+
+    public function unignore(string $key): void
+    {
+        $list = $this->ignored();
+        unset($list[$key]);
+        $this->upsert('ops_ignored', json_encode($list, JSON_UNESCAPED_UNICODE));
+    }
+
     /** فتح/تحديث/قفل الحوادث حسب الإشارات الحالية */
     public function syncIncidents(array $signals): array
     {
+        $signals = array_diff_key($signals, $this->ignored());
         $now = gmdate('Y-m-d H:i:s');
         $open = [];
         foreach ($this->db->query("SELECT id, ikey FROM aiceo_incidents WHERE status = 'open'") ?: [] as $r) $open[$r['ikey']] = (int) $r['id'];

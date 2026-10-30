@@ -98,6 +98,21 @@ final class OpsAdvisorIntegrationTest extends TestCase
         try { $o->createIssue($id); $this->fail('github off'); } catch (RuntimeException $e) { $this->assertSame('github_not_enabled', $e->getMessage()); }
     }
 
+    public function testExpectedIncidentsStayClosedUntilRestored(): void
+    {
+        $o = new OpsAdvisor($this->db, fn () => ['code' => 200, 'ms' => 1]);
+        $sig = ['health:cron:scheduler' => ['service' => 'cron', 'title' => 'Scheduler', 'severity' => 'high', 'evidence' => 'not run 14h']];
+        $o->syncIncidents($sig);
+        $id = $o->incidents('open')[0]['id'];
+        $this->assertSame('health:cron:scheduler', $o->ignoreIncident($id, 'dev site: scheduler runs on the main site only'));
+        $this->assertSame(0, count($o->incidents('open')));
+        $this->assertSame(0, $o->syncIncidents($sig)['opened'], 'ignored signals do not reopen');
+        $this->assertSame('dev site: scheduler runs on the main site only', $o->ignored()['health:cron:scheduler']);
+        $o->unignore('health:cron:scheduler');
+        $this->assertSame(1, $o->syncIncidents($sig)['opened']);
+        try { $o->ignoreIncident(987654, 'x'); $this->fail('unknown'); } catch (InvalidArgumentException $e) { $this->assertSame(1, 1); }
+    }
+
     public function testSettingsAndSummary(): void
     {
         $o = new OpsAdvisor($this->db, fn () => ['code' => 200, 'ms' => 1]);

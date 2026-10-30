@@ -64,10 +64,10 @@ final class ExecutiveIntel
             if ($rev && $rev['mrr']['prev'] !== null) {
                 $now = (float) $rev['mrr']['now'];
                 $prev = (float) $rev['mrr']['prev'];
-                if ($prev > 0) $parts[] = 60 + (($now - $prev) / $prev * 100) * 2;
+                if ($prev > 0) $parts[] = self::clamp(60 + (($now - $prev) / $prev * 100) * 2);
                 elseif ($now > 0) $parts[] = 100;
             }
-            if ($sg) $parts[] = 50 + (($sg['last_7d'] - $sg['prev_7d']) / max(1, $sg['prev_7d'])) * 50;
+            if ($sg) $parts[] = self::clamp(50 + (($sg['last_7d'] - $sg['prev_7d']) / max(1, $sg['prev_7d'])) * 50);
             $c['growth'] = $parts ? self::clamp(array_sum($parts) / count($parts)) : null;
         } else $c['growth'] = null;
         // الربحية
@@ -285,7 +285,7 @@ final class ExecutiveIntel
         $plans = $this->q("SELECT body FROM aiceo_memory WHERE kind = 'plan' AND title LIKE 'Brand content plan%' ORDER BY id DESC LIMIT 5");
         $warn = array_sum(array_map(static fn ($p) => count((json_decode((string) $p['body'], true) ?: [])['_warnings'] ?? []), $plans));
         return ['features' => $features, 'review_replies_30d' => $replies, 'brand_plan_warnings' => $warn, 'brand_plans' => count($plans),
-            'note' => 'Errors are failed AI calls. Review replies: rejected or failed drafts point to weak outputs. Plan warnings are promises the AI wrote that had to be removed.'];
+            'note' => 'Errors are failed AI calls. Review replies: "rejected" also counts reviews archived because they are no longer on Google, so it is not only weak drafts. Plan warnings are promises the AI wrote that had to be removed.'];
     }
 
     // ------------------------------------------------------------------ المنافسين
@@ -392,7 +392,9 @@ final class ExecutiveIntel
     public function marketSignals(): array
     {
         return array_map(static fn ($r) => ['source' => $r['source'], 'series' => $r['series_key'], 'period' => $r['period'], 'value' => $r['value'] !== null ? (float) $r['value'] : null, 'fetched_at' => $r['fetched_at']],
-            $this->q('SELECT source, series_key, period, value, fetched_at FROM market_signals ORDER BY fetched_at DESC, id DESC LIMIT 15'));
+            $this->q('SELECT m.source, m.series_key, m.period, m.value, m.fetched_at FROM market_signals m
+                JOIN (SELECT source, series_key, MAX(period) AS p FROM market_signals GROUP BY source, series_key) l ON l.source = m.source AND l.series_key = m.series_key AND l.p = m.period
+                ORDER BY m.fetched_at DESC LIMIT 15'));
     }
 
     public function knowledge(int $limit = 30): array

@@ -38,6 +38,14 @@ final class ExecutiveIntelTest extends TestCase
         $this->assertSame(80, $s['score']);
     }
 
+    public function testGrowthPartsAreCappedBeforeAveraging(): void
+    {
+        // MRR وقع لصفر (0) + تسجيلات قفزت (100) = 50، مش 80
+        $c = ExecutiveIntel::components(['revenue' => ['mrr' => ['now' => 0.0, 'prev' => 573.17], 'paying' => ['now' => 0, 'prev' => 2], 'logo_churn' => ['now' => 100.0]], 'signups' => ['last_7d' => 5, 'prev_7d' => 0]], []);
+        $this->assertSame(50, $c['growth']);
+        $this->assertSame(0, $c['retention']);
+    }
+
     public function testIncompleteDataGivesNoScore(): void
     {
         $c = ExecutiveIntel::components($this->snap(), ['fixed_entered' => false, 'revenue_30d' => 0, 'ai_cost_30d' => 0, 'brand_reviews' => 0, 'brand_rating' => null]);

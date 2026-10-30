@@ -400,7 +400,7 @@ class AiCeoController extends Controller
             $health = null;
             try { $h = (new PlatformHealthService($this->db))->report(); $health = ['overall' => $h['overall'] ?? null, 'counts' => $h['counts'] ?? [], 'sections' => array_map(static fn ($s) => ['checks' => array_map(static fn ($c) => ['label' => $c['label'] ?? $c['key'] ?? '', 'status' => $c['status'] ?? '', 'message' => mb_substr((string) ($c['message'] ?? ''), 0, 220), 'action' => $c['action'] ?? null], $s['checks'] ?? [])], $h['sections'] ?? [])]; } catch (Throwable $e) {}
             return $this->success(['checks' => $o->lastChecks(24), 'incidents' => $o->incidents('open'), 'resolved' => $o->incidents('resolved', 20), 'recurring' => $o->recurring(), 'backlog' => $o->backlog(),
-                'done' => $o->backlog('done', 20), 'providers' => $o->providers(), 'abuse' => $o->abuse(), 'backups' => $o->backups(), 'health' => $health, 'settings' => $o->settings(), 'owner' => $this->owner()]);
+                'done' => $o->backlog('done', 20), 'providers' => $o->providers(), 'abuse' => $o->abuse(), 'backups' => $o->backups(), 'health' => $health, 'settings' => $o->settings(), 'ignored' => $o->ignored(), 'owner' => $this->owner()]);
         } catch (Throwable $e) {
             Logger::error('AI CEO ops failed', ['error' => $e->getMessage()]);
             return $this->error('Platform operations data could not load right now.', 503);
@@ -429,6 +429,16 @@ class AiCeoController extends Controller
         $action = (string) ($params['action'] ?? '');
         if ($e = $this->guard($action !== 'root-cause')) return $e;
         $o = new OpsAdvisor($this->db);
+        if ($action === 'ignore') {
+            try { $key = $o->ignoreIncident((int) $this->get('id', 0), (string) $this->get('reason', '')); } catch (InvalidArgumentException $e) { return $this->error($e->getMessage(), 422); }
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'incident_ignored', ['key' => $key, 'reason' => mb_substr((string) $this->get('reason', ''), 0, 200)]);
+            return $this->success([]);
+        }
+        if ($action === 'unignore') {
+            $o->unignore((string) $this->get('key', ''));
+            (new AiCeoStore($this->db))->log((int) $this->user['id'], 'incident_unignored', ['key' => (string) $this->get('key', '')]);
+            return $this->success([]);
+        }
         $store = new AiCeoStore($this->db);
         $uid = (int) $this->user['id'];
         try {

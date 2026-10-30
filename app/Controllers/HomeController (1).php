@@ -18,35 +18,42 @@ class HomeController extends Controller
         $baseUrl = 'https://tourfecto.pro';
         $today = date('Y-m-d');
 
-        $staticPages = [
-            ['url' => '/', 'priority' => '1.0'],
-            ['url' => '/pricing', 'priority' => '0.9'],
-            ['url' => '/register', 'priority' => '0.8'],
-            ['url' => '/help', 'priority' => '0.6'],
-            ['url' => '/help/faq', 'priority' => '0.6'],
-            ['url' => '/help/contact', 'priority' => '0.5'],
-            ['url' => '/docs', 'priority' => '0.5'],
-            ['url' => '/docs/api', 'priority' => '0.4'],
-            ['url' => '/docs/guide', 'priority' => '0.4'],
-            ['url' => '/terms', 'priority' => '0.3'],
-            ['url' => '/privacy', 'priority' => '0.3'],
-        ];
-
-        $urlsXml = '';
-        foreach ($staticPages as $page) {
-            $urlsXml .= "    <url>\n        <loc>{$baseUrl}{$page['url']}</loc>\n        <lastmod>{$today}</lastmod>\n        <priority>{$page['priority']}</priority>\n    </url>\n";
+        // صفحات الموقع العام (PublicLayout): الـ canonical بتاعها "?lang=en" و "?lang=ar"، فبنحط النسختين ومعاهم hreflang.
+        // صفحات /services/* القديمة مش هنا: كل واحدة الـ canonical بتاعها صفحة /features/* (فحص AI CEO لقاها مكررة في السايت ماب).
+        $public = [['/', '1.0'], ['/pricing', '0.9'], ['/features', '0.9'], ['/about', '0.6'], ['/contact', '0.5'], ['/demo', '0.7'], ['/blog', '0.6'],
+            ['/help', '0.5'], ['/help/faq', '0.5'], ['/terms', '0.3'], ['/privacy', '0.3'], ['/refund-policy', '0.3']];
+        if (class_exists('MarketingContent')) {
+            foreach (array_keys(MarketingContent::features()) as $slug) $public[] = ['/features/' . $slug, '0.8'];
         }
+        // صفحات من غير نسخ لغة
+        $plain = [['/register', '0.7'], ['/docs', '0.4'], ['/docs/api', '0.3'], ['/docs/guide', '0.3']];
 
-        if (class_exists('ServicesController')) {
-            foreach (array_keys(ServicesController::getServicesData()) as $slug) {
-                $urlsXml .= "    <url>\n        <loc>{$baseUrl}/services/{$slug}</loc>\n        <lastmod>{$today}</lastmod>\n        <priority>0.7</priority>\n    </url>\n";
+        $x = static fn (string $s) => htmlspecialchars($s, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $urlsXml = '';
+        foreach ($public as [$path, $prio]) {
+            $alt = '';
+            foreach (['ar', 'en'] as $l) $alt .= '        <xhtml:link rel="alternate" hreflang="' . $l . '" href="' . $x($baseUrl . $path . '?lang=' . $l) . "\"/>\n";
+            $alt .= '        <xhtml:link rel="alternate" hreflang="x-default" href="' . $x($baseUrl . $path) . "\"/>\n";
+            foreach (['en', 'ar'] as $l) {
+                $urlsXml .= "    <url>\n        <loc>" . $x($baseUrl . $path . '?lang=' . $l) . "</loc>\n" . $alt . "        <lastmod>{$today}</lastmod>\n        <priority>{$prio}</priority>\n    </url>\n";
             }
+        }
+        // مقالات المدونة المنشورة
+        try {
+            foreach (Database::getInstance()->query("SELECT DISTINCT slug, MAX(updated_at) u FROM blog_posts WHERE status = 'published' AND published_at <= NOW() GROUP BY slug ORDER BY u DESC LIMIT 1000") as $p) {
+                $urlsXml .= "    <url>\n        <loc>" . $x($baseUrl . '/blog/' . $p['slug']) . "</loc>\n        <lastmod>" . date('Y-m-d', strtotime((string) $p['u'])) . "</lastmod>\n        <priority>0.6</priority>\n    </url>\n";
+            }
+        } catch (Throwable $e) {
+            // جدول المدونة لسه ماتعملش
+        }
+        foreach ($plain as [$path, $prio]) {
+            $urlsXml .= "    <url>\n        <loc>" . $x($baseUrl . $path) . "</loc>\n        <lastmod>{$today}</lastmod>\n        <priority>{$prio}</priority>\n    </url>\n";
         }
 
         header('Content-Type: application/xml; charset=utf-8');
         echo <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
 {$urlsXml}</urlset>
 XML;
         exit;

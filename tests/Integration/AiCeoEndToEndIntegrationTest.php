@@ -68,7 +68,7 @@ final class AiCeoEndToEndIntegrationTest extends TestCase
         foreach ($store->list() as $d) if ($d['status'] === 'approved') $this->assertSame('low', $d['risk'], $d['key']);
 
         // فحص الصفحات بمزود وهمي: صفحة واقعة ← حادثة ← قرار
-        $ops = new OpsAdvisor($this->db, fn (string $u) => ['code' => str_ends_with($u, '/pricing') ? 503 : (preg_match('#/(dashboard|websites|social|crm|bookings|creative-studio|reputation/overview|ads|whatsapp-marketing|admin|api/brain)$#', $u) ? 302 : 200), 'ms' => 50]);
+        $ops = new OpsAdvisor($this->db, fn (string $u) => ['code' => str_ends_with($u, '/pricing') ? 503 : (preg_match('#/(dashboard|websites|social|crm|bookings|creative-studio|reputation/overview|ads|whatsapp-marketing|admin|api/websites)$#', $u) ? 302 : 200), 'ms' => 50]);
         $r = $ops->cycle([], [], [], []);
         $this->assertSame(1, $r['failed']);
         $this->assertSame(1, $r['opened']);

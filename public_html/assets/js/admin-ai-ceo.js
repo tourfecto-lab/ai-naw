@@ -12,7 +12,7 @@
     // تبويبات الصفحة (الرابط بيحفظ التبويب: #chat، #approvals، ...)
     const TABS = [['overview', 'Overview'], ['chat', 'AI CEO Chat'], ['approvals', 'Approvals & Tasks'], ['executive', 'Business Health & Reports'], ['companies', 'Tourism Companies'], ['sales', 'Leads & Sales'], ['brand', 'Brand Growth'], ['success', 'Customer Success'], ['finance', 'Finance & Strategy'], ['ops', 'Platform & Dev Advisor'], ['costs', 'AI Costs'], ['setup', 'Setup & Integrations'], ['memory', 'Memory'], ['log', 'Audit Log']];
     // قاعدة شركات السياحة (المرحلة 3)
-    let sales = null, salesError = null, salesLoading = false;
+    let sales = null, salesError = null, salesLoading = false, salesAll = false;
     // نمو علامة Tourfecto (المرحلة 5)
     let brand = null, brandError = null, brandLoading = false, brandPlan = null;
     // نجاح العملاء والإيرادات (المرحلة 6)
@@ -172,7 +172,7 @@
       const srcRows = Object.entries(pl.by_source).map(([r, v]) => `<tr><td dir="ltr">${esc(r)}</td>${Object.values(v).map(n => `<td>${num(n)}</td>`).join('')}</tr>`);
       const head = '<tr><th></th>' + Object.keys(st).map(k => `<th>${esc(k.replace('_', ' '))}</th>`).join('') + '</tr>';
       const reasons = Object.entries(q.counts.reasons || {}).map(([r, n]) => `<li>${esc(r)}: ${num(n)}</li>`).join('');
-      const qRows = q.items.map(i => `<tr><td dir="auto">${esc(i.company || '—')}</td><td>${esc(i.country || '?')} · ${esc(i.verdict.region)}</td><td>${num(i.icp_fit)}</td><td>${i.score ?? '—'}</td><td>${esc(i.track || '')}</td>
+      const qRows = (salesAll ? q.items : q.items.slice(0, 50)).map(i => `<tr><td dir="auto">${esc(i.company || '—')}</td><td>${esc(i.country || '?')} · ${esc(i.verdict.region)}</td><td>${num(i.icp_fit)}</td><td>${i.score ?? '—'}</td><td>${esc(i.track || '')}</td>
         <td>${i.verdict.ok ? `✓ ${esc(i.verdict.basis)}` : `<span class="br-muted">${i.verdict.reason_texts.map(esc).join('; ')}</span>`}</td><td>${owner && i.verdict.ok ? `<button type="button" class="p-btn xs outline" data-sapprove="${i.id}">Approve</button>` : ''}</td></tr>`);
       return `<section class="br-card"><h3>Lawful basis & targeting</h3>
         <p class="br-muted">No first message is approved unless it passes this gate. This is a conservative safeguard, not legal advice. When in doubt, keep a region off and ask your lawyer.</p>
@@ -194,9 +194,9 @@
         <section class="br-card"><div class="br-head"><div><h3>First-message approvals</h3><p class="br-muted">${num(q.counts.ok)} may be contacted · ${num(q.counts.blocked)} blocked by the gate. Sorted by ideal-customer fit.</p></div>
           <div class="br-actions">${owner && q.counts.ok ? `<button type="button" class="p-btn primary xs" id="slApproveAll">Approve all ${num(q.counts.ok)} compliant</button>` : ''}<button type="button" class="p-btn outline xs" id="slReeval">Re-check approved queue</button></div></div>
         ${reasons ? `<details class="br-past"><summary>Why companies are blocked</summary><ul class="br-proof">${reasons}</ul></details>` : ''}
-        ${qRows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Company</th><th>Country · region</th><th>ICP fit</th><th>Score</th><th>Need</th><th>Gate</th><th></th></tr></thead><tbody>${qRows.join('')}</tbody></table></div>` : '<p class="br-muted">No companies waiting for approval.</p>'}</section>
+        ${qRows.length ? `<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Company</th><th>Country · region</th><th>ICP fit</th><th>Score</th><th>Need</th><th>Gate</th><th></th></tr></thead><tbody>${qRows.join('')}</tbody></table></div>${q.items.length > 50 ? `<p><button type="button" class="p-btn outline xs" id="slAll">${salesAll ? 'Show the first 50' : `Show all ${q.items.length}`}</button></p>` : ''}` : '<p class="br-muted">No companies waiting for approval.</p>'}</section>
 
-        ${sales.active_noncompliant.length ? `<section class="br-card"><h3>Running sequences the gate now rejects (${sales.active_noncompliant.length})</h3><ul class="br-proof">${sales.active_noncompliant.slice(0, 30).map(x => `<li>#${x.id} ${esc(x.company || '')} · ${esc(x.country || '?')} · step ${x.step}: ${x.reasons.map(esc).join('; ')}</li>`).join('')}</ul>
+        ${sales.active_noncompliant.length ? `<section class="br-card"><h3>Running sequences the gate now rejects (${sales.active_noncompliant.length})</h3><ul class="br-proof">${sales.active_noncompliant.slice(0, salesAll ? 1000 : 10).map(x => `<li>#${x.id} ${esc(x.company || '')} · ${esc(x.country || '?')} · step ${x.step}: ${x.reasons.map(esc).join('; ')}</li>`).join('')}</ul>
           ${owner ? `<button type="button" class="p-btn xs" style="background:var(--panel-danger,#dc2626);color:#fff" id="slPause">Pause these ${sales.active_noncompliant.length}</button>` : ''}</section>` : ''}
 
         <section class="br-card"><h3>CRM handoff</h3><p>${num(pl.crm_pending)} replied or interested companies are not in the CRM yet. Moving creates a contact and a deal with a follow-up tomorrow in the platform owner's CRM.</p>
@@ -226,7 +226,7 @@
       const pageRows = a ? (a.pages || []).filter(p => p.issues.length).sort((x, y) => y.issues.filter(i => i[0] === 'critical').length - x.issues.filter(i => i[0] === 'critical').length).slice(0, 40)
         .map(p => `<tr><td dir="ltr"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\/[^/]+/, '') || '/')}</a></td><td>${p.code}</td><td>${num(p.ms)} ms</td><td>${p.issues.map(i => `${SEV[i[0]] || ''} ${esc(i[2])}`).join('<br>')}</td></tr>`).join('') : '';
       const conns = pr.website ? (pr.connections === null ? '<p class="br-muted">Connections unavailable.</p>' : `<p>Connected: ${pr.connections.length ? pr.connections.map(c => `${esc(c.platform)} (${esc(c.status)})`).join(' · ') : 'nothing yet'}</p>`) : '';
-      return `<section class="br-card"><div class="br-head"><div><h3>Tourfecto website SEO / AEO</h3><p class="br-muted">${esc(brand.site_url)} · free check of up to 40 pages from the sitemap (titles, descriptions, indexing, canonical, structured data, speed, llms.txt). It runs weekly from the cron.</p></div>
+      return `<section class="br-card"><div class="br-head"><div><h3>Tourfecto website SEO / AEO</h3><p class="br-muted">${esc(brand.site_url)} · free check of up to 60 pages from the sitemap (titles, descriptions, indexing, canonical, structured data, speed, llms.txt). It runs weekly from the cron.</p></div>
           <div class="br-actions"><button type="button" class="p-btn primary xs" id="bgAudit">Run audit now</button></div></div>
         ${a ? `<div class="br-tiles">${tile(a.score + '/100', 'SEO score', delta)}${tile(num(a.summary.pages), 'Pages checked', num(a.summary.ok_pages) + ' OK')}${tile(num(a.summary.critical), 'Critical issues')}${tile(a.summary.avg_ms === null ? '—' : num(a.summary.avg_ms) + ' ms', 'Avg load')}</div>
           <p class="br-muted">Last run ${esc(a.run_at)} UTC</p>
@@ -324,7 +324,8 @@
 
         <section class="br-card"><h3>Incidents (${ops.incidents.length} open)</h3><p class="br-muted">Opened automatically from failed checks, platform health failures, errors repeated 20+ times a day, failing providers and stale backups; closed automatically when the problem is gone.</p>
         ${ops.incidents.length ? `<ul class="br-proof">${ops.incidents.map(i => `<li>${esc(SEVC[i.severity])} · <b>${esc(i.service)}</b>: <span dir="auto">${esc(i.title)}</span> · ${(i.evidence || []).map(esc).join('; ')} · since ${esc(i.first_seen)} UTC${i.occurrence > 1 ? ` · <b>${i.occurrence}th time</b>` : ''}
-          <form class="br-actions" data-rc="${i.id}"><input class="p-select" name="text" placeholder="Root cause (optional)" value="${esc(i.root_cause || '')}" aria-label="Root cause"><button class="p-btn outline xs">Save</button></form></li>`).join('')}</ul>` : '<p class="br-done">✓ No open incidents.</p>'}
+          <form class="br-actions" data-rc="${i.id}"><input class="p-select" name="text" placeholder="Root cause (optional)" value="${esc(i.root_cause || '')}" aria-label="Root cause"><button class="p-btn outline xs">Save</button>${ops.owner ? `<button type="button" class="p-btn outline xs" data-ignore="${i.id}" title="Closes it and stops it from reopening until you restore it">Expected on this server</button>` : ''}</form></li>`).join('')}</ul>` : '<p class="br-done">✓ No open incidents.</p>'}
+        ${Object.keys(ops.ignored || {}).length ? `<details class="br-past"><summary>Marked as expected (${Object.keys(ops.ignored).length})</summary><ul class="br-proof">${Object.entries(ops.ignored).map(([k, why]) => `<li dir="auto"><code dir="ltr">${esc(k)}</code> — ${esc(why)}${ops.owner ? ` <button type="button" class="p-btn outline xs" data-unignore="${esc(k)}">Restore</button>` : ''}</li>`).join('')}</ul></details>` : ''}
         ${ops.recurring.length ? `<details class="br-past" open><summary>Recurring failures (3+ times in 30 days)</summary><ul class="br-proof">${ops.recurring.map(r => `<li><b>${esc(r.service)}</b>: <span dir="auto">${esc(r.title)}</span> · ${r.times} times · last ${esc(r.last_seen)}</li>`).join('')}</ul></details>` : ''}
         ${ops.resolved.length ? `<details class="br-past"><summary>Recently resolved (${ops.resolved.length})</summary><ul class="br-proof">${ops.resolved.map(i => `<li>${esc(i.service)}: <span dir="auto">${esc(i.title)}</span> · ${esc(i.first_seen)} → ${esc(i.resolved_at || '')}${i.root_cause ? ` · cause: <span dir="auto">${esc(i.root_cause)}</span>` : ''}</li>`).join('')}</ul></details>` : ''}</section>
 
@@ -429,8 +430,9 @@
           ${h.components.map(c => `<tr><td>${esc(c.label)}</td><td>${c.weight}</td><td><b>${c.value === null ? 'no data' : c.value}</b></td><td>${c.previous ?? '—'}</td><td><small>${esc(c.method)}</small></td></tr>`).join('')}</tbody></table></div></section>
 
         <section class="br-card"><h3>Today's executive report</h3>
-          <dl class="br-facts"><dt>What happened</dt><dd>${list(t.happened)}</dd><dt>Improved</dt><dd>${list(t.improved)}</dd><dt>Declined</dt><dd>${list(t.declined)}</dd><dt>Main problem</dt><dd dir="auto">${esc(t.problem || 'none')}</dd>
-          <dt>Priorities</dt><dd>${list(t.priorities)}</dd><dt>Needs your approval</dt><dd>${list(t.needs_approval)}</dd><dt>Real results</dt><dd>${list(t.results)}</dd><dt>Next step</dt><dd dir="auto"><b>${esc(t.next_step)}</b></dd></dl>
+          <div class="p-table-scroll"><table class="p-table"><tbody>${[['What happened', list(t.happened)], ['Improved', list(t.improved)], ['Declined', list(t.declined)], ['Main problem', `<span dir="auto">${esc(t.problem || 'none')}</span>`],
+            ['Priorities', list(t.priorities)], ['Needs your approval', list(t.needs_approval)], ['Real results', list(t.results)], ['Next step', `<b dir="auto">${esc(t.next_step)}</b>`]]
+            .map(([k, v]) => `<tr><th scope="row" style="width:180px;vertical-align:top">${esc(k)}</th><td>${v}</td></tr>`).join('')}</tbody></table></div>
           ${ex.reports.length ? `<details class="br-past"><summary>Saved daily & weekly reports (${ex.reports.length})</summary>${ex.reports.map(r => `<p><b>${esc(r.title)}</b><br><span style="white-space:pre-wrap" dir="auto">${esc(r.body || '')}</span></p>`).join('')}</details>` : '<p class="br-muted">The hourly cron saves a daily report, and a weekly one on Mondays.</p>'}</section>
 
         <section class="br-card"><h3>AI CEO self-review (30 days)</h3><p>${Object.entries(rv.totals).map(([k, v]) => `${esc(k.replace('_', ' '))} ${num(v)}`).join(' · ')}${rv.resolution_rate !== null ? ` · resolution rate ${num(rv.resolution_rate)}%` : ''}</p>
@@ -652,6 +654,8 @@
       root.querySelectorAll('[data-bissue]').forEach(b => b.onclick = () => { const it = ops.backlog.find(x => x.id === Number(b.dataset.bissue));
         if (!ops.settings.github_ready) { opsIssue = `${'[' + it.service + '] ' + it.problem}\n\nService: ${it.service}\nProblem: ${it.problem}\nEvidence: ${it.evidence || ''}\nSeverity: ${it.severity}\nImprovement: ${it.improvement || ''}\nPriority: ${it.priority}/50\nCost: ${it.cost_estimate}\nBenefit: ${it.benefit || ''}\nHow to test: ${it.test_method || ''}\nNeeds approval: ${it.needs_approval ? 'yes' : 'no'}`; render(); return; }
         if (confirm('Create a GitHub issue for this item?')) oAct('issue', { id: it.id }, 'Issue created ✓'); });
+      root.querySelectorAll('[data-ignore]').forEach(b => b.onclick = () => { const why = prompt('Why is this expected here? (e.g. "dev site: the scheduler runs only on the main site")'); if (why === null) return; oAct('ignore', { id: Number(b.dataset.ignore), reason: why }, 'Marked as expected ✓'); });
+      root.querySelectorAll('[data-unignore]').forEach(b => b.onclick = () => oAct('unignore', { key: b.dataset.unignore }, 'Restored ✓'));
       root.querySelectorAll('[data-rc]').forEach(f => f.onsubmit = ev => { ev.preventDefault(); oAct('root-cause', { id: Number(f.dataset.rc), text: new FormData(f).get('text') }, 'Saved ✓'); });
       root.querySelector('#opAdd')?.addEventListener('submit', ev => { ev.preventDefault(); oAct('backlog-add', { item: Object.fromEntries(new FormData(ev.target).entries()) }, 'Added ✓'); });
       root.querySelector('#opSave')?.addEventListener('click', () => oAct('settings', { settings: { backup_dir: root.querySelector('#opBackup').value.trim(), base_url: root.querySelector('#opBase').value.trim(), github_issues: root.querySelector('#opGh').checked } }, 'Saved ✓'));
@@ -659,6 +663,7 @@
       root.querySelector('#bgAudit')?.addEventListener('click', () => { note = { text: 'Auditing the site… this can take a minute.' }; render(); act(async () => { await req('/api/admin/ai-ceo/brand/audit', {}); await loadBrand(); }, 'Audit done ✓'); });
       root.querySelector('#bgPlan')?.addEventListener('click', () => { const markets = [...root.querySelectorAll('[data-bgm]:checked')].map(x => x.dataset.bgm), month = root.querySelector('#bgMonth').value;
         note = { text: 'Writing the plan… this can take a minute.' }; render(); act(async () => { brandPlan = await req('/api/admin/ai-ceo/brand/plan', { month, markets }); await loadBrand(); }, 'Plan saved to memory ✓'); });
+      root.querySelector('#slAll')?.addEventListener('click', () => { salesAll = !salesAll; render(); });
       root.querySelector('#slCrm')?.addEventListener('click', () => sAct('crm', {}, 'Moved to CRM ✓'));
       root.querySelector('#coForm')?.addEventListener('submit', ev => { ev.preventDefault(); const fd = new FormData(ev.target); coFilters = { page: 1 };
         for (const [k, v] of fd.entries()) coFilters[k] = k === 'has_email' || k === 'converted' ? true : v; loadCompanies(); });
