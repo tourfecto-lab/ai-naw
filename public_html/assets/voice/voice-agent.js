@@ -59,6 +59,13 @@
         .catch(function (err) { msg.textContent = err.message; msg.className = 'va-err'; });
     });
   }
+  function bars(items) {
+    if (!items || !items.length) return '<p class="va-muted">' + esc(t('none')) + '</p>';
+    var max = Math.max.apply(null, items.map(function (i) { return +i.count || 0; })) || 1;
+    return '<div class="va-bars">' + items.map(function (i) {
+      return '<div class="va-bar"><span class="va-bar-l">' + esc(i.key) + '</span><span class="va-bar-t"><span class="va-bar-f" style="width:' + Math.round((+i.count || 0) / max * 100) + '%"></span></span><span class="va-bar-n">' + esc(i.count) + '</span></div>';
+    }).join('') + '</div>';
+  }
   function money(v) { return '$' + (Number(v) || 0).toFixed(2); }
 
   var TABS = [
@@ -105,8 +112,9 @@
         return cards([[t('calls'), c.total || 0], ['Minutes', c.minutes || 0], ['Missed rate', c.missed_rate == null ? '—' : c.missed_rate + '%'], [t('booked'), b.count || 0],
           ['Conversion', b.conversion == null ? '—' : b.conversion + '%'], ['Total cost', money(k.total_usd)]]) +
           (roi.note ? '<p class="va-muted">' + esc(roi.note) + '</p>' : '') +
-          '<h3>Top objections</h3>' + table([['Objection', 'key'], ['Count', 'count']], a.objections) +
-          '<h3>Why leads were lost</h3>' + table([['Reason', 'key'], ['Count', 'count']], a.loss_reasons);
+          '<h3>Call outcomes</h3>' + bars(Object.keys(a.outcomes || {}).map(function (k) { return { key: k, count: a.outcomes[k] }; })) +
+          '<h3>Top objections</h3>' + bars(a.objections) +
+          '<h3>Why leads were lost</h3>' + bars(a.loss_reasons);
       });
     }],
     ['billing', function () {

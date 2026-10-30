@@ -23,3 +23,8 @@
 .va-err{color:var(--va-bad)}
 .va h3{margin:20px 0 8px;font-size:1.05rem}
 @media (max-width:600px){.va-form{grid-template-columns:1fr}}
+.va-bars{display:grid;gap:8px;margin-bottom:16px}
+.va-bar{display:grid;grid-template-columns:minmax(80px,30%) 1fr auto;gap:8px;align-items:center}
+.va-bar-l{overflow-wrap:anywhere}
+.va-bar-t{background:var(--va-line);border-radius:6px;height:10px;overflow:hidden}
+.va-bar-f{display:block;height:100%;background:var(--va-accent)}

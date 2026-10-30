@@ -8,7 +8,7 @@ const ok = (data) => ({ success: true, data });
 const API = {
   '/api/voice-agent/status': ok({ feature_enabled: true, role: 'admin', capabilities: [] }),
   '/api/voice-agent/settings': ok({ settings: { sandbox_mode: 1, enabled: 1, booking_mode: 'request_only', budget_policy: 'block', monthly_budget_usd: '50' } }),
-  '/api/voice-agent/analytics': ok({ calls: { total: 12, minutes: 40.5, missed_rate: 8.3 }, bookings: { count: 3, conversion: 25 }, cost: { total_usd: 4.2 }, roi: { note: 'x' }, objections: [{ key: 'price<img src=x onerror=window.__xss=1>', count: 2 }], loss_reasons: [] }),
+  '/api/voice-agent/analytics': ok({ calls: { total: 12, minutes: 40.5, missed_rate: 8.3 }, bookings: { count: 3, conversion: 25 }, cost: { total_usd: 4.2 }, roi: { note: 'x' }, outcomes: { booked: 5, missed: 2 }, objections: [{ key: 'price<img src=x onerror=window.__xss=1>', count: 2 }], loss_reasons: [] }),
   '/api/voice-agent/costs': ok({ costs: { month_usd: 4.2, budget_usd: 50 } }),
   '/api/voice-agent/numbers': ok({ numbers: [{ e164: '+201001234567', country: 'EG', number_type: 'mobile', provider: 'twilio', status: 'simulated' }] }),
   '/api/voice-agent/agents': ok({ agents: [{ name: 'Reception', role: 'receptionist', language: 'en', status: 'active' }] }),
