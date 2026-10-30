@@ -727,4 +727,19 @@ final class VoiceAgentDatabaseTest extends TestCase
         $this->assertNull(VoiceAccessService::grant(self::A));
         $this->assertSame('plan', $access->search('voice-' . self::A)[0]['source']);
     }
+
+    public function testCompanyOnItsOwnProviderAccountIsNotBilledForTelephony(): void
+    {
+        $this->db()->exec("INSERT INTO voice_providers (tenant_user_id, provider, mode, credentials_enc, status, created_at, updated_at) VALUES (?, 'twilio', 'own', 'x', 'ok', NOW(), NOW())", [self::A]);
+        $this->db()->exec("INSERT INTO voice_providers (tenant_user_id, provider, mode, credentials_enc, status, created_at, updated_at) VALUES (?, 'twilio', 'platform', 'x', 'ok', NOW(), NOW())", [self::B]);
+        foreach ([self::A, self::B] as $t) {
+            $this->db()->exec("INSERT INTO voice_calls (tenant_user_id, provider, call_sid, direction, mode, duration_s, ai_cost_usd, started_at, ended_at) VALUES (?, 'twilio', ?, 'inbound', 'turn', 90, 0.02, NOW(), NOW())", [$t, 'CAown' . $t]);
+            $id = (int) $this->db()->query("SELECT id FROM voice_calls WHERE call_sid = ? AND tenant_user_id = ?", ['CAown' . $t, $t])[0]['id'];
+            (new VoiceUsageService())->recordCall($t, $id, 0.05);
+        }
+        $a = (new VoiceUsageService())->month(self::A)['by_component'];
+        $b = (new VoiceUsageService())->month(self::B)['by_component'];
+        $this->assertSame(['ai'], array_keys($a)); // own account: the provider bills them directly
+        $this->assertContains('inbound_minutes', array_keys($b)); // platform account: billed with markup
+    }
 }
