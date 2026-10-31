@@ -227,6 +227,9 @@ class SocialMediaController extends Controller
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        if ($csrfDenied = $this->verifyCsrf()) {
+            return $csrfDenied;
+        }
         if ($denied = $this->guard('draft')) {
             return $denied;
         }
@@ -438,7 +441,7 @@ class SocialMediaController extends Controller
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
-        if ($denied = $this->guard('publish')) {
+        if (($denied = $this->guard('publish')) || ($denied = $this->verifyCsrf()) || ($denied = $this->rateLimitGuard('user', 'social_post_retry', 30, 60))) {
             return $denied;
         }
         $uid = $this->uid();
@@ -1890,6 +1893,9 @@ class SocialMediaController extends Controller
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        if ($csrfDenied = $this->verifyCsrf()) {
+            return $csrfDenied;
+        }
         if ($rateError = $this->rateLimitGuard('user', 'social_metrics', 6, 60)) {
             return $rateError;
         }
@@ -1973,6 +1979,9 @@ class SocialMediaController extends Controller
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        if ($csrfDenied = $this->verifyCsrf()) {
+            return $csrfDenied;
+        }
         if ($denied = $this->guard('draft')) {
             return $denied;
         }
@@ -2006,6 +2015,9 @@ class SocialMediaController extends Controller
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+        if ($csrfDenied = $this->verifyCsrf()) {
+            return $csrfDenied;
         }
         if ($denied = $this->guard('publish')) {
             return $denied;
@@ -2100,6 +2112,9 @@ class SocialMediaController extends Controller
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+        if ($csrfDenied = $this->verifyCsrf()) {
+            return $csrfDenied;
         }
         if ($denied = $this->guard('draft')) {
             return $denied;
@@ -2383,6 +2398,9 @@ class SocialMediaController extends Controller
     {
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
+        }
+        if ($csrfDenied = $this->verifyCsrf()) {
+            return $csrfDenied;
         }
         if ($denied = $this->guard('draft')) {
             return $denied;
