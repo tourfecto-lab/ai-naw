@@ -5,8 +5,9 @@
  *   csv_import  the customer uploads the CSV exported from the site's dashboard (Booking.com, Expedia, Trustpilot, other)
  *   auto_sync   the platform reads the reviews through the site's API
  * Both can be on at the same time. Automatic sync can only be switched on for a source that has a connector in the
- * code (today TripAdvisor, limited by TripAdvisor to the latest 5 reviews); Booking.com, Expedia and Trustpilot have
- * no connector yet because the sites do not give us API access (see docs/reputation/PARTNER_API_APPLICATIONS.md).
+ * code (today TripAdvisor, limited by TripAdvisor to the latest 5 reviews). Booking.com (Connectivity Partners only),
+ * Expedia and Trustpilot (public reviews API with an API key) have no connector built yet; see
+ * docs/reputation/PARTNER_API_APPLICATIONS.md.
  * Defaults keep today's behaviour: CSV import on for the CSV sources, TripAdvisor sync on, nothing else.
  */
 class ReviewSources
@@ -102,6 +103,17 @@ class ReviewSources
         return ['config' => $after, 'changes' => $changes];
     }
 
+    private static function noConnectorNote(string $key, string $label): string
+    {
+        if ($key === 'trustpilot') {
+            return 'No connector built yet. Trustpilot has a public reviews API that works with an API key (no partner approval): it needs the key and the business unit id.';
+        }
+        if ($key === 'booking') {
+            return 'No connector yet. Booking.com gives review access to approved Connectivity Partners only (application needed).';
+        }
+        return 'No connector yet: needs API access from ' . $label . '.';
+    }
+
     /** For the admin and customer screens. */
     public static function view(?Database $db = null): array
     {
@@ -112,7 +124,7 @@ class ReviewSources
                 'key' => $key, 'label' => $label,
                 'csv_import' => $cfg[$key]['csv_import'], 'csv_available' => self::canEnable($key, 'csv_import'),
                 'auto_sync' => $cfg[$key]['auto_sync'], 'auto_available' => self::canEnable($key, 'auto_sync'),
-                'auto_note' => $key === 'tripadvisor' ? 'Limited by TripAdvisor to the latest 5 reviews per location' : (self::canEnable($key, 'auto_sync') ? '' : 'No connector yet: needs API access from ' . $label),
+                'auto_note' => $key === 'tripadvisor' ? 'Limited by TripAdvisor to the latest 5 reviews per location' : (self::canEnable($key, 'auto_sync') ? '' : self::noConnectorNote($key, $label)),
             ];
         }
         return $out;

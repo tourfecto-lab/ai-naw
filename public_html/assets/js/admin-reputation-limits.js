@@ -43,7 +43,7 @@
       '<div class="p-table-scroll" tabindex="0" aria-label="Limits table, scrolls sideways"><table class="p-table rl">' + head + rows + '</table></div>' +
       '<div style="margin-top:12px"><button class="p-btn primary" id="rlSave">Save changes</button> <span id="rlMsg" role="status" aria-live="polite" class="p-cell-muted"></span></div></div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Review sources</h3></div>' +
-      '<p class="p-cell-muted" style="margin:0 0 10px">Choose, for each outside review site, how reviews may come in. Both can be on together. Automatic sync can only be switched on where the platform has a connector; Booking.com, Expedia and Trustpilot do not give us API access yet, so CSV import is the way in for them.</p>' +
+      '<p class="p-cell-muted" style="margin:0 0 10px">Choose, for each outside review site, how reviews may come in. Both can be on together. Automatic sync can only be switched on where the platform has a connector (today TripAdvisor). For the other sites CSV import is the way in until a connector is built; the note on each row says what that site requires.</p>' +
       '<div class="p-table-scroll" tabindex="0" aria-label="Review sources, scrolls sideways"><table class="p-table"><thead><tr><th scope="col">Site</th><th scope="col">CSV import by the customer</th><th scope="col">Automatic sync</th></tr></thead><tbody>' +
       d.sources.map(function (x) {
         return '<tr><th scope="row" style="font-weight:600">' + esc(x.label) + '</th>' +

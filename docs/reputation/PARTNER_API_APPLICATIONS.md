@@ -36,3 +36,9 @@ Subject: Request for access beyond the 5 latest reviews per location
 
 ## After approval (engineering, not started)
 Sync job in the style of the Google sync (schedule, de-duplication on `source_platform` + `external_review_id`, negative-review alert, per-plan limits), credentials stored encrypted per customer, a real sandbox test before enabling for customers.
+
+## Update 2026-10-31: what the official developer sites say (fetched that day)
+- **Trustpilot** (https://developers.trustpilot.com/authentication): public APIs need only your API key (Client ID), no OAuth and no partner approval. The public endpoint `GET https://api.trustpilot.com/v1/business-units/{businessUnitId}/all-reviews` lists a business unit's reviews with paging (it does not return customer emails or order ids). Private reviews and replying need OAuth 2.0 with the API key and secret. So a Trustpilot connector can be built as soon as the owner provides an API key and the business unit id of each customer's Trustpilot page. Not built yet.
+- **Booking.com** (https://developers.booking.com/connectivity/docs): the Connectivity APIs "retrieve and respond to guest reviews", but only for Connectivity Partners, who must meet specific onboarding requirements. The review-specific pages returned 404, so the exact requirements are Not Verified. Application needed (draft above).
+- **Expedia / Vrbo** (https://developers.expediagroup.com/): the portal mentions property reviews for Vrbo; I could not verify a review API for Expedia hotels. Not Verified.
+- **TripAdvisor**: the Content API we already use returns only the latest 5 reviews.
