@@ -20,7 +20,7 @@
     const PF = new Proxy({}, { get: (o, p) => BR(p) });
     // ================= الباقة =================
     const LIM_ICON = { accounts: '' + IC('link') + '', posts: '' + IC('calendar') + '', monthly_plans: '' + IC('planCheck') + '', competitors: '' + IC('target') + '', ai_captions: '' + IC('sparkles') + '' };
-    let PKG = null, pkCycle = 'monthly';
+    let PKG = null, pkCycle = 'monthly', promoCode = '';
     const lab = k => (PKG && PKG.labels && PKG.labels[k]) ? (AR ? PKG.labels[k][0] : PKG.labels[k][1]) : k;
     const limTxt = v => (v < 0 ? '∞' : nf(v));
     const reqKey = () => 'pk' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
@@ -86,6 +86,7 @@
             + ((PKG.addons_active || []).length ? '<div class="sp-small p-cell-muted">' + T('شغالة دلوقتي: ', 'Active: ') + PKG.addons_active.map(a => '+' + nf(a.qty) + ' ' + esc(lab(a.kind)) + ' (' + T('لحد ', 'until ') + esc(spLocal(a.expires_at + ' UTC')) + ')').join(' · ') + '</div>' : '') + '</div>' : '';
         root.innerHTML = head
             + '<div class="p-card"><div class="p-card-head"><h3>' + IC('layers') + ' ' + T('باقات السوشيال', 'Social plans') + '</h3><div class="sp-seg pk-cycle"><label><input type="radio" name="pkCycle" value="monthly"' + (pkCycle === 'monthly' ? ' checked' : '') + '> ' + T('شهري', 'Monthly') + '</label><label><input type="radio" name="pkCycle" value="yearly"' + (pkCycle === 'yearly' ? ' checked' : '') + '> ' + T('سنوي (شهرين ببلاش)', 'Yearly (2 months free)') + '</label></div></div>'
+            + (PKG.can_buy ? '<div class="pk-promo sp-small"><label for="pkPromo">' + T('عندك كود خصم؟', 'Have a promo code?') + '</label> <input id="pkPromo" class="p-select" maxlength="24" autocomplete="off" style="text-transform:uppercase;max-width:180px" value="' + esc(promoCode) + '" placeholder="CODE"> <span class="p-cell-muted">' + T('بيتطبق على أول دورة بس عند الشراء.', 'Applied to the first billing period at checkout.') + '</span></div>' : '')
             + '<div class="pk-grid">' + cards + '</div>' + mapTxt
             + '<p class="p-cell-muted sp-small">' + T('الدفع من رصيد المحفظة. الترقية فورية وبتدفع الفرق بس (الباقي من مدتك بيتحسب رصيد)، والتخفيض بيتطبق عند التجديد. كل منصة في المنشور بتتحسب منشور. كابشن AI بيتحسب من باقة المنصة الأول لو عندك.', 'Paid from your wallet balance. Upgrades are instant and you only pay the difference (remaining time is credited); downgrades apply at renewal. Each platform in a post counts as one post. AI captions use your platform plan quota first if you have one.') + '</p></div>'
             + (PKG.builder ? '<div class="p-card pk-builder" id="pkBuilder"></div>' : '')
@@ -94,6 +95,7 @@
         root.querySelectorAll('input[name=pkCycle]').forEach(r => r.addEventListener('change', () => { pkCycle = r.value; renderPackage(); }));
         root.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => buyTier(b.dataset.buy, b)));
         root.querySelectorAll('[data-addon]').forEach(b => b.addEventListener('click', () => buyAddon(b.dataset.addon, b)));
+        const pc = $('pkPromo'); if (pc) pc.addEventListener('input', () => { promoCode = pc.value.trim().toUpperCase(); });
         const rn = $('pkRenew'); if (rn) rn.addEventListener('click', toggleRenew);
     }
     // ---- فصّل باقتك
@@ -157,8 +159,9 @@
         const q = await jsonPost('/api/social/package/quote', { custom: bld });
         if (!q.success) { btn.disabled = false; P.toast(q.error || T('تعذر', 'Failed'), 'error'); return; }
         const pr = pkCycle === 'yearly' ? q.data.yearly_label : q.data.monthly_label;
-        if (!confirm(T('تأكيد الباقة المفصّلة ', 'Confirm custom plan ') + (pkCycle === 'yearly' ? T('(سنوي)', '(yearly)') : T('(شهري)', '(monthly)')) + ' — ' + pr.label + T('\nالمبلغ (أو فرق السعر لو بتكبّر باقتك) هيتخصم من المحفظة. التصغير بيتطبق عند التجديد.', '\nThe amount (or the prorated difference when upgrading) is charged to your wallet. Downsizing applies at renewal.'))) { btn.disabled = false; return; }
-        const r = await jsonPost('/api/social/package/subscribe', { tier: 'custom', cycle: pkCycle, custom: q.data.spec, request_key: reqKey() });
+        const pm = await checkPromo('custom', { custom: q.data.spec }); if (pm === false) { btn.disabled = false; return; }
+        if (!confirm(T('تأكيد الباقة المفصّلة ', 'Confirm custom plan ') + (pkCycle === 'yearly' ? T('(سنوي)', '(yearly)') : T('(شهري)', '(monthly)')) + ' — ' + pr.label + (pm ? pm.line : '') + T('\nالمبلغ (أو فرق السعر لو بتكبّر باقتك) هيتخصم من المحفظة. التصغير بيتطبق عند التجديد.', '\nThe amount (or the prorated difference when upgrading) is charged to your wallet. Downsizing applies at renewal.'))) { btn.disabled = false; return; }
+        const r = await jsonPost('/api/social/package/subscribe', { tier: 'custom', cycle: pkCycle, custom: q.data.spec, request_key: reqKey(), promo_code: pm ? pm.code : undefined });
         btn.disabled = false;
         if (!r.success) { payFail(r); return; }
         P.toast(r.message || T('تم ✅', 'Done ✅'), 'success');
@@ -176,12 +179,20 @@
         P.toast(r.error || T('تعذر', 'Failed'), 'error');
         if (goWallet && confirm((r.error || '') + '\n\n' + T('تروح تشحن المحفظة دلوقتي؟', 'Go top up your wallet now?'))) { location.hash = 'wallet'; const w = document.getElementById('wallet'); if (w) w.scrollIntoView({ behavior: 'smooth' }); else location.href = '/subscription#wallet'; }
     }
+    /** يتحقق من الكود من السيرفر (هو المرجع). يرجّع {code, line} أو null لو مفيش كود، أو false لو الكود مرفوض */
+    async function checkPromo(tier, extra) {
+        if (!promoCode) return null;
+        const r = await jsonPost('/api/social/package/promo', Object.assign({ tier, cycle: pkCycle, promo_code: promoCode }, extra || {}));
+        if (!r.success) { P.toast(r.error || T('كود الخصم مش صحيح', 'Invalid promo code'), 'error'); return false; }
+        return { code: r.data.code, line: '\n' + T('كود الخصم ', 'Promo ') + r.data.code + ' (-' + r.data.percent + '%): ' + usd(r.data.original) + ' → ' + usd(r.data.price) };
+    }
     async function buyTier(tier, btn) {
         const t = PKG.catalog.find(x => x.key === tier); if (!t) return;
         const pr = pkCycle === 'yearly' ? t.yearly : t.monthly;
-        if (!confirm(T('تأكيد: باقة «', 'Confirm: «') + t.name + '» ' + (pkCycle === 'yearly' ? T('سنوي', 'yearly') : T('شهري', 'monthly')) + ' — ' + pr.label + T('\nالمبلغ (أو فرق السعر في الترقية) هيتخصم من المحفظة.', '\nThe amount (or the prorated difference when upgrading) is charged to your wallet.'))) return;
+        const pm = await checkPromo(tier); if (pm === false) return;
+        if (!confirm(T('تأكيد: باقة «', 'Confirm: «') + t.name + '» ' + (pkCycle === 'yearly' ? T('سنوي', 'yearly') : T('شهري', 'monthly')) + ' — ' + pr.label + (pm ? pm.line : '') + T('\nالمبلغ (أو فرق السعر في الترقية) هيتخصم من المحفظة.', '\nThe amount (or the prorated difference when upgrading) is charged to your wallet.'))) return;
         btn.disabled = true;
-        const r = await jsonPost('/api/social/package/subscribe', { tier, cycle: pkCycle, request_key: reqKey() });
+        const r = await jsonPost('/api/social/package/subscribe', { tier, cycle: pkCycle, request_key: reqKey(), promo_code: pm ? pm.code : undefined });
         btn.disabled = false;
         if (!r.success) { payFail(r); return; }
         P.toast(r.message || T('تم ✅', 'Done ✅'), 'success');
