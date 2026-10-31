@@ -87,6 +87,9 @@ class ReviewRequestService
         // Admin-controlled plan limit (unlimited unless the admin sets one). An infrastructure error never blocks the customer.
         try {
             ReputationLimits::assertCanCreateRequest($userId, $this->db);
+            if ($channel === 'sms') {
+                ReputationLimits::assertCanSendSms($userId, $this->db);
+            }
         } catch (ReputationLimitReached $limit) {
             throw $limit;
         } catch (Throwable $e) {

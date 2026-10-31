@@ -36,7 +36,7 @@
       '<div class="p-card"><div class="p-card-head"><h3>Limits per plan</h3></div>' +
       '<p class="p-cell-muted" style="margin:0 0 10px">Prices and AI reply credits are managed in <a href="/admin/plans-studio">Plans Studio</a>. Defaults are unlimited, so nothing changes for customers until you set a number. ' +
       'A change applies immediately to everyone on that plan: customers already above a new limit keep their data but cannot create new requests until next month (or until you raise it). ' +
-      'For one customer only, use a feature override with the keys reputation_review_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import.</p>' +
+      'For one customer only, use a feature override with the keys reputation_review_requests_monthly, reputation_sms_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import.</p>' +
       '<div class="p-table-scroll"><table class="p-table">' + head + rows + '</table></div>' +
       '<div style="margin-top:12px"><button class="p-btn primary" id="rlSave">Save changes</button> <span id="rlMsg" role="status" aria-live="polite" class="p-cell-muted"></span></div></div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Usage this month</h3></div>' + usage + '</div>' +
