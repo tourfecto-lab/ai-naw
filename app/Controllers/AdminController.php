@@ -1356,7 +1356,7 @@ class AdminController extends Controller
                 $plan['currency_symbol']=$plan['currency'].' ';
                 $persistFields=array_merge($fields,['currency_symbol']);
                 $sets=implode(',',array_map(fn($field)=>'`'.$field.'`=?',$persistFields));
-                $values=array_map(fn($field)=>$plan[$field],$persistFields);$values[]=$id;
+                $values=array_map(fn($field)=>is_bool($plan[$field])?(int)$plan[$field]:$plan[$field],$persistFields);$values[]=$id;
                 $stmt=$pdo->prepare('UPDATE plan_pricing_display SET '.$sets.' WHERE id=?');$stmt->execute($values);
                 BillingPlanCatalog::recordChange($this->db,$key,$actor,$before,array_replace($plan,$extra));
                 return $plan;
