@@ -391,3 +391,8 @@
 .ib-ap-it b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ib-ap-it.off { opacity: .55; cursor: not-allowed; }
 .ib-ap-it:has(input:checked) { border-color: var(--panel-accent); }
+
+/* موبايل: روابط «افتح» في كروت المنشورات كانت 19px ارتفاع (صعبة على اللمس). نكبّر منطقة اللمس من غير ما نغيّر الشكل */
+@media (max-width: 700px) {
+  .sp-post-tg .sp-tgt a { display: inline-flex; align-items: center; min-height: 36px; padding-inline: 10px; margin-inline: -4px; }
+}
