@@ -117,7 +117,9 @@ ${extras(c)}
                 addons[k] = { qty: Number(root.querySelector(`[data-aq="${k}"]`).value), price: Number(root.querySelector(`[data-ap="${k}"]`).value), enabled: root.querySelector(`[data-ae="${k}"]`).checked };
             });
             const plan_map = {};
-            root.querySelectorAll('[data-map]').forEach(el => { plan_map[el.dataset.map] = el.value; });
+            const def = root.querySelector('#spaDefault').value;
+            // بنبعت بس الباقات اللي اتغيّرت أو كانت متظبّطة قبل كده (من غير ما نثبّت الافتراضي على كل باقة)
+            root.querySelectorAll('[data-map]').forEach(el => { if (el.dataset.map in D.config.plan_map || el.value !== def) plan_map[el.dataset.map] = el.value; });
             const builder = { enabled: root.querySelector('#spaB_enabled').checked, features: {} };
             root.querySelectorAll('[data-b]').forEach(el => { builder[el.dataset.b] = Number(el.value); });
             root.querySelectorAll('[data-bb]').forEach(el => { (builder[el.dataset.bb] = builder[el.dataset.bb] || {})[el.dataset.g] = Number(el.value); });
