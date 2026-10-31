@@ -669,7 +669,7 @@ class PlatformOutreachService
         }
         $start = time();
         $done = 0;
-        $rows = $this->q("SELECT * FROM platform_leads WHERE scanned_at IS NULL AND step=0 AND status IN ('new','no_email') ORDER BY (email IS NULL), reviews DESC, id LIMIT " . (int) $limit)->fetchAll(PDO::FETCH_ASSOC);
+        $rows = array_map([self::class, 'tidy'], $this->q("SELECT * FROM platform_leads WHERE scanned_at IS NULL AND step=0 AND status IN ('new','no_email') ORDER BY (email IS NULL), reviews DESC, id LIMIT " . (int) $limit)->fetchAll(PDO::FETCH_ASSOC));
         foreach ($rows as $l) {
             if (time() - $start > $budget) {
                 break;
@@ -1072,6 +1072,20 @@ class PlatformOutreachService
             . '</td></tr></table>' . $pixel . '</div>';
     }
 
+    /** اسم الشركة من غير علامات الاتجاه المخفية، في كل مكان بيتعرض أو بيتبعت (الصف في قاعدة البيانات مابيتغيّرش) */
+    public static function tidy(array $lead): array
+    {
+        if (isset($lead['company'])) {
+            $lead['company'] = OutreachAudit::cleanName((string) $lead['company']);
+        }
+        return $lead;
+    }
+
+    private static function tidyOrNull(?array $lead): ?array
+    {
+        return $lead === null ? null : self::tidy($lead);
+    }
+
     /** نص قسم «المنصة بتشتغل مكانك» بكل لغة */
     private const VALUE_UI = [
         'ar' => [
@@ -1439,7 +1453,7 @@ class PlatformOutreachService
         $batch = min($left, max(1, (int) $set['per_run']));
         // أول رسالة: لازم الشركة تكون اتشخّصت (عشان الرسالة تبقى عن مشكلتها) واتوافق عليها لو الموافقة مفعّلة
         $approval = ($set['require_approval'] ?? '1') !== '0' ? ' AND approved=1' : '';
-        $rows = $this->q("SELECT * FROM platform_leads WHERE email IS NOT NULL AND ((status='new' AND step=0 AND track IS NOT NULL{$approval}) OR (status='contacted' AND step BETWEEN 1 AND 4 AND next_send_at<=NOW())) ORDER BY step DESC, (rating IS NULL), reviews DESC, id LIMIT " . (int) $batch)->fetchAll(PDO::FETCH_ASSOC);
+        $rows = array_map([self::class, 'tidy'], $this->q("SELECT * FROM platform_leads WHERE email IS NOT NULL AND ((status='new' AND step=0 AND track IS NOT NULL{$approval}) OR (status='contacted' AND step BETWEEN 1 AND 4 AND next_send_at<=NOW())) ORDER BY step DESC, (rating IS NULL), reviews DESC, id LIMIT " . (int) $batch)->fetchAll(PDO::FETCH_ASSOC));
         foreach ($rows as $lead) {
             $step = (int) $lead['step'] + 1;
             // نفس الشركة (نفس الدومين) ردّت أو سجّلت أو ألغت: مانكمّلش على باقي إيميلاتها
@@ -1526,7 +1540,7 @@ class PlatformOutreachService
         if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
             return null;
         }
-        return $this->q('SELECT * FROM platform_leads WHERE token=?', [$token])->fetch(PDO::FETCH_ASSOC) ?: null;
+        return self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE token=?', [$token])->fetch(PDO::FETCH_ASSOC) ?: null);
     }
 
     public function unsubscribe(string $token): bool
@@ -1668,7 +1682,7 @@ class PlatformOutreachService
     /** معاينة الرسالة الجاية لشركة معيّنة (بالظبط زي اللي هتتبعت) */
     public function previewLead(int $id, ?callable $ai = null, int $step = 0): array
     {
-        $l = $this->q('SELECT * FROM platform_leads WHERE id=?', [$id])->fetch(PDO::FETCH_ASSOC);
+        $l = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [$id])->fetch(PDO::FETCH_ASSOC) ?: null);
         if (!$l) {
             throw new InvalidArgumentException('الشركة مش موجودة');
         }
@@ -1824,7 +1838,7 @@ class PlatformOutreachService
         if (!in_array($status, ['new', 'replied', 'interested', 'signed_up', 'unsubscribed', 'bounced', 'paused', 'contacted'], true)) {
             throw new InvalidArgumentException('حالة غير معروفة');
         }
-        $l = $this->q('SELECT * FROM platform_leads WHERE id=?', [$id])->fetch(PDO::FETCH_ASSOC);
+        $l = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [$id])->fetch(PDO::FETCH_ASSOC) ?: null);
         if (!$l) {
             throw new InvalidArgumentException('الشركة مش موجودة');
         }

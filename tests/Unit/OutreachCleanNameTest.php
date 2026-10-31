@@ -17,4 +17,11 @@ final class OutreachCleanNameTest extends TestCase
         $this->assertSame('Travel Joy', OutreachAudit::cleanName('Travel Joy'));
         $this->assertSame('', OutreachAudit::cleanName("\u{202A}\u{202C}"));
     }
+
+    public function testTidyCleansTheLeadCompanyButKeepsEverythingElse(): void
+    {
+        $lead = ['id' => 5, 'company' => "\u{202A}Nile Dream Tours\u{202C}", 'email' => 'a@b.test'];
+        $this->assertSame(['id' => 5, 'company' => 'Nile Dream Tours', 'email' => 'a@b.test'], PlatformOutreachService::tidy($lead));
+        $this->assertSame(['id' => 1], PlatformOutreachService::tidy(['id' => 1]));
+    }
 }
