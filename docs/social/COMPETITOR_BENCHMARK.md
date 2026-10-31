@@ -25,7 +25,7 @@ Monthly and annual prices are kept separate; annual figures are the per-month eq
 
 | Tier | Monthly | Yearly (/12) | Accounts | Posts/month | AI captions | Per account (monthly) | Notable features |
 |---|---|---|---|---|---|---|---|
-| Basic | 19 | 15.83 | 3 | 60 | 100 | 6.33 | private replies |
+| Basic | 19 | 15.83 | 3 | 90 | 100 | 6.33 | private replies |
 | Pro | 49 | 40.83 | 8 | 250 | 400 | 6.13 | team, approvals, client review link, attribution, growth, 3 competitors |
 | Agency | 129 | 107.50 | 25 | unlimited | 1500 | 5.16 | everything, 10 competitors |
 
@@ -34,7 +34,7 @@ Monthly and annual prices are kept separate; annual figures are the per-month eq
 - Per-account price is in line with Buffer Essentials (3 channels $18, 8 channels $48, 25 channels $120).
 - Approvals and team access cost Buffer $12 per channel on Team (25 channels: $180). Tourfecto Pro includes them at about $6 per account, a clear price advantage.
 - Differentiators competitors do not list on their pricing pages: comment inbox with automatic private replies on price/booking questions, bookings and revenue attribution per post, AI monthly content plan with client approval link, Egyptian Arabic content. These are Tourfecto-specific and should lead the positioning.
-- Weakness: Basic caps posts at 60/month (every platform counts as a post), while Buffer and Metricool advertise unlimited scheduled posts (fair use). Three accounts posting daily need about 90. The marginal cost of a post is about $0.001 in the admin cost model, so raising Basic to 90 costs roughly $0.03 per subscriber. **Recommendation, pending owner approval**: raise Basic to 90 posts.
+- Weakness: Basic capped posts at 60/month (raised to 90 on 2026-10-31) (every platform counts as a post), while Buffer and Metricool advertise unlimited scheduled posts (fair use). Three accounts posting daily need about 90. The marginal cost of a post is about $0.001 in the admin cost model, so raising Basic to 90 costs roughly $0.03 per subscriber. Done: Basic is now 90 posts (audit log entry 2026-10-31).
 - Competitor limits on posts are generally not the revenue lever; accounts and team features are.
 
 Not changed in code: no customer-facing price was altered by this benchmark.

@@ -46,7 +46,7 @@ final class SocialPackages
             'platforms' => ['facebook', 'instagram'],
             'private_reply' => false, 'auto_private' => false, 'attribution' => false, 'client_review' => false, 'team' => false, 'growth' => false],
         'basic' => ['name' => 'أساسي', 'name_en' => 'Basic', 'price_monthly' => 19, 'price_yearly' => 190, 'for_sale' => true,
-            'accounts' => 3, 'posts' => 60, 'monthly_plans' => 1, 'competitors' => 0, 'ai_captions' => 100,
+            'accounts' => 3, 'posts' => 90, 'monthly_plans' => 1, 'competitors' => 0, 'ai_captions' => 100,
             'platforms' => self::PLATFORMS,
             'private_reply' => true, 'auto_private' => false, 'attribution' => false, 'client_review' => false, 'team' => false, 'growth' => false],
         'pro' => ['name' => 'احترافي', 'name_en' => 'Pro', 'price_monthly' => 49, 'price_yearly' => 490, 'for_sale' => true,
@@ -1140,11 +1140,24 @@ final class SocialPackages
         $customJson = $offer['custom_json'];
         $ref = 'social_pkg:' . $owner . ':' . substr(hash('sha256', $requestKey ?: bin2hex(random_bytes(8))), 0, 32);
         $db = Database::getInstance();
+        // حد الاستخدام الكلي للكود: قفل باسم الكود بيسلسل الطلبات المتزامنة (الفحص + التسجيل) لحد ما الـtransaction تخلص
+        $lockName = null;
+        if ($promo) {
+            $lockName = 'social_promo_' . substr(hash('sha256', $promo['code']), 0, 32);
+            if (!(int) ($db->query('SELECT GET_LOCK(?, 5) AS l', [$lockName])[0]['l'] ?? 0)) {
+                throw new InvalidArgumentException('الكود بيتستخدم دلوقتي - جرّب تاني بعد ثانية');
+            }
+        }
+        try {
         $result = $db->transaction(function () use ($db, $owner, $tier, $cycle, $price, $ref, $offer, $customJson, $promo) {
             $db->query('SELECT id FROM users WHERE id = ? FOR UPDATE', [$owner]);
             $row = self::standalone($owner, true);
             if ($row && $row['last_ref'] === $ref) {
                 return ['action' => 'already', 'tier' => $row['tier'], 'cycle' => $row['cycle'], 'charged' => 0.0, 'period_end' => $row['period_end']];
+            }
+            if ($promo) {
+                // إعادة فحص تحت القفل: الكود لسه صالح وماخلصش حده
+                self::checkPromo($owner, $promo['code'], $tier, $cycle, (float) $offer['price']);
             }
             $now = time();
             $active = $row && $row['status'] === 'active' && strtotime($row['period_end'] . ' UTC') > $now;
@@ -1184,6 +1197,11 @@ final class SocialPackages
             }
             return ['action' => $active ? 'upgraded' : 'subscribed', 'tier' => $tier, 'cycle' => $cycle, 'charged' => $charge, 'period_end' => $to] + ($promo ? ['promo' => $promo['code'], 'discount' => $promo['discount']] : []);
         });
+        } finally {
+            if ($lockName !== null) {
+                $db->query('SELECT RELEASE_LOCK(?)', [$lockName]);
+            }
+        }
         self::flush();
         if (in_array($result['action'], ['subscribed', 'upgraded'], true) && class_exists('ActivityLog')) {
             try {

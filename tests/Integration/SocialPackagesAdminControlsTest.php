@@ -163,4 +163,30 @@ final class SocialPackagesAdminControlsTest extends TestCase
         $pdo->exec("DELETE FROM system_settings WHERE setting_key = '" . self::SETTING . "'");
         $ref->setValue(null, null);
     }
+
+    public function testCheckPromoCountsRedemptionsFromDatabase(): void
+    {
+        $pdo = $this->dbOrSkip();
+        SocialPackages::ensureSchema();
+        $pdo->exec("DELETE FROM system_settings WHERE setting_key = '" . self::SETTING . "'");
+        $pdo->exec("DELETE FROM social_promo_redemptions WHERE promo_code = 'LIMIT1'");
+        $ref = new ReflectionProperty(SocialPackages::class, 'cfgCache');
+        $ref->setAccessible(true);
+        $ref->setValue(null, null);
+        SocialPackages::saveConfig(['promos' => [['code' => 'LIMIT1', 'percent' => 10, 'max_uses' => 1]]], null);
+
+        $ok = SocialPackages::checkPromo(900001, 'LIMIT1', 'pro', 'monthly', 49.0);
+        $this->assertSame(44.1, $ok['price']);
+        $pdo->exec("INSERT INTO social_promo_redemptions (promo_code, user_id, ref, discount) VALUES ('LIMIT1', 900001, 'phpunit-ref-1', 4.9)");
+        try {
+            SocialPackages::checkPromo(900002, 'LIMIT1', 'pro', 'monthly', 49.0);
+            $this->fail('الحد الكلي لازم يتحسب من قاعدة البيانات');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('خلصت', $e->getMessage());
+        } finally {
+            $pdo->exec("DELETE FROM social_promo_redemptions WHERE promo_code = 'LIMIT1'");
+            $pdo->exec("DELETE FROM system_settings WHERE setting_key = '" . self::SETTING . "'");
+            $ref->setValue(null, null);
+        }
+    }
 }
