@@ -13,7 +13,7 @@ final class ReputationLimitsTest extends TestCase
     private const MEMBER = 999062;
     private const OTHER = 999063;
     private const WID = 999061;
-    private const SETTING_KEYS = ['reputation_limits', 'reputation_limits_audit'];
+    private const SETTING_KEYS = ['reputation_limits', 'reputation_limits_audit', 'reputation_limit_overrides'];
 
     private ?PDO $pdo = null;
     private ?Database $db = null;
@@ -316,5 +316,61 @@ final class ReputationLimitsTest extends TestCase
         } finally {
             $this->pdo->exec("DELETE FROM api_usage_logs WHERE id = $id");
         }
+    }
+
+    public function testCustomerExceptionBeatsThePlanInBothDirectionsAndCanBeRemoved(): void
+    {
+        ReputationLimits::save(['professional' => ['review_requests_monthly' => 2, 'team_assignment' => false]], 1, $this->db);
+        $this->request(self::UID);
+        $this->request(self::UID);
+        $this->request(self::UID);
+        $r = ReputationLimits::saveOverride(self::UID, ['review_requests_monthly' => 50, 'team_assignment' => true], 9, $this->db);
+        $this->assertCount(2, $r['changes']);
+        ReputationLimits::assertCanCreateRequest(self::UID, $this->db); // 3 used, plan says 2, exception says 50
+        ReputationLimits::assertFeature(self::UID, 'team_assignment', $this->db);
+        ReputationLimits::assertCanCreateRequest(self::MEMBER, $this->db); // the member follows the owner's exception
+        ReputationLimits::saveOverride(self::UID, ['review_requests_monthly' => 1], 9, $this->db); // restriction below the plan
+        try {
+            ReputationLimits::assertCanCreateRequest(self::UID, $this->db);
+            $this->fail('the restriction must apply');
+        } catch (ReputationLimitReached $e) {
+            $this->assertStringContainsString('limit of 1', $e->getMessage());
+        }
+        ReputationLimits::saveOverride(self::UID, ['review_requests_monthly' => null, 'team_assignment' => null], 9, $this->db);
+        $this->assertSame([], ReputationLimits::overrides($this->db));
+        $this->assertSame(2, ReputationLimits::limit(self::UID, 'review_requests_monthly', $this->db), 'back to the plan');
+        $this->assertFalse(ReputationLimits::limit(self::UID, 'team_assignment', $this->db));
+    }
+
+    public function testCustomerExceptionValidationAndAudit(): void
+    {
+        foreach ([['review_requests_monthly' => -3], ['review_requests_monthly' => 'x'], ['price' => 1]] as $bad) {
+            try {
+                ReputationLimits::saveOverride(self::UID, $bad, 9, $this->db);
+                $this->fail('expected rejection of ' . json_encode($bad));
+            } catch (InvalidArgumentException $e) {
+                $this->assertTrue(true);
+            }
+        }
+        try {
+            ReputationLimits::saveOverride(self::MEMBER, ['locations' => 5], 9, $this->db);
+            $this->fail('a team member is not an account');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('team member', $e->getMessage());
+        }
+        try {
+            ReputationLimits::saveOverride(424242, ['locations' => 5], 9, $this->db);
+            $this->fail('unknown customer');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('not found', $e->getMessage());
+        }
+        ReputationLimits::saveOverride(self::UID, ['locations' => 5], 42, $this->db);
+        $log = ReputationLimits::auditLog(3, $this->db);
+        $this->assertSame(42, $log[0]['actor_id']);
+        $this->assertSame('customer:lim-owner@tourfecto.test', $log[0]['changes'][0]['plan']);
+        $this->assertSame('plan', $log[0]['changes'][0]['from']);
+        $view = ReputationLimits::overridesView($this->db);
+        $this->assertSame('lim-owner@tourfecto.test', $view[0]['email']);
+        $this->assertSame(['locations' => 5], $view[0]['values']);
     }
 }

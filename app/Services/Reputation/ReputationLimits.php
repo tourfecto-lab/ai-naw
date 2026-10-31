@@ -34,6 +34,8 @@ class ReputationLimits
     public const MAX_VALUE = 1000000;
     private const SETTING = 'reputation_limits';
     private const AUDIT = 'reputation_limits_audit';
+    private const OVERRIDES = 'reputation_limit_overrides';
+    public const MAX_OVERRIDES = 300;
     private const AUDIT_KEEP = 100;
 
     public const LABELS = [
@@ -143,6 +145,103 @@ class ReputationLimits
         self::write(self::AUDIT, json_encode(array_slice($log, 0, self::AUDIT_KEEP)), $db);
     }
 
+    /** @return array<int,array<string,int|bool>> account owner id => only the keys that differ from the plan */
+    public static function overrides(?Database $db = null): array
+    {
+        try {
+            $stored = json_decode(self::read(self::OVERRIDES, $db), true);
+        } catch (Throwable $e) {
+            return [];
+        }
+        $out = [];
+        if (is_array($stored)) {
+            foreach ($stored as $id => $vals) {
+                if (!is_array($vals) || (int) $id <= 0) {
+                    continue;
+                }
+                foreach ($vals as $k => $v) {
+                    if (in_array($k, self::NUMBER_KEYS, true) && is_numeric($v) && (int) $v >= self::UNLIMITED && (int) $v <= self::MAX_VALUE) {
+                        $out[(int) $id][$k] = (int) $v;
+                    } elseif (in_array($k, self::BOOL_KEYS, true) && $v !== null) {
+                        $out[(int) $id][$k] = (bool) $v;
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Exception for one customer account: its own limits instead of the plan's, for the keys given (null removes a key).
+     * @param array<string,mixed> $values key => number|bool|null
+     * @return array{changes:array,overrides:array}
+     * @throws InvalidArgumentException
+     */
+    public static function saveOverride(int $targetUserId, array $values, int $actorId, ?Database $db = null): array
+    {
+        $db = $db ?: Database::getInstance();
+        $user = $db->query('SELECT id, email, owner_user_id FROM users WHERE id = ? LIMIT 1', [$targetUserId])[0] ?? null;
+        if (!$user) {
+            throw new InvalidArgumentException('Customer not found');
+        }
+        if (!empty($user['owner_user_id'])) {
+            throw new InvalidArgumentException('This is a team member: set the exception on the account owner (' . (int) $user['owner_user_id'] . ')');
+        }
+        $all = self::overrides($db);
+        $before = $all[$targetUserId] ?? [];
+        $after = $before;
+        foreach ($values as $k => $v) {
+            if (!in_array($k, array_merge(self::NUMBER_KEYS, self::BOOL_KEYS), true)) {
+                throw new InvalidArgumentException('Unknown setting');
+            }
+            if ($v === null || $v === '') {
+                unset($after[$k]);
+            } elseif (in_array($k, self::NUMBER_KEYS, true)) {
+                if (!is_numeric($v) || (int) $v != $v || (int) $v < self::UNLIMITED || (int) $v > self::MAX_VALUE) {
+                    throw new InvalidArgumentException(self::LABELS[$k] . ': use a whole number from 0 up, or -1 for unlimited');
+                }
+                $after[$k] = (int) $v;
+            } else {
+                $after[$k] = filter_var($v, FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+        $changes = [];
+        foreach (array_unique(array_merge(array_keys($before), array_keys($after))) as $k) {
+            if (($before[$k] ?? null) !== ($after[$k] ?? null)) {
+                $changes[] = ['plan' => 'customer:' . $user['email'], 'key' => $k, 'from' => $before[$k] ?? 'plan', 'to' => $after[$k] ?? 'plan'];
+            }
+        }
+        if ($changes) {
+            if ($after) {
+                if (!isset($all[$targetUserId]) && count($all) >= self::MAX_OVERRIDES) {
+                    throw new InvalidArgumentException('Too many customer exceptions (' . self::MAX_OVERRIDES . '): remove some first');
+                }
+                $all[$targetUserId] = $after;
+            } else {
+                unset($all[$targetUserId]);
+            }
+            self::write(self::OVERRIDES, json_encode($all), $db);
+            self::recordAudit($changes, $actorId, $db);
+        }
+        return ['changes' => $changes, 'overrides' => $all];
+    }
+
+    /** For the admin screen: exceptions with the customer's email and plan. */
+    public static function overridesView(?Database $db = null): array
+    {
+        $db = $db ?: Database::getInstance();
+        $all = self::overrides($db);
+        if (!$all) {
+            return [];
+        }
+        $out = [];
+        foreach ($db->query('SELECT id, email, COALESCE(NULLIF(company_name, \'\'), email) AS name FROM users WHERE id IN (' . implode(',', array_map('intval', array_keys($all))) . ')') as $u) {
+            $out[] = ['user_id' => (int) $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'plan' => self::tierFor((int) $u['id'], $db), 'values' => $all[(int) $u['id']]];
+        }
+        usort($out, static fn ($a, $b) => strcmp($a['email'], $b['email']));
+        return $out;
+    }
+
     public static function auditLog(int $limit = 50, ?Database $db = null): array
     {
         try {
@@ -176,6 +275,10 @@ class ReputationLimits
     public static function limit(int $userId, string $key, ?Database $db = null)
     {
         $owner = self::accountOwner($userId, $db);
+        $own = self::overrides($db)[$owner][$key] ?? null;
+        if ($own !== null) {
+            return in_array($key, self::BOOL_KEYS, true) ? (bool) $own : (int) $own;
+        }
         try {
             $override = FeatureResolver::value($owner, 'reputation_' . $key);
         } catch (Throwable $e) {
