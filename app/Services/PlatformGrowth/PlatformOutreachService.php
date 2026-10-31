@@ -1046,7 +1046,7 @@ class PlatformOutreachService
             $body .= $signature;
         }
         // قيمة المنصة: «Tourfecto بتشتغل مكانك» (أول رسالتين) - بتغني عن شبكة الخدمات التانية
-        $value = $local < 3 ? self::valuePanel($lang, $links, strpos($text, '__LINK__') === false, $e, $align, $navy, $gold) : '';
+        $value = $local < 3 ? self::valuePanel($lang, $links, strpos($text, '__LINK__') === false, $e, $align, $navy, $gold, $local === 1) : '';
         $grid = $value === '' && $others ? self::othersGrid($others, $lang, $ui, $e, $align) : '';
         [$footText, $footLink] = OutreachNeeds::FOOTER[$lang];
         $pixel = !empty($set['track_opens']) && $set['track_opens'] !== '0'
@@ -1121,9 +1121,40 @@ class PlatformOutreachService
         ],
     ];
 
-    private static function valuePanel(string $lang, array $links, bool $withCta, callable $e, string $align, string $navy, string $gold): string
+    /**
+     * سطر العرض من إعدادات التجربة الحية (عدد الأيام وهل بتطلب كارت)، مش رقم مكتوب في الكود.
+     * لو الإعدادات مش متاحة بنرجع فاضي بدل ما نكتب وعد مش متأكدين منه.
+     */
+    public static function trialOffer(string $lang, ?array $cfg = null, ?bool $cardRequired = null): string
+    {
+        try {
+            if ($cfg === null) {
+                $x = new PlanExtras();
+                $cfg = $x->config();
+                $cardRequired ??= $x->cardRequired();
+            }
+        } catch (Throwable $e) {
+            return '';
+        }
+        $n = (int) ($cfg['trial_days'] ?? 0);
+        if ($n < 1 || $cardRequired === null) {
+            return '';
+        }
+        if ($lang === 'ar') {
+            $days = $n === 1 ? 'يوم واحد' : ($n === 2 ? 'يومين' : ($n <= 10 ? $n . ' أيام' : $n . ' يومًا'));
+            return 'جرّبوا Tourfecto ' . $days . ' مجانًا' . ($cardRequired ? '' : '، من غير كارت');
+        }
+        if ($lang === 'tr') {
+            return 'Tourfecto\'yu ' . $n . ' gün ücretsiz deneyin' . ($cardRequired ? '' : ', kart gerekmez');
+        }
+        return 'Try Tourfecto free for ' . $n . ($n === 1 ? ' day' : ' days') . ($cardRequired ? '' : ', no card needed');
+    }
+
+    private static function valuePanel(string $lang, array $links, bool $withCta, callable $e, string $align, string $navy, string $gold, bool $compact = false): string
     {
         $v = self::VALUE_UI[$lang] ?? self::VALUE_UI['en'];
+        $offer = self::trialOffer($lang);
+        $offerHtml = $offer !== '' ? '<div style="margin:0 6px 14px;font-size:16px;font-weight:bold;color:' . $navy . ';text-align:' . $align . '">' . $e($offer) . '</div>' : '';
         $cells = [];
         foreach ($v['items'] as [$icon, $h, $d]) {
             $cells[] = '<td width="50%" valign="top" style="padding:5px"><table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;border:1px solid #E5E9F0;border-radius:12px"><tr>'
@@ -1147,10 +1178,11 @@ class PlatformOutreachService
             $cta = '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0 4px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:' . $gold . ';background-image:linear-gradient(135deg,#C99A3B,#E3BC62);border-radius:12px"><a href="' . $e($links['__LINK__'][0]) . '" style="display:inline-block;padding:14px 34px;color:' . $navy . ';font-weight:bold;font-size:15px;text-decoration:none">' . $e($v['cta']) . ' →</a></td></tr></table></td></tr></table>';
         }
         return '<tr><td style="padding:24px 20px 22px;background:#F7F9FC;border-top:1px solid #EEF2F6">'
-            . '<div style="margin:0 6px 4px;font-size:18px;font-weight:bold;color:' . $navy . ';text-align:' . $align . '">' . $e($v['title']) . '</div>'
+            . $offerHtml
+            . ($compact ? '' : '<div style="margin:0 6px 4px;font-size:18px;font-weight:bold;color:' . $navy . ';text-align:' . $align . '">' . $e($v['title']) . '</div>'
             . '<div style="margin:0 6px 14px;font-size:13.5px;line-height:1.7;color:#475569;text-align:' . $align . '">' . $e($v['sub']) . '</div>'
             . '<table role="presentation" cellpadding="0" cellspacing="0" width="100%">' . $grid . '</table>'
-            . '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px"><tr>' . $facts . '</tr></table>'
+            . '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px"><tr>' . $facts . '</tr></table>')
             . '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px;background:' . $navy . ';background-image:linear-gradient(135deg,#0A1A2E,#12304F);border-radius:14px"><tr><td style="padding:16px 10px"><table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>' . $steps . '</tr></table></td></tr></table>'
             . $cta
             . '</td></tr>';
