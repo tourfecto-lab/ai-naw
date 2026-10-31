@@ -1178,14 +1178,16 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
                 if (!$sendResult['success']) {
                     return $this->error('تعذر إرسال الرد فعليًا لـ Google: ' . ($sendResult['error'] ?? ''), 500);
                 }
-            } elseif ($platform === 'tripadvisor') {
-                // TripAdvisor مفيهاش endpoint رد برمجي - نرجع رسالة واضحة
-                // بدل ما نكذب إن الرد اتبعت، ونسيب العميل ينسخه يدويًا.
+            } else {
+                // أي مصدر مفيهوش إرسال برمجي (TripAdvisor / Booking / Expedia / Trustpilot / custom)
+                // أو مراجعة Google من غير معرّف خارجي: منعلّمش الرد «تم الإرسال» أبدًا.
+                // بنحفظه مسودة والعميل ينسخه يدويًا على المنصة، والرصيد بيتفك تلقائيًا في finally.
                 $this->db->exec(
                     "UPDATE reviews SET ai_generated_reply = ?, reply_status = 'pending' WHERE id = ? AND user_id = ?",
                     [$replyText, $reviewId, $this->user['id']]
                 );
-                return $this->error('TripAdvisor مبيسمحش بالرد البرمجي. الرد اتحفظ - انسخه وحطه يدويًا على صفحة المراجعة في TripAdvisor.', 422, [
+                $label = $platform === 'tripadvisor' ? 'TripAdvisor' : (string) ($platform ?: 'المنصة');
+                return $this->error($label . ' مبيسمحش بالرد البرمجي من المنصة دي. الرد اتحفظ كمسودة - انسخه وحطه يدويًا على صفحة المراجعة.', 422, [
                     'manual_action_required' => true,
                     'reply_text' => $replyText,
                 ]);
