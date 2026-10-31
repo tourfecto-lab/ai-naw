@@ -16,8 +16,20 @@ class RankTrackingService
             try { $priority=(bool)Database::getInstance()->query("SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='tracked_keywords' AND column_name='priority'"); }
             catch (Throwable $e) { $priority=false; }
         }
-        $daily="{$a}last_checked_at IS NULL OR {$a}current_position BETWEEN 1 AND 20".($priority?" OR {$a}priority='high'":'');
-        return "({$a}last_checked_at IS NULL OR {$a}last_checked_at<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL IF({$daily},1,7) DAY))";
+        // يوميًا: كلمة جديدة، أو في أول 10، أو أولوية عالية. كل 3 أيام: المراكز 11-20 (بتتحرك ببطء). أسبوعيًا: الباقي.
+        $daily="{$a}last_checked_at IS NULL OR {$a}current_position BETWEEN 1 AND 10".($priority?" OR {$a}priority='high'":'');
+        $mid="{$a}current_position BETWEEN 11 AND 20";
+        return "({$a}last_checked_at IS NULL OR {$a}last_checked_at<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL IF({$daily},1,IF({$mid},3,7)) DAY))";
+    }
+    /** سقف الكلمات المفحوصة لكل موقع وسوق في التشغيلة الواحدة (بيتعدّل من الإعدادات serp_daily_keywords_per_site): بيمنع موقع بمئات الكلمات إنه ياكل الميزانية في يوم */
+    public static function dailyKeywordCap(): int
+    {
+        try {
+            $v=(new SystemSettingsService())->get('serp_daily_keywords_per_site','');
+        } catch (Throwable $e) {
+            $v='';
+        }
+        return is_numeric($v)?max(5,min(500,(int)$v)):60;
     }
     public function dueWebsites(Database $db,int $limit=50): array
     {
@@ -58,7 +70,7 @@ class RankTrackingService
         foreach ($selected as $market) {
             $scoped=$source instanceof DataForSeoRankingSource?$source->forMarket($market,$websiteId):$source;
             $filter=$onlyKeywords?' AND keyword IN ('.implode(',',array_fill(0,count($onlyKeywords),'?')).')':'';
-            $words=$db->query("SELECT id,keyword FROM tracked_keywords WHERE website_id=? AND user_id=? AND market_id=? AND keyword<>'' AND ".($onlyKeywords?'(last_checked_at IS NULL OR last_checked_at<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY))':self::dueSql()).$filter." ORDER BY last_checked_at,id LIMIT 500",array_merge([$websiteId,$userId,$market['id']],array_values($onlyKeywords)));
+            $words=$db->query("SELECT id,keyword FROM tracked_keywords WHERE website_id=? AND user_id=? AND market_id=? AND keyword<>'' AND ".($onlyKeywords?'(last_checked_at IS NULL OR last_checked_at<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY))':self::dueSql()).$filter." ORDER BY last_checked_at,id LIMIT ".self::dailyKeywordCap(),array_merge([$websiteId,$userId,$market['id']],array_values($onlyKeywords)));
             $result=self::batches($scoped,$host,array_column($words,'keyword'));
             $by=[]; foreach ($words as $w) $by[mb_strtolower(trim($w['keyword']))]=$w;
             $now=gmdate('Y-m-d H:i:s');

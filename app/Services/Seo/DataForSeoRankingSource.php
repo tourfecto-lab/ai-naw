@@ -42,6 +42,70 @@ class DataForSeoRankingSource implements KeywordRankingSourceInterface
         $a=self::normalizeHost($candidate); $b=self::normalizeHost($target);
         return $a!=='' && $b!=='' && ($a===$b || str_ends_with($a,'.'.$b));
     }
+    /** عمر الكاش المشترك لنتايج جوجل (ساعات): أقل من فاصل الفحص اليومي، وبيغطي كل المواقع اللي بتتابع نفس الكلمة في نفس السوق في نفس التشغيلة */
+    public const SERP_TTL_HOURS = 20;
+
+    private static bool $cacheReady = false;
+
+    private static function cacheDb(): ?Database
+    {
+        try {
+            $db = Database::getInstance();
+            if (!self::$cacheReady) {
+                $db->getConnection()->exec("CREATE TABLE IF NOT EXISTS seo_serp_cache (
+                    cache_key CHAR(64) NOT NULL PRIMARY KEY, keyword VARCHAR(255) NOT NULL, location_code INT NOT NULL, language_code VARCHAR(12) NOT NULL, device VARCHAR(8) NOT NULL,
+                    depth SMALLINT NOT NULL, items_json MEDIUMTEXT NOT NULL, hits INT NOT NULL DEFAULT 0, fetched_at DATETIME NOT NULL, KEY idx_fetched (fetched_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                self::$cacheReady = true;
+            }
+            return $db;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    public static function serpCacheKey(string $keyword, int $location, string $language, string $device): string
+    {
+        return hash('sha256', 'serp|' . mb_strtolower(trim($keyword)) . '|' . $location . '|' . $language . '|' . $device);
+    }
+
+    /** @return list<array{type:string,url:?string,domain:?string,rank_group:int}>|null */
+    private function cachedItems(string $keyword, int $depth): ?array
+    {
+        $db = self::cacheDb();
+        if (!$db) return null;
+        try {
+            $key = self::serpCacheKey($keyword, (int) $this->settings['location_code'], (string) $this->settings['language_code'], ($this->settings['device'] ?? 'desktop') === 'mobile' ? 'mobile' : 'desktop');
+            $r = $db->query('SELECT items_json FROM seo_serp_cache WHERE cache_key = ? AND depth >= ? AND fetched_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ' . self::SERP_TTL_HOURS . ' HOUR)', [$key, $depth]);
+            if (!$r) return null;
+            $db->query('UPDATE seo_serp_cache SET hits = hits + 1 WHERE cache_key = ?', [$key]);
+            $items = json_decode((string) $r[0]['items_json'], true);
+            return is_array($items) ? $items : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    private function storeItems(string $keyword, int $depth, array $items): void
+    {
+        $db = self::cacheDb();
+        if (!$db) return;
+        try {
+            // بنخزّن العضوي بس وبأقل حقول: كفاية لحساب ترتيب أي دومين
+            $compact = [];
+            foreach ($items as $it) {
+                if (($it['type'] ?? '') !== 'organic') continue;
+                $compact[] = ['type' => 'organic', 'url' => $it['url'] ?? null, 'domain' => $it['domain'] ?? null, 'rank_group' => (int) ($it['rank_group'] ?? 0)];
+            }
+            $device = ($this->settings['device'] ?? 'desktop') === 'mobile' ? 'mobile' : 'desktop';
+            $key = self::serpCacheKey($keyword, (int) $this->settings['location_code'], (string) $this->settings['language_code'], $device);
+            $db->query('REPLACE INTO seo_serp_cache (cache_key, keyword, location_code, language_code, device, depth, items_json, hits, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, UTC_TIMESTAMP())',
+                [$key, mb_substr($keyword, 0, 255), (int) $this->settings['location_code'], (string) $this->settings['language_code'], $device, $depth, json_encode($compact, JSON_UNESCAPED_UNICODE)]);
+        } catch (Throwable $e) {
+            // الكاش إضافة: لو فشل نكمّل من غيره
+        }
+    }
+
     public function check(string $domain,array $keywords): array
     {
         $bad=fn($reason)=>['available'=>false,'reason'=>$reason,'rankings'=>[]];
@@ -59,14 +123,19 @@ class DataForSeoRankingSource implements KeywordRankingSourceInterface
         }
         $rankings=[];
         foreach ($keywords as $keyword) {
-            $r=$this->client->call('serp/google/organic/live/advanced',[[
-                'keyword'=>$keyword,'location_code'=>(int)$this->settings['location_code'],'language_code'=>$this->settings['language_code'],
-                'device'=>($this->settings['device']??'desktop')==='mobile'?'mobile':'desktop','depth'=>self::DEPTH]],$this->websiteId,1,0.10);
-            if (!$r['available']) return $bad($r['reason']??'rank_source_unavailable')+['partial_rankings'=>$rankings];
-            $result=$r['response']['tasks'][0]['result'][0]??[];
-            if (!array_key_exists('items',$result)) return $bad('rank_source_invalid_response');
+            $items = $this->cachedItems($keyword, self::DEPTH);
+            if ($items === null) {
+                $r=$this->client->call('serp/google/organic/live/advanced',[[
+                    'keyword'=>$keyword,'location_code'=>(int)$this->settings['location_code'],'language_code'=>$this->settings['language_code'],
+                    'device'=>($this->settings['device']??'desktop')==='mobile'?'mobile':'desktop','depth'=>self::DEPTH]],$this->websiteId,1,0.10);
+                if (!$r['available']) return $bad($r['reason']??'rank_source_unavailable')+['partial_rankings'=>$rankings];
+                $result=$r['response']['tasks'][0]['result'][0]??[];
+                if (!array_key_exists('items',$result)) return $bad('rank_source_invalid_response');
+                $items = $result['items'] ?? [];
+                $this->storeItems($keyword, self::DEPTH, $items);
+            }
             $position=null; $url=null;
-            foreach ($result['items']??[] as $item) {
+            foreach ($items as $item) {
                 if (($item['type']??'')!=='organic' || !self::matchesHost((string)($item['url']??$item['domain']??''),$domain)) continue;
                 $p=(int)($item['rank_group']??0);
                 if ($p>=1 && $p<=100 && ($position===null || $p<$position)) { $position=$p; $url=$item['url']??null; }

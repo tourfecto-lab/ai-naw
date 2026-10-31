@@ -90,6 +90,14 @@ class ContentBriefService
         }
         $key=hash('sha256','content-serp|'.$keyword);
         $cache=$db->query('SELECT result_json FROM seo_research_cache WHERE website_id=? AND market_id=? AND cache_key=? AND fetched_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)',[$wid,$market['id'],$key]);
+        if (!$cache) {
+            // نفس الكلمة في نفس السوق (موقع وموقع) = نفس نتايج جوجل: نستخدم نتيجة موقع تاني بدل ما ندفع تاني
+            $shared=$db->query('SELECT c.result_json FROM seo_research_cache c JOIN seo_markets m ON m.id=c.market_id WHERE c.cache_key=? AND m.location_code=? AND m.language_code=? AND c.fetched_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY) ORDER BY c.fetched_at DESC LIMIT 1',[$key,(int)$market['location_code'],$market['language_code']]);
+            if ($shared) {
+                $cache=$shared;
+                $db->exec('REPLACE INTO seo_research_cache(website_id,market_id,cache_key,result_json,fetched_at) VALUES(?,?,?,?,UTC_TIMESTAMP())',[$wid,$market['id'],$key,$shared[0]['result_json']]);
+            }
+        }
         if ($cache) $items=json_decode($cache[0]['result_json'],true,512,JSON_THROW_ON_ERROR);
         elseif ($fallback!==null) $items=[];
         else {

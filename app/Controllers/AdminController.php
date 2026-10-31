@@ -2005,6 +2005,15 @@ class AdminController extends Controller
         $cap = 0.0;
         try { $cap = (float) ((new DataForSeoClient())->budgetSummary($this->db)['cap'] ?? 0); } catch (Throwable $ex) { error_log('[AdminController] DataForSEO budget summary failed: ' . $ex->getMessage()); }
         $t = $r['totals'];
+        // طلبات بحث جوجل اللي اتخدمت من الكاش المشترك الشهر ده بدل ما تتدفع (الكاش بيتحسب hits كل مرة)
+        $saved = ['hits' => 0, 'usd' => 0.0, 'avg' => 0.0];
+        try {
+            $hits = (int) ($this->db->query("SELECT COALESCE(SUM(hits), 0) AS h FROM seo_serp_cache WHERE fetched_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')")[0]['h'] ?? 0);
+            $avg = (float) ($this->db->query("SELECT COALESCE(AVG(cost), 0) AS a FROM dataforseo_calls WHERE endpoint = 'serp/google/organic/live/advanced' AND cost > 0 AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 DAY)")[0]['a'] ?? 0);
+            $saved = ['hits' => $hits, 'avg' => $avg, 'usd' => round($hits * $avg, 2)];
+        } catch (Throwable $ex) {
+            // الجدول لسه ما اتعملش = مفيش كاش لسه
+        }
         $tile = fn ($label, $value, $sub = '') => '<div class="p-card" style="flex:1;min-width:170px"><small style="color:var(--panel-text-muted)">' . $label . '</small><div style="font-size:24px;font-weight:800;margin-top:4px">' . $value . '</div>' . ($sub ? '<small style="color:var(--panel-text-muted)">' . $sub . '</small>' : '') . '</div>';
         $warn = $cap > 0 && $t['projected'] > $cap ? '<span style="color:#dc2626">بالمعدل ده هتعدّي الميزانية</span>' : '';
         $html = '<div dir="rtl" style="display:flex;flex-direction:column;gap:16px">'
@@ -2013,6 +2022,7 @@ class AdminController extends Controller
             . $tile('متوقع آخر الشهر', $usd($t['projected']), $warn)
             . $tile('ميزانية الشهر', $cap > 0 ? $usd($cap) : 'مش متحددة', '<a href="/admin/integrations">تعديلها من التكاملات</a>')
             . $tile('الشهر اللي فات', $usd($r['last_month']['cost']), $r['last_month']['calls'] . ' مكالمة')
+            . $tile('اتوفّر من الكاش المشترك', $saved['hits'] . ' طلب', $saved['usd'] > 0 ? '≈ ' . $usd($saved['usd']) . ' (بمتوسط ' . $usd($saved['avg']) . ' للطلب)' : 'لسه مفيش')
             . '</div>';
         $cats = '';
         foreach ($r['categories'] as $cat => $c) $cats .= '<tr><td>' . $e(SeoDataCostReport::categoryLabel($cat)) . '</td><td dir="ltr">' . $usd($c) . '</td><td>' . ($t['cost'] > 0 ? round($c / $t['cost'] * 100) . '%' : '—') . '</td></tr>';
