@@ -12,6 +12,16 @@ class GuestSurveyController extends Controller
         return $lang === 'ar' || ($lang !== 'en' && function_exists('current_lang') && current_lang() === 'ar');
     }
 
+    /** Private feedback is a plan feature (on by default; the admin can turn it off per plan or per customer). Fails open on a settings error. */
+    public static function surveysAllowed(int $ownerId): bool
+    {
+        try {
+            return $ownerId <= 0 || (bool) ReputationLimits::limit($ownerId, 'surveys');
+        } catch (Throwable $e) {
+            return true;
+        }
+    }
+
     /** GET /survey/{code} */
     public function show(array $params = []): array
     {
@@ -31,7 +41,7 @@ class GuestSurveyController extends Controller
         }
         $company = trim((string) ($site->getAttribute('company_name') ?: $site->getAttribute('main_url')));
         $links = ReviewLanding::destinations((new ReviewRequestService())->getSettings($websiteId));
-        echo GuestSurveys::page($company, (string) $params['code'], $this->wantsArabic(), $links, GuestSurveys::ready());
+        echo GuestSurveys::page($company, (string) $params['code'], $this->wantsArabic(), $links, GuestSurveys::ready() && self::surveysAllowed((int) $site->getAttribute('user_id')));
         exit;
     }
 
@@ -51,6 +61,10 @@ class GuestSurveyController extends Controller
         }
         if (trim((string) $this->get('website_url', '')) !== '') {
             return $this->success([], 'ok'); // bots fill the hidden field: pretend success, store nothing
+        }
+        $ownerId = (int) ($this->db->query('SELECT user_id FROM websites WHERE id = ? LIMIT 1', [$websiteId])[0]['user_id'] ?? 0);
+        if (!self::surveysAllowed($ownerId)) {
+            return $this->error('This page is not available right now.', 422);
         }
         try {
             GuestSurveys::submit($websiteId, $this->all(), GuestSurveys::ipHash((string) ($_SERVER['REMOTE_ADDR'] ?? '')));
@@ -77,6 +91,9 @@ class GuestSurveyController extends Controller
         $uid = (int) $this->user['id'];
         if (!GuestSurveys::ready()) {
             return $this->success(['ready' => false]);
+        }
+        if (!self::surveysAllowed($uid)) {
+            return $this->success(['ready' => true, 'allowed' => false]);
         }
         try {
             $base = rtrim(defined('APP_URL') ? (string) APP_URL : '', '/');
@@ -123,6 +140,7 @@ class GuestSurveyController extends Controller
         const r = await fetchJSON('/api/reputation/surveys?status=' + encodeURIComponent(status) + '&page=' + page);
         if (!r.success) { root.innerHTML = '<div class="p-card">' + esc(r.error || 'Could not load') + '</div>'; return; }
         const d = r.data;
+        if (d.ready && d.allowed === false) { root.innerHTML = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">🔒</div>Private guest feedback is not included in your plan. Upgrade your plan to use it.</div></div>'; return; }
         if (!d.ready) { root.innerHTML = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">🛠️</div>Private feedback is not available yet: a database update is pending. Contact support.</div></div>'; return; }
         const s = d.summary;
         const tile = (v, l) => '<div class="p-card stat-tile"><div class="stat-info"><div class="stat-value">' + esc(v) + '</div><div class="stat-label">' + esc(l) + '</div></div></div>';

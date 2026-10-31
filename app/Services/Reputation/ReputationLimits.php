@@ -29,7 +29,7 @@ class ReputationLimits
 {
     public const TIERS = ['free', 'starter', 'professional', 'enterprise'];
     public const NUMBER_KEYS = ['review_requests_monthly', 'sms_requests_monthly', 'locations'];
-    public const BOOL_KEYS = ['team_assignment', 'csv_import'];
+    public const BOOL_KEYS = ['team_assignment', 'csv_import', 'surveys', 'monthly_report'];
     public const UNLIMITED = -1;
     public const MAX_VALUE = 1000000;
     private const SETTING = 'reputation_limits';
@@ -44,12 +44,14 @@ class ReputationLimits
         'locations' => 'Connected Google locations',
         'team_assignment' => 'Assign reviews to team members',
         'csv_import' => 'CSV import from other review sites',
+        'surveys' => 'Private guest feedback surveys (NPS)',
+        'monthly_report' => 'Monthly white-label report',
     ];
 
     public static function defaults(): array
     {
         // SMS is paid per message (about $0.40 per segment to Egypt, several segments per Arabic message): off until the admin opens it
-        $tier = ['review_requests_monthly' => self::UNLIMITED, 'sms_requests_monthly' => 0, 'locations' => self::UNLIMITED, 'team_assignment' => true, 'csv_import' => true];
+        $tier = ['review_requests_monthly' => self::UNLIMITED, 'sms_requests_monthly' => 0, 'locations' => self::UNLIMITED, 'team_assignment' => true, 'csv_import' => true, 'surveys' => true, 'monthly_report' => true];
         return array_fill_keys(self::TIERS, $tier);
     }
 

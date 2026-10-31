@@ -329,6 +329,8 @@ class MarketingController extends Controller
                         [(int) $L['sms_requests_monthly'] !== 0, $this->t(['طلبات تقييم بـ SMS', 'SMS review requests'])],
                         [!empty($L['team_assignment']), $this->t(['تعيين التقييمات لفريقك', 'Assign reviews to your team'])],
                         [!empty($L['csv_import']), $this->t(['استيراد تقييمات من Booking وExpedia وTrustpilot', 'Import reviews from Booking, Expedia and Trustpilot'])],
+                        [!empty($L['surveys']), $this->t(['استبيان رأي خاص بدرجة NPS', 'Private feedback survey (NPS)'])],
+                        [!empty($L['monthly_report']), $this->t(['تقرير شهري بهوية شركتك', 'Monthly white-label report'])],
                     ];
                     $li = '';
                     foreach ($items as [$on, $txt]) {

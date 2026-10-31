@@ -17,7 +17,7 @@
  */
 class ReputationPlans
 {
-    public const KEYS = ['rep_starter', 'rep_pro', 'rep_agency'];
+    public const KEYS = ['rep_starter', 'rep_pro', 'rep_agency', 'rep_enterprise'];
     private const SETTING = 'reputation_plans';
     private static ?bool $ready = null;
 
@@ -27,9 +27,11 @@ class ReputationPlans
         return [
             'enabled' => false,
             'plans' => [
-                'rep_starter' => $mk('Starter', 15.0, 150.0, ['review_requests_monthly' => 100, 'sms_requests_monthly' => 0, 'locations' => 1, 'team_assignment' => false, 'csv_import' => true]),
-                'rep_pro' => $mk('Pro', 39.0, 390.0, ['review_requests_monthly' => 500, 'sms_requests_monthly' => 0, 'locations' => 3, 'team_assignment' => true, 'csv_import' => true]),
-                'rep_agency' => $mk('Agency', 99.0, 990.0, ['review_requests_monthly' => 2000, 'sms_requests_monthly' => 0, 'locations' => 10, 'team_assignment' => true, 'csv_import' => true]),
+                // The four plans differ in limits AND in features (proposal figures, not approved; nothing is on sale by default)
+                'rep_starter' => $mk('Starter', 15.0, 150.0, ['review_requests_monthly' => 100, 'sms_requests_monthly' => 0, 'locations' => 1, 'team_assignment' => false, 'csv_import' => true, 'surveys' => false, 'monthly_report' => false]),
+                'rep_pro' => $mk('Pro', 39.0, 390.0, ['review_requests_monthly' => 500, 'sms_requests_monthly' => 0, 'locations' => 3, 'team_assignment' => true, 'csv_import' => true, 'surveys' => true, 'monthly_report' => false]),
+                'rep_agency' => $mk('Agency', 99.0, 990.0, ['review_requests_monthly' => 2000, 'sms_requests_monthly' => 0, 'locations' => 10, 'team_assignment' => true, 'csv_import' => true, 'surveys' => true, 'monthly_report' => true]),
+                'rep_enterprise' => $mk('Enterprise', 249.0, 2490.0, ['review_requests_monthly' => -1, 'sms_requests_monthly' => 0, 'locations' => 50, 'team_assignment' => true, 'csv_import' => true, 'surveys' => true, 'monthly_report' => true]),
             ],
         ];
     }

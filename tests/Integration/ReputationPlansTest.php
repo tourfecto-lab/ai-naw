@@ -296,4 +296,41 @@ final class ReputationPlansTest extends TestCase
         $member = $this->controller(self::MEMBER, ['on' => false])->autoRenew();
         $this->assertSame(403, $member['code'] ?? $member['status'] ?? 403, 'a team member cannot change the owner plan');
     }
+
+    public function testFourPlansDifferInFeaturesNotOnlyInNumbers(): void
+    {
+        $plans = ReputationPlans::defaults()['plans'];
+        $this->assertSame(['rep_starter', 'rep_pro', 'rep_agency', 'rep_enterprise'], array_keys($plans));
+        $this->assertFalse($plans['rep_starter']['limits']['surveys']);
+        $this->assertFalse($plans['rep_starter']['limits']['monthly_report']);
+        $this->assertTrue($plans['rep_pro']['limits']['surveys']);
+        $this->assertFalse($plans['rep_pro']['limits']['monthly_report']);
+        $this->assertTrue($plans['rep_agency']['limits']['monthly_report']);
+        $this->assertSame(-1, $plans['rep_enterprise']['limits']['review_requests_monthly']);
+        foreach ($plans as $p) {
+            $this->assertFalse($p['for_sale'], 'nothing is on sale by default');
+        }
+    }
+
+    public function testFeatureLimitsComeFromThePlanWhenThePlatformTierDoesNotGrantThem(): void
+    {
+        ReputationLimits::save(['free' => ['surveys' => false, 'monthly_report' => false]], 1, $this->db);
+        ReputationPlans::save(['enabled' => true, 'plans' => ['rep_starter' => ['for_sale' => true, 'price_monthly' => 10], 'rep_agency' => ['for_sale' => true, 'price_monthly' => 20]]], 1, $this->db);
+        $this->fund(100);
+        $this->assertFalse(ReputationLimits::limit(self::OWNER, 'surveys', $this->db));
+        ReputationPlans::subscribe(self::OWNER, 'rep_starter', 'monthly', 'a', $this->db);
+        $this->assertFalse(ReputationLimits::limit(self::OWNER, 'surveys', $this->db), 'Starter has no surveys');
+        $this->expire();
+        ReputationPlans::renewDue(10, $this->db);
+        ReputationPlans::setAutoRenew(self::OWNER, false, $this->db);
+        $this->pdo->exec("UPDATE reputation_subscriptions SET plan_key = 'rep_agency' WHERE user_id = " . self::OWNER);
+        $this->assertTrue(ReputationLimits::limit(self::OWNER, 'surveys', $this->db), 'Agency has surveys');
+        $this->assertTrue(ReputationLimits::limit(self::OWNER, 'monthly_report', $this->db), 'Agency has the report');
+        try {
+            ReputationLimits::assertFeature(self::MEMBER, 'monthly_report', $this->db);
+            $this->assertTrue(true, 'a team member follows the owner plan');
+        } catch (ReputationLimitReached $e) {
+            $this->fail('the member must follow the owner plan');
+        }
+    }
 }
