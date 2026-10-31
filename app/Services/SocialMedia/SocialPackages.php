@@ -880,6 +880,38 @@ final class SocialPackages
         return ['accounts' => $accounts, 'competitors' => $competitors] + $u;
     }
 
+    /**
+     * أعلى الحسابات استهلاكًا للشهر الحالي مع التكلفة التقديرية (من cfg.costs) وعلامة تنبيه عند 80% من أي حد.
+     * @return list<array{user_id:int,email:string,tier:string,posts:int,posts_limit:int,ai:int,ai_limit:int,est_cost:float,alert:bool}>
+     */
+    public static function usageReport(int $limit = 30, ?string $month = null): array
+    {
+        if (!self::ready()) {
+            return [];
+        }
+        $cfg = self::config();
+        $c = $cfg['costs'];
+        $out = [];
+        try {
+            $rows = Database::getInstance()->query('SELECT m.user_id, m.posts, m.ai_captions, u.email FROM social_usage_monthly m LEFT JOIN users u ON u.id = m.user_id WHERE m.month_key = ? ORDER BY (m.posts * ? + m.ai_captions * ?) DESC LIMIT ' . max(1, min(100, $limit)), [$month ?? self::monthKey(), $c['post'], $c['ai_caption']]) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+        foreach ($rows as $r) {
+            $uid = (int) $r['user_id'];
+            $ent = self::entitlements($uid);
+            $lim = $ent['limits'];
+            $pl = (int) $lim['posts'];
+            $al = (int) $lim['ai_captions'];
+            $posts = (int) $r['posts'];
+            $ai = (int) $r['ai_captions'];
+            $hot = static fn (int $used, int $max) => $max > 0 && $used >= 0.8 * $max;
+            $out[] = ['user_id' => $uid, 'email' => (string) ($r['email'] ?? '#' . $uid), 'tier' => (string) $ent['tier'], 'posts' => $posts, 'posts_limit' => $pl, 'ai' => $ai, 'ai_limit' => $al,
+                'est_cost' => round($posts * $c['post'] + $ai * $c['ai_caption'], 2), 'alert' => $hot($posts, $pl) || $hot($ai, $al)];
+        }
+        return $out;
+    }
+
     /** بيسجّل استخدام (منشورات/خطط) للشهر الحالي */
     public static function record(int $account, string $kind, int $n = 1): void
     {

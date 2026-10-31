@@ -100,4 +100,21 @@ final class SocialPackagesPromoFlowTest extends TestCase
         $charges = (int) $this->pdo->query("SELECT COUNT(*) FROM wallet_transactions WHERE user_id = " . self::U1 . " AND type = 'subscription_charge'")->fetchColumn();
         $this->assertSame(1, $charges);
     }
+
+    public function testUsageReportRanksByCostAndFlagsEightyPercent(): void
+    {
+        $month = '2099-01';
+        $this->pdo->exec("DELETE FROM social_usage_monthly WHERE month_key = '$month'");
+        // U1: على الباقة الافتراضية (basic = 90 منشور بعد التعديل)، استهلك 80 = ‎≥80%‎. U2: استهلاك قليل
+        $this->pdo->exec("INSERT INTO social_usage_monthly (user_id, month_key, posts, ai_captions) VALUES (" . self::U1 . ", '$month', 80, 10), (" . self::U2 . ", '$month', 2, 1)");
+        try {
+            $rep = SocialPackages::usageReport(10, $month);
+        } finally {
+            $this->pdo->exec("DELETE FROM social_usage_monthly WHERE month_key = '$month'");
+        }
+        $this->assertSame([self::U1, self::U2], array_column($rep, 'user_id'));
+        $this->assertTrue($rep[0]['alert']);
+        $this->assertFalse($rep[1]['alert']);
+        $this->assertSame(round(80 * 0.001 + 10 * 0.003, 2), $rep[0]['est_cost']);
+    }
 }

@@ -22,6 +22,8 @@ ${fld('إلى', `<input class="p-select" type="date" data-pf="ends" value="${esc
 <label style="white-space:nowrap"><input type="checkbox" data-pf="enabled" ${p.enabled ? 'checked' : ''}> فعّال</label>
 <button type="button" class="p-btn" data-promo-del="${i}" aria-label="حذف الكود" style="margin-inline-start:auto">✕ حذف</button></div></div>`).join('');
         const audit = (D.audit || []).map(a => `<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${Object.entries(a.changes).map(([k, v]) => `<div><code>${esc(k)}</code>: ${esc(v.old ?? '—')} ← ${esc(v.new ?? '—')}</div>`).join('')}</td></tr>`).join('');
+        const lim = (n, m) => m < 0 ? `${n} / ∞` : `${n} / ${m}`;
+        const usageRows = (D.usage_report || []).length ? (D.usage_report || []).map(u => `<div style="display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 0;border-bottom:1px solid var(--border,rgba(128,128,128,.25))"><b style="flex:1 1 200px;word-break:break-all">${u.alert ? '⚠️ ' : ''}${esc(u.email)}</b><span>${esc(c.tiers[u.tier]?.name || u.tier)}</span><span>منشورات ${lim(u.posts, u.posts_limit)}</span><span>كابشن ${lim(u.ai, u.ai_limit)}</span><span>تكلفة ≈ $${u.est_cost}</span></div>`).join('') : '<p class="p-cell-muted">لسه مفيش استهلاك مسجّل الشهر ده.</p>';
         return `
 <h4>💰 التكلفة والهامش (أسوأ حالة: العميل استهلك الحدود كلها)</h4>
 <p class="p-cell-muted">الأرقام دي تقديرات تشغيل لازم تعدّلها بتكلفتك الفعلية (فاتورة Gemini/Meta/الاستضافة). الهامش بعد رسوم بوابة الدفع.</p>
@@ -43,6 +45,10 @@ ${free ? '<div class="p-cell-muted" style="font-size:12px">باقة مجانية
 <label><input type="radio" name="spaPolicy" value="at_renewal" ${c.renewal_policy !== 'grandfather' ? 'checked' : ''}> يتجددوا بالسعر الجديد (عند أول تجديد)</label><br>
 <label><input type="radio" name="spaPolicy" value="grandfather" ${c.renewal_policy === 'grandfather' ? 'checked' : ''}> يفضلوا على سعرهم القديم لو السعر الجديد أغلى (نفس الباقة والدورة)</label>
 <p class="p-cell-muted">مفيش تغيير سعر بيتطبق على دورة شغالة بالفعل في الحالتين، والتغيير بيبان للمشترك قبل التجديد بتذكير 3 أيام.</p>
+
+<h4>📊 الاستهلاك الشهر ده (أعلى 30 حساب)</h4>
+<p class="p-cell-muted">التكلفة تقديرية من أسعار الوحدة فوق. ⚠️ = وصل 80% أو أكتر من حد المنشورات أو الكابشن.</p>
+<div style="overflow-x:auto;max-height:340px">${usageRows}</div>
 
 <h4>🧾 سجل التعديلات (آخر 30)</h4>
 <div style="overflow-x:auto;max-height:320px"><table><thead><tr><th>الوقت (UTC)</th><th>الأدمن</th><th>التغيير</th></tr></thead><tbody>${audit || '<tr><td colspan="3" class="p-cell-muted">لسه مفيش تعديلات مسجّلة.</td></tr>'}</tbody></table></div>`;
