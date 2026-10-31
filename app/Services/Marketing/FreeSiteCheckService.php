@@ -38,6 +38,43 @@ class FreeSiteCheckService
         return strtolower((string) $p['scheme']) . '://' . $host . (isset($p['port']) ? ':' . (int) $p['port'] : '') . ($p['path'] ?? '/');
     }
 
+    private const AI_BOTS = ['gptbot', 'oai-searchbot', 'claudebot', 'perplexitybot', 'google-extended'];
+
+    /**
+     * robots.txt بيمنع بوتات الذكاء الاصطناعي؟ بيرجّع أسماء البوتات الممنوعة بالكامل (Disallow: /) من غير Allow: /.
+     * بوت له مجموعة خاصة بيتحكم فيها، وإلا بتنطبق مجموعة *.
+     * @return string[]
+     */
+    public static function blockedAiBots(string $robots): array
+    {
+        $groups = [];
+        $agents = [];
+        $inRules = false;
+        foreach (preg_split('/\r\n|\r|\n/', $robots) as $line) {
+            $line = trim(preg_replace('/#.*/', '', $line));
+            if ($line === '' || strpos($line, ':') === false) continue;
+            [$k, $v] = array_map('trim', explode(':', $line, 2));
+            $k = strtolower($k);
+            if ($k === 'user-agent') {
+                if ($inRules) { $agents = []; $inRules = false; }
+                $agents[] = strtolower($v);
+                foreach ($agents as $a) $groups[$a] ??= ['disallow_all' => false, 'allow_all' => false];
+            } elseif ($k === 'disallow' || $k === 'allow') {
+                $inRules = true;
+                foreach ($agents as $a) {
+                    if ($k === 'disallow' && $v === '/') $groups[$a]['disallow_all'] = true;
+                    if ($k === 'allow' && $v === '/') $groups[$a]['allow_all'] = true;
+                }
+            }
+        }
+        $blocked = [];
+        foreach (self::AI_BOTS as $bot) {
+            $g = $groups[$bot] ?? ($groups['*'] ?? null);
+            if ($g && $g['disallow_all'] && !$g['allow_all']) $blocked[] = $bot;
+        }
+        return $blocked;
+    }
+
     /** @return array{ok:bool, error?:string, url?:string, score?:int, checks?:array, top?:array} */
     public function run(string $url): array
     {
@@ -114,6 +151,18 @@ class FreeSiteCheckService
         $https = strpos($finalUrl, 'https://') === 0;
         $sizeKb = (int) round(strlen($html) / 1024);
 
+        // ملفات الذكاء الاصطناعي: robots.txt (هل بوتات ChatGPT وClaude وPerplexity ممنوعة؟) وllms.txt (معلومة بس)
+        $origin = (string) parse_url($finalUrl, PHP_URL_SCHEME) . '://' . (string) parse_url($finalUrl, PHP_URL_HOST);
+        $fetchSmall = function (string $path) use ($origin): array {
+            $x = SafeHttp::exec($origin . $path, [CURLOPT_TIMEOUT => 6, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_MAXFILESIZE => 512 * 1024, CURLOPT_USERAGENT => 'TourfectoCheck/1.0', CURLOPT_ENCODING => ''], 3);
+            return ['code' => (int) ($x['code'] ?? 0), 'body' => is_string($x['response'] ?? null) ? (string) $x['response'] : ''];
+        };
+        $robots = $fetchSmall('/robots.txt');
+        $robotsOk = $robots['code'] === 200 && stripos($robots['body'], '<html') === false;
+        $blockedBots = $robotsOk ? self::blockedAiBots($robots['body']) : [];
+        $llms = $fetchSmall('/llms.txt');
+        $hasLlms = $llms['code'] === 200 && trim($llms['body']) !== '' && stripos($llms['body'], '<html') === false;
+
         $c = [];
         $add = function (string $key, int $weight, string $status, string $title, string $detail, string $fix) use (&$c) {
             $c[] = compact('key', 'weight', 'status', 'title', 'detail', 'fix');
@@ -151,6 +200,9 @@ class FreeSiteCheckService
         $add('schema', 8, $tourSchema ? 'pass' : 'fail', $this->t('جوجل والذكاء الاصطناعي فاهمين رحلاتك', 'Google and AI understand your tours'),
             $tourSchema ? $this->t('فيه بيانات منظمة (' . implode('، ', array_slice($types, 0, 4)) . ').', 'Structured data found (' . implode(', ', array_slice($types, 0, 4)) . ').') : $this->t('مفيش بيانات منظمة للرحلات - ChatGPT وجوجل مش بيعرفوا يقترحوا رحلاتك بسعرها.', 'No structured data for your tours - ChatGPT and Google can’t suggest your trips with prices.'),
             $this->t('ضيف Schema لكل رحلة (السعر والمدة والتقييم).', 'Add schema to each tour (price, duration, rating).'));
+        $add('ai', 6, $blockedBots ? 'fail' : ($robotsOk ? 'pass' : 'warn'), $this->t('مفتوح لبوتات الذكاء الاصطناعي', 'Open to AI crawlers'),
+            $blockedBots ? $this->t('ملف robots.txt بيمنع: ' . implode('، ', $blockedBots) . ' - ChatGPT وClaude وPerplexity مش هيشوفوا موقعك فمش هيقترحوه.', 'robots.txt blocks: ' . implode(', ', $blockedBots) . ' - ChatGPT, Claude and Perplexity cannot see your site, so they will not suggest it.') : ($robotsOk ? $this->t('robots.txt مش بيمنع بوتات الذكاء الاصطناعي الرئيسية.', 'robots.txt does not block the main AI crawlers.') . ($hasLlms ? ' ' . $this->t('وفيه ملف llms.txt.', 'There is also an llms.txt file.') : ' ' . $this->t('ومفيش ملف llms.txt (اختياري).', 'There is no llms.txt file (optional).')) : $this->t('مقدرناش نقرا ملف robots.txt.', 'We could not read robots.txt.')),
+            $this->t('شيل أي «Disallow: /» لبوتات GPTBot وClaudeBot وPerplexityBot من robots.txt لو عايز تظهر في إجابات الذكاء الاصطناعي.', 'Remove any “Disallow: /” for GPTBot, ClaudeBot and PerplexityBot in robots.txt if you want to appear in AI answers.'));
         $add('lang', 5, ($hreflang > 0) ? 'pass' : 'warn', $this->t('لغات السياح', 'Languages for travellers'),
             $hreflang > 0 ? $this->t('الموقع ليه أكتر من لغة.', 'The site has several languages.') : $this->t('الموقع بلغة واحدة' . ($htmlLang ? ' (' . $htmlLang . ')' : '') . ' - السياح الألمان والإيطاليين والروس بيحجزوا أكتر بلغتهم.', 'The site has one language' . ($htmlLang ? ' (' . $htmlLang . ')' : '') . ' - German, Italian and Russian travellers book more in their own language.'),
             $this->t('ضيف لغات أسواقك الأساسية لصفحات الرحلات المهمة.', 'Add your main markets’ languages to your key tour pages.'));
