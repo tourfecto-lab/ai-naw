@@ -2027,7 +2027,7 @@ class AdminController extends Controller
         $cats = '';
         foreach ($r['categories'] as $cat => $c) $cats .= '<tr><td>' . $e(SeoDataCostReport::categoryLabel($cat)) . '</td><td dir="ltr">' . $usd($c) . '</td><td>' . ($t['cost'] > 0 ? round($c / $t['cost'] * 100) . '%' : '—') . '</td></tr>';
         if ($r['platform']) $cats .= '<tr><td>التحليل الذكي قبل التسجيل (على المنصة)</td><td dir="ltr">' . $usd($r['platform']['cost']) . '</td><td>' . $r['platform']['calls'] . ' مكالمة</td></tr>';
-        $html .= '<div class="p-card"><div class="p-card-head"><h3>الفلوس رايحة فين</h3><span class="p-card-sub">فحص الترتيب: الكلمات المهمة (أولوية عالية أو في أول 20) كل يوم والباقي مرة في الأسبوع، على أول 30 نتيجة.</span></div>'
+        $html .= '<div class="p-card"><div class="p-card-head"><h3>الفلوس رايحة فين</h3><span class="p-card-sub">فحص الترتيب: الكلمات المهمة (أولوية عالية أو في أول 10) كل يوم، والمراكز 11-20 كل 3 أيام، والباقي مرة في الأسبوع، على أول 30 نتيجة.</span></div>'
             . ($cats ? '<table class="p-table"><thead><tr><th>البند</th><th>التكلفة</th><th>النسبة</th></tr></thead><tbody>' . $cats . '</tbody></table>' : '<div class="p-empty">مفيش صرف الشهر ده.</div>') . '</div>';
         // تفصيل لكل خدمة ولكل يوم: عشان نعرف الرصيد بيخلص ليه وإمتى
         $eps = '';
