@@ -292,6 +292,95 @@ class MarketingController extends Controller
     }
 
     /** قسم باقات السوشيال في صفحة الأسعار: من نفس إعدادات الأدمن (باقات السوشيال)، وبعملة الزائر */
+    /**
+     * Pricing tab for the reputation service. Always has real content (what the tools do and the AI replies each platform
+     * plan includes, read from the live plan data); stand-alone plan cards appear only while the admin has selling on and
+     * the plan marked "on sale" (Admin > Reputation limits).
+     */
+    private function reputationPlansSection(array $plans, string $viewCur, bool $isAr, bool $loggedIn): string
+    {
+        $ck = self::check();
+        $x = '<span class="ck"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10"/></svg></span>';
+        $cards = '';
+        try {
+            $cfg = ReputationPlans::config();
+            if (!empty($cfg['enabled']) && ReputationPlans::ready()) {
+                foreach (ReputationPlans::KEYS as $k) {
+                    $pl = $cfg['plans'][$k];
+                    if (empty($pl['for_sale']) || (float) $pl['price_monthly'] <= 0) {
+                        continue;
+                    }
+                    $sym = '$';
+                    $m = (float) $pl['price_monthly'];
+                    $y = (float) $pl['price_yearly'];
+                    $egM = $viewCur === 'USD' ? CurrencyService::egpHint($m, $isAr) : '';
+                    $egY = $viewCur === 'USD' ? CurrencyService::egpHint($y, $isAr) : '';
+                    if ($viewCur !== 'USD') {
+                        $meta = CurrencyService::CURRENCIES[$viewCur];
+                        $sym = ($isAr ? $meta['ar_symbol'] : $meta['symbol']) . ' ';
+                        $m = CurrencyService::fromUsd($m, $viewCur);
+                        $y = CurrencyService::fromUsd($y, $viewCur);
+                    }
+                    $L = $pl['limits'];
+                    $num = static fn ($v) => (int) $v < 0 ? '∞' : number_format((int) $v);
+                    $items = [
+                        [true, $num($L['review_requests_monthly']) . ' ' . $this->t(['طلب تقييم في الشهر', 'review requests / month'])],
+                        [(int) $L['locations'] !== 0, $num($L['locations']) . ' ' . $this->t(['فرع Google Business', 'Google Business locations'])],
+                        [(int) $L['sms_requests_monthly'] !== 0, $this->t(['طلبات تقييم بـ SMS', 'SMS review requests'])],
+                        [!empty($L['team_assignment']), $this->t(['تعيين التقييمات لفريقك', 'Assign reviews to your team'])],
+                        [!empty($L['csv_import']), $this->t(['استيراد تقييمات من Booking وExpedia وTrustpilot', 'Import reviews from Booking, Expedia and Trustpilot'])],
+                    ];
+                    $li = '';
+                    foreach ($items as [$on, $txt]) {
+                        $li .= '<li class="' . ($on ? '' : 'off') . '">' . ($on ? $ck : $x) . '<span>' . $this->e((string) $txt) . '</span></li>';
+                    }
+                    $actions = $loggedIn
+                        ? '<a href="/reputation/plans" class="btn-primary">' . $this->te(['اشترك من حسابك', 'Subscribe from your account']) . '</a>'
+                        : '<a href="/register?src=reputation-pricing" class="btn-primary">' . $this->te(['ابدأ مجانًا', 'Start free']) . '</a>';
+                    $cards .= '<div class="plan" data-em="' . $this->e($egM) . '" data-ey="' . $this->e($egY) . '" data-m="' . $this->e(number_format($m, 0)) . '" data-y="' . $this->e(number_format($y, 0)) . '" data-ym="' . $this->e(number_format($y / 12, 0)) . '" data-save="' . ($m > 0 ? max(0, (int) round((1 - $y / ($m * 12)) * 100)) : 0) . '">'
+                        . '<h3>' . $this->e($pl['name']) . '</h3>'
+                        . '<div class="price"><b><span class="cur">' . $this->e($sym) . '</span><span class="amt">' . $this->e(number_format($m, 0)) . '</span></b><small class="unit">' . $this->te(['/ شهر', '/ month']) . '</small></div>'
+                        . ($egM !== '' ? '<div class="egp" style="font-size:12.5px;opacity:.7;margin-top:2px">≈ <bdi>' . $this->e($egM) . '</bdi></div>' : '')
+                        . '<div class="per">&nbsp;</div><ul>' . $li . '</ul><div class="actions">' . $actions . '</div></div>';
+                }
+            }
+        } catch (Throwable $e) {
+            $cards = '';
+        }
+        $tools = [
+            ['تجميع تقييمات Google في مكان واحد مع تحليل المشاعر والمواضيع', 'Google reviews in one place, with sentiment and topic analysis'],
+            ['ردود بالذكاء الاصطناعي بأسلوبك، وقواعد رد تلقائي حسب التقييم', 'AI replies in your voice, with auto-reply rules by rating'],
+            ['تنبيه فوري بالتقييم السلبي وتعيينه لحد من فريقك بموعد رد', 'Instant alerts for negative reviews, assignable to your team with a reply deadline'],
+            ['طلبات تقييم بواتساب أو إيميل، وصفحة QR للضيوف', 'Review requests by WhatsApp or e-mail, and a QR page for guests'],
+            ['استبيان رأي خاص بدرجة NPS من غير ما يخفي روابط التقييم العلني', 'Private feedback survey with an NPS score that never hides your public review links'],
+            ['تقرير شهري بهوية شركتك، وجاهز للطباعة أو PDF', 'A monthly report under your own brand, ready to print or save as PDF'],
+            ['استيراد تقييمات Booking وExpedia وTrustpilot بملف CSV', 'Import Booking, Expedia and Trustpilot reviews from a CSV file'],
+        ];
+        $toolsLi = '';
+        foreach ($tools as $tl) {
+            $toolsLi .= '<li>' . $ck . '<span>' . $this->e($this->t($tl)) . '</span></li>';
+        }
+        $incl = '';
+        foreach ($plans as $key => $pp) {
+            $credits = $pp['features']['review_credits'] ?? null;
+            if (!is_numeric($credits)) {
+                continue;
+            }
+            $incl .= '<li>' . $ck . '<span><b>' . $this->e(MarketingContent::planName($key, (string) $pp['name'])) . ':</b> '
+                . ((int) $credits > 0 ? '<bdi>' . number_format((int) $credits) . '</bdi> ' . $this->e($this->t(['رد ذكي على التقييمات في الشهر', 'AI review replies / month'])) : $this->e($this->t(['من غير ردود مشمولة (الاستخدام من رصيدك)', 'no replies included (pay from your balance)']))) . '</span></li>';
+        }
+        $cta = $loggedIn
+            ? '<a href="/reputation/reviews" class="btn-primary">' . $this->te(['افتح السمعة والتقييمات', 'Open Reputation & reviews']) . '</a>'
+            : '<a href="/register?src=reputation-pricing" class="btn-primary">' . $this->te(['ابدأ مجانًا', 'Start free']) . '</a>';
+        return '<section class="blk" id="reputation"><div class="sec-head"><h2 class="sec-title">' . $this->te(['السمعة والتقييمات', 'Reputation & reviews']) . '</h2><p class="sec-sub">'
+            . $this->te(['اعرف الناس بتقول إيه عنك، ورد بسرعة، واطلب تقييمات من ضيوفك. أدوات السمعة داخلة في باقات المنصة، ولما تكون الباقة المستقلة معروضة بتظهر تحت.', 'See what people say about you, reply fast, and ask your guests for reviews. The reputation tools are included in the platform plans; the stand-alone plans appear below when they are on sale.'])
+            . '</p></div><div class="plans" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"><div class="plan"><h3>' . $this->te(['اللي هتاخده', 'What you get']) . '</h3><ul>' . $toolsLi . '</ul>'
+            . '<div class="actions">' . $cta . '</div></div>'
+            . ($incl !== '' ? '<div class="plan"><h3>' . $this->te(['مشمول في باقات المنصة', 'Included in the platform plans']) . '</h3><ul>' . $incl . '</ul></div>' : '') . '</div>'
+            . ($cards !== '' ? '<div class="sec-head" style="margin-top:28px"><h3 class="sec-title" style="font-size:20px">' . $this->te(['باقات السمعة المستقلة', 'Stand-alone reputation plans']) . '</h3></div><div class="plans">' . $cards . '</div>' : '')
+            . '</section>';
+    }
+
     private function socialPlansSection(string $viewCur, bool $isAr, bool $loggedIn): string
     {
         try {
@@ -871,6 +960,7 @@ class MarketingController extends Controller
             }
         }
         $socialSection = $this->socialPlansSection($viewCur, $isAr, $loggedIn);
+        $reputationSection = $this->reputationPlansSection($plans, $viewCur, $isAr, $loggedIn);
         $seoSection = $seoCards === '' ? '' : '<section class="blk alt" id="seo"><div class="sec-head"><h2 class="sec-title">' . $this->te(['باقات السيو والظهور في الذكاء الاصطناعي', 'SEO and AI visibility plans']) . '</h2><p class="sec-sub">'
             . $this->te(['المنصة بتفحص موقعك وتحسّنه لوحدها كل أسبوع، وبتقيس ظهورك في ChatGPT و Gemini و Perplexity. للي عايز خدمة السيو بس، من غير باقي المنصة.', 'The platform checks and improves your website on its own every week and measures your visibility in ChatGPT, Gemini and Perplexity. For companies that only want SEO, without the rest of the platform.'])
             . '</p></div><div class="plans">' . $seoCards . '</div><p style="text-align:center;font-size:13px;opacity:.75;margin-top:14px">'
@@ -959,6 +1049,7 @@ class MarketingController extends Controller
             ['plans', $this->t(['الباقات الشاملة', 'All-in-one plans']), true],
             ['seo', $this->t(['السيو والذكاء الاصطناعي', 'SEO & AI visibility']), $seoSection !== ''],
             ['social', $this->t(['السوشيال ميديا', 'Social media']), $socialSection !== ''],
+            ['reputation', $this->t(['السمعة والتقييمات', 'Reputation & reviews']), $reputationSection !== ''],
         ];
         $tabBtns = '';
         $tabCount = 0;
@@ -980,8 +1071,9 @@ class MarketingController extends Controller
             . $panel('plans', $plansHead . '<section class="blk tight" style="padding-top:0"><div class="plans">' . $cards . '</div></section>' . $incSec . $foldCmp . $foldSvc)
             . ($seoSection !== '' ? $panel('seo', $seoSection) : '')
             . ($socialSection !== '' ? $panel('social', $socialSection) : '')
+            . ($reputationSection !== '' ? $panel('reputation', $reputationSection) : '')
             . ($tabCount > 1 ? '<script>(function(){var tabs=[].slice.call(document.querySelectorAll(".svc-tabs [role=tab]")),panels=[].slice.call(document.querySelectorAll(".svc-panel"));if(!tabs.length)return;'
-                . 'var alias={seo:"seo",social:"social",plans:"plans","services-by-plan":"plans"};'
+                . 'var alias={seo:"seo",social:"social",reputation:"reputation",plans:"plans","services-by-plan":"plans"};'
                 . 'function show(id,focus){tabs.forEach(function(t){var on=t.dataset.tab===id;t.setAttribute("aria-selected",on?"true":"false");t.tabIndex=on?0:-1;if(on&&focus)t.focus();});panels.forEach(function(p){p.hidden=p.id!=="tab-"+id;});}'
                 . 'function fromHash(scroll){var h=decodeURIComponent((location.hash||"").slice(1)),id=alias[h]||"plans";show(id,false);if(scroll&&alias[h]){var el=document.getElementById(h);var dt=el&&el.closest("details");if(dt)dt.open=true;if(el&&!el.closest("[hidden]"))setTimeout(function(){el.scrollIntoView({block:"start"});},30);}}'
                 . 'tabs.forEach(function(t,i){t.addEventListener("click",function(){show(t.dataset.tab,false);history.replaceState(null,"",t.dataset.tab==="plans"?location.pathname+location.search:"#"+t.dataset.tab);});'
