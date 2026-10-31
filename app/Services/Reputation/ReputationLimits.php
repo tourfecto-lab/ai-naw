@@ -9,7 +9,7 @@
  *
  * Defaults are "unlimited / on" for every plan, so deploying this changes nothing for existing customers until the
  * admin sets a number. A per-customer exception can be set through the existing feature overrides
- * (keys reputation_review_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import).
+ * (keys reputation_review_requests_monthly, reputation_sms_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import).
  * Every change is written to an audit trail (who, when, old -> new). Counts are soft limits: two requests created at
  * the same instant can overshoot by one.
  */
@@ -27,7 +27,7 @@ class ReputationLimitReached extends Exception
 class ReputationLimits
 {
     public const TIERS = ['free', 'starter', 'professional', 'enterprise'];
-    public const NUMBER_KEYS = ['review_requests_monthly', 'locations'];
+    public const NUMBER_KEYS = ['review_requests_monthly', 'sms_requests_monthly', 'locations'];
     public const BOOL_KEYS = ['team_assignment', 'csv_import'];
     public const UNLIMITED = -1;
     public const MAX_VALUE = 1000000;
@@ -37,6 +37,7 @@ class ReputationLimits
 
     public const LABELS = [
         'review_requests_monthly' => 'Review requests per month',
+        'sms_requests_monthly' => 'SMS review requests per month (paid per message)',
         'locations' => 'Connected Google locations',
         'team_assignment' => 'Assign reviews to team members',
         'csv_import' => 'CSV import from other review sites',
@@ -44,7 +45,7 @@ class ReputationLimits
 
     public static function defaults(): array
     {
-        $tier = ['review_requests_monthly' => self::UNLIMITED, 'locations' => self::UNLIMITED, 'team_assignment' => true, 'csv_import' => true];
+        $tier = ['review_requests_monthly' => self::UNLIMITED, 'sms_requests_monthly' => self::UNLIMITED, 'locations' => self::UNLIMITED, 'team_assignment' => true, 'csv_import' => true];
         return array_fill_keys(self::TIERS, $tier);
     }
 
@@ -184,7 +185,8 @@ class ReputationLimits
         $owner = self::accountOwner($userId, $db);
         $req = (int) ($db->query("SELECT COUNT(*) c FROM review_requests WHERE user_id = ? AND status <> 'failed' AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')", [$owner])[0]['c'] ?? 0);
         $loc = (int) ($db->query("SELECT COUNT(*) c FROM platform_connections WHERE user_id = ? AND platform = 'google_business' AND status = 'connected'", [$owner])[0]['c'] ?? 0);
-        return ['review_requests_monthly' => $req, 'locations' => $loc];
+        $sms = (int) ($db->query("SELECT COUNT(*) c FROM review_requests WHERE user_id = ? AND channel = 'sms' AND status <> 'failed' AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')", [$owner])[0]['c'] ?? 0);
+        return ['review_requests_monthly' => $req, 'sms_requests_monthly' => $sms, 'locations' => $loc];
     }
 
     public static function summary(int $userId, ?Database $db = null): array
@@ -215,6 +217,19 @@ class ReputationLimits
         $used = self::usage($userId, $db)['review_requests_monthly'];
         if ($used >= $limit) {
             throw new ReputationLimitReached('You reached your plan limit of ' . $limit . ' review requests this month (' . $used . ' used).' . self::hint(self::tierFor($userId, $db)), 'review_requests_monthly');
+        }
+    }
+
+    /** @throws ReputationLimitReached SMS costs money per message, so it has its own monthly cap */
+    public static function assertCanSendSms(int $userId, ?Database $db = null): void
+    {
+        $limit = (int) self::limit($userId, 'sms_requests_monthly', $db);
+        if ($limit === self::UNLIMITED) {
+            return;
+        }
+        $used = self::usage($userId, $db)['sms_requests_monthly'];
+        if ($used >= $limit) {
+            throw new ReputationLimitReached('You reached your plan limit of ' . $limit . ' SMS review requests this month (' . $used . ' used).' . self::hint(self::tierFor($userId, $db)), 'sms_requests_monthly');
         }
     }
 
