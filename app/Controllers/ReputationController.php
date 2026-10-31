@@ -442,6 +442,7 @@ class ReputationController extends Controller
             <input type="date" id="filterDateTo" class="p-select" title="إلى تاريخ">
             <button class="p-btn outline xs" onclick="clearGbpReviewFilters()">مسح الفلاتر</button>
             <button class="p-btn outline xs" id="syncNowBtn" onclick="syncReviewsNow()">🔄 زامن دلوقتي</button>
+            <a href="/reputation/report" target="_blank" rel="noopener" class="p-btn outline xs">📄 Monthly report</a>
             <a href="/reputation/platforms" class="p-btn primary xs">{$this->tr('rep.connect_new_platform')}</a>
         </div>
         <div class="p-card no-pad">
@@ -1348,6 +1349,39 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         );
 
         return $api->sendReply($platformReviewId, $replyText);
+    }
+
+    /** GET /reputation/report?website_id=&month=YYYY-MM&lang=ar|en - printable white-label monthly report */
+    public function report(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            header('Location: /login?redirect=' . urlencode('/reputation/reviews'));
+            exit;
+        }
+        $websiteId = (int) $this->get('website_id', 0);
+        if ($websiteId <= 0) {
+            $first = $this->db->query('SELECT id FROM websites WHERE user_id = ? ORDER BY id ASC LIMIT 1', [(int) $this->user['id']]);
+            $websiteId = (int) ($first[0]['id'] ?? 0);
+        }
+        header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (!$this->canAccessWebsite($websiteId)) {
+            http_response_code(404);
+            echo '<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif;text-align:center;margin-top:20vh">Website not found.</p>';
+            exit;
+        }
+        $lang = (string) $this->get('lang', '');
+        $ar = $lang === 'ar' || ($lang !== 'en' && function_exists('current_lang') && current_lang() === 'ar');
+        try {
+            $owner = (int) ($this->db->query('SELECT user_id FROM websites WHERE id = ? LIMIT 1', [$websiteId])[0]['user_id'] ?? 0);
+            $data = ReputationReport::build($owner, $websiteId, ReputationReport::monthOrDefault((string) $this->get('month', '')));
+            echo ReputationReport::render($data, $ar);
+        } catch (Throwable $e) {
+            Logger::error('Reputation report failed', ['message' => $e->getMessage()]);
+            http_response_code(500);
+            echo '<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif;text-align:center;margin-top:20vh">Could not build the report.</p>';
+        }
+        exit;
     }
 
     /** POST /api/reputation/import  {website_id, source, scale, csv, dry_run} */
