@@ -38,4 +38,14 @@ final class AdminReputationLimitsControllerTest extends TestCase
         $this->assertSame(419, $res['code'] ?? $res['status'] ?? 419);
         $this->assertFalse($res['success'] ?? true);
     }
+
+    public function testUnknownCustomerAnswersWithAJsonSafeStatusNotA404(): void
+    {
+        if (!class_exists('Csrf')) {
+            $this->markTestSkipped('Csrf not available');
+        }
+        $res = $this->controller(['email' => 'nobody-' . bin2hex(random_bytes(4)) . '@example.invalid', 'values' => ['locations' => 3], 'csrf_token' => Csrf::token()])->override();
+        $this->assertFalse($res['success'] ?? true);
+        $this->assertSame(422, $res['code'] ?? $res['status'] ?? 422, 'the production web server replaces a PHP 404 with an HTML page, which breaks the JSON screens');
+    }
 }
