@@ -10,14 +10,17 @@
     const pct = v => (Number(v) || 0).toFixed(1) + '%';
     const extras = c => {
         const eco = D.economics || {}, cs = c.costs, costLabels = { ai_caption: 'تكلفة كابشن AI $', post: 'تكلفة المنشور $', channel_month: 'تكلفة الحساب/شهر $', competitor_month: 'تكلفة منافس/شهر $', monthly_plan: 'تكلفة خطة شهرية $', unlimited_posts_assumed: 'منشورات «غير محدود» (افتراض)', gateway_fee_pct: 'رسوم بوابة الدفع %' };
-        const promoRows = (c.promos || []).map((p, i) => `<tr data-promo="${i}"><td><input class="p-select" data-pf="code" value="${esc(p.code)}" placeholder="LAUNCH20" maxlength="24" style="text-transform:uppercase"></td>
-<td><input class="p-select" type="number" min="1" max="100" step="1" data-pf="percent" value="${esc(p.percent)}"></td>
-<td>${['basic', 'pro', 'agency', 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join(' ')}<div class="p-cell-muted">من غير اختيار = كل الباقات</div></td>
-<td>${['monthly', 'yearly'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-pcycle="${t}" ${(p.cycles || []).includes(t) ? 'checked' : ''}> ${t === 'monthly' ? 'شهري' : 'سنوي'}</label>`).join(' ')}</td>
-<td><input class="p-select" type="date" data-pf="starts" value="${esc(p.starts)}"> <input class="p-select" type="date" data-pf="ends" value="${esc(p.ends)}"></td>
-<td><input class="p-select" type="number" min="0" data-pf="max_uses" value="${esc(p.max_uses)}"></td>
-<td><input type="checkbox" data-pf="enabled" ${p.enabled ? 'checked' : ''}></td>
-<td><button type="button" class="p-btn" data-promo-del="${i}" aria-label="حذف الكود">✕</button></td></tr>`).join('');
+        const fld = (label, inner) => `<label style="display:flex;flex-direction:column;gap:4px;min-width:110px;flex:1 1 110px"><span class="p-cell-muted" style="font-size:12px">${label}</span>${inner}</label>`;
+        const promoRows = (c.promos || []).map((p, i) => `<div class="spa-promo" data-promo="${i}" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:12px;border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px;margin-bottom:10px">
+${fld('الكود', `<input class="p-select" data-pf="code" value="${esc(p.code)}" placeholder="LAUNCH20" maxlength="24" style="text-transform:uppercase">`)}
+${fld('خصم %', `<input class="p-select" type="number" min="1" max="100" step="1" data-pf="percent" value="${esc(p.percent)}">`)}
+${fld('أقصى استخدام (0 = بلا حد)', `<input class="p-select" type="number" min="0" data-pf="max_uses" value="${esc(p.max_uses)}">`)}
+${fld('من', `<input class="p-select" type="date" data-pf="starts" value="${esc(p.starts)}">`)}
+${fld('إلى', `<input class="p-select" type="date" data-pf="ends" value="${esc(p.ends)}">`)}
+<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:12px;align-items:center"><span class="p-cell-muted" style="font-size:12px">الباقات (من غير اختيار = الكل):</span>${['basic', 'pro', 'agency', 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join('')}
+<span class="p-cell-muted" style="font-size:12px">الدورة:</span>${['monthly', 'yearly'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-pcycle="${t}" ${(p.cycles || []).includes(t) ? 'checked' : ''}> ${t === 'monthly' ? 'شهري' : 'سنوي'}</label>`).join('')}
+<label style="white-space:nowrap"><input type="checkbox" data-pf="enabled" ${p.enabled ? 'checked' : ''}> فعّال</label>
+<button type="button" class="p-btn" data-promo-del="${i}" aria-label="حذف الكود" style="margin-inline-start:auto">✕ حذف</button></div></div>`).join('');
         const audit = (D.audit || []).map(a => `<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${Object.entries(a.changes).map(([k, v]) => `<div><code>${esc(k)}</code>: ${esc(v.old ?? '—')} ← ${esc(v.new ?? '—')}</div>`).join('')}</td></tr>`).join('');
         return `
 <h4>💰 التكلفة والهامش (أسوأ حالة: العميل استهلك الحدود كلها)</h4>
@@ -29,7 +32,7 @@ ${TIERS.filter(t => t !== 'free').map(t => { const e = eco[t] || {}; const bad =
 
 <h4>🏷️ أكواد الخصم والعروض</h4>
 <p class="p-cell-muted">الخصم بيتطبق على أول دورة بس (التجديد بالسعر العادي)، وكل عميل يستخدم الكود مرة واحدة.</p>
-<div style="overflow-x:auto"><table><thead><tr><th>الكود</th><th>خصم %</th><th>الباقات</th><th>الدورة</th><th>من / إلى</th><th>أقصى استخدام (0 = بلا حد)</th><th>فعّال</th><th></th></tr></thead><tbody>${promoRows || '<tr><td colspan="8" class="p-cell-muted">مفيش أكواد. اضغط «إضافة كود».</td></tr>'}</tbody></table></div>
+<div>${promoRows || '<p class="p-cell-muted">مفيش أكواد. اضغط «إضافة كود».</p>'}</div>
 <button type="button" class="p-btn" id="spaPromoAdd">➕ إضافة كود</button>
 
 <h4>👥 لو غيّرت السعر: المشتركين الحاليين</h4>
@@ -42,7 +45,7 @@ ${TIERS.filter(t => t !== 'free').map(t => { const e = eco[t] || {}; const bad =
     };
 
     const collectPromos = () => {
-        D.config.promos = [...root.querySelectorAll('tr[data-promo]')].map(tr => {
+        D.config.promos = [...root.querySelectorAll('[data-promo]')].map(tr => {
             const g = k => tr.querySelector(`[data-pf="${k}"]`);
             return { code: g('code').value.trim().toUpperCase(), label: '', percent: Number(g('percent').value), starts: g('starts').value, ends: g('ends').value, max_uses: Number(g('max_uses').value), enabled: g('enabled').checked,
                 tiers: [...tr.querySelectorAll('[data-ptier]:checked')].map(x => x.dataset.ptier), cycles: [...tr.querySelectorAll('[data-pcycle]:checked')].map(x => x.dataset.pcycle) };
