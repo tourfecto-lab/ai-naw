@@ -8,7 +8,8 @@
  * does not meter for reputation: review requests per month, connected Google locations, team assignment, CSV import.
  *
  * Defaults are "unlimited / on" for every plan, so deploying this changes nothing for existing customers until the
- * admin sets a number. A per-customer exception can be set through the existing feature overrides
+ * admin sets a number. The one exception is SMS (paid per message), which is off (0) until the admin opens it; the SMS
+ * channel could not be used before, so no existing customer is affected. A per-customer exception can be set through the existing feature overrides
  * (keys reputation_review_requests_monthly, reputation_sms_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import).
  * Every change is written to an audit trail (who, when, old -> new). Counts are soft limits: two requests created at
  * the same instant can overshoot by one.
@@ -45,7 +46,8 @@ class ReputationLimits
 
     public static function defaults(): array
     {
-        $tier = ['review_requests_monthly' => self::UNLIMITED, 'sms_requests_monthly' => self::UNLIMITED, 'locations' => self::UNLIMITED, 'team_assignment' => true, 'csv_import' => true];
+        // SMS is paid per message (about $0.40 per segment to Egypt, several segments per Arabic message): off until the admin opens it
+        $tier = ['review_requests_monthly' => self::UNLIMITED, 'sms_requests_monthly' => 0, 'locations' => self::UNLIMITED, 'team_assignment' => true, 'csv_import' => true];
         return array_fill_keys(self::TIERS, $tier);
     }
 
@@ -226,6 +228,9 @@ class ReputationLimits
         $limit = (int) self::limit($userId, 'sms_requests_monthly', $db);
         if ($limit === self::UNLIMITED) {
             return;
+        }
+        if ($limit === 0) {
+            throw new ReputationLimitReached('SMS review requests are not included in your plan. Use WhatsApp or email, or contact support to enable SMS.', 'sms_requests_monthly');
         }
         $used = self::usage($userId, $db)['sms_requests_monthly'];
         if ($used >= $limit) {

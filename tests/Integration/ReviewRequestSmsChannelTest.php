@@ -79,6 +79,7 @@ final class ReviewRequestSmsChannelTest extends TestCase
         $this->assertArrayHasKey('sms', $status);
         $this->assertContains($status['sms'], ['connected', 'not_configured']);
         if ($status['sms'] === 'not_configured') {
+            ReputationLimits::save(['free' => ['sms_requests_monthly' => 5]], 1, $this->db); // the plan allows SMS; the provider is what is missing
             try {
                 (new ReviewRequestService())->createRequest(self::UID, self::WID, 'Guest', '201001234567', date('Y-m-d'), 'sms');
                 $this->fail('an SMS request must not be created when SMS is not configured');
@@ -109,12 +110,18 @@ final class ReviewRequestSmsChannelTest extends TestCase
         $this->assertSame(1, ReputationLimits::usage(self::UID, $this->db)['sms_requests_monthly'], 'failed SMS are not counted');
     }
 
-    public function testSmsCapDefaultsToUnlimited(): void
+    public function testSmsIsOffByDefaultBecauseItIsPaidPerMessage(): void
     {
-        for ($i = 0; $i < 3; $i++) {
-            $this->row('sms');
+        $this->assertSame(0, ReputationLimits::limit(self::UID, 'sms_requests_monthly', $this->db));
+        try {
+            ReputationLimits::assertCanSendSms(self::UID, $this->db);
+            $this->fail('SMS must be off until the admin opens it');
+        } catch (ReputationLimitReached $e) {
+            $this->assertStringContainsString('not included in your plan', $e->getMessage());
         }
+        ReputationLimits::save(['free' => ['sms_requests_monthly' => 5]], 1, $this->db);
         ReputationLimits::assertCanSendSms(self::UID, $this->db);
-        $this->assertSame(-1, ReputationLimits::limit(self::UID, 'sms_requests_monthly', $this->db));
+        $this->assertSame(0, ReputationLimits::defaults()['professional']['sms_requests_monthly']);
+        $this->assertSame(-1, ReputationLimits::defaults()['professional']['review_requests_monthly'], 'other limits stay unlimited by default');
     }
 }
