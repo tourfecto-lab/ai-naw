@@ -348,12 +348,26 @@ class ReputationPlans
         $stats = [];
         if (self::ready($db)) {
             foreach ($db->query("SELECT plan_key, COUNT(*) AS subs, SUM(CASE WHEN cycle = 'yearly' THEN price_paid / 12 ELSE price_paid END) AS mrr FROM reputation_subscriptions WHERE status = 'active' AND period_end > UTC_TIMESTAMP() GROUP BY plan_key") as $r) {
-                $stats[$r['plan_key']] = ['subs' => (int) $r['subs'], 'mrr' => round((float) $r['mrr'], 2)];
+                $stats[$r['plan_key']] = ['subs' => (int) $r['subs'], 'mrr' => round((float) $r['mrr'], 2), 'ai_cost' => 0.0];
             }
+            // Real AI cost this month of the accounts on each plan (only the cost we can verify; WhatsApp, e-mail and infrastructure are not in it)
+            try {
+                foreach ($db->query("SELECT s.plan_key, ROUND(SUM(l.cost_in_usd), 4) AS cost FROM reputation_subscriptions s JOIN api_usage_logs l ON l.user_id = s.user_id WHERE s.status = 'active' AND s.period_end > UTC_TIMESTAMP() AND l.feature IN ('review_reply','sentiment','review_content') AND l.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY s.plan_key") as $r) {
+                    if (isset($stats[$r['plan_key']])) {
+                        $stats[$r['plan_key']]['ai_cost'] = (float) $r['cost'];
+                    }
+                }
+            } catch (Throwable $e) {
+                // the AI log is optional
+            }
+            foreach ($stats as &$st) {
+                $st['margin'] = round($st['mrr'] - $st['ai_cost'], 2);
+            }
+            unset($st);
         }
         $plans = [];
         foreach (self::KEYS as $k) {
-            $plans[] = ['key' => $k] + $cfg['plans'][$k] + ($stats[$k] ?? ['subs' => 0, 'mrr' => 0.0]);
+            $plans[] = ['key' => $k] + $cfg['plans'][$k] + ($stats[$k] ?? ['subs' => 0, 'mrr' => 0.0, 'ai_cost' => 0.0, 'margin' => 0.0]);
         }
         return ['ready' => self::ready($db), 'enabled' => $cfg['enabled'], 'plans' => $plans];
     }

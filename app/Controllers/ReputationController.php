@@ -443,7 +443,7 @@ class ReputationController extends Controller
             <button class="p-btn outline xs" onclick="clearGbpReviewFilters()">مسح الفلاتر</button>
             <button class="p-btn outline xs" id="syncNowBtn" onclick="syncReviewsNow()">🔄 زامن دلوقتي</button>
             <a href="/reputation/report" target="_blank" rel="noopener" class="p-btn outline xs">📄 Monthly report</a>
-            <a href="/reputation/surveys" class="p-btn outline xs">💬 Private feedback</a>
+            <a href="/reputation/surveys" class="p-btn outline xs">💬 Private feedback</a>{$this->plansLink()}
             <a href="/reputation/platforms" class="p-btn primary xs">{$this->tr('rep.connect_new_platform')}</a>
         </div>
         <div class="p-card no-pad">
@@ -1403,6 +1403,18 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
             echo '<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif;text-align:center;margin-top:20vh">Could not build the report.</p>';
         }
         exit;
+    }
+
+    /** "Plans" button, only while the admin has stand-alone plans on sale (never advertises something that cannot be bought). */
+    private function plansLink(): string
+    {
+        try {
+            if (ReputationPlans::ready() && ReputationPlans::config()['enabled']) {
+                return '<a href="/reputation/plans" class="p-btn outline xs">💳 Plans</a>';
+            }
+        } catch (Throwable $e) {
+        }
+        return '';
     }
 
     /** GET /api/reputation/sources - what the admin has turned on for each outside review site */

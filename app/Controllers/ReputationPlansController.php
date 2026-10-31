@@ -102,11 +102,13 @@ class ReputationPlansController extends Controller
 (function () {
     const P = window.Panel, esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
     const root = document.getElementById('rpRoot');
+    const I18N_CONFIRM = (window.TF_AR_DICT && document.documentElement.lang === 'ar' && window.TF_AR_DICT['Charge this plan from your wallet now?']) || 'Charge this plan from your wallet now?';
     const money = n => '$' + Number(n).toFixed(Number(n) % 1 ? 2 : 0);
+    // each label is its own text node so the Arabic dictionary can translate it; numbers sit in their own <b>
     function limitLine(labels, k, v) {
-        if (typeof v === 'boolean') return (v ? '✔ ' : '✖ ') + labels[k];
-        if (v === 0) return '✖ ' + labels[k];
-        return '✔ ' + labels[k] + ': ' + (v < 0 ? 'Unlimited' : v);
+        if (typeof v === 'boolean') return (v ? '✔ ' : '✖ ') + '<span>' + esc(labels[k]) + '</span>';
+        if (v === 0) return '✖ <span>' + esc(labels[k]) + '</span>';
+        return '✔ <span>' + esc(labels[k]) + '</span>: ' + (v < 0 ? '<span>Unlimited</span>' : '<b>' + Number(v) + '</b>');
     }
     async function load() {
         const r = await fetchJSON('/api/reputation/plans').catch(() => ({ success: false }));
@@ -117,24 +119,25 @@ class ReputationPlansController extends Controller
         let cur = '';
         if (sub) {
             const name = (d.plans.find(p => p.key === sub.plan) || {}).name || sub.plan;
-            cur = '<div class="p-card" style="margin-bottom:14px"><div class="p-card-head"><h3>Your plan: ' + esc(name) + ' (' + esc(sub.cycle) + ')</h3></div>'
-                + '<p style="margin:0 0 8px">Paid ' + money(sub.price_paid) + '. Active until <b>' + esc(sub.period_end) + ' UTC</b>. '
-                + (sub.auto_renew ? 'It renews automatically from your wallet at the price in force on that day.' : 'Auto-renew is off: it ends on that date.') + '</p>'
-                + (sub.pending_plan ? '<p class="p-cell-muted">Scheduled for the next renewal: ' + esc(sub.pending_plan) + ' (' + esc(sub.pending_cycle) + ').</p>' : '')
+            cur = '<div class="p-card" style="margin-bottom:14px"><div class="p-card-head"><h3><span>Your plan</span>: ' + esc(name) + ' (<span>' + (sub.cycle === 'yearly' ? 'Yearly' : 'Monthly') + '</span>)</h3></div>'
+                + '<div class="p-kv"><span class="k">Paid</span><span class="v">' + money(sub.price_paid) + '</span></div>'
+                + '<div class="p-kv"><span class="k">Active until (UTC)</span><span class="v">' + esc(sub.period_end) + '</span></div>'
+                + '<div class="p-kv"><span class="k">Renewal</span><span class="v">' + (sub.auto_renew ? '<span>Automatic from your wallet at the price in force that day</span>' : '<span>Off: the plan ends on that date</span>') + '</span></div>'
+                + (sub.pending_plan ? '<div class="p-kv"><span class="k">Scheduled for the next renewal</span><span class="v">' + esc(sub.pending_plan) + ' (' + (sub.pending_cycle === 'yearly' ? 'Yearly' : 'Monthly') + ')</span></div>' : '')
                 + (d.is_owner ? '<button class="p-btn outline xs" id="rpAuto">' + (sub.auto_renew ? 'Turn off auto-renew' : 'Turn on auto-renew') + '</button>' : '') + '</div>';
         }
         if (!d.selling && !sub) { root.innerHTML = '<div class="p-card"><div class="p-empty"><div class="p-empty-icon">📦</div>Stand-alone reputation plans are not on sale right now. Your platform plan already includes reputation tools.</div></div>'; return; }
         const cards = d.plans.map(p => '<div class="p-card" style="flex:1;min-width:230px"><div class="p-card-head"><h3>' + esc(p.name) + '</h3></div>'
-            + '<div style="font-size:26px;font-weight:800">' + money(p.price_monthly) + '<span class="p-cell-muted" style="font-size:13px"> / month</span></div>'
-            + '<div class="p-cell-muted" style="margin-bottom:8px">or ' + money(p.price_yearly) + ' / year</div>'
-            + '<ul style="padding-inline-start:18px;margin:0 0 10px">' + Object.keys(p.limits).map(k => '<li>' + esc(limitLine(d.labels, k, p.limits[k])) + '</li>').join('') + '</ul>'
+            + '<div style="font-size:26px;font-weight:800">' + money(p.price_monthly) + ' <span class="p-cell-muted" style="font-size:13px">/ month</span></div>'
+            + '<div class="p-cell-muted" style="margin-bottom:8px"><span>or</span> <b>' + money(p.price_yearly) + '</b> <span>/ year</span></div>'
+            + '<ul style="padding-inline-start:18px;margin:0 0 10px">' + Object.keys(p.limits).map(k => '<li>' + limitLine(d.labels, k, p.limits[k]) + '</li>').join('') + '</ul>'
             + (d.is_owner && p.for_sale && d.selling ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="p-btn primary xs" data-buy="' + p.key + '" data-cycle="monthly">Pay monthly</button><button class="p-btn outline xs" data-buy="' + p.key + '" data-cycle="yearly">Pay yearly</button></div>' : (p.for_sale ? '' : '<span class="p-cell-muted">No longer on sale</span>')) + '</div>').join('');
-        root.innerHTML = cur + '<p class="p-cell-muted">Wallet balance: <b>' + money(d.balance) + '</b>. Plans are paid from your wallet; if you also have a platform plan you get the more generous limit of the two, never both added. AI replies are not part of these plans: they use your review credits or wallet usage prices as before.</p>'
+        root.innerHTML = cur + '<p><span>Wallet balance</span>: <b>' + money(d.balance) + '</b></p><p class="p-cell-muted">Plans are paid from your wallet. If you also have a platform plan you get the more generous limit of the two, never both added. AI replies are not part of these plans: they use your review credits or wallet usage prices as before.</p>'
             + '<div style="display:flex;gap:14px;flex-wrap:wrap">' + cards + '</div>';
         const auto = document.getElementById('rpAuto');
         if (auto) auto.onclick = async () => { const res = await fetchJSON('/api/reputation/plans/auto-renew', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: !sub.auto_renew }) }).catch(() => ({})); toast(res.success ? 'Saved' : (res.error || 'Could not save'), res.success ? 'success' : 'error'); load(); };
         root.querySelectorAll('[data-buy]').forEach(b => b.onclick = async () => {
-            if (!confirm('Charge this plan from your wallet now?')) return;
+            if (!confirm(I18N_CONFIRM)) return;
             b.disabled = true;
             const key = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
             const res = await fetchJSON('/api/reputation/plans/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: b.dataset.buy, cycle: b.dataset.cycle, request_key: key }) }).catch(() => ({ success: false, error: 'Unexpected answer from the server. Check your wallet before trying again.' }));
