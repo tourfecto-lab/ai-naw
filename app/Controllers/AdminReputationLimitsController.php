@@ -37,6 +37,7 @@ class AdminReputationLimitsController extends Controller
                 'bool_keys' => ReputationLimits::BOOL_KEYS,
                 'labels' => ReputationLimits::LABELS,
                 'config' => ReputationLimits::config(),
+                'sources' => ReviewSources::view(),
                 'audit' => $audit,
                 'usage' => ReputationLimits::usageReport(30),
                 'csrf_token' => class_exists('Csrf') ? Csrf::token() : '',
@@ -54,11 +55,17 @@ class AdminReputationLimitsController extends Controller
             return $e;
         }
         $limits = $this->get('limits');
-        if (!is_array($limits) || !$limits) {
+        $sources = $this->get('sources');
+        if ((!is_array($limits) || !$limits) && (!is_array($sources) || !$sources)) {
             return $this->error('Nothing to save', 422);
         }
         try {
-            $res = ReputationLimits::save($limits, (int) ($this->user['id'] ?? 0));
+            $actor = (int) ($this->user['id'] ?? 0);
+            $res = is_array($limits) && $limits ? ReputationLimits::save($limits, $actor) : ['config' => ReputationLimits::config(), 'changes' => []];
+            if (is_array($sources) && $sources) {
+                $s = ReviewSources::save($sources, $actor);
+                $res['changes'] = array_merge($res['changes'], $s['changes']);
+            }
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {

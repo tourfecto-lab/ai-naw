@@ -363,6 +363,7 @@ $router->post('/api/reputation/review/{id}/generate-reply', 'ReputationControlle
 ]);
 $router->put('/api/reputation/review/{id}/reply', 'ReputationController', 'updateReply', ['AuthMiddleware']);
 $router->post('/api/reputation/import', 'ReputationController', 'importReviews', ['AuthMiddleware']);
+$router->get('/api/reputation/sources', 'ReputationController', 'sources', ['AuthMiddleware']);
 $router->get('/api/reputation/surveys', 'GuestSurveyController', 'listApi', ['AuthMiddleware']);
 $router->post('/api/reputation/surveys/{id}/handled', 'GuestSurveyController', 'handled', ['AuthMiddleware']);
 $router->post('/api/reputation/review/{id}/assign', 'ReputationController', 'assignReview', ['AuthMiddleware']);

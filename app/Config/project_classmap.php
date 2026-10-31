@@ -709,6 +709,7 @@ return [
     'ReviewRequestTemplate' => dirname(__DIR__,2).'/app/Models/ReviewRequestTemplate.php',
     'GuestSurveys' => dirname(__DIR__,2).'/app/Services/Reputation/GuestSurveys.php',
     'GuestSurveyController' => dirname(__DIR__,2).'/app/Controllers/GuestSurveyController.php',
+    'ReviewSources' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewSources.php',
     'ReputationReport' => dirname(__DIR__,2).'/app/Services/Reputation/ReputationReport.php',
     'ReputationLimits' => dirname(__DIR__,2).'/app/Services/Reputation/ReputationLimits.php',
     'ReputationLimitReached' => dirname(__DIR__,2).'/app/Services/Reputation/ReputationLimits.php',

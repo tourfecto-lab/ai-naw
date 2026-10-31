@@ -130,11 +130,17 @@ class ReputationLimits
         }
         if ($changes) {
             self::write(self::SETTING, json_encode($after), $db);
-            $log = self::auditLog(self::AUDIT_KEEP, $db);
-            array_unshift($log, ['at' => gmdate('Y-m-d H:i:s'), 'actor_id' => $actorId, 'changes' => $changes]);
-            self::write(self::AUDIT, json_encode(array_slice($log, 0, self::AUDIT_KEEP)), $db);
+            self::recordAudit($changes, $actorId, $db);
         }
         return ['config' => $after, 'changes' => $changes];
+    }
+
+    /** Append one entry (who, when, old -> new) to the shared admin change history. */
+    public static function recordAudit(array $changes, int $actorId, ?Database $db = null): void
+    {
+        $log = self::auditLog(self::AUDIT_KEEP, $db);
+        array_unshift($log, ['at' => gmdate('Y-m-d H:i:s'), 'actor_id' => $actorId, 'changes' => $changes]);
+        self::write(self::AUDIT, json_encode(array_slice($log, 0, self::AUDIT_KEEP)), $db);
     }
 
     public static function auditLog(int $limit = 50, ?Database $db = null): array

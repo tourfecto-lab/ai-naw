@@ -29,6 +29,10 @@ class TripAdvisorReviewSyncService
         if (!$this->api->isConfigured()) {
             return $summary;
         }
+        // The admin can switch the scheduled sync off (Admin > Reputation limits > Review sources)
+        if (!ReviewSources::allowed('tripadvisor', 'auto_sync', $this->db)) {
+            return $summary + ['disabled' => true];
+        }
 
         try {
             $connections = (new PlatformConnection())->where([

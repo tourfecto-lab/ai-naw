@@ -42,10 +42,27 @@
       '<p class="p-cell-muted rl-hint" style="margin:0 0 6px;font-size:12.5px">Scroll sideways to see every plan.</p>' +
       '<div class="p-table-scroll" tabindex="0" aria-label="Limits table, scrolls sideways"><table class="p-table rl">' + head + rows + '</table></div>' +
       '<div style="margin-top:12px"><button class="p-btn primary" id="rlSave">Save changes</button> <span id="rlMsg" role="status" aria-live="polite" class="p-cell-muted"></span></div></div>' +
+      '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Review sources</h3></div>' +
+      '<p class="p-cell-muted" style="margin:0 0 10px">Choose, for each outside review site, how reviews may come in. Both can be on together. Automatic sync can only be switched on where the platform has a connector; Booking.com, Expedia and Trustpilot do not give us API access yet, so CSV import is the way in for them.</p>' +
+      '<div class="p-table-scroll" tabindex="0" aria-label="Review sources, scrolls sideways"><table class="p-table"><thead><tr><th scope="col">Site</th><th scope="col">CSV import by the customer</th><th scope="col">Automatic sync</th></tr></thead><tbody>' +
+      d.sources.map(function (x) {
+        return '<tr><th scope="row" style="font-weight:600">' + esc(x.label) + '</th>' +
+          '<td>' + (x.csv_available ? '<input type="checkbox" data-source="' + x.key + '" data-flag="csv_import"' + (x.csv_import ? ' checked' : '') + ' aria-label="CSV import - ' + esc(x.label) + '">' : '<span class="p-cell-muted">Not offered</span>') + '</td>' +
+          '<td>' + (x.auto_available ? '<input type="checkbox" data-source="' + x.key + '" data-flag="auto_sync"' + (x.auto_sync ? ' checked' : '') + ' aria-label="Automatic sync - ' + esc(x.label) + '"> <span class="p-cell-muted" style="font-size:12px">' + esc(x.auto_note) + '</span>' : '<span class="p-cell-muted" style="font-size:12.5px">' + esc(x.auto_note) + '</span>') + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Usage this month</h3></div>' + usage + '</div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Change history</h3></div>' + audit + '</div>';
 
     document.getElementById('rlSave').onclick = save;
+  }
+
+  function collectSources() {
+    var out = {};
+    root.querySelectorAll('input[data-source]').forEach(function (el) {
+      out[el.dataset.source] = out[el.dataset.source] || {};
+      out[el.dataset.source][el.dataset.flag] = el.checked;
+    });
+    return out;
   }
 
   function collect() {
@@ -61,7 +78,7 @@
   function save() {
     var btn = document.getElementById('rlSave'), msg = document.getElementById('rlMsg');
     btn.disabled = true; msg.textContent = 'Saving...';
-    api('/api/admin/reputation-limits', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf_token || '' }, body: JSON.stringify({ limits: collect(), csrf_token: state.csrf_token || '' }) })
+    api('/api/admin/reputation-limits', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf_token || '' }, body: JSON.stringify({ limits: collect(), sources: collectSources(), csrf_token: state.csrf_token || '' }) })
       .then(function (r) {
         btn.disabled = false;
         if (r.success) { toast(r.message || 'Saved', 'success'); load(); } else { msg.textContent = r.error || 'Could not save'; toast(r.error || 'Could not save', 'error'); }
