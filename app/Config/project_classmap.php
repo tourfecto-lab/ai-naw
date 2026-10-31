@@ -237,6 +237,7 @@ return [
     'BillingManager' => dirname(__DIR__,2).'/app/Services/Subscription/BillingManager.php',
     'BillingPlanCatalog' => dirname(__DIR__,2).'/app/Services/Subscription/BillingPlanCatalog.php',
     'PlanEconomics' => dirname(__DIR__,2).'/app/Services/Subscription/PlanEconomics.php',
+    'PlanPositioning' => dirname(__DIR__,2).'/app/Services/Subscription/PlanPositioning.php',
     'BillingProfile' => dirname(__DIR__,2).'/app/Models/BillingProfile.php',
     'BillingRules' => dirname(__DIR__,2).'/app/Services/Subscription/BillingRules.php',
     'BillingUsageReservation' => dirname(__DIR__,2).'/app/Services/Subscription/BillingUsageReservation.php',

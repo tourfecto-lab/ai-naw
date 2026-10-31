@@ -1283,6 +1283,35 @@ class AdminController extends Controller
         }
     }
 
+    /** GET /api/admin/plans-positioning - «% أقل من المنافسين» والأسعار المرجعية وأعلى سعر مسموح لكل باقة */
+    public function planPositioning(array $params = []): array
+    {
+        try {
+            $cfg = PlanPositioning::config($this->db);
+            return $this->success(['config' => $cfg, 'limits' => PlanPositioning::limits($cfg)]);
+        } catch (Throwable $e) {
+            Logger::error('Admin planPositioning Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب إعدادات التسعير', 500);
+        }
+    }
+
+    /** POST /api/admin/plans-positioning */
+    public function planPositioningSave(array $params = []): array
+    {
+        if ($error = $this->verifyCsrf()) return $error;
+        try {
+            $in = $this->get('config', []);
+            $cfg = PlanPositioning::save($this->db, is_array($in) ? $in : [], (int) ($this->user['id'] ?? 0) ?: null);
+            $this->log('Admin Saved Plan Positioning', ['below_pct' => $cfg['below_pct']]);
+            return $this->success(['config' => $cfg, 'limits' => PlanPositioning::limits($cfg)], 'اتحفظ');
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Admin planPositioningSave Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر الحفظ', 500);
+        }
+    }
+
     /** GET /api/admin/plans-audit - آخر تعديلات الباقات (مين غيّر إيه، قبل وبعد) */
     public function planChanges(array $params = []): array
     {
@@ -3172,6 +3201,7 @@ class AdminController extends Controller
         }
         plansCache = res.data.plans;
         bindNewPlan();
+        loadPlanPositioning();
         loadPlanAudit();
         loadPlanEconomics();
         if (!plansCache.length) {
@@ -3212,6 +3242,54 @@ class AdminController extends Controller
             msg.textContent = res.success ? 'اتعملت الباقة مقفولة للبيع. عدّل حدودها وأسعارها وبعدين فعّلها.' : (res.error || 'تعذر إنشاء الباقة');
             if (res.success) { document.getElementById('newPlanKey').value = ''; document.getElementById('newPlanName').value = ''; loadPlans(); }
         });
+    }
+    const SEO_DIMS = ['seo_cycles', 'seo_max_pages', 'seo_markets', 'ai_visibility', 'seo_data', 'articles'];
+    const effPages = n => (Number(n) >= 500 ? 500 : (Number(n) >= 300 ? 300 : 100));
+    const dimVal = (p, k) => (k === 'seo_max_pages' ? effPages(p[k]) : Number(p[k] || 0));
+    async function loadPlanPositioning() {
+        const box = document.getElementById('planPosBox');
+        if (!box) return;
+        const res = await fetchJSON('/api/admin/plans-positioning');
+        if (!res.success) { box.textContent = 'تعذر تحميل الإعدادات'; return; }
+        const cfg = res.data.config, lim = res.data.limits;
+        const rows = plansCache.map(p => {
+            const r = cfg.refs[p.plan_key] || {}, l = lim[p.plan_key];
+            const usd = p.currency === 'USD';
+            let status = '<span class="p-cell-muted">من غير مرجع</span>', apply = '';
+            if (l && usd) {
+                const cur = Number(p.price_monthly);
+                if (cur <= l.max_price) status = '<span style="color:#27ae60">✓ ضمن الحد (' + Math.round((1 - cur / l.ref_price) * 100) + '% أقل)</span>';
+                else { status = '<span style="color:#c0392b">⚠ أعلى بـ $' + (cur - l.max_price) + '</span>'; apply = '<button type="button" class="p-btn outline xs" data-pos-apply="' + p.id + '" data-max="' + l.max_price + '">طبّق $' + l.max_price + '</button>'; }
+            } else if (l) status = '<span class="p-cell-muted">عملة الباقة مش دولار</span>';
+            return '<tr><td>' + esc(p.name) + '<div class="p-cell-muted" dir="ltr">' + esc(p.plan_key) + '</div></td><td dir="ltr">' + esc(p.currency) + ' ' + esc(p.price_monthly) + '</td><td><input class="form-control" data-pos-name="' + esc(p.plan_key) + '" value="' + esc(r.name || '') + '" placeholder="اسم المنافس" style="min-width:120px"></td><td><input class="form-control" type="number" min="0" step="1" data-pos-price="' + esc(p.plan_key) + '" value="' + esc(r.price || '') + '" style="max-width:100px"></td><td dir="ltr">' + (l ? '$' + l.max_price : '-') + '</td><td>' + status + '</td><td>' + apply + '</td></tr>';
+        }).join('');
+        // تحذير: باقة سيو فقط أغلى من باقة شاملة حدود السيو فيها مساوية أو أكبر في 4 من 6 أبعاد
+        const warns = [];
+        plansCache.filter(a => String(a.plan_key).startsWith('seo-') && a.currency === 'USD').forEach(a => {
+            plansCache.filter(b => !String(b.plan_key).startsWith('seo-') && b.currency === 'USD' && Number(b.price_monthly) < Number(a.price_monthly)).forEach(b => {
+                const n = SEO_DIMS.filter(k => dimVal(b, k) >= dimVal(a, k)).length;
+                if (n >= 4) warns.push('«' + esc(a.name) + '» ($' + a.price_monthly + ') أغلى من «' + esc(b.name) + '» ($' + b.price_monthly + ') اللي فيها كمان شات وسوشيال وغيره، وحدود السيو فيها مساوية أو أكبر في ' + n + ' من 6 أبعاد.');
+            });
+        });
+        box.innerHTML = '<label style="display:flex;gap:8px;align-items:center;margin-bottom:10px">أقل من المنافسين بـ <input class="form-control" id="posPct" type="number" min="0" max="90" step="1" value="' + esc(cfg.below_pct) + '" style="max-width:80px"> %</label>'
+            + (warns.length ? '<div class="alert alert-warning">' + warns.join('<br>') + '</div>' : '')
+            + '<div style="overflow-x:auto"><table class="p-table" style="width:100%"><thead><tr><th>الباقة</th><th>السعر الحالي</th><th>المنافس المرجعي</th><th>سعره $</th><th>أعلى سعر مسموح</th><th>الحالة</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+            + '<p class="p-cell-muted" style="margin-top:8px">الأسعار المرجعية الافتراضية للسيو من صفحات المنافسين الرسمية (تحقق 2026-10-31). الباقات الشاملة من غير مرجع لحد ما تحط لها واحد. السنوي بيتحسب 10 شهور زي باقي الباقات. تأثير السعر الجديد على المشتركين الحاليين عند التجديد: راجعه قبل التطبيق.</p>'
+            + '<button type="button" class="p-btn" id="posSave">حفظ المراجع والنسبة</button> <span id="posMsg" class="p-cell-muted"></span>';
+        document.getElementById('posSave').addEventListener('click', async () => {
+            const refs = {};
+            plansCache.forEach(p => { refs[p.plan_key] = { name: box.querySelector('[data-pos-name="' + p.plan_key + '"]').value, price: box.querySelector('[data-pos-price="' + p.plan_key + '"]').value, checked: (cfg.refs[p.plan_key] || {}).checked }; });
+            const r = await fetchJSON('/api/admin/plans-positioning', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: { below_pct: document.getElementById('posPct').value, refs } }) });
+            document.getElementById('posMsg').textContent = r.success ? 'اتحفظ' : (r.error || 'تعذر الحفظ');
+            if (r.success) { loadPlanPositioning(); loadPlanAudit(); }
+        });
+        box.querySelectorAll('[data-pos-apply]').forEach(b => b.addEventListener('click', async () => {
+            const p = plansCache.find(x => x.id == b.dataset.posApply), max = Number(b.dataset.max);
+            if (!confirm('تغيّر سعر «' + p.name + '» من $' + p.price_monthly + ' إلى $' + max + ' شهريًا ($' + (max * 10) + ' سنويًا)؟')) return;
+            const r = await fetchJSON('/api/admin/plans/' + p.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ price_monthly: max, price_yearly: max * 10 }) });
+            toast(r.success ? 'اتغيّر السعر' : (r.error || 'تعذر التغيير'), r.success ? 'success' : 'error');
+            if (r.success) loadPlans();
+        }));
     }
     async function loadPlanEconomics() {
         const box = document.getElementById('planEconBox');
@@ -4406,6 +4484,7 @@ HTML;
                 <button type="button" class="p-btn" id="newPlanAdd">➕ أضف الباقة</button></div><div id="newPlanMsg" class="p-cell-muted" style="margin-top:8px"></div></div>
                 <div id="plansGrid" class="p-grid cols-3"><div class="p-empty">{$this->tr('common.loading')}</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>إيراد وتكلفة وهامش كل باقة</h3><span class="p-card-sub">فعلي لآخر 30 يوم</span></div><div id="planEconBox" class="p-cell-muted">...</div></div>
+                <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>تسعير مقابل المنافسين</h3><span class="p-card-sub">أعلى سعر مسموح = سعر المنافس × (100 − النسبة). مفيش سعر بيتغيّر لوحده: التطبيق بزرار.</span></div><div id="planPosBox" class="p-cell-muted">...</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>سجل تعديل الباقات</h3><span class="p-card-sub">مين غيّر إيه وإمتى (القيمة قبل وبعد)</span></div><div id="planAuditBox" class="p-cell-muted">...</div></div>
 
                 <div class="p-modal-overlay" id="editPlanModal">

@@ -597,6 +597,8 @@ $router->group('/api/admin', function ($router) {
     $router->get('/plans', 'AdminController', 'listPlansAdmin', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/plans-audit', 'AdminController', 'planChanges', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/plans-economics', 'AdminController', 'planEconomics', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->get('/plans-positioning', 'AdminController', 'planPositioning', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->post('/plans-positioning', 'AdminController', 'planPositioningSave', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/plans/create', 'AdminController', 'createPlan', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/plans/{id}/delete', 'AdminController', 'deletePlan', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/wallet/pending', 'WalletController', 'listPendingDeposits', ['AuthMiddleware', 'BillingViewerMiddleware']);
