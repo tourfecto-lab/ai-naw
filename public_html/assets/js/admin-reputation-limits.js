@@ -27,10 +27,10 @@
       return '<li>' + esc(a.at) + ' UTC · ' + esc(a.actor) + ': ' + a.changes.map(function (c) { return esc((NAMES[c.plan] || c.plan) + ' / ' + (d.labels[c.key] || c.key) + ': ' + c.from + ' → ' + c.to); }).join('; ') + '</li>';
     }).join('') + '</ul>' : '<p class="p-cell-muted">No changes yet.</p>';
 
-    var usage = d.usage.length ? '<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Account</th><th>Plan</th><th>Requests this month</th><th>Limit</th></tr></thead><tbody>' + d.usage.map(function (u) {
+    var usage = d.usage.length ? '<div class="p-table-scroll"><table class="p-table"><thead><tr><th>Account</th><th>Plan</th><th>Requests this month</th><th>Limit</th><th>AI calls</th><th>AI cost (USD)</th></tr></thead><tbody>' + d.usage.map(function (u) {
       var over = u.limit >= 0 && u.requests >= u.limit;
-      return '<tr><td>' + esc(u.name) + '</td><td>' + esc(NAMES[u.plan] || u.plan) + '</td><td' + (over ? ' style="color:#b91c1c;font-weight:700"' : '') + '>' + u.requests + '</td><td>' + (u.limit < 0 ? 'Unlimited' : u.limit) + '</td></tr>';
-    }).join('') + '</tbody></table></div>' : '<p class="p-cell-muted">No review requests sent this month.</p>';
+      return '<tr><td>' + esc(u.name) + '</td><td>' + esc(NAMES[u.plan] || u.plan) + '</td><td' + (over ? ' style="color:#b91c1c;font-weight:700"' : '') + '>' + u.requests + '</td><td>' + (u.limit < 0 ? 'Unlimited' : u.limit) + '</td><td>' + Number(u.ai_calls || 0) + '</td><td>$' + Number(u.ai_cost || 0).toFixed(4) + '</td></tr>';
+    }).join('') + '</tbody></table></div><p class="p-cell-muted" style="font-size:12.5px;margin:8px 0 0">AI cost is the real cost of this month\'s review replies, sentiment checks and request-message drafts, from the AI call log (priced by input and output tokens of the model that answered). Calls made before 2026-10-31 were priced with a lower flat rate and some had no company attached.</p>' : '<p class="p-cell-muted">No review requests sent this month.</p>';
 
     root.innerHTML =
       '<div class="p-card"><div class="p-card-head"><h3>Limits per plan</h3></div>' +

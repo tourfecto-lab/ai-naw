@@ -285,4 +285,21 @@ final class ReputationLimitsTest extends TestCase
         $this->assertSame([], ReputationLimits::maybeAlert(self::UID, $this->db), 'unlimited');
         $this->assertSame([], ReputationLimits::maybeAlert(self::OTHER, $this->db), 'SMS is 0 (not allowed): nothing to warn about');
     }
+
+    public function testUsageReportShowsTheMonthsRealAiCostPerAccount(): void
+    {
+        $this->request(self::UID);
+        $ids = [];
+        foreach ([['review_reply', 0.003], ['sentiment', 0.001], ['seo_audit', 9.0]] as [$feature, $cost]) {
+            $this->pdo->exec("INSERT INTO api_usage_logs (user_id, api_type, feature, model, tokens_used, cost_in_usd) VALUES (" . self::UID . ", 'gemini', '$feature', 'gemini-3.8-flash', 100, $cost)");
+            $ids[] = $this->pdo->lastInsertId();
+        }
+        try {
+            $rows = array_values(array_filter(ReputationLimits::usageReport(100, $this->db), fn ($r) => $r['user_id'] === self::UID));
+            $this->assertSame(2, $rows[0]['ai_calls'], 'only reputation features count, not other services');
+            $this->assertEquals(0.004, $rows[0]['ai_cost']);
+        } finally {
+            $this->pdo->exec('DELETE FROM api_usage_logs WHERE id IN (' . implode(',', $ids) . ')');
+        }
+    }
 }
