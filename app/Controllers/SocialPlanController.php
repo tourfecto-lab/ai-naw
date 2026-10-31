@@ -305,6 +305,45 @@ class SocialPlanController extends Controller
         return array_merge($this->show($params), ['message' => $msg]);
     }
 
+    /** POST /api/social-plan/competitors/find - «اكتشف منافسيني الحقيقيين» (من بيانات جوجل لموقعك، كاش 7 أيام) */
+    public function findCompetitors(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($e = $this->canManage()) return $e;
+        if ($e = $this->verifyCsrf()) return $e;
+        if ($e = $this->rateLimitGuard('user', 'social_competitor_find', 4, 3600)) return $e;
+        $owner = $this->owner();
+        $site = $this->website();
+        if (!$site || trim((string) $site['url']) === '') return $this->error(self::L('ضيف موقعك الأول عشان نلاقي منافسينك', 'Add your website first so we can find your competitors'), 422);
+        $lang = 'en';
+        foreach ($this->languages($owner, $site) as $l) {
+            if (!empty($l['default'])) { $lang = (string) $l['code']; break; }
+        }
+        $countries = [];
+        try {
+            foreach ((new SeoMarketService($this->db))->markets((int) $site['id'], $owner) as $m) {
+                $cc = SmartOnboardingService::countryForLocation((int) ($m['location_code'] ?? 0));
+                if ($cc !== null) $countries[] = $cc;
+            }
+        } catch (Throwable $e) {
+            error_log('[SocialPlanController] markets for competitor find failed: ' . $e->getMessage());
+        }
+        try {
+            $r = (new SocialCompetitorDiscovery($this->db))->findReal($owner, (int) $site['id'], (string) $site['url'], $lang, array_values(array_unique($countries)), filter_var($this->get('force'), FILTER_VALIDATE_BOOLEAN));
+        } catch (Throwable $e) {
+            Logger::error('Social competitor find failed', ['error' => $e->getMessage()]);
+            return $this->error(self::L('تعذر البحث عن المنافسين دلوقتي — جرّب كمان شوية', 'Could not search for competitors right now — try again shortly'), 503);
+        }
+        if (!empty($r['none'])) {
+            $msg = self::L('مالقيناش منافسين مؤكدين من بيانات جوجل لموقعك. ده بيحصل مع المواقع الجديدة أو اللي لسه ماظهرتش في جوجل. ضيف منافسين بإيدك من «مركز المنافسين».', 'We found no confirmed competitors from Google data for your site. This happens with new sites or ones not yet visible on Google. Add competitors manually from the Competitor Center.');
+        } else {
+            $msg = sprintf(self::L('لقينا %d منافس حقيقي من بيانات جوجل', 'Found %d real competitors from Google data'), (int) $r['found'])
+                . ($r['tracked'] ? sprintf(self::L(' — و%d بيتتابعوا بالأرقام على إنستجرام', ' — %d tracked with numbers on Instagram'), (int) $r['tracked']) : '')
+                . ($r['limit_note'] ? ' — ' . $r['limit_note'] : '');
+        }
+        return array_merge($this->show($params), ['message' => $msg, 'find' => $r]);
+    }
+
     /** POST /api/social-plan/auto-reply {on}: الرد الخاص التلقائي على اللي بيسأل عن السعر/الحجز */
     public function autoReply(array $params = []): array
     {

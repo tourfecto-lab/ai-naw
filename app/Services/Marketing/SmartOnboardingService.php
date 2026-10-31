@@ -516,6 +516,15 @@ class SmartOnboardingService
     ];
 
     /** السوق اللي بنقيس فيه: أول دولة مستهدفة بلغة الموقع، وإلا السوق الافتراضي للغة */
+    /** كود دولة (US...) من location_code بتاع DataForSEO - للأسواق المتسجلة في الـSEO */
+    public static function countryForLocation(int $locationCode): ?string
+    {
+        foreach (self::COUNTRY_LOC as $country => [$code]) {
+            if ($code === $locationCode) return $country;
+        }
+        return null;
+    }
+
     private function market(array $countries, string $language): array
     {
         foreach ($countries as $c) {

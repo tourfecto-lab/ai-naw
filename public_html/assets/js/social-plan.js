@@ -73,7 +73,7 @@
         return `<section class="sp-sec"><div class="sp-h"><span>2</span><div><h2>${t('منافسينك على السوشيال', 'Your competitors on social')}</h2><p>${t('من مواقع منافسينك الحقيقيين — بنطلّع صفحاتهم لوحدنا', 'From your real competitors’ websites — we find their pages for you')}</p></div>
                 <button type="button" class="p-btn outline sm" data-comp ${busy === 'comp' ? 'disabled' : ''}>${busy === 'comp' ? t('بندوّر…', 'Searching…') : t('دوّر تاني', 'Search again')}</button></div>
             ${(c.insights || []).length ? `<div class="p-card sp-ins">${c.insights.map(x => `<p>💡 ${esc(x)}</p>`).join('')}</div>` : ''}
-            ${cards ? `<div class="sp-grid c3">${cards}</div>` : `<div class="p-card sp-empty">${c.has_competitors ? `<p>${t('دوس «دوّر تاني» ونطلّعلك صفحاتهم.', 'Press “Search again” and we’ll find their pages.')}</p>` : `<p>${t('مفيش منافسين متسجلين لسه.', 'No competitors saved yet.')}</p><a class="p-btn outline" href="/competitor-intelligence">${t('ضيف منافسينك', 'Add competitors')}</a>`}</div>`}
+            ${cards ? `<div class="sp-grid c3">${cards}</div>` : `<div class="p-card sp-empty">${c.has_competitors ? `<p>${t('دوس «دوّر تاني» ونطلّعلك صفحاتهم.', 'Press “Search again” and we’ll find their pages.')}</p>` : `<p>${t('مفيش منافسين متسجلين لسه.', 'No competitors saved yet.')}</p><p class="sp-muted">${t('نطلّعلك منافسينك الحقيقيين من بيانات جوجل لموقعك (اللي بيظهروا في نفس بحثك) ونجيب صفحاتهم على فيسبوك وإنستجرام. مفيش تخمين.', 'We find your real competitors from Google data for your site (the ones showing up for the same searches) and pull their Facebook and Instagram pages. No guessing.')}</p><div class="sp-url"><button type="button" class="p-btn primary" data-comp-find ${busy === 'find' || !D.can_manage ? 'disabled' : ''}>${busy === 'find' ? t('بندوّر على منافسينك…', 'Finding your competitors…') : t('اكتشف منافسيني الحقيقيين', 'Find my real competitors')}</button><a class="p-btn outline" href="/competitor-intelligence">${t('أو ضيفهم بإيدك', 'Or add them manually')}</a></div>`}</div>`}
             <p class="sp-src">${t('أرقام إنستجرام حقيقية من Meta (لازم تكون رابط إنستجرام بيزنس). فيسبوك مابيسمحش بقراية أرقام صفحات تانية، فبنعرض لينك الصفحة بس.', 'Instagram numbers are real, from Meta (requires a connected Instagram Business account). Facebook doesn’t allow reading other pages’ numbers, so we show the page link only.')}</p></section>`;
     }
 
@@ -176,6 +176,7 @@
         }
         if (e.target.closest('[data-intake-apply]')) return act('intake', async () => { const r = await post('/intake/apply'); if (r && r.success) intakeRes = r.intake_results; return r; });
         if (e.target.closest('[data-intake-dismiss]')) { const r = await post('/intake/dismiss'); if (r && r.success) { D.intake = null; intakeRes = null; render(); } return; }
+        if (e.target.closest('[data-comp-find]')) return act('find', () => post('/competitors/find'));
         if (e.target.closest('[data-comp]')) return act('comp', () => post('/competitors/refresh'));
         if (e.target.closest('[data-start]')) {
             const auto = document.getElementById('spAuto');

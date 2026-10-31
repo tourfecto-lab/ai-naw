@@ -7,12 +7,15 @@
  *  - فيسبوك: بنعرض لينك الصفحة بس - Meta مابتسمحش بقراية أرقام صفحات تانية من غير صلاحية خاصة، فمابنخمّنش أرقام
  * extractSocial() نقية (بتتختبر).
  */
-final class SocialCompetitorDiscovery
+class SocialCompetitorDiscovery
 {
     private Database $db;
     private static bool $ready = false;
     /** مسارات فيسبوك/إنستجرام اللي مش صفحة (مشاركة/سياسات/بلجنز) */
     private const SKIP = ['sharer', 'share', 'sharer.php', 'dialog', 'plugins', 'tr', 'login', 'policies', 'privacy', 'help', 'about', 'pages', 'groups', 'events', 'watch', 'profile.php', 'p', 'reel', 'reels', 'explore', 'accounts', 'stories', 'tv', 'hashtag', 'photo', 'photos', 'permalink.php', 'story.php', 'home.php', 'business', 'ads', 'legal'];
+
+    /** @var callable|null fn(string $url, string $lang, int $websiteId, array $countries): array (للاختبارات) */
+    public static $competitorFinder = null;
 
     public function __construct(?Database $db = null)
     {
@@ -76,6 +79,9 @@ final class SocialCompetitorDiscovery
                 foreach ($cols as $c) if (!empty($w[$c])) $doms[self::host((string) $w[$c])] ??= '';
             }
         }
+        foreach ($this->db->query('SELECT domain, name FROM social_competitor_pages WHERE user_id = ? ORDER BY id DESC LIMIT 15', [$owner]) ?: [] as $r) {
+            $doms[(string) $r['domain']] ??= (string) ($r['name'] ?? '');
+        }
         unset($doms['']);
         $market = '/(tripadvisor|viator|getyourguide|booking|expedia|airbnb|klook|facebook|instagram|google|youtube|tiktok)\./i';
         return array_slice(array_filter($doms, fn ($d) => !preg_match($market, $d), ARRAY_FILTER_USE_KEY), 0, 10, true);
@@ -94,6 +100,14 @@ final class SocialCompetitorDiscovery
     {
         $domains = $this->competitorDomains($owner);
         if (!$domains) return ['success' => true, 'found' => 0, 'none' => true];
+        $r = $this->fetchPages($owner, $domains, $force);
+        $this->trackInstagram($owner);
+        return $r;
+    }
+
+    /** يفتح مواقع المنافسين (domain => اسم) ويحفظ صفحاتهم على فيسبوك وإنستجرام */
+    protected function fetchPages(int $owner, array $domains, bool $force): array
+    {
         $known = [];
         foreach ($this->db->query('SELECT domain, checked_at FROM social_competitor_pages WHERE user_id = ?', [$owner]) as $r) $known[$r['domain']] = $r['checked_at'];
         $todo = array_filter(array_keys($domains), fn ($d) => $force || !isset($known[$d]) || strtotime((string) $known[$d]) < time() - 7 * 86400);
@@ -128,8 +142,67 @@ final class SocialCompetitorDiscovery
             if ($s['facebook'] || $s['instagram']) $found++;
         }
         curl_multi_close($mh);
-        $this->trackInstagram($owner);
         return ['success' => true, 'found' => $found];
+    }
+
+    /**
+     * «اكتشف منافسيني الحقيقيين»: منافسين من بيانات جوجل الحقيقية لموقع العميل (DataForSEO: كلمات مشتركة وترتيب)،
+     * ونطلع صفحاتهم على فيسبوك وإنستجرام من مواقعهم. مفيش تخمين: اللي مالوش قياس من جوجل مابيتعرضش، ولو مفيش بيانات نقول كده.
+     * الكاش 7 أيام لكل عميل (الطلب بيتكلف). المتابعة بالأرقام على إنستجرام بتتم في حدود باقة العميل.
+     * @return array{success:bool, found:int, none?:bool, source:string, cached:bool, tracked:int, limit_note:?string, domains:array}
+     */
+    public function findReal(int $owner, int $websiteId, string $siteUrl, string $language, array $countries = [], bool $force = false): array
+    {
+        $host = self::host($siteUrl);
+        $ss = new SystemSettingsService();
+        $key = 'social_comp_find_' . $owner;
+        $cached = json_decode((string) $ss->get($key, ''), true);
+        $fresh = is_array($cached) && (int) ($cached['at'] ?? 0) > time() - 7 * 86400 && ($cached['site'] ?? '') === $host && !$force;
+        if ($fresh) {
+            $source = (string) ($cached['source'] ?? 'none');
+            $found = (array) ($cached['competitors'] ?? []);
+        } else {
+            $r = self::$competitorFinder ? (self::$competitorFinder)($siteUrl, $language, $websiteId, $countries) : (new SmartOnboardingService())->competitors($siteUrl, [], [], $language, $websiteId, $countries);
+            $source = (string) ($r['source'] ?? 'none');
+            $found = [];
+            foreach ((array) ($r['competitors'] ?? []) as $c) {
+                if (empty($c['measured']) || empty($c['domain'])) continue;
+                $found[] = ['domain' => self::host((string) $c['domain']), 'title' => (string) ($c['title'] ?? ''), 'shared_keywords' => $c['shared_keywords'] ?? null, 'traffic' => $c['traffic'] ?? null];
+                if (count($found) >= 6) break;
+            }
+            $ss->set($key, json_encode(['at' => time(), 'site' => $host, 'source' => $source, 'competitors' => $found], JSON_UNESCAPED_UNICODE));
+        }
+        if (!$found) return ['success' => true, 'found' => 0, 'none' => true, 'source' => $source, 'cached' => $fresh, 'tracked' => 0, 'limit_note' => null, 'domains' => []];
+        $domains = [];
+        foreach ($found as $c) $domains[$c['domain']] = ($c['title'] !== '' && strtolower($c['title']) !== $c['domain']) ? mb_substr($c['title'], 0, 120) : '';
+        $this->fetchPages($owner, $domains, $force);
+        [$tracked, $limitNote] = $this->trackWithinPlan($owner);
+        return ['success' => true, 'found' => count($found), 'source' => $source, 'cached' => $fresh, 'tracked' => $tracked, 'limit_note' => $limitNote, 'domains' => array_keys($domains)];
+    }
+
+    /** متابعة حسابات إنستجرام المنافسين بالأرقام، لحد حدود باقة العميل بس (من غير ما نتخطاها) */
+    private function trackWithinPlan(int $owner): array
+    {
+        if (!class_exists('SocialCompetitors')) return [0, null];
+        $svc = new SocialCompetitors($this->db);
+        if (!$svc->ready()) return [0, null];
+        $n = 0;
+        $note = null;
+        foreach ($this->db->query("SELECT id, instagram_username FROM social_competitor_pages WHERE user_id = ? AND instagram_username IS NOT NULL AND tracked = 0 ORDER BY id DESC LIMIT 6", [$owner]) ?: [] as $r) {
+            try {
+                SocialPackages::assertCompetitorSlot($owner);
+                $svc->add($owner, (string) $r['instagram_username']);
+                $this->db->query('UPDATE social_competitor_pages SET tracked = 1, track_error = NULL WHERE id = ?', [(int) $r['id']]);
+                $n++;
+            } catch (SocialPackageLimit $e) {
+                $note = $e->getMessage();
+                break;
+            } catch (Throwable $e) {
+                $this->db->query('UPDATE social_competitor_pages SET track_error = ? WHERE id = ?', [mb_substr($e->getMessage(), 0, 250), (int) $r['id']]);
+                if (str_contains($e->getMessage(), 'اربط')) break;
+            }
+        }
+        return [$n, $note];
     }
 
     /** حسابات إنستجرام المنافسين بتدخل المراقبة بالأرقام (لو العميل رابط إنستجرام بيزنس) */
