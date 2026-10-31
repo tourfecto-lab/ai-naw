@@ -19,6 +19,8 @@ class SystemSettingsService
         'geo_enabled'=>['category'=>'geo','label'=>'تفعيل قياس ظهور AI (1 فقط)','is_secret'=>false,'constant'=>''],
         'geo_openai_enabled'=>['category'=>'geo','label'=>'openai تفعيل','is_secret'=>false,'constant'=>''],
         'geo_openai_key'=>['category'=>'geo','label'=>'openai API Key','is_secret'=>true,'constant'=>''],
+        // الاسم اللي بيقراه قياس الظهور وبتحفظه شاشة الإعدادات فعلًا؛ من غير تسجيله هنا كان بيتحفظ كنص صريح غير مشفّر
+        'geo_openai_api_key'=>['category'=>'geo','label'=>'openai GEO API Key','is_secret'=>true,'constant'=>''],
         'geo_openai_model'=>['category'=>'geo','label'=>'openai اسم الموديل الدقيق','is_secret'=>false,'constant'=>''],
         'geo_openai_monthly_budget_usd'=>['category'=>'geo','label'=>'openai ميزانية شهرية USD','is_secret'=>false,'constant'=>''],
         'geo_openai_input_usd_per_million'=>['category'=>'geo','label'=>'openai سعر مليون input tokens USD','is_secret'=>false,'constant'=>''],
@@ -27,6 +29,8 @@ class SystemSettingsService
         'geo_openai_reserve_usd_per_check'=>['category'=>'geo','label'=>'openai أقصى احتياطي للسؤال USD (الحد الأدنى 0.10)','is_secret'=>false,'constant'=>''],
         'geo_gemini_enabled'=>['category'=>'geo','label'=>'gemini تفعيل','is_secret'=>false,'constant'=>''],
         'geo_gemini_key'=>['category'=>'geo','label'=>'gemini API Key','is_secret'=>true,'constant'=>''],
+        // الاسم اللي بيقراه قياس الظهور وبتحفظه شاشة الإعدادات فعلًا؛ من غير تسجيله هنا كان بيتحفظ كنص صريح غير مشفّر
+        'geo_gemini_api_key'=>['category'=>'geo','label'=>'gemini GEO API Key','is_secret'=>true,'constant'=>''],
         'geo_gemini_model'=>['category'=>'geo','label'=>'gemini اسم الموديل الدقيق','is_secret'=>false,'constant'=>''],
         'geo_gemini_monthly_budget_usd'=>['category'=>'geo','label'=>'gemini ميزانية شهرية USD','is_secret'=>false,'constant'=>''],
         'geo_gemini_input_usd_per_million'=>['category'=>'geo','label'=>'gemini سعر مليون input tokens USD','is_secret'=>false,'constant'=>''],
@@ -35,6 +39,8 @@ class SystemSettingsService
         'geo_gemini_reserve_usd_per_check'=>['category'=>'geo','label'=>'gemini أقصى احتياطي للسؤال USD (الحد الأدنى 0.10)','is_secret'=>false,'constant'=>''],
         'geo_perplexity_enabled'=>['category'=>'geo','label'=>'perplexity تفعيل','is_secret'=>false,'constant'=>''],
         'geo_perplexity_key'=>['category'=>'geo','label'=>'perplexity API Key','is_secret'=>true,'constant'=>''],
+        // الاسم اللي بيقراه قياس الظهور وبتحفظه شاشة الإعدادات فعلًا؛ من غير تسجيله هنا كان بيتحفظ كنص صريح غير مشفّر
+        'geo_perplexity_api_key'=>['category'=>'geo','label'=>'perplexity GEO API Key','is_secret'=>true,'constant'=>''],
         'geo_perplexity_model'=>['category'=>'geo','label'=>'perplexity اسم الموديل الدقيق','is_secret'=>false,'constant'=>''],
         'geo_perplexity_monthly_budget_usd'=>['category'=>'geo','label'=>'perplexity ميزانية شهرية USD','is_secret'=>false,'constant'=>''],
         'geo_perplexity_input_usd_per_million'=>['category'=>'geo','label'=>'perplexity سعر مليون input tokens USD','is_secret'=>false,'constant'=>''],
@@ -152,6 +158,10 @@ class SystemSettingsService
             }
             $value = $rows[0]['setting_value'];
             $plain = (bool) $rows[0]['is_secret'] ? $this->encryption->decrypt($value) : $value;
+            // قيمة سرية اتحفظت قبل التسجيل كنص صريح: نشفّرها مكانها من أول قراءة
+            if (!(bool) $rows[0]['is_secret'] && !empty(self::$registry[$key]['is_secret'])) {
+                $this->db->exec('UPDATE system_settings SET setting_value = ?, is_secret = 1 WHERE setting_key = ?', [$this->encryption->encrypt($plain), $key]);
+            }
 
             // إصلاح: مفتاح Gemini المحفوظ من لوحة الأدمن لو كان قيمة غلط/قصيرة
             // (مفاتيح Google أطول من 20 حرف دايمًا) بيتجاهَل ونرجع لمفتاح .env بدل
