@@ -302,4 +302,19 @@ final class ReputationLimitsTest extends TestCase
             $this->pdo->exec('DELETE FROM api_usage_logs WHERE id IN (' . implode(',', $ids) . ')');
         }
     }
+
+    public function testUsageReportIncludesAnAccountThatOnlyUsesAiReplies(): void
+    {
+        $this->pdo->exec("INSERT INTO api_usage_logs (user_id, api_type, feature, model, tokens_used, cost_in_usd) VALUES (" . self::OTHER . ", 'gemini', 'review_reply', 'gemini-3.8-flash', 100, 0.0125)");
+        $id = $this->pdo->lastInsertId();
+        try {
+            $rows = array_values(array_filter(ReputationLimits::usageReport(100, $this->db), fn ($r) => $r['user_id'] === self::OTHER));
+            $this->assertCount(1, $rows, 'no review request was sent, but its AI cost must still be reported');
+            $this->assertSame(0, $rows[0]['requests']);
+            $this->assertSame(1, $rows[0]['ai_calls']);
+            $this->assertEquals(0.0125, $rows[0]['ai_cost']);
+        } finally {
+            $this->pdo->exec("DELETE FROM api_usage_logs WHERE id = $id");
+        }
+    }
 }

@@ -315,35 +315,41 @@ class ReputationLimits
         return $sent;
     }
 
-    /** Admin: accounts with the most review requests this month. */
+    /** Admin: this month's review requests and real AI cost per account (any account with either). */
     public static function usageReport(int $limit = 30, ?Database $db = null): array
     {
         $db = $db ?: Database::getInstance();
-        $rows = $db->query(
-            "SELECT r.user_id, COUNT(*) AS requests, u.email, COALESCE(NULLIF(u.company_name,''), u.email) AS name
-               FROM review_requests r JOIN users u ON u.id = r.user_id
-              WHERE r.status <> 'failed' AND r.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
-              GROUP BY r.user_id, u.email, u.company_name ORDER BY requests DESC LIMIT " . max(1, min(100, $limit))
-        );
-        $ai = [];
+        $limit = max(1, min(100, $limit));
+        $byUser = [];
+        foreach ($db->query("SELECT user_id, COUNT(*) AS requests FROM review_requests WHERE status <> 'failed' AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY user_id ORDER BY requests DESC LIMIT " . $limit) as $r) {
+            $byUser[(int) $r['user_id']] = ['requests' => (int) $r['requests'], 'ai_calls' => 0, 'ai_cost' => 0.0];
+        }
         try {
-            $ids = array_map('intval', array_column($rows, 'user_id'));
-            if ($ids) {
-                foreach ($db->query("SELECT user_id, COUNT(*) AS calls, ROUND(SUM(cost_in_usd), 4) AS cost FROM api_usage_logs WHERE user_id IN (" . implode(',', $ids) . ") AND feature IN ('review_reply','sentiment','review_content') AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY user_id") as $a) {
-                    $ai[(int) $a['user_id']] = ['calls' => (int) $a['calls'], 'cost' => (float) $a['cost']];
-                }
+            foreach ($db->query("SELECT user_id, COUNT(*) AS calls, ROUND(SUM(cost_in_usd), 4) AS cost FROM api_usage_logs WHERE user_id IS NOT NULL AND feature IN ('review_reply','sentiment','review_content') AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY user_id ORDER BY cost DESC LIMIT " . $limit) as $a) {
+                $id = (int) $a['user_id'];
+                $byUser[$id] = ($byUser[$id] ?? ['requests' => 0]) + ['ai_calls' => 0, 'ai_cost' => 0.0];
+                $byUser[$id]['ai_calls'] = (int) $a['calls'];
+                $byUser[$id]['ai_cost'] = (float) $a['cost'];
             }
         } catch (Throwable $e) {
-            $ai = [];
+            // the AI log is optional: the request counts still show
         }
-        foreach ($rows as &$r) {
-            $r['user_id'] = (int) $r['user_id'];
-            $r['ai_calls'] = $ai[$r['user_id']]['calls'] ?? 0;
-            $r['ai_cost'] = $ai[$r['user_id']]['cost'] ?? 0.0;
-            $r['requests'] = (int) $r['requests'];
-            $r['plan'] = self::tierFor($r['user_id'], $db);
-            $r['limit'] = (int) self::limit($r['user_id'], 'review_requests_monthly', $db);
+        if (!$byUser) {
+            return [];
         }
-        return $rows;
+        $names = [];
+        foreach ($db->query('SELECT id, email, COALESCE(NULLIF(company_name, \'\'), email) AS name FROM users WHERE id IN (' . implode(',', array_keys($byUser)) . ')') as $u) {
+            $names[(int) $u['id']] = ['email' => $u['email'], 'name' => $u['name']];
+        }
+        $rows = [];
+        foreach ($byUser as $id => $v) {
+            $rows[] = [
+                'user_id' => $id, 'email' => $names[$id]['email'] ?? '', 'name' => $names[$id]['name'] ?? ('#' . $id),
+                'requests' => $v['requests'], 'ai_calls' => $v['ai_calls'], 'ai_cost' => $v['ai_cost'],
+                'plan' => self::tierFor($id, $db), 'limit' => (int) self::limit($id, 'review_requests_monthly', $db),
+            ];
+        }
+        usort($rows, static fn ($x, $y) => [$y['requests'], $y['ai_cost']] <=> [$x['requests'], $x['ai_cost']]);
+        return array_slice($rows, 0, $limit);
     }
 }
