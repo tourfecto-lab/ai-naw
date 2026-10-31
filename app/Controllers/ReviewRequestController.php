@@ -55,7 +55,7 @@ class ReviewRequestController extends Controller
             exit;
         }
         $company = trim((string) ($site->getAttribute('company_name') ?: $site->getAttribute('main_url')));
-        echo ReviewLanding::page($company, ReviewLanding::destinations($this->service->getSettings($websiteId)));
+        echo ReviewLanding::page($company, ReviewLanding::destinations($this->service->getSettings($websiteId)), '', GuestSurveys::ready() ? '/survey/' . GuestSurveys::code($websiteId) : '');
         exit;
     }
 
