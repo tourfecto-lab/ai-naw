@@ -341,7 +341,11 @@ class SocialPlanController extends Controller
         }
         if (!empty($r['none'])) {
             $why = ['monthly_budget_reached' => self::L('البحث المدفوع وصل للحد الشهري للمنصة', 'The platform’s monthly paid-search limit was reached'), 'search_disabled' => self::L('البحث المدفوع مقفول حاليًا', 'Paid search is currently off'),
-                'site_not_ranked' => self::L('موقعك لسه مش ظاهر في جوجل فمفيش كلمات مشتركة نقارن بيها', 'Your site is not visible on Google yet, so there are no shared keywords to compare'), 'provider_not_configured' => self::L('مصدر بيانات جوجل مش متاح دلوقتي', 'The Google data source is not available right now')][(string) ($r['reason'] ?? '')] ?? '';
+                'site_not_ranked' => self::L('موقعك لسه مش ظاهر في جوجل فمفيش كلمات مشتركة نقارن بيها', 'Your site is not visible on Google yet, so there are no shared keywords to compare'), 'provider_not_configured' => self::L('مصدر بيانات جوجل مش متاح دلوقتي', 'The Google data source is not available right now'),
+                'seo_monthly_budget_reached' => self::L('ميزانية بيانات جوجل الشهرية للمنصة خلصت، وهتتجدد أول الشهر الجاي', 'The platform’s monthly Google data budget is used up and renews next month'),
+                'seo_signup_daily_cap_reached' => self::L('وصلنا حد البحث اليومي، جرّب بكرة', 'We reached today’s search limit, try again tomorrow'),
+                'seo_budget_busy' => self::L('البحث مشغول لحظات، جرّب تاني بعد دقيقة', 'Search is busy for a moment, try again in a minute'),
+                'dataforseo_request_failed' => self::L('مصدر بيانات جوجل ماردّش دلوقتي', 'The Google data source did not respond')][(string) ($r['reason'] ?? '')] ?? '';
             $msg = self::L('مالقيناش منافسين مؤكدين لموقعك.', 'We found no confirmed competitors for your site.') . ($why !== '' ? ' ' . $why . '.' : '') . ' ' . self::L('ضيف منافسين بإيدك من «مركز المنافسين».', 'Add competitors manually from the Competitor Center.');
         } else {
             $from = ['google_data' => self::L('من بيانات جوجل لموقعك', 'from Google data for your site'), 'cache' => self::L('من نتيجة محفوظة', 'from a saved result'), 'global_cache' => self::L('من نتيجة محفوظة لنفس الموقع', 'from a saved result for the same site'),

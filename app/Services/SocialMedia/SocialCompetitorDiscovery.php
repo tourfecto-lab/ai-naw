@@ -204,10 +204,13 @@ class SocialCompetitorDiscovery
                     if (count($found) >= 6) break;
                 }
                 $source = $found ? 'google_data' : '';
-                // النتيجة (حتى لو فاضية) بتتحفظ: مانكرّرش طلب مدفوع لنفس الموقع
-                $payload = json_encode(['at' => time(), 'site' => $host, 'source' => $source ?: 'none', 'competitors' => $found], JSON_UNESCAPED_UNICODE);
-                $ss->set($ownKey, $payload);
-                if ($found) $ss->set($globalKey, $payload);
+                // النتيجة النهائية بتتحفظ (حتى الفاضية لموقع مش ظاهر في جوجل) عشان مانكرّرش طلب مدفوع.
+                // أي فشل مؤقت (ميزانية، حد يومي، خطأ مزوّد) مايتحفظش: العميل يقدر يجرّب تاني بعد ما يتصلّح.
+                if ($found || $reason === null || $reason === 'site_not_ranked') {
+                    $payload = json_encode(['at' => time(), 'site' => $host, 'source' => $source ?: 'none', 'competitors' => $found], JSON_UNESCAPED_UNICODE);
+                    $ss->set($ownKey, $payload);
+                    if ($found) $ss->set($globalKey, $payload);
+                }
             }
         }
         $measured = $found !== [];

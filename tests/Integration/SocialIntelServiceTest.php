@@ -155,6 +155,37 @@ final class SocialIntelServiceTest extends TestCase
         $this->assertSame(1, (int) $this->pdo->query("SELECT seen_count FROM social_market_directory WHERE domain = 'rival-a.com' AND market_key = 'ZZ-xx'")->fetchColumn());
     }
 
+    public function testTemporaryProviderFailureIsNotCached(): void
+    {
+        $calls = 0;
+        SocialCompetitorDiscovery::$competitorFinder = function () use (&$calls): array {
+            $calls++;
+            return $calls === 1
+                ? ['source' => 'none', 'reason' => 'seo_monthly_budget_reached', 'competitors' => [], 'cost' => 0.0]
+                : ['source' => 'google_data', 'competitors' => [['domain' => 'rival-a.com', 'title' => 'A', 'measured' => true]], 'cost' => 0.03];
+        };
+        $svc = $this->discovery();
+        $first = $svc->findReal(900401, 1, 'https://mine.example', 'xx', ['ZZ']);
+        $this->assertTrue($first['none']);
+        $this->assertSame('seo_monthly_budget_reached', $first['reason']);
+        $second = $svc->findReal(900401, 1, 'https://mine.example', 'xx', ['ZZ']);
+        $this->assertSame(2, $calls, 'الفشل المؤقت مايتحفظش 30 يوم');
+        $this->assertSame('google_data', $second['source']);
+    }
+
+    public function testSiteNotRankedIsCachedBecauseItIsAFinalAnswer(): void
+    {
+        $calls = 0;
+        SocialCompetitorDiscovery::$competitorFinder = function () use (&$calls): array {
+            $calls++;
+            return ['source' => 'none', 'reason' => 'site_not_ranked', 'competitors' => [], 'cost' => 0.0121];
+        };
+        $svc = $this->discovery();
+        $svc->findReal(900401, 1, 'https://brand-new.example', 'xx', ['ZZ']);
+        $svc->findReal(900401, 1, 'https://brand-new.example', 'xx', ['ZZ']);
+        $this->assertSame(1, $calls);
+    }
+
     public function testBudgetReachedSkipsThePaidCall(): void
     {
         SocialPackages::saveConfig(['finder_budget_usd' => 0], null);
