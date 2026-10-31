@@ -55,7 +55,16 @@ class ReviewRequestController extends Controller
             exit;
         }
         $company = trim((string) ($site->getAttribute('company_name') ?: $site->getAttribute('main_url')));
-        echo ReviewLanding::page($company, ReviewLanding::destinations($this->service->getSettings($websiteId)), '', GuestSurveys::ready() ? '/survey/' . GuestSurveys::code($websiteId) : '');
+        $lang = (string) $this->get('lang', '');
+        $ar = $lang === 'ar' || ($lang !== 'en' && function_exists('current_lang') && current_lang() === 'ar');
+        $dest = ReviewLanding::destinations($this->service->getSettings($websiteId));
+        if ($ar) {
+            foreach ($dest as &$d) {
+                $d['label'] = $d['key'] === 'other' ? 'قيّمنا' : $d['label'];
+            }
+            unset($d);
+        }
+        echo ReviewLanding::page($company, $dest, '', GuestSurveys::ready() ? '/survey/' . GuestSurveys::code($websiteId) : '', $ar);
         exit;
     }
 

@@ -156,6 +156,8 @@ class ReviewRequestService
         ]);
         $request->save();
 
+        ReputationLimits::maybeAlert($userId, $this->db);
+
         return $request;
     }
 
