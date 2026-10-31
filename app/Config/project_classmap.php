@@ -706,6 +706,7 @@ return [
     'ReviewRequestService' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewRequestService.php',
     'ReviewRequestSettings' => dirname(__DIR__,2).'/app/Models/ReviewRequestSettings.php',
     'ReviewRequestTemplate' => dirname(__DIR__,2).'/app/Models/ReviewRequestTemplate.php',
+    'ReviewImporter' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewImporter.php',
     'ReviewLanding' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewLanding.php',
     'ReviewAssignment' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewAssignment.php',
     'ReviewTopicExtractor' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewTopicExtractor.php',

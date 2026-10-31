@@ -425,6 +425,9 @@ class ReputationController extends Controller
                 <option value="">{$this->tr('rep.filter.all_platforms')}</option>
                 <option value="tripadvisor">TripAdvisor</option>
                 <option value="google_business">Google Business</option>
+                <option value="booking">Booking.com</option>
+                <option value="expedia">Expedia</option>
+                <option value="trustpilot">Trustpilot</option>
             </select>
             <select id="filterMinRating" class="p-select">
                 <option value="">كل التقييمات</option>
@@ -876,6 +879,19 @@ JS;
             <div class="p-card-head"><h3>TripAdvisor</h3><span class="p-card-sub">{$this->tr('rep.platforms.ta.sub')}</span></div>
             <div id="tripadvisorConnections"><div class="p-loading-row">{$this->tr('common.loading')}</div></div>
         </div>
+        <div class="p-card" style="margin-top:16px;" id="importCard">
+            <div class="p-card-head"><h3>Import reviews from other sites</h3><span class="p-card-sub">Booking.com, Expedia, Trustpilot and others do not offer an open reading API, so upload the CSV exported from their dashboard.</span></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+                <label style="display:grid;gap:4px;font-size:13px">Website<select id="impSite" class="p-select"></select></label>
+                <label style="display:grid;gap:4px;font-size:13px">Source<select id="impSource" class="p-select"><option value="booking">Booking.com</option><option value="expedia">Expedia</option><option value="trustpilot">Trustpilot</option><option value="custom">Other</option></select></label>
+                <label style="display:grid;gap:4px;font-size:13px">Rating scale<select id="impScale" class="p-select"><option value="5">1 to 5</option><option value="10">1 to 10 (Booking.com)</option></select></label>
+                <label style="display:grid;gap:4px;font-size:13px">CSV file<input type="file" id="impFile" accept=".csv,text/csv"></label>
+                <button class="p-btn outline" id="impPreview">Check file</button>
+                <button class="p-btn primary" id="impGo" disabled>Import</button>
+            </div>
+            <p class="p-cell-muted" style="margin:10px 0 0;font-size:12.5px">Columns: rating (or score), review_text (or comment), reviewer_name, review_date, optional external_id. UTF-8, up to 500 rows per file. Re-uploading the same file never creates duplicates.</p>
+            <div id="impResult" role="status" aria-live="polite" style="margin-top:10px"></div>
+        </div>
         <div class="p-card no-pad" style="margin-top:18px;">
             <div class="p-card-head" style="padding:18px 20px 0;"><h3>{$this->tr('rep.platforms.current_data')}</h3></div>
             <div class="p-table-scroll"><table class="p-table" id="platformsTable">
@@ -889,6 +905,35 @@ HTML;
 (function () {
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+
+    // ===== import reviews from a CSV exported from another site
+    (async function initImport() {
+        const sel = document.getElementById('impSite');
+        if (!sel) return;
+        const r = await fetchJSON('/api/websites');
+        const sites = (r.success && r.data.websites) || [];
+        sel.innerHTML = sites.map(w => '<option value="' + Number(w.id) + '">' + esc(w.company_name || w.main_url || ('#' + w.id)) + '</option>').join('');
+        let csv = '';
+        const out = document.getElementById('impResult'), go = document.getElementById('impGo');
+        const send = async dry => {
+            const f = document.getElementById('impFile').files[0];
+            if (!f) { toast('Choose a CSV file first', 'error'); return; }
+            if (f.size > 1048576) { toast('The file is larger than 1 MB', 'error'); return; }
+            csv = await f.text();
+            out.textContent = 'Working...';
+            const res = await fetchJSON('/api/reputation/import', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ website_id: sel.value, source: document.getElementById('impSource').value, scale: document.getElementById('impScale').value, csv: csv, dry_run: dry }) });
+            if (!res.success) { out.innerHTML = '<span style="color:#b91c1c">' + esc(res.error || 'Import failed') + '</span>'; go.disabled = true; return; }
+            const d = res.data;
+            out.innerHTML = '<b>' + d.imported + '</b> ' + (dry ? 'new reviews ready to import' : 'reviews imported') + ' · <b>' + d.duplicates + '</b> already in your account · ' + d.total + ' rows read'
+                + (d.errors.length ? '<ul style="margin:6px 0 0;padding-inline-start:18px">' + d.errors.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul>' : '');
+            go.disabled = dry ? d.imported === 0 : true;
+            if (!dry) toast(d.imported + ' reviews imported', 'success');
+        };
+        document.getElementById('impPreview').onclick = () => send(true);
+        go.onclick = () => { go.disabled = true; send(false); };
+        document.getElementById('impFile').onchange = () => { go.disabled = true; out.textContent = ''; };
+    })();
 
     window.disconnectGoogle = async function (websiteId) {
         if (!confirm(I18N['rep.platforms.confirm_disconnect_google'])) return;
@@ -1303,6 +1348,41 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         );
 
         return $api->sendReply($platformReviewId, $replyText);
+    }
+
+    /** POST /api/reputation/import  {website_id, source, scale, csv, dry_run} */
+    public function importReviews(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $websiteId = (int) $this->get('website_id', 0);
+        if (!$this->canAccessWebsite($websiteId)) {
+            return $this->error('Website not found', 404);
+        }
+        $csv = (string) $this->get('csv', '');
+        if ($csv === '' || strlen($csv) > ReviewImporter::MAX_BYTES) {
+            return $this->error('Upload a CSV file up to 1 MB', 422);
+        }
+        $source = (string) $this->get('source', '');
+        if (!in_array($source, ReviewImporter::SOURCES, true)) {
+            return $this->error('Choose the source of these reviews', 422);
+        }
+        try {
+            $owner = (int) ($this->db->query('SELECT user_id FROM websites WHERE id = ? LIMIT 1', [$websiteId])[0]['user_id'] ?? 0);
+            $dry = filter_var($this->get('dry_run', false), FILTER_VALIDATE_BOOLEAN);
+            $res = ReviewImporter::import($owner, $websiteId, $source, $csv, (int) $this->get('scale', 5), $dry);
+        } catch (Throwable $e) {
+            Logger::error('Review import failed', ['message' => $e->getMessage()]);
+            return $this->error('Could not import the file', 500);
+        }
+        if ($res['total'] === 0 && !empty($res['errors'])) {
+            return $this->error((string) $res['errors'][0], 422);
+        }
+        return $this->success($res);
     }
 
     /** POST /api/reputation/review/{id}/assign  {assignee_id|null, due_hours, note} */
