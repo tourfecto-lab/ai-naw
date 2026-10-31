@@ -510,6 +510,7 @@ return [
     'GbpScheduledPost' => dirname(__DIR__,2).'/app/Models/GbpScheduledPost.php',
     'GbpSetupStatusService' => dirname(__DIR__,2).'/app/Services/GoogleBusiness/GbpSetupStatusService.php',
     'GbpSyncService' => dirname(__DIR__,2).'/app/Services/GoogleBusiness/GbpSyncService.php',
+    'GeminiPricing' => dirname(__DIR__,2).'/app/Services/AI/GeminiPricing.php',
     'GeminiClient' => dirname(__DIR__,2).'/app/Services/AI/GeminiClient.php',
     'GeminiProvider' => dirname(__DIR__,2).'/app/Services/AI/Providers/GeminiProvider.php',
     'GenerateMediaJob' => dirname(__DIR__,2).'/app/Jobs/GenerateMediaJob.php',

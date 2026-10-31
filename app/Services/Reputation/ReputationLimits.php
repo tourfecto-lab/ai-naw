@@ -325,8 +325,21 @@ class ReputationLimits
               WHERE r.status <> 'failed' AND r.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
               GROUP BY r.user_id, u.email, u.company_name ORDER BY requests DESC LIMIT " . max(1, min(100, $limit))
         );
+        $ai = [];
+        try {
+            $ids = array_map('intval', array_column($rows, 'user_id'));
+            if ($ids) {
+                foreach ($db->query("SELECT user_id, COUNT(*) AS calls, ROUND(SUM(cost_in_usd), 4) AS cost FROM api_usage_logs WHERE user_id IN (" . implode(',', $ids) . ") AND feature IN ('review_reply','sentiment','review_content') AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') GROUP BY user_id") as $a) {
+                    $ai[(int) $a['user_id']] = ['calls' => (int) $a['calls'], 'cost' => (float) $a['cost']];
+                }
+            }
+        } catch (Throwable $e) {
+            $ai = [];
+        }
         foreach ($rows as &$r) {
             $r['user_id'] = (int) $r['user_id'];
+            $r['ai_calls'] = $ai[$r['user_id']]['calls'] ?? 0;
+            $r['ai_cost'] = $ai[$r['user_id']]['cost'] ?? 0.0;
             $r['requests'] = (int) $r['requests'];
             $r['plan'] = self::tierFor($r['user_id'], $db);
             $r['limit'] = (int) self::limit($r['user_id'], 'review_requests_monthly', $db);

@@ -96,6 +96,9 @@ class GeminiClient
             $this->meta = [
                 'task' => isset($options['task']) ? substr(preg_replace('/[^a-z0-9_\-]/i', '', (string) $options['task']), 0, 60) : null,
                 'user_id' => isset($options['user_id']) ? (int) $options['user_id'] : null,
+                // false = attribute the cost to the company but do not apply the fair-use limits (used by background jobs,
+                // which were never counted by AIGovernor; counting them now would turn bursts of AI replies into fallbacks)
+                'govern' => !array_key_exists('govern', $options) || (bool) $options['govern'],
             ];
             // الحوكمة المركزية: نسب الطلب للشركة صاحبته (حتى لو الاستدعاء ما بعتش user_id)
             // وطبّق حدود الاستخدام العادلة. أي خطأ هنا بيتجاهل (fail-open).
@@ -105,7 +108,7 @@ class GeminiClient
                 }
                 if (class_exists('AIGovernor')) {
                     $this->meta['user_id'] = AIGovernor::resolveUserId($this->meta['user_id']);
-                    $blocked = AIGovernor::check($this->meta['user_id'], $this->meta['task']);
+                    $blocked = $this->meta['govern'] ? AIGovernor::check($this->meta['user_id'], $this->meta['task']) : null;
                     if ($blocked !== null) {
                         return [
                             'success' => false,
@@ -506,6 +509,12 @@ class GeminiClient
 
                     $tokensUsed = $data['usageMetadata']['totalTokenCount'] ?? 0;
                     $costPer1k = defined('GEMINI_COST_PER_1K_INPUT_TOKENS') ? GEMINI_COST_PER_1K_INPUT_TOKENS : 0.000125;
+                    // Real cost: input and output (thinking included) are priced separately, per the model that answered
+                    $inTok = (int) ($data['usageMetadata']['promptTokenCount'] ?? 0);
+                    $outTok = (int) ($data['usageMetadata']['candidatesTokenCount'] ?? 0) + (int) ($data['usageMetadata']['thoughtsTokenCount'] ?? 0);
+                    $callCost = ($inTok + $outTok) > 0
+                        ? GeminiPricing::cost((string) ($data['modelVersion'] ?? $model), $inTok, $outTok)
+                        : ($tokensUsed / 1000) * $costPer1k;
 
                     if ($mi > 0) {
                         Logger::warning('Gemini served by fallback model', ['primary' => $models[0], 'used' => $model]);
@@ -515,7 +524,7 @@ class GeminiClient
                         'success' => true,
                         'data' => $text,
                         'tokens_used' => $tokensUsed,
-                        'cost' => ($tokensUsed / 1000) * $costPer1k,
+                        'cost' => $callCost,
                         'http_code' => $httpCode,
                         'model' => $model,
                         'raw_response' => $data,
@@ -670,7 +679,7 @@ class GeminiClient
      * @param float $duration
      */
     /** @var array بيانات تتبّع للطلب الحالي (مش بتتبعت لـ Google) */
-    private $meta = ['task' => null, 'user_id' => null];
+    private $meta = ['task' => null, 'user_id' => null, 'govern' => true];
 
     /** الحقول اللي Gemini بتقبلها في generationConfig. أي حاجة تانية بتتشال بدل ما تكسر الطلب. */
     private const GENERATION_CONFIG_KEYS = [
@@ -683,7 +692,7 @@ class GeminiClient
     {
         $clean = array_intersect_key($config, array_flip(self::GENERATION_CONFIG_KEYS));
         $dropped = array_diff(array_keys($config), array_keys($clean));
-        if ($dropped && !in_array('task', $dropped, true) && !in_array('user_id', $dropped, true)) {
+        if ($dropped && !in_array('task', $dropped, true) && !in_array('user_id', $dropped, true) && !in_array('govern', $dropped, true)) {
             Logger::warning('Gemini: unsupported generationConfig keys dropped', ['keys' => array_values($dropped)]);
         }
         return $clean;

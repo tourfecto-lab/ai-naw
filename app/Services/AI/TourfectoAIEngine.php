@@ -284,7 +284,7 @@ class TourfectoAIEngine
             }
 
             // إرسال الطلب إلى Gemini API
-            $apiResponse = $this->geminiClient->generateContent($prompt, ['task'=>'review_reply']);
+            $apiResponse = $this->geminiClient->generateContent($prompt, ['task'=>'review_reply', 'user_id'=>$userId, 'govern'=>(PHP_SAPI !== 'cli')]);
 
             if (!$apiResponse['success']) {
                 return $this->getFallbackReply($sentiment, $reviewText);
@@ -425,7 +425,7 @@ class TourfectoAIEngine
             $prompt = $this->promptBuilder->buildSentimentAnalysisPrompt($text);
 
             // إرسال الطلب إلى Gemini API
-            $apiResponse = $this->geminiClient->generateContent($prompt, ['task'=>'sentiment']);
+            $apiResponse = $this->geminiClient->generateContent($prompt, ['task'=>'sentiment', 'user_id'=>$userId, 'govern'=>(PHP_SAPI !== 'cli')]);
 
             if (!$apiResponse['success']) {
                 return $this->simpleSentimentAnalysis($text);
