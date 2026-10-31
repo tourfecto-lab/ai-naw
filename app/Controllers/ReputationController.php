@@ -1623,10 +1623,15 @@ JS;
 
         try {
             $connections = (new PlatformConnection())->where(['website_id' => $websiteId, 'platform' => 'tripadvisor']);
+            $removed = 0;
             foreach ($connections as $conn) {
                 if ((int) $conn->getAttribute('user_id') === (int) $this->user['id']) {
                     $conn->delete();
+                    $removed++;
                 }
+            }
+            if ($removed === 0) {
+                return $this->error('لا يوجد ربط لفصله', 404);
             }
             return $this->success([], 'تم فصل الربط');
         } catch (Exception $e) {
@@ -1942,10 +1947,16 @@ JS;
 
         try {
             $connections = (new PlatformConnection())->where(['website_id' => $websiteId, 'platform' => 'google_business']);
+            $removed = 0;
             foreach ($connections as $conn) {
                 if ((int) $conn->getAttribute('user_id') === (int) $this->user['id']) {
                     $conn->delete();
+                    $removed++;
                 }
+            }
+            // Someone else's website (or nothing connected): no event and no audit entry may be written for it
+            if ($removed === 0) {
+                return $this->error('لا يوجد ربط لفصله', 404);
             }
             // GBP Module Upgrade (2026-08-09): GBPDisconnected event مطلوب صراحة بالسبيك
             if (function_exists('event')) {
