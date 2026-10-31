@@ -124,8 +124,10 @@ class PublishSocialPostJob implements QueueJobInterface
 
             $media = $this->resolveMedia((int) $post->getAttribute('media_item_id'));
             if($media&&(int)$media->getAttribute('user_id')!==(int)$post->getAttribute('user_id'))throw new RuntimeException('Media ownership mismatch');
-            if($post->getAttribute('media_item_id')&&!$media)throw new RuntimeException('Publish media unavailable');
-            if($media)$this->assertMediaFileExists((string)$media->getAttribute('file_path'));
+            // قبل ما نكلّم Meta: وسائط مفقودة = فشل نهائي واضح (مش «غير مؤكد»، لأن مفيش حاجة اتبعتت)
+            $mediaMissing = 'ملف الصورة أو الفيديو مش موجود على السيرفر (اتمسح أو لسه ماجهزش). ارفعه تاني أو اختار غيره من فورم المنشور.';
+            if($post->getAttribute('media_item_id')&&!$media){$this->fail($target,$mediaMissing);return;}
+            if($media){try{$this->assertMediaFileExists((string)$media->getAttribute('file_path'));}catch(RuntimeException $e){$this->fail($target,$mediaMissing);return;}}
             $mediaUrl = $media && $platform !== 'youtube' ? (PrivateMedia::valid((string)$media->getAttribute('file_path'))?PrivateMedia::publishUrl($media):$this->toPublicUrl((string)$media->getAttribute('file_path'))) : null;
             $isVideo = $media && $media->getAttribute('type') === 'short_video';
 

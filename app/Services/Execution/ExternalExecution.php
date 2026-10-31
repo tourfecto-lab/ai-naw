@@ -28,7 +28,9 @@ class ExternalExecution
             // Only an explicit rejection establishes that retrying cannot duplicate an external write.
             $code=(int)($result['http_code']??0);
             $state=!empty($result['success'])?'completed':(!empty($result['definitive_failure'])||($code>=400&&$code<500&&$code!==408&&$code!==429)?'failed':'uncertain');
-            $safe=array_intersect_key($result,array_flip(['success','error','http_code','post_id','video_id','container_id','publish_id','operation_name','message_id','external_message_id','status','id','definitive_failure']));
+            $safe=array_intersect_key($result,array_flip(['success','error','http_code','post_id','video_id','container_id','publish_id','operation_name','message_id','external_message_id','status','id','definitive_failure',
+            // حقول تصنيف Meta اللي PublishPolicy محتاجها (إعادة المحاولة عند حد الاستخدام، غير مؤكد، سبب الفشل): من غير أي بيانات حساسة
+            'definitive','category','not_sent','transient','error_code','error_subcode','error_type','fbtrace_id','retry_after','friendly']));
             $safe['outcome_state']=$state;self::persist($hash,$state,$safe);return $safe;
         } finally {self::unlock($key);}
     }
