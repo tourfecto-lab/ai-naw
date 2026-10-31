@@ -1,16 +1,23 @@
 <?php
 
 /**
- * Tourfecto - «افحص حضورك على السوشيال مجانًا» (عام، من غير تسجيل)
+ * Tourfecto - «حلّل صفحاتك ومنافسينك» (عام، من غير تسجيل)
  *
- * الزائر بيكتب رابط موقعه ← بنجيب الصفحة الرئيسية مرة واحدة (SafeHttp) ← فحوصات على اللي السائح والمنصات بيشوفوه:
- * هل صفحات فيسبوك وإنستجرام مربوطة من الموقع، هل الرابط لما يتشارك بيظهر بصورة وعنوان، هل فيه بيكسل فيسبوك، هل فيه واتساب...
- * مفيش دخول على حسابات فيسبوك أو إنستجرام ومفيش سحب لبياناتها (ده بيتم بعد الربط الرسمي من جوه الحساب).
- * مفيش ذكاء اصطناعي ولا تكلفة.
+ * الزائر بيكتب لينك صفحة فيسبوك ولينك حساب إنستجرام (ولحد 3 منافسين). هنا بنتحقق من الروابط بس (شكل الرابط والمنصة والاسم)
+ * ونقول بدقة: إيه اللي هيتحلل، وإيه المطلوب، وأنهي باقة محتاجها. مفيش أي رقم عن الصفحة هنا:
+ * أرقام الصفحات والمنافسين بتتقرا من Meta الرسمي بعد ما صاحب الصفحة يربطها من جوه المنصة (SocialAuditService / SocialCompetitors).
+ * مفيش دخول على فيسبوك أو إنستجرام ومفيش سحب لبيانات أي صفحة من برّه، ومفيش شبكة في الكلاس ده خالص.
  */
 class FreeSocialCheckService
 {
+    public const MAX_COMPETITORS = 3;
+    public const COOKIE = 'tf_social_intake';
+
     private bool $ar;
+
+    private const FB_RESERVED = ['sharer', 'sharer.php', 'share', 'share.php', 'dialog', 'plugins', 'tr', 'login', 'policies', 'help', 'groups', 'events', 'watch', 'marketplace', 'people',
+        'hashtag', 'photo', 'photo.php', 'permalink.php', 'story.php', 'l.php', 'privacy', 'about', 'gaming', 'reel', 'reels', 'stories', 'posts', 'videos', 'photos', 'public', 'search', 'home.php', 'bookmarks'];
+    private const IG_RESERVED = ['p', 'reel', 'reels', 'explore', 'accounts', 'direct', 'stories', 'tv', 'about', 'developer', 'legal', 'oauth', 'web', 'challenge', 'directory'];
 
     public function __construct(string $lang = 'en')
     {
@@ -22,175 +29,266 @@ class FreeSocialCheckService
         return $this->ar ? $ar : $en;
     }
 
-    /** @return array{ok:bool, error?:string, url?:string, host?:string, score?:int, checks?:array, top?:array, profiles?:array, passed?:int, total?:int} */
-    public function run(string $url): array
+    /**
+     * يتحقق من لينك واحد ويرجّع الشكل القياسي.
+     * @param string $expect facebook|instagram|any (أي حقل الزائر كتب فيه)
+     * @return array{ok:bool, platform?:string, handle?:string, url?:string, numeric_id?:bool, error?:string}
+     */
+    public function parseLink(string $raw, string $expect = 'any'): array
     {
-        $start = microtime(true);
-        $r = SafeHttp::exec($url, [
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_CONNECTTIMEOUT => 6,
-            CURLOPT_HEADER => true,
-            CURLOPT_USERAGENT => 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36 TourfectoCheck/1.0',
-            CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml', 'Accept-Language: en,ar;q=0.8'],
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXFILESIZE => 3 * 1024 * 1024,
-        ], 5);
-        if ($r['response'] === false || $r['code'] === 0) {
-            return ['ok' => false, 'error' => $this->t('مقدرناش نفتح الموقع ده. اتأكد من الرابط وإن الموقع شغّال.', 'We could not open this website. Check the address and that the site is up.')];
+        $u = trim($raw);
+        if ($u === '' || mb_strlen($u) > 300) {
+            return ['ok' => false, 'error' => $this->t('اللينك فاضي أو طويل جدًا.', 'The link is empty or too long.')];
         }
-        if ($r['code'] >= 400) {
-            return ['ok' => false, 'error' => $this->t('الموقع رجّع خطأ (' . $r['code'] . ').', 'The website returned an error (' . $r['code'] . ').')];
+        // اسم مجرّد (@name أو name) بيتفسّر حسب الحقل
+        if (!preg_match('~(facebook\.com|fb\.com|instagram\.com)~i', $u) && !preg_match('~/~', $u)) {
+            if ($expect === 'any') {
+                return ['ok' => false, 'error' => $this->t('اكتب لينك كامل لصفحة فيسبوك أو حساب إنستجرام.', 'Enter a full Facebook page or Instagram profile link.')];
+            }
+            $u = 'https://' . ($expect === 'instagram' ? 'www.instagram.com/' : 'www.facebook.com/') . ltrim($u, '@');
+        } elseif (!preg_match('~^https?://~i', $u)) {
+            $u = 'https://' . ltrim($u, '/');
         }
-        $html = substr((string) $r['response'], (int) $r['header_size']);
-        if (stripos($html, '<html') === false && stripos($html, '<head') === false) {
-            return ['ok' => false, 'error' => $this->t('الرابط ده مش صفحة موقع.', 'This address is not a web page.')];
+        $p = parse_url($u);
+        $host = strtolower((string) ($p['host'] ?? ''));
+        $host = preg_replace('~^(www\.|m\.|web\.|mbasic\.|l\.)~', '', $host);
+        $path = trim((string) ($p['path'] ?? ''), '/');
+        parse_str((string) ($p['query'] ?? ''), $q);
+        $seg = $path === '' ? [] : explode('/', $path);
+
+        if (in_array($host, ['facebook.com', 'fb.com'], true)) {
+            $platform = 'facebook';
+        } elseif ($host === 'instagram.com') {
+            $platform = 'instagram';
+        } else {
+            return ['ok' => false, 'error' => $this->t('اللينك ده مش من فيسبوك ولا إنستجرام.', 'This link is not from Facebook or Instagram.')];
         }
-        return $this->analyze($html, (string) $r['url']);
+        if ($expect !== 'any' && $platform !== $expect) {
+            return ['ok' => false, 'error' => $platform === 'instagram'
+                ? $this->t('ده لينك إنستجرام - حطه في خانة إنستجرام.', 'This is an Instagram link - put it in the Instagram field.')
+                : $this->t('ده لينك فيسبوك - حطه في خانة فيسبوك.', 'This is a Facebook link - put it in the Facebook field.')];
+        }
+
+        if ($platform === 'instagram') {
+            $h = $seg[0] ?? '';
+            if ($h === '' || in_array(strtolower($h), self::IG_RESERVED, true)) {
+                return ['ok' => false, 'error' => $this->t('ده مش لينك حساب. افتح الحساب نفسه وانسخ اللينك (instagram.com/اسم_الحساب).', 'This is not a profile link. Open the profile itself and copy its link (instagram.com/username).')];
+            }
+            if (!preg_match('~^[A-Za-z0-9._]{1,30}$~', $h)) {
+                return ['ok' => false, 'error' => $this->t('اسم حساب إنستجرام غير صحيح.', 'The Instagram username is not valid.')];
+            }
+            return ['ok' => true, 'platform' => 'instagram', 'handle' => strtolower($h), 'url' => 'https://www.instagram.com/' . strtolower($h) . '/'];
+        }
+
+        // فيسبوك
+        $first = strtolower($seg[0] ?? '');
+        if ($first === 'profile.php' && isset($q['id']) && preg_match('~^\d{5,20}$~', (string) $q['id'])) {
+            return ['ok' => true, 'platform' => 'facebook', 'handle' => (string) $q['id'], 'url' => 'https://www.facebook.com/profile.php?id=' . $q['id'], 'numeric_id' => true];
+        }
+        if ($first === 'pages' && isset($seg[2]) && preg_match('~^\d{5,20}$~', $seg[2])) {
+            return ['ok' => true, 'platform' => 'facebook', 'handle' => $seg[2], 'url' => 'https://www.facebook.com/' . $seg[2], 'numeric_id' => true];
+        }
+        if ($first === 'pg' && isset($seg[1])) {
+            $first = strtolower($seg[1]);
+        }
+        if ($first === '' || in_array($first, self::FB_RESERVED, true) || str_ends_with($first, '.php')) {
+            return ['ok' => false, 'error' => $this->t('ده مش لينك صفحة. افتح الصفحة نفسها وانسخ اللينك (facebook.com/اسم_الصفحة).', 'This is not a page link. Open the page itself and copy its link (facebook.com/pagename).')];
+        }
+        if (!preg_match('~^[A-Za-z0-9.\-]{5,80}$~', $first)) {
+            return ['ok' => false, 'error' => $this->t('اسم صفحة فيسبوك غير صحيح.', 'The Facebook page name is not valid.')];
+        }
+        return ['ok' => true, 'platform' => 'facebook', 'handle' => $first, 'url' => 'https://www.facebook.com/' . $first];
     }
 
     /**
-     * فحص HTML جاهز (منفصل عن الشبكة عشان يتختبر).
-     * @return array{ok:bool, url:string, host:string, score:int, checks:array, top:array, profiles:array, passed:int, total:int}
+     * @param array{facebook?:string, instagram?:string, competitors?:array} $in
+     * @return array{ok:bool, error?:string, field_errors?:array, own?:array, competitors?:array, measures?:array, requirements?:array, steps?:array, recommended?:?array, intake?:array}
      */
-    public function analyze(string $html, string $finalUrl): array
+    public function run(array $in): array
     {
-        $profiles = self::profiles($html);
-        $og = self::metaTags($html);
-
-        $hasFb = isset($profiles['facebook']);
-        $hasIg = isset($profiles['instagram']);
-        $hasOgTitle = ($og['og:title'] ?? '') !== '';
-        $hasOgDesc = ($og['og:description'] ?? '') !== '';
-        $ogImage = (string) ($og['og:image'] ?? '');
-        $ogImageOk = $ogImage !== '' && preg_match('~^https?://~i', $ogImage);
-        $twitter = ($og['twitter:card'] ?? '') !== '';
-        $pixel = (bool) preg_match('~(fbq\s*\(|connect\.facebook\.net/[^"\']+/fbevents\.js|facebook\.com/tr\?)~i', $html);
-        $wa = (bool) preg_match('~(wa\.me/|api\.whatsapp\.com|whatsapp://|web\.whatsapp\.com)~i', $html);
-        $others = array_values(array_intersect(['tiktok', 'youtube', 'google_business', 'tripadvisor'], array_keys($profiles)));
-        $embed = (bool) preg_match('~(facebook\.com/plugins/|instagram\.com/embed|cdn\.lightwidget|elfsight|instagram\.com/p/[^"\']+/embed)~i', $html);
-        $fbHandle = $profiles['facebook']['handle'] ?? '';
-        $igHandle = $profiles['instagram']['handle'] ?? '';
-        $sameName = $hasFb && $hasIg && strtolower($fbHandle) === strtolower($igHandle);
-
-        $c = [];
-        $add = function (string $key, int $weight, string $status, string $title, string $detail, string $fix) use (&$c) {
-            $c[] = compact('key', 'weight', 'status', 'title', 'detail', 'fix');
-        };
-        $add('facebook', 15, $hasFb ? 'pass' : 'fail', $this->t('صفحة فيسبوك مربوطة من الموقع', 'Facebook page linked from your site'),
-            $hasFb ? $this->t('لقينا رابط صفحتك: ' . $profiles['facebook']['url'], 'Found your page link: ' . $profiles['facebook']['url'])
-                : $this->t('مفيش رابط لصفحة فيسبوك ظاهر في الصفحة الرئيسية - السائح اللي عايز يتأكد منك مش هيلاقيك.', 'No Facebook page link on your home page - travellers who want to verify you cannot find you.'),
-            $this->t('حط أيقونة فيسبوك في الهيدر أو الفوتر بتفتح صفحتك مباشرة.', 'Add a Facebook icon in the header or footer that opens your page.'));
-        $add('instagram', 15, $hasIg ? 'pass' : 'fail', $this->t('حساب إنستجرام مربوط من الموقع', 'Instagram profile linked from your site'),
-            $hasIg ? $this->t('لقينا رابط حسابك: ' . $profiles['instagram']['url'], 'Found your profile link: ' . $profiles['instagram']['url'])
-                : $this->t('مفيش رابط لإنستجرام - السياح بيدوروا على صور الرحلات هناك قبل ما يحجزوا.', 'No Instagram link - travellers look for trip photos there before booking.'),
-            $this->t('حط رابط حساب إنستجرام بالاسم الصح (instagram.com/اسمك).', 'Add your Instagram link with the right handle (instagram.com/yourname).'));
-        $add('og', 15, ($hasOgTitle && $hasOgDesc) ? 'pass' : (($hasOgTitle || $hasOgDesc) ? 'warn' : 'fail'), $this->t('الرابط لما يتشارك بيظهر بعنوان ووصف', 'Shared links show a title and description'),
-            ($hasOgTitle && $hasOgDesc) ? $this->t('وسوم Open Graph موجودة: فيسبوك وواتساب هيعرضوا عنوان ووصف.', 'Open Graph tags found: Facebook and WhatsApp will show a title and description.')
-                : $this->t('وسوم العنوان أو الوصف ناقصة - لما حد يشارك رابطك على فيسبوك أو واتساب هيظهر شكل عادي.', 'Title or description tags are missing - when someone shares your link on Facebook or WhatsApp it looks plain.'),
-            $this->t('ضيف og:title وog:description لكل صفحة رحلة (إضافات السيو بتعملها).', 'Add og:title and og:description to every tour page (SEO plugins do this).'));
-        $add('og_image', 12, $ogImageOk ? 'pass' : 'fail', $this->t('صورة المعاينة عند المشاركة', 'Preview image when shared'),
-            $ogImageOk ? $this->t('فيه صورة معاينة (og:image).', 'A preview image (og:image) is set.') : $this->t('مفيش صورة معاينة - الرابط بيتشارك من غير صورة وده بيقلل الضغط عليه جدًا.', 'No preview image - shared links show without a picture and get far fewer clicks.'),
-            $this->t('حط صورة أفقية 1200×630 بالرابط الكامل في og:image.', 'Set a 1200x630 image with a full URL in og:image.'));
-        $add('pixel', 10, $pixel ? 'pass' : 'fail', $this->t('بيكسل ميتا (قياس الإعلانات والزوار)', 'Meta Pixel (ad and visitor tracking)'),
-            $pixel ? $this->t('البيكسل متركّب: تقدر تعمل إعلانات إعادة استهداف وتقيس الحجوزات.', 'Pixel installed: you can retarget visitors and measure bookings.')
-                : $this->t('مفيش بيكسل - مش هتعرف مين زار الموقع من إعلاناتك ومش هتقدر تعيد استهدافهم.', 'No pixel - you cannot see who came from your ads or retarget them.'),
-            $this->t('ركّب بيكسل ميتا (من مدير الأعمال) أو فعّله من إضافة الموقع.', 'Install the Meta Pixel (from Business Manager) or via your site plugin.'));
-        $add('whatsapp', 8, $wa ? 'pass' : 'warn', $this->t('واتساب للتواصل من السوشيال', 'WhatsApp contact for social leads'),
-            $wa ? $this->t('فيه زرار أو رابط واتساب.', 'A WhatsApp button or link exists.') : $this->t('مفيش واتساب - اللي بيجي من السوشيال بيحب يسأل بسرعة.', 'No WhatsApp - social visitors like to ask quickly.'),
-            $this->t('حط زرار واتساب ثابت، وارفق نفس الرقم في صفحة فيسبوك.', 'Add a fixed WhatsApp button and use the same number on your Facebook page.'));
-        $add('consistent', 8, $sameName ? 'pass' : (($hasFb && $hasIg) ? 'warn' : 'warn'), $this->t('نفس الاسم على المنصات', 'Same name across platforms'),
-            $sameName ? $this->t('اسم الحساب واحد على فيسبوك وإنستجرام (' . $fbHandle . ').', 'The handle is the same on Facebook and Instagram (' . $fbHandle . ').')
-                : (($hasFb && $hasIg) ? $this->t('الاسم مختلف (' . $fbHandle . ' / ' . $igHandle . ') - ده بيصعّب على السائح يتأكد إنها نفس الشركة.', 'The handles differ (' . $fbHandle . ' / ' . $igHandle . ') - it is harder for travellers to see it is the same company.')
-                    : $this->t('محتاجين الصفحتين مربوطين عشان نقارن الاسم.', 'Both pages must be linked to compare the handle.')),
-            $this->t('وحّد الاسم لو أمكن، وإلا اكتب اسم الشركة كامل في وصف الحسابين.', 'Unify the handle if possible, otherwise put the full company name in both bios.'));
-        $add('more', 5, count($others) > 0 ? 'pass' : 'warn', $this->t('منصات تانية (تيك توك، يوتيوب، جوجل، تريب أدفايزر)', 'Other channels (TikTok, YouTube, Google, TripAdvisor)'),
-            count($others) > 0 ? $this->t('مربوط: ' . implode('، ', $others), 'Linked: ' . implode(', ', $others)) : $this->t('مفيش أي منصة تانية مربوطة.', 'No other channel is linked.'),
-            $this->t('اربط ملف جوجل بيزنس وتريب أدفايزر - ثقة السائح بتيجي منهم.', 'Link your Google Business and TripAdvisor profiles - traveller trust comes from them.'));
-        $add('twitter', 2, $twitter ? 'pass' : 'warn', $this->t('معاينة الرابط على المنصات التانية', 'Link preview on other platforms'),
-            $twitter ? $this->t('وسم twitter:card موجود.', 'A twitter:card tag exists.') : $this->t('مفيش twitter:card.', 'No twitter:card tag.'),
-            $this->t('ضيف <meta name="twitter:card" content="summary_large_image">.', 'Add <meta name="twitter:card" content="summary_large_image">.'));
-        $add('embed', 0, $embed ? 'pass' : 'warn', $this->t('عرض آخر منشورات على الموقع', 'Latest posts shown on your site'),
-            $embed ? $this->t('الموقع بيعرض منشورات من فيسبوك أو إنستجرام.', 'The site shows Facebook or Instagram posts.') : $this->t('مفيش عرض لمنشوراتك على الموقع - معلومة بس.', 'Your posts are not shown on the site - information only.'),
-            $this->t('اعرض آخر منشوراتك في الفوتر أو صفحة الرئيسية.', 'Show your latest posts in the footer or home page.'));
-        $c[count($c) - 1]['weight'] = 0;
-
-        $total = array_sum(array_column($c, 'weight'));
-        $got = 0.0;
-        foreach ($c as $x) {
-            $got += $x['status'] === 'pass' ? $x['weight'] : ($x['status'] === 'warn' ? $x['weight'] * 0.5 : 0);
+        $errors = [];
+        $own = ['facebook' => null, 'instagram' => null];
+        foreach (['facebook', 'instagram'] as $k) {
+            $raw = trim((string) ($in[$k] ?? ''));
+            if ($raw === '') {
+                continue;
+            }
+            $r = $this->parseLink($raw, $k);
+            if ($r['ok']) {
+                $own[$k] = $r;
+            } else {
+                $errors[$k] = $r['error'];
+            }
         }
-        $score = (int) round($got / max(1, $total) * 100);
-        $problems = array_values(array_filter($c, fn ($x) => $x['status'] !== 'pass'));
-        $important = array_values(array_filter($problems, fn ($x) => $x['weight'] > 0));
-        usort($important, fn ($a, $b) => ($b['status'] === 'fail') <=> ($a['status'] === 'fail') ?: $b['weight'] <=> $a['weight']);
+        $comps = [];
+        $seen = [];
+        $rawComps = array_values(array_filter(array_map(static fn ($x) => trim((string) $x), (array) ($in['competitors'] ?? [])), static fn ($x) => $x !== ''));
+        if (count($rawComps) > self::MAX_COMPETITORS) {
+            $errors['competitors'] = $this->t('الحد الأقصى ' . self::MAX_COMPETITORS . ' منافسين في الفحص المجاني.', 'The free check allows up to ' . self::MAX_COMPETITORS . ' competitors.');
+            $rawComps = array_slice($rawComps, 0, self::MAX_COMPETITORS);
+        }
+        foreach ($rawComps as $i => $raw) {
+            $r = $this->parseLink($raw, 'any');
+            if (!$r['ok']) {
+                $errors['competitor_' . $i] = $r['error'];
+                continue;
+            }
+            $key = $r['platform'] . ':' . $r['handle'];
+            if (isset($seen[$key]) || ($own[$r['platform']]['handle'] ?? null) === $r['handle']) {
+                $errors['competitor_' . $i] = $this->t('ده نفس صفحتك أو متكرر - ضيف منافس مختلف.', 'This is your own page or a duplicate - add a different competitor.');
+                continue;
+            }
+            $seen[$key] = true;
+            $r['trackable'] = $r['platform'] === 'instagram';
+            $r['note'] = $r['platform'] === 'instagram'
+                ? $this->t('هنقرا نشاطه وتفاعل آخر منشوراته لو الحساب Business أو Creator وعام. غير كده هنقولك السبب بدل ما نخمّن.', 'We read its activity and recent-post engagement if the account is Business or Creator and public. Otherwise we tell you why instead of guessing.')
+                : $this->t('Meta مابتسمحش بقراية أرقام صفحات فيسبوك التانية. هنفتحلك إعلاناته الشغالة من مكتبة إعلانات Meta الرسمية، ونقارنك بيه من الإعلانات والمحتوى المعلن.', 'Meta does not allow reading other Facebook pages’ numbers. We open its running ads from Meta’s official Ad Library for you.');
+            $comps[] = $r;
+        }
+        if (!$own['facebook'] && !$own['instagram'] && !$errors) {
+            $errors['own'] = $this->t('اكتب لينك صفحة فيسبوك أو حساب إنستجرام على الأقل.', 'Enter at least a Facebook page or an Instagram profile link.');
+        }
+        if ($errors) {
+            return ['ok' => false, 'error' => reset($errors), 'field_errors' => $errors];
+        }
+
+        $igComps = count(array_filter($comps, static fn ($c) => $c['platform'] === 'instagram'));
+        $hasOwnIg = (bool) $own['instagram'];
+        $warnings = [];
+        if ($igComps > 0 && !$hasOwnIg) {
+            $warnings[] = $this->t('مراقبة منافسي إنستجرام بتشتغل من خلال حساب إنستجرام بيزنس بتاعك. ضيف لينك حسابك أو اربطه بعد التسجيل.', 'Instagram competitor tracking works through your own Instagram business account. Add your profile link or connect it after sign-up.');
+        }
 
         return [
-            'ok' => true, 'url' => $finalUrl, 'host' => (string) parse_url($finalUrl, PHP_URL_HOST),
-            'score' => $score,
-            'top' => array_slice(array_column($important, 'key'), 0, 3),
-            'checks' => $c,
-            'profiles' => array_map(fn ($p) => ['url' => $p['url'], 'handle' => $p['handle']], $profiles),
-            'passed' => count($c) - count($problems), 'total' => count($c),
+            'ok' => true,
+            'own' => $own,
+            'competitors' => $comps,
+            'warnings' => $warnings,
+            'measures' => $this->measures($comps),
+            'requirements' => $this->requirements($igComps),
+            'steps' => [
+                $this->t('سجّل واشترك في باقة سوشيال.', 'Sign up and choose a social plan.'),
+                $this->t('اربط صفحتك وحسابك بتسجيل دخول Meta الرسمي (صلاحيات قراءة النشاط والتعليقات).', 'Connect your page and profile through the official Meta login (read access to activity and comments).'),
+                $this->t('المنصة بتقرا بياناتك الحقيقية وبتحلل كل صفحة وبتقارنها بمنافسينك.', 'The platform reads your real data, analyses each page and compares it with your competitors.'),
+                $this->t('بتطلعلك الفجوات وخطة منشورات مجدولة بتتنفّذ بعد موافقتك.', 'It lists the gaps and a scheduled post plan that runs after your approval.'),
+            ],
+            'recommended' => self::recommendedTier($igComps),
+            'intake' => [
+                'fb' => $own['facebook']['url'] ?? null,
+                'ig' => $own['instagram']['url'] ?? null,
+                'comp' => array_map(static fn ($c) => $c['url'], $comps),
+            ],
         ];
     }
 
-    /** @return array<string,array{url:string,handle:string}> أول رابط بروفايل حقيقي لكل منصة (مش روابط المشاركة ولا الصفحات العامة) */
-    public static function profiles(string $html): array
+    /** إيه اللي بيتقاس فعلًا (نفس مقاييس SocialAuditService وSocialCompetitors) - وصف مش أرقام */
+    private function measures(array $comps): array
     {
-        $out = [];
-        if (!preg_match_all('~href\s*=\s*["\']([^"\']+)["\']~i', $html, $m)) {
-            return $out;
-        }
-        $skipFb = ['sharer', 'sharer.php', 'share.php', 'share', 'dialog', 'plugins', 'tr', 'login', 'policies', 'help', 'groups', 'events', 'watch', 'marketplace', 'pages', 'people', 'hashtag', 'photo', 'photo.php', 'permalink.php', 'profile.php', 'story.php', 'l.php', 'privacy', 'about'];
-        $skipIg = ['p', 'reel', 'reels', 'explore', 'accounts', 'direct', 'stories', 'tv', 'about', 'developer', 'legal', 'oauth', 'web'];
-        foreach ($m[1] as $href) {
-            $href = html_entity_decode($href, ENT_QUOTES);
-            if (!preg_match('~^(?:https?:)?//(?:www\.|m\.|web\.)?(facebook\.com|fb\.com|instagram\.com|tiktok\.com|youtube\.com|youtu\.be|tripadvisor\.[a-z.]+|g\.page|maps\.app\.goo\.gl|business\.google\.com)/([^?#]*)~i', $href, $p)) {
-                continue;
-            }
-            $host = strtolower($p[1]);
-            $path = trim($p[2], '/');
-            $first = strtolower(explode('/', $path)[0] ?? '');
-            if ($path === '' && !in_array($host, ['g.page', 'maps.app.goo.gl'], true)) {
-                continue;
-            }
-            $abs = (str_starts_with($href, '//') ? 'https:' : '') . $href;
-            if ($host === 'facebook.com' || $host === 'fb.com') {
-                if (!isset($out['facebook']) && $first !== '' && !in_array($first, $skipFb, true) && preg_match('~^[A-Za-z0-9.\-]{3,80}$~', $first)) {
-                    $out['facebook'] = ['url' => preg_replace('~[?#].*$~', '', $abs), 'handle' => $first];
-                }
-            } elseif ($host === 'instagram.com') {
-                if (!isset($out['instagram']) && $first !== '' && !in_array($first, $skipIg, true) && preg_match('~^[A-Za-z0-9._]{2,30}$~', $first)) {
-                    $out['instagram'] = ['url' => preg_replace('~[?#].*$~', '', $abs), 'handle' => $first];
-                }
-            } elseif ($host === 'tiktok.com' && !isset($out['tiktok']) && str_starts_with($first, '@')) {
-                $out['tiktok'] = ['url' => preg_replace('~[?#].*$~', '', $abs), 'handle' => ltrim($first, '@')];
-            } elseif (in_array($host, ['youtube.com', 'youtu.be'], true) && !isset($out['youtube']) && preg_match('~^(@|channel|c|user)~i', $first)) {
-                $out['youtube'] = ['url' => preg_replace('~[?#].*$~', '', $abs), 'handle' => ltrim($first, '@')];
-            } elseif (str_starts_with($host, 'tripadvisor.') && !isset($out['tripadvisor'])) {
-                $out['tripadvisor'] = ['url' => preg_replace('~[?#].*$~', '', $abs), 'handle' => $first];
-            } elseif (in_array($host, ['g.page', 'maps.app.goo.gl', 'business.google.com'], true) && !isset($out['google_business'])) {
-                $out['google_business'] = ['url' => preg_replace('~[?#].*$~', '', $abs), 'handle' => $first];
-            }
+        $out = [
+            'own' => [
+                [$this->t('معدل النشر (منشورات في الأسبوع)', 'Posting rate (posts per week)')],
+                [$this->t('عمر آخر منشور', 'Age of the last post')],
+                [$this->t('التفاعل نسبةً لعدد المتابعين', 'Engagement relative to followers')],
+                [$this->t('تنوع المحتوى (فيديو، كاروسيل، صور)', 'Content mix (video, carousel, photos)')],
+                [$this->t('طريق الحجز: موقع، واتساب، تليفون', 'Booking path: website, WhatsApp, phone')],
+                [$this->t('سرعة الرد على أسئلة السعر والحجز في التعليقات', 'Reply speed to price and booking questions in comments')],
+                [$this->t('لغة المحتوى مقابل أسواقك', 'Content language versus your markets')],
+            ],
+        ];
+        if ($comps) {
+            $out['competitors'] = [
+                [$this->t('معدل نشرهم وتنوع محتواهم', 'Their posting rate and content mix')],
+                [$this->t('متوسط تفاعل منشوراتهم وأنجح 3 منشورات', 'Average engagement per post and their top 3 posts')],
+                [$this->t('أكتر هاشتاجات بيستخدموها', 'Hashtags they use most')],
+                [$this->t('الفجوة بينك وبينهم وإيه المطلوب لتتخطاهم', 'The gap between you and them and what it takes to pass them')],
+            ];
         }
         return $out;
     }
 
-    /** @return array<string,string> قيم meta بالاسم أو property (og:*, twitter:card) */
-    public static function metaTags(string $html): array
+    /** @return list<string> */
+    private function requirements(int $igComps): array
     {
-        $out = [];
-        if (!preg_match_all('~<meta\s+[^>]*>~i', $html, $m)) {
-            return $out;
+        $r = [
+            $this->t('أنت أدمن صفحة فيسبوك (عشان تقدر تربطها).', 'You are an admin of the Facebook page (to connect it).'),
+            $this->t('حساب إنستجرام لازم يكون Business أو Creator ومربوط بصفحة فيسبوك.', 'The Instagram account must be Business or Creator and linked to the Facebook page.'),
+        ];
+        if ($igComps > 0) {
+            $r[] = $this->t('حسابات المنافسين على إنستجرام لازم تكون عامة ومن نوع Business أو Creator، وإلا هنوضحلك إنها مش متاحة بدل ما نعرض أرقام تقريبية.', 'Competitor Instagram accounts must be public Business or Creator accounts, otherwise we show that they are unavailable instead of approximate numbers.');
         }
-        foreach ($m[0] as $tag) {
-            if (preg_match('~(?:property|name)\s*=\s*["\']([^"\']+)["\']~i', $tag, $k) && preg_match('~content\s*=\s*["\']([^"\']*)["\']~i', $tag, $v)) {
-                $key = strtolower(trim($k[1]));
-                if (!isset($out[$key])) {
-                    $out[$key] = trim(html_entity_decode($v[1], ENT_QUOTES));
-                }
+        return $r;
+    }
+
+    /**
+     * أقل باقة للبيع بتغطي عدد منافسي إنستجرام المطلوبين - من إعدادات الأدمن الحية (مش أرقام ثابتة).
+     * @return array{key:string,name:string,name_en:string,price_monthly:float,competitors:int}|null
+     */
+    public static function recommendedTier(int $igCompetitors): ?array
+    {
+        if (!class_exists('SocialPackages')) {
+            return null;
+        }
+        try {
+            $cfg = SocialPackages::config();
+        } catch (Throwable $e) {
+            return null;
+        }
+        foreach (['basic', 'pro', 'agency', 'enterprise'] as $k) {
+            $t = $cfg['tiers'][$k] ?? null;
+            if (!$t || empty($t['for_sale']) || (float) $t['price_monthly'] <= 0) {
+                continue;
+            }
+            if ($igCompetitors === 0 || (int) $t['competitors'] >= $igCompetitors || (int) $t['competitors'] < 0) {
+                return ['key' => $k, 'name' => (string) $t['name'], 'name_en' => (string) $t['name_en'], 'price_monthly' => (float) $t['price_monthly'], 'competitors' => (int) $t['competitors']];
             }
         }
-        return $out;
+        return null;
+    }
+
+    // ------------------------------------------------------------------ تسليم الفحص للمنصة بعد التسجيل (كوكي موقّعة)
+
+    private static function key(): ?string
+    {
+        $secret = defined('JWT_SECRET') ? (string) JWT_SECRET : (defined('ENCRYPTION_KEY') ? (string) ENCRYPTION_KEY : '');
+        return strlen($secret) >= 32 ? hash_hmac('sha256', 'tourfecto_social_intake_v1', $secret) : null;
+    }
+
+    /** @param array{fb:?string,ig:?string,comp:list<string>} $intake */
+    public static function seal(array $intake, ?int $now = null): ?string
+    {
+        $key = self::key();
+        if ($key === null) {
+            return null;
+        }
+        $body = rtrim(strtr(base64_encode(json_encode(['fb' => $intake['fb'] ?? null, 'ig' => $intake['ig'] ?? null, 'comp' => array_values($intake['comp'] ?? []), 'exp' => ($now ?? time()) + 14 * 86400], JSON_UNESCAPED_SLASHES)), '+/', '-_'), '=');
+        return $body . '.' . hash_hmac('sha256', $body, $key);
+    }
+
+    /** يفتح الكوكي ويعيد التحقق من كل رابط من جديد (مش بنثق في محتواها) */
+    public static function open(string $token, ?int $now = null): ?array
+    {
+        $key = self::key();
+        if ($key === null || !preg_match('~^([A-Za-z0-9_\-]+)\.([a-f0-9]{64})$~', $token, $m) || !hash_equals(hash_hmac('sha256', $m[1], $key), $m[2])) {
+            return null;
+        }
+        $d = json_decode((string) base64_decode(strtr($m[1], '-_', '+/')), true);
+        if (!is_array($d) || (int) ($d['exp'] ?? 0) < ($now ?? time())) {
+            return null;
+        }
+        $svc = new self('en');
+        $out = ['fb' => null, 'ig' => null, 'comp' => []];
+        foreach (['fb' => 'facebook', 'ig' => 'instagram'] as $k => $platform) {
+            if (!empty($d[$k])) {
+                $r = $svc->parseLink((string) $d[$k], $platform);
+                $out[$k] = $r['ok'] ? $r : null;
+            }
+        }
+        foreach (array_slice((array) ($d['comp'] ?? []), 0, self::MAX_COMPETITORS) as $c) {
+            $r = $svc->parseLink((string) $c, 'any');
+            if ($r['ok']) {
+                $out['comp'][] = $r;
+            }
+        }
+        return ($out['fb'] || $out['ig']) ? $out : null;
     }
 }

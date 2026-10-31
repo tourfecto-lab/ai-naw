@@ -9,7 +9,7 @@
     const nf = new Intl.NumberFormat(ar ? 'ar-EG' : 'en-US');
     const num = n => (n == null ? '—' : nf.format(n));
     const csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
-    let D = null, busy = '', pollT = null;
+    let D = null, busy = '', pollT = null, intakeRes = null;
 
     const post = (path, data) => P.fetchJSON('/api/social-plan' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) });
     const ICON = { facebook: '📘', instagram: '📸', tiktok: '🎵', youtube: '▶️' };
@@ -37,6 +37,19 @@
                 ${k.measured ? `<em>${k.points}/${k.max}</em>` : `<em class="na">${t('مش متقاس', 'n/a')}</em>`}</li>`).join('')}</ul>
             ${best ? `<div class="sp-best">🏆 ${t('أنجح بوست', 'Top post')}: <b>${num(best.engagement)}</b> ${t('تفاعل', 'engagements')} ${best.type === 'video' ? '· 🎬' : ''} — <span dir="auto">${esc(best.excerpt || '')}</span> ${best.permalink ? `<a href="${esc(best.permalink)}" target="_blank" rel="noopener">${t('افتحه', 'Open')} ↗</a>` : ''}</div>` : ''}
             <p class="sp-src">${t('كل الأرقام من Meta مباشرة. المقاييس اللي مفيهاش بيانات كفاية مابتتحسبش لا ليك ولا عليك.', 'All numbers come straight from Meta. Metrics without enough data don’t count for or against you.')}</p></div>`;
+    }
+
+    function intakeSection() {
+        const k = D.intake;
+        if (!k) return '';
+        const row = (icon, name, status) => `<li dir="auto"><span>${icon}</span> <b dir="ltr">${esc(name)}</b> <small class="sp-muted">${status}</small></li>`;
+        const own = k.own.map(o => row(ICON[o.platform] || '•', o.handle, o.connected ? t('مربوطة ✓', 'Connected ✓') : t('لسه مش مربوطة - اربطها من تبويب الحسابات', 'Not connected yet - connect it from the Accounts tab'))).join('');
+        const comps = k.competitors.map(c => row(ICON[c.platform] || '•', c.handle, c.platform === 'instagram' ? (c.tracked ? t('بيتتابع ✓', 'Tracked ✓') : t('جاهز للإضافة', 'Ready to add')) : `<a href="${esc(c.ad_library)}" target="_blank" rel="noopener">${t('إعلاناته في مكتبة Meta ↗', 'His ads in the Meta Ad Library ↗')}</a>`)).join('');
+        const rs = (intakeRes || []).map(r => `<li class="${r.status === 'done' ? 'ok' : r.status === 'failed' ? 'bad' : 'mid'}"><b dir="ltr">${esc(r.target)}</b> — ${esc(r.text)}${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">↗</a>` : ''}</li>`).join('');
+        return `<section class="sp-sec"><div class="p-card sp-card"><div class="sp-h"><span>★</span><div><h2>${t('الفحص اللي بدأته', 'The check you started')}</h2><p>${t('الأرقام الحقيقية بتتقرا من Meta بعد ما صفحتك تبقى مربوطة. مفيش تقديرات.', 'Real numbers are read from Meta once your page is connected. No estimates.')}</p></div></div>
+            <ul class="sp-checks">${own}${comps}</ul>${rs ? `<ul class="sp-checks">${rs}</ul>` : ''}
+            <div class="sp-url"><button type="button" class="p-btn primary" data-intake-apply ${busy === 'intake' ? 'disabled' : ''}>${busy === 'intake' ? t('بننفّذ…', 'Running…') : t('نفّذ التحليل دلوقتي', 'Run the analysis now')}</button>
+            <button type="button" class="p-btn outline" data-intake-dismiss>${t('إخفاء', 'Dismiss')}</button></div></div></section>`;
     }
 
     function auditSection() {
@@ -124,7 +137,7 @@
 
     function render() {
         if (!D) return;
-        root.innerHTML = auditSection() + compSection() + planSection() + resultsSection();
+        root.innerHTML = intakeSection() + auditSection() + compSection() + planSection() + resultsSection();
         clearTimeout(pollT);
         if (D.plan && ['queued', 'generating'].includes(D.plan.status)) pollT = setTimeout(load, 10000);
     }
@@ -161,6 +174,8 @@
             if (!url) return P.toast(t('حط لينك الصفحة', 'Paste the page link'), 'error');
             return act('url', () => post('/audit', { url }));
         }
+        if (e.target.closest('[data-intake-apply]')) return act('intake', async () => { const r = await post('/intake/apply'); if (r && r.success) intakeRes = r.intake_results; return r; });
+        if (e.target.closest('[data-intake-dismiss]')) { const r = await post('/intake/dismiss'); if (r && r.success) { D.intake = null; intakeRes = null; render(); } return; }
         if (e.target.closest('[data-comp]')) return act('comp', () => post('/competitors/refresh'));
         if (e.target.closest('[data-start]')) {
             const auto = document.getElementById('spAuto');

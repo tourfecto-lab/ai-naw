@@ -165,6 +165,7 @@ class SocialPlanController extends Controller
         return $this->success([
             'site' => $site ? ['id' => (int) $site['id'], 'url' => $site['url']] : null,
             'accounts' => $audit->latest($owner),
+            'intake' => $this->intake($owner),
             'competitors' => $comp->overview($owner),
             'plan' => $site ? $this->planSummary($owner, (int) $site['id']) : null,
             'results' => $this->results($owner),
@@ -195,6 +196,101 @@ class SocialPlanController extends Controller
         $r = $svc->run($owner, $cid);
         if (empty($r['success'])) return $this->error($r['error'], 422);
         return array_merge($this->show($params), ['message' => self::L('التحليل جاهز ✓', 'Analysis ready ✓')]);
+    }
+
+    /** اللينكات اللي الزائر كتبها في الفحص المجاني (كوكي موقّعة) + حالة كل واحد جوه حسابه. مفيش أي رقم هنا. */
+    private function intake(int $owner): ?array
+    {
+        $tok = (string) ($_COOKIE[FreeSocialCheckService::COOKIE] ?? '');
+        $in = $tok !== '' ? FreeSocialCheckService::open($tok) : null;
+        if (!$in) {
+            return null;
+        }
+        $audit = new SocialAuditService($this->db);
+        $own = [];
+        foreach (['fb', 'ig'] as $k) {
+            if (empty($in[$k])) {
+                continue;
+            }
+            $m = $audit->matchUrl($owner, $in[$k]['url']);
+            $own[] = ['platform' => $in[$k]['platform'], 'handle' => $in[$k]['handle'], 'url' => $in[$k]['url'], 'connected' => (bool) $m, 'connection_id' => $m ? (int) $m['id'] : null];
+        }
+        $tracked = [];
+        try {
+            foreach ($this->db->query("SELECT username FROM social_competitors WHERE user_id = ? AND platform = 'instagram'", [$owner]) ?: [] as $r) {
+                $tracked[] = strtolower((string) $r['username']);
+            }
+        } catch (Throwable $e) {
+        }
+        $comps = [];
+        foreach ($in['comp'] as $c) {
+            $comps[] = $c['platform'] === 'instagram'
+                ? ['platform' => 'instagram', 'handle' => $c['handle'], 'url' => $c['url'], 'tracked' => in_array($c['handle'], $tracked, true)]
+                : ['platform' => 'facebook', 'handle' => $c['handle'], 'url' => $c['url'], 'ad_library' => SocialCompetitorDiscovery::adLibraryUrl(null, $c['url'], '')];
+        }
+        return ['own' => $own, 'competitors' => $comps];
+    }
+
+    /** POST /api/social-plan/intake/apply - ينفّذ التحليل على اللينكات المحفوظة: تحليل الصفحات المربوطة + إضافة منافسي إنستجرام */
+    public function applyIntake(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($e = $this->canManage()) return $e;
+        if ($e = $this->verifyCsrf()) return $e;
+        if ($e = $this->rateLimitGuard('user', 'social_intake_apply', 6, 3600)) return $e;
+        $owner = $this->owner();
+        $intake = $this->intake($owner);
+        if (!$intake) return $this->error(self::L('مفيش فحص محفوظ. ابدأ من صفحة تحليل السوشيال.', 'No saved check. Start from the social analysis page.'), 404);
+        $audit = new SocialAuditService($this->db);
+        $results = [];
+        foreach ($intake['own'] as $o) {
+            if (!$o['connected']) {
+                $results[] = ['kind' => 'own', 'target' => $o['handle'], 'platform' => $o['platform'], 'status' => 'needs_connect', 'text' => self::L('الصفحة دي مش مربوطة بحسابك لسه - اربطها الأول عشان نقرا أرقامها من Meta.', 'This page is not connected yet - connect it first so we can read its numbers from Meta.')];
+                continue;
+            }
+            try {
+                $r = $audit->run($owner, (int) $o['connection_id']);
+                $results[] = ['kind' => 'own', 'target' => $o['handle'], 'platform' => $o['platform'], 'status' => !empty($r['success']) ? 'done' : 'failed', 'text' => !empty($r['success']) ? self::L('التحليل جاهز', 'Analysis ready') : (string) ($r['error'] ?? '')];
+            } catch (Throwable $e) {
+                Logger::warning('Intake audit failed', ['message' => $e->getMessage()]);
+                $results[] = ['kind' => 'own', 'target' => $o['handle'], 'platform' => $o['platform'], 'status' => 'failed', 'text' => self::L('تعذر التحليل دلوقتي', 'Could not analyse right now')];
+            }
+        }
+        foreach ($intake['competitors'] as $c) {
+            if ($c['platform'] !== 'instagram') {
+                $results[] = ['kind' => 'competitor', 'target' => $c['handle'], 'platform' => 'facebook', 'status' => 'link', 'text' => self::L('Meta مابتسمحش بقراية أرقام صفحات فيسبوك التانية - إعلاناته الشغالة في مكتبة الإعلانات الرسمية.', 'Meta does not allow reading other Facebook pages’ numbers - his running ads are in the official Ad Library.'), 'url' => $c['ad_library']];
+                continue;
+            }
+            if (!empty($c['tracked'])) {
+                $results[] = ['kind' => 'competitor', 'target' => $c['handle'], 'platform' => 'instagram', 'status' => 'done', 'text' => self::L('بيتتابع بالفعل', 'Already tracked')];
+                continue;
+            }
+            try {
+                SocialPackages::assertCompetitorSlot($owner);
+                (new SocialCompetitors($this->db))->add($owner, $c['handle']);
+                $results[] = ['kind' => 'competitor', 'target' => $c['handle'], 'platform' => 'instagram', 'status' => 'done', 'text' => self::L('اتضاف وبيتتابع', 'Added and tracked')];
+            } catch (SocialPackageLimit $e) {
+                $results[] = ['kind' => 'competitor', 'target' => $c['handle'], 'platform' => 'instagram', 'status' => 'limit', 'text' => $e->getMessage()];
+            } catch (InvalidArgumentException $e) {
+                $results[] = ['kind' => 'competitor', 'target' => $c['handle'], 'platform' => 'instagram', 'status' => 'failed', 'text' => $e->getMessage()];
+            } catch (Throwable $e) {
+                Logger::warning('Intake competitor add failed', ['message' => $e->getMessage()]);
+                $results[] = ['kind' => 'competitor', 'target' => $c['handle'], 'platform' => 'instagram', 'status' => 'failed', 'text' => self::L('مقدرناش نوصل لإنستجرام دلوقتي، جرّب تاني', 'Could not reach Instagram right now, try again')];
+            }
+        }
+        return array_merge($this->show($params), ['intake_results' => $results, 'message' => self::L('اتنفّذ اللي اتقدر عليه ✓', 'Done what could be done ✓')]);
+    }
+
+    /** POST /api/social-plan/intake/dismiss - يمسح اللينكات المحفوظة */
+    public function dismissIntake(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        if ($e = $this->verifyCsrf()) return $e;
+        if (!headers_sent()) {
+            setcookie(FreeSocialCheckService::COOKIE, '', ['expires' => time() - 3600, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
+        }
+        unset($_COOKIE[FreeSocialCheckService::COOKIE]);
+        return $this->success(['dismissed' => true]);
     }
 
     /** POST /api/social-plan/competitors/refresh */

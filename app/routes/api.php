@@ -170,6 +170,8 @@ $router->get('/api/social-plan', 'SocialPlanController', 'show', ['AuthMiddlewar
 $router->post('/api/social-plan/audit', 'SocialPlanController', 'audit', ['AuthMiddleware']);
 $router->post('/api/social-plan/competitors/refresh', 'SocialPlanController', 'competitors', ['AuthMiddleware']);
 $router->post('/api/social-plan/start', 'SocialPlanController', 'start', ['AuthMiddleware']);
+$router->post('/api/social-plan/intake/apply', 'SocialPlanController', 'applyIntake', ['AuthMiddleware']);
+$router->post('/api/social-plan/intake/dismiss', 'SocialPlanController', 'dismissIntake', ['AuthMiddleware']);
 $router->post('/api/social-plan/auto-reply', 'SocialPlanController', 'autoReply', ['AuthMiddleware']);
 $router->get('/api/content-calendar/{site}', 'ContentCalendarController', 'show', ['AuthMiddleware']);
 $router->post('/api/content-calendar/{site}/build', 'ContentCalendarController', 'build', ['AuthMiddleware']);
