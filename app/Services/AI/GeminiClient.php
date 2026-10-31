@@ -512,9 +512,14 @@ class GeminiClient
                     // Real cost: input and output (thinking included) are priced separately, per the model that answered
                     $inTok = (int) ($data['usageMetadata']['promptTokenCount'] ?? 0);
                     $outTok = (int) ($data['usageMetadata']['candidatesTokenCount'] ?? 0) + (int) ($data['usageMetadata']['thoughtsTokenCount'] ?? 0);
-                    $callCost = ($inTok + $outTok) > 0
-                        ? GeminiPricing::cost((string) ($data['modelVersion'] ?? $model), $inTok, $outTok)
-                        : ($tokensUsed / 1000) * $costPer1k;
+                    $callCost = ($tokensUsed / 1000) * $costPer1k;
+                    try {
+                        // cost logging must never break an AI call: any problem keeps the old estimate
+                        if (($inTok + $outTok) > 0 && class_exists('GeminiPricing')) {
+                            $callCost = GeminiPricing::cost((string) ($data['modelVersion'] ?? $model), $inTok, $outTok);
+                        }
+                    } catch (Throwable $pricingError) {
+                    }
 
                     if ($mi > 0) {
                         Logger::warning('Gemini served by fallback model', ['primary' => $models[0], 'used' => $model]);
