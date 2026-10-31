@@ -39,6 +39,7 @@ class AdminReputationLimitsController extends Controller
                 'config' => ReputationLimits::config(),
                 'sources' => ReviewSources::view(),
                 'overrides' => ReputationLimits::overridesView(),
+                'standalone' => ReputationPlans::adminView(),
                 'audit' => $audit,
                 'usage' => ReputationLimits::usageReport(30),
                 'csrf_token' => class_exists('Csrf') ? Csrf::token() : '',
@@ -84,12 +85,18 @@ class AdminReputationLimitsController extends Controller
         }
         $limits = $this->get('limits');
         $sources = $this->get('sources');
-        if ((!is_array($limits) || !$limits) && (!is_array($sources) || !$sources)) {
+        $standalone = $this->get('standalone');
+        if ((!is_array($limits) || !$limits) && (!is_array($sources) || !$sources) && (!is_array($standalone) || !$standalone)) {
             return $this->error('Nothing to save', 422);
         }
         try {
             $actor = (int) ($this->user['id'] ?? 0);
             $res = is_array($limits) && $limits ? ReputationLimits::save($limits, $actor) : ['config' => ReputationLimits::config(), 'changes' => []];
+            if (is_array($standalone) && $standalone) {
+                $pl = ReputationPlans::save($standalone, $actor);
+                $res['changes'] = array_merge($res['changes'], $pl['changes']);
+                ReputationPlansRenewJob::ensureScheduled();
+            }
             if (is_array($sources) && $sources) {
                 $s = ReviewSources::save($sources, $actor);
                 $res['changes'] = array_merge($res['changes'], $s['changes']);

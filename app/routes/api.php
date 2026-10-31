@@ -365,6 +365,9 @@ $router->put('/api/reputation/review/{id}/reply', 'ReputationController', 'updat
 $router->post('/api/reputation/import', 'ReputationController', 'importReviews', ['AuthMiddleware']);
 $router->get('/api/reputation/sources', 'ReputationController', 'sources', ['AuthMiddleware']);
 $router->get('/api/reputation/surveys', 'GuestSurveyController', 'listApi', ['AuthMiddleware']);
+$router->get('/api/reputation/plans', 'ReputationPlansController', 'listApi', ['AuthMiddleware']);
+$router->post('/api/reputation/plans/subscribe', 'ReputationPlansController', 'subscribe', ['AuthMiddleware']);
+$router->post('/api/reputation/plans/auto-renew', 'ReputationPlansController', 'autoRenew', ['AuthMiddleware']);
 $router->post('/api/reputation/surveys/{id}/handled', 'GuestSurveyController', 'handled', ['AuthMiddleware']);
 $router->post('/api/reputation/review/{id}/assign', 'ReputationController', 'assignReview', ['AuthMiddleware']);
 $router->get('/api/reputation/overdue-assignments', 'ReputationController', 'overdueAssignments', ['AuthMiddleware']);
