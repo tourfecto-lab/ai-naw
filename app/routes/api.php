@@ -362,6 +362,9 @@ $router->post('/api/reputation/review/{id}/generate-reply', 'ReputationControlle
     'PlanGateMiddleware:ai_tool'
 ]);
 $router->put('/api/reputation/review/{id}/reply', 'ReputationController', 'updateReply', ['AuthMiddleware']);
+$router->post('/api/reputation/import', 'ReputationController', 'importReviews', ['AuthMiddleware']);
+$router->post('/api/reputation/review/{id}/assign', 'ReputationController', 'assignReview', ['AuthMiddleware']);
+$router->get('/api/reputation/overdue-assignments', 'ReputationController', 'overdueAssignments', ['AuthMiddleware']);
 $router->delete('/api/reputation/review/{id}', 'ReputationController', 'deleteReview', ['AuthMiddleware']);
 
 // منصات المراجعات
@@ -1247,6 +1250,7 @@ $router->put('/api/automation/{feature}', 'AutomationController', 'updatePolicy'
 $router->get('/api/review-requests', 'ReviewRequestController', 'listRequests', ['AuthMiddleware']);
 $router->post('/api/review-requests', 'ReviewRequestController', 'createRequest', ['AuthMiddleware']);
 $router->get('/api/review-requests/stats', 'ReviewRequestController', 'getStats', ['AuthMiddleware']);
+$router->get('/api/review-requests/qr', 'ReviewRequestController', 'getQr', ['AuthMiddleware']);
 $router->get('/api/review-requests/analytics', 'ReviewRequestController', 'getAnalytics', ['AuthMiddleware']);
 $router->get('/api/review-requests/channel-status', 'ReviewRequestController', 'getChannelStatus', ['AuthMiddleware']);
 $router->get('/api/review-requests/destinations', 'ReviewRequestController', 'getDestinations', ['AuthMiddleware']);

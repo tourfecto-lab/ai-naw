@@ -37,6 +37,54 @@ class ReviewRequestController extends Controller
         exit;
     }
 
+    /** GET /review-us/{code} - public landing page reached from the QR / printed link */
+    public function reviewUs(array $params = []): array
+    {
+        header('Cache-Control: no-store');
+        header('Referrer-Policy: no-referrer');
+        header('Content-Type: text/html; charset=utf-8');
+        try {
+            $websiteId = ReviewLanding::verify((string) ($params['code'] ?? ''));
+        } catch (Throwable $e) {
+            $websiteId = 0;
+        }
+        $site = $websiteId ? ((new Website())->find($websiteId)) : null;
+        if (!$site) {
+            http_response_code(404);
+            echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><p style="font-family:sans-serif;text-align:center;margin-top:20vh">This link is not valid.</p>';
+            exit;
+        }
+        $company = trim((string) ($site->getAttribute('company_name') ?: $site->getAttribute('main_url')));
+        echo ReviewLanding::page($company, ReviewLanding::destinations($this->service->getSettings($websiteId)));
+        exit;
+    }
+
+    /** GET /api/review-requests/qr?website_id= - link + QR (SVG) for the owner */
+    public function getQr(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        $websiteId = (int) $this->get('website_id', 0);
+        if (!$this->ownsWebsite($websiteId)) {
+            return $this->error('غير مصرح', 403);
+        }
+        try {
+            $base = rtrim(defined('APP_URL') ? (string) APP_URL : '', '/');
+            $url = ReviewLanding::url($websiteId, $base);
+            $dest = ReviewLanding::destinations($this->service->getSettings($websiteId));
+            return $this->success([
+                'url' => $url,
+                'svg' => ReviewLanding::qrSvg($url),
+                'destinations' => $dest,
+                'ready' => !empty($dest),
+            ]);
+        } catch (Throwable $e) {
+            Logger::error('Review QR error', ['message' => $e->getMessage()]);
+            return $this->error('Could not create the QR code', 500);
+        }
+    }
+
     /** GET /review-requests */
     public function index(array $params = []): array
     {
@@ -58,6 +106,7 @@ class ReviewRequestController extends Controller
             <button class="p-btn" onclick="resetAddGuestModal();P.openModal('addGuestModal')">+ {$tAddGuest}</button>
             <button class="p-btn outline" onclick="openDetailsFromAnalytics()">📊 {$this->tr('rr.analytics')}</button>
             <button class="p-btn outline" onclick="toggleDestinations()">🔗 {$this->tr('rr.destinations')}</button>
+            <button class="p-btn outline" onclick="toggleQr()">📱 QR & link</button>
             <button class="p-btn outline" onclick="exportRR()">⬇ {$this->tr('rr.export')}</button>
             <button class="p-btn outline" onclick="P.openModal('rrSettingsModal')">⚙️ {$tSettings}</button>
         </div>
@@ -453,6 +502,30 @@ HTML;
         window.location.href = '/api/review-requests/export?' + qs.toString();
     };
 
+    window.toggleQr = async function () {
+        let box = document.getElementById('qrPanel');
+        if (box) { box.remove(); return; }
+        const wid = document.getElementById('rrWebsiteId').value;
+        const res = await P.fetchJSON('/api/review-requests/qr?website_id=' + encodeURIComponent(wid));
+        box = document.createElement('div');
+        box.id = 'qrPanel';
+        box.className = 'p-card';
+        box.style.cssText = 'margin:12px 0;display:flex;gap:18px;flex-wrap:wrap;align-items:center';
+        if (!res.success) { box.textContent = res.error || 'Could not create the QR code'; }
+        else {
+            const d = res.data;
+            const warn = d.ready ? '' : '<p class="p-cell-muted">Add your Google or TripAdvisor review link in Campaign Settings first, otherwise the page will have no buttons.</p>';
+            box.innerHTML = '<div style="width:200px;max-width:100%" role="img" aria-label="QR code for the review page">' + d.svg + '</div>'
+                + '<div style="flex:1;min-width:240px"><h3 style="margin:0 0 6px">Review page for your guests</h3>'
+                + '<p class="p-cell-muted" style="margin:0 0 8px">Print the QR on counters, receipts or vehicles. Everyone who scans it sees all your review sites.</p>'
+                + '<input class="p-select" readonly style="width:100%" id="qrUrl" value="' + P.esc(d.url) + '">'
+                + '<div style="display:flex;gap:8px;margin-top:8px"><button class="p-btn xs" id="qrCopy">Copy link</button><button class="p-btn outline xs" id="qrPrint">Print</button></div>' + warn + '</div>';
+        }
+        document.querySelector('.p-toolbar').insertAdjacentElement('afterend', box);
+        const c = document.getElementById('qrCopy'), pr = document.getElementById('qrPrint');
+        if (c) c.onclick = () => { navigator.clipboard.writeText(document.getElementById('qrUrl').value).then(() => P.toast('Link copied', 'success'), () => P.toast('Copy failed', 'error')); };
+        if (pr) pr.onclick = () => { const w = window.open('', '_blank'); if (!w) return; w.document.write('<title>QR</title><body style="text-align:center;font-family:sans-serif">' + res.data.svg + '<h2>Scan to leave us a review</h2></body>'); w.document.close(); w.focus(); w.print(); };
+    };
     window.toggleDestinations = async function () {
         const card = document.getElementById('rrDestinationsCard');
         const isHidden = card.style.display === 'none';
