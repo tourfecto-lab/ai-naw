@@ -58,10 +58,20 @@ async function login(browser, [email, pass], viewport) {
   const url = opened ? await cu.$eval('#qrUrl', (e) => e.value) : '';
   check('QR panel has an SVG', opened && !!(await cu.$('#qrPanel svg')));
 
+  // the survey link has its own signature (it is not the review-us link with another path): read it from the surveys page
+  await cu.goto(base + '/reputation/surveys', { waitUntil: 'networkidle' });
+  await cu.waitForTimeout(800);
+  const surveyUrl = await cu.$eval('#svRoot input[readonly]', (e) => e.value).catch(() => '');
+  check('surveys page shows the private feedback link', /\/survey\//.test(surveyUrl));
+
   // public pages on a phone, English and Arabic
   if (url) {
     const guest = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true })).newPage();
-    for (const u of [url, url + '?lang=ar', url.replace('/review-us/', '/survey/'), url.replace('/review-us/', '/survey/') + '?lang=ar']) {
+    const pages = [url, url + '?lang=ar'];
+    if (surveyUrl) {
+      pages.push(surveyUrl, surveyUrl + '?lang=ar');
+    }
+    for (const u of pages) {
       const r = await guest.goto(u, { waitUntil: 'networkidle' });
       const over = await guest.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       check('public page ' + u.replace(/-[a-f0-9]{20}/, '-<sig>').replace(base, ''), r.status() === 200 && over <= 0, 'status ' + r.status() + ', overflow ' + over + 'px');
