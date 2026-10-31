@@ -25,9 +25,13 @@ ${fld('إلى', `<input class="p-select" type="date" data-pf="ends" value="${esc
         return `
 <h4>💰 التكلفة والهامش (أسوأ حالة: العميل استهلك الحدود كلها)</h4>
 <p class="p-cell-muted">الأرقام دي تقديرات تشغيل لازم تعدّلها بتكلفتك الفعلية (فاتورة Gemini/Meta/الاستضافة). الهامش بعد رسوم بوابة الدفع.</p>
-<div style="overflow-x:auto"><table><thead><tr><th>الباقة</th><th>التكلفة/شهر $</th><th>سعر شهري $</th><th>هامش شهري</th><th>هامش سنوي</th></tr></thead><tbody>
-${TIERS.filter(t => t !== 'free').map(t => { const e = eco[t] || {}; const bad = e.margin_pct_monthly < 40 || e.margin_pct_yearly < 40; return `<tr><td>${esc(c.tiers[t].name)}</td><td>${e.cost}</td><td>${e.price_monthly}</td><td style="color:${e.margin_pct_monthly < 40 ? 'var(--danger,#c0392b)' : 'inherit'}">${pct(e.margin_pct_monthly)} ($${e.margin_monthly})</td><td style="color:${e.margin_pct_yearly < 40 ? 'var(--danger,#c0392b)' : 'inherit'}">${pct(e.margin_pct_yearly)}${bad ? ' ⚠️' : ''}</td></tr>`; }).join('')}
-<tr><td>مجاني</td><td>${(eco.free || {}).cost}</td><td colspan="3" class="p-cell-muted">تكلفة الباقة المجانية بالكامل</td></tr></tbody></table></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+${TIERS.map(t => { const e = eco[t] || {}; const free = t === 'free'; const low = !free && (e.margin_pct_monthly < 40 || e.margin_pct_yearly < 40); const col = v => v < 40 ? 'var(--danger,#e5484d)' : 'inherit';
+    return `<div style="padding:12px;border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px"><b>${esc(c.tiers[t].name)}${low ? ' ⚠️' : ''}</b>
+<div class="p-cell-muted" style="font-size:12px">التكلفة/شهر: <b>$${e.cost}</b></div>
+${free ? '<div class="p-cell-muted" style="font-size:12px">باقة مجانية: تكلفة بالكامل</div>' : `<div class="p-cell-muted" style="font-size:12px">السعر الشهري: <b>$${e.price_monthly}</b></div>
+<div style="font-size:13px;color:${col(e.margin_pct_monthly)}">هامش شهري: <b>${pct(e.margin_pct_monthly)}</b> ($${e.margin_monthly})</div>
+<div style="font-size:13px;color:${col(e.margin_pct_yearly)}">هامش سنوي: <b>${pct(e.margin_pct_yearly)}</b></div>`}</div>`; }).join('')}</div>
 <table><tbody>${Object.entries(costLabels).map(([k, l]) => `<tr><td>${l}</td><td><input class="p-select" type="number" min="0" step="0.001" data-cost="${k}" value="${esc(cs[k])}"></td></tr>`).join('')}</tbody></table>
 
 <h4>🏷️ أكواد الخصم والعروض</h4>
