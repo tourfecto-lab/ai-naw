@@ -1416,7 +1416,7 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         }
         $websiteId = (int) $this->get('website_id', 0);
         if (!$this->canAccessWebsite($websiteId)) {
-            return $this->error('Website not found', 404);
+            return $this->error('Website not found', 422);
         }
         try {
             ReputationLimits::assertFeature((int) $this->user['id'], 'csv_import');
@@ -1483,7 +1483,7 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
             return $this->error('Could not save the assignment', 500);
         }
         if (empty($res['success'])) {
-            return $this->error((string) ($res['error'] ?? 'Could not save the assignment'), (int) ($res['code'] ?? 400));
+            return $this->error((string) ($res['error'] ?? 'Could not save the assignment'), (($res['code'] ?? 400) === 404 ? 422 : (int) ($res['code'] ?? 400)));
         }
         return $this->success(['assignment' => $res['assignment'] ?? null], $assigneeId === null ? 'Assignment removed' : 'Review assigned');
     }
@@ -1690,7 +1690,7 @@ JS;
                 }
             }
             if ($removed === 0) {
-                return $this->error('لا يوجد ربط لفصله', 404);
+                return $this->error('لا يوجد ربط لفصله', 422);
             }
             return $this->success([], 'تم فصل الربط');
         } catch (Exception $e) {
@@ -2015,7 +2015,7 @@ JS;
             }
             // Someone else's website (or nothing connected): no event and no audit entry may be written for it
             if ($removed === 0) {
-                return $this->error('لا يوجد ربط لفصله', 404);
+                return $this->error('لا يوجد ربط لفصله', 422);
             }
             // GBP Module Upgrade (2026-08-09): GBPDisconnected event مطلوب صراحة بالسبيك
             if (function_exists('event')) {

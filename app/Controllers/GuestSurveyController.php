@@ -44,7 +44,7 @@ class GuestSurveyController extends Controller
             $websiteId = 0;
         }
         if (!$websiteId) {
-            return $this->error('This link is not valid.', 404);
+            return $this->error('This link is not valid.', 422);
         }
         if ($rate = $this->rateLimitGuard('ip', 'guest_survey', 20, 600)) {
             return $rate;
@@ -103,7 +103,7 @@ class GuestSurveyController extends Controller
             return $e;
         }
         $ok = GuestSurveys::markHandled((int) $this->user['id'], (int) ($params['id'] ?? 0), filter_var($this->get('handled', true), FILTER_VALIDATE_BOOLEAN));
-        return $ok ? $this->success([], 'Saved') : $this->error('Not found', 404);
+        return $ok ? $this->success([], 'Saved') : $this->error('Not found', 422);
     }
 
     /** GET /reputation/surveys */

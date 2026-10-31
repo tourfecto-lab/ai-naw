@@ -7,7 +7,7 @@
   var state = null;
   var NAMES = { free: 'No subscription', starter: 'Starter', professional: 'Growth', enterprise: 'Leadership' };
 
-  function api(url, opts) { return (P && P.fetchJSON ? P.fetchJSON(url, opts) : fetch(url, opts).then(function (r) { return r.json(); })); }
+  function api(url, opts) { return (P && P.fetchJSON ? P.fetchJSON(url, opts) : fetch(url, opts).then(function (r) { return r.json(); })).catch(function () { return { success: false, error: 'The server sent an unexpected answer. Refresh the page and try again.' }; }); }
   function toast(m, t) { if (P && P.toast) P.toast(m, t); }
 
   function render() {

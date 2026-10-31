@@ -62,7 +62,7 @@ class AdminReputationLimitsController extends Controller
         }
         $user = $this->db->query('SELECT id FROM users WHERE email = ? LIMIT 1', [$email])[0] ?? null;
         if (!$user) {
-            return $this->error('No customer with this e-mail', 404);
+            return $this->error('No customer with this e-mail', 422); // never 404 on a JSON API: the production web server replaces it with an HTML page
         }
         try {
             $res = ReputationLimits::saveOverride((int) $user['id'], $values, (int) ($this->user['id'] ?? 0));
