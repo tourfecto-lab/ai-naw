@@ -876,7 +876,7 @@ class MarketingController extends Controller
             [true, $cycles >= 4 ? $this->t(['فحص وتحسين تلقائي كل أسبوع', 'Automatic check and fixes every week']) : ($cycles >= 2 ? $this->t(['فحص وتحسين تلقائي كل أسبوعين', 'Automatic check and fixes every two weeks']) : $this->t(['فحص وتحسين تلقائي كل شهر', 'Automatic check and fixes every month']))],
             [true, $this->t(['لحد ', 'Up to ']) . $n(BillingPlanCatalog::effectiveSeoPages($f['seo_max_pages'] ?? 100)) . ' ' . $this->t(['صفحة في كل فحص', 'pages per check'])],
             [true, $n($f['articles'] ?? 0) . ' ' . $this->t(['مقالات في الشهر بلغة السوق', 'articles / month in the market language'])],
-            [true, $this->t(['قياس ظهورك في ChatGPT و Gemini و Perplexity', 'Visibility tracking in ChatGPT, Gemini and Perplexity']) . ' (' . $n($f['ai_visibility'] ?? 0) . ' ' . $this->t(['قياس شهريًا', 'checks / month']) . ')'],
+            [true, $this->t(['قياس ظهورك في ChatGPT و Gemini و Perplexity و Claude', 'Visibility tracking in ChatGPT, Gemini, Perplexity and Claude']) . ' (' . $n($f['ai_visibility'] ?? 0) . ' ' . $this->t(['قياس شهريًا', 'checks / month']) . ')'],
             [true, $this->t(['إرسال صفحاتك لجوجل و Bing و Yandex تلقائيًا', 'Pages sent to Google, Bing and Yandex automatically'])],
             [true, $n($f['ai_analysis'] ?? 0) . ' ' . $this->t(['تقارير SEO/AEO/GEO كاملة مع المنافسين', 'full SEO/AEO/GEO reports with competitors'])],
             [!empty($f['advanced_analytics']), $this->t(['تقارير متقدمة لإدارة أكتر من عميل', 'Advanced reporting for managing several clients'])],

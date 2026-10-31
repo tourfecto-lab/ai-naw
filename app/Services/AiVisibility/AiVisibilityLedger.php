@@ -18,11 +18,31 @@ class AiVisibilityLedger
             return $this->db->transaction(function()use($pdo,$set,$provider,$question,$hash,$week,$ceiling){
                 $s=$pdo->prepare('SELECT version,approved_at FROM seo_ai_prompt_sets WHERE id=? AND website_id=? AND user_id=? FOR UPDATE');$s->execute([$set['id'],$set['website_id'],$set['user_id']]);$current=$s->fetch(PDO::FETCH_ASSOC);
                 if (!$current || !$current['approved_at'] || (int)$current['version']!==(int)$set['version']) throw new RuntimeException('geo_approval_changed');
-                if (PlanUsage::charge((int)$set['user_id'],'ai_visibility','ai_visibility','GEO '.$provider.' weekly question')==='failed') throw new RuntimeException('geo_quota_and_wallet_exhausted');
+                $this->chargeQuestion($pdo,$set,$provider);
                 $s=$pdo->prepare("INSERT INTO seo_ai_calls(website_id,user_id,market_id,provider,question_hash,question,week_start,set_version,profile_version,reserved_cost,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP())");
                 $s->execute([$set['website_id'],$set['user_id'],$set['market_id'],$provider,$hash,$question,$week,$set['version'],$set['profile_version'],$ceiling]);return (int)$pdo->lastInsertId();
             });
         } finally {$pdo->query("SELECT RELEASE_LOCK('tourfecto:geo-budget')");}
+    }
+    /**
+     * القياس الأسبوعي الآلي بيخصم من حصة الباقة بس. بعد ما الحصة تخلص مبنخصمش من محفظة العميل إلا لو هو حدد سقف شهري
+     * صريح للموقع (max_ai_wallet_monthly في سياسة السيو، الافتراضي صفر)، وبنحترم السقف ده من خصومات الشهر الحالي.
+     */
+    private function chargeQuestion(PDO $pdo,array $set,string $provider): void
+    {
+        $uid=(int)$set['user_id'];$wid=(int)$set['website_id'];$note='GEO auto website:'.$wid.' '.$provider.' weekly question';
+        if (PlanUsage::consume($uid,'ai_visibility',$note)) return;
+        $limit=0.0;
+        try{$s=$pdo->prepare("SELECT policy_json FROM seo_expert_sites WHERE website_id=? AND user_id=?");$s->execute([$wid,$uid]);$policy=json_decode((string)$s->fetchColumn(),true)?:[];}catch(Throwable $e){$policy=[];}
+        $value=$policy['max_ai_wallet_monthly']??0;
+        if (is_numeric($value)&&is_finite((float)$value)&&(float)$value>0) $limit=round((float)$value,2);
+        $s=$pdo->prepare("SELECT price,currency,is_active FROM pay_per_use_pricing WHERE feature_key='ai_visibility' FOR UPDATE");$s->execute();$price=$s->fetch(PDO::FETCH_ASSOC);
+        $amount=(float)($price['price']??0);
+        if ($limit<=0||!$price||!(int)$price['is_active']||$price['currency']!=='USD'||!is_finite($amount)||$amount<=0) throw new RuntimeException('geo_plan_quota_reached');
+        $s=$pdo->prepare("SELECT COALESCE(-SUM(amount),0) FROM wallet_transactions WHERE user_id=? AND feature_key='ai_visibility' AND status='completed' AND currency='USD' AND amount<0 AND reference_note LIKE ? AND created_at>=DATE_FORMAT(UTC_TIMESTAMP(),'%Y-%m-01')");
+        $s->execute([$uid,'GEO auto website:'.$wid.' %']);
+        if (round((float)$s->fetchColumn()+$amount,2)>$limit) throw new RuntimeException('geo_plan_quota_reached');
+        if (!(new WalletService())->chargeAmount($uid,$amount,'ai_visibility',$note)) throw new RuntimeException('geo_quota_and_wallet_exhausted');
     }
     public function finish(int $id,array $result,?array $analysis,float $cap): void
     {

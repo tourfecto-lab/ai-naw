@@ -59,6 +59,9 @@ class SeoExpertService
             $value=$input['max_data_wallet_monthly']??($oldPolicy['max_data_wallet_monthly']??0);
             if(!is_numeric($value)||!is_finite((float)$value)||(float)$value<0||(float)$value>1000||abs((float)$value-round((float)$value,2))>0.000001)throw new InvalidArgumentException('Invalid monthly SEO data wallet limit');
             $policy['max_data_wallet_monthly']=round((float)$value,2);
+            $aiValue=$input['max_ai_wallet_monthly']??($oldPolicy['max_ai_wallet_monthly']??0);
+            if(!is_numeric($aiValue)||!is_finite((float)$aiValue)||(float)$aiValue<0||(float)$aiValue>1000||abs((float)$aiValue-round((float)$aiValue,2))>0.000001)throw new InvalidArgumentException('Invalid monthly AI visibility wallet limit');
+            $policy['max_ai_wallet_monthly']=round((float)$aiValue,2);
             $this->q("INSERT INTO seo_expert_sites(website_id,user_id,brief_json,policy_json,status,budget_month,created_at,updated_at) VALUES(?,?,?,?,'draft',?,UTC_TIMESTAMP(),UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE brief_json=VALUES(brief_json),policy_json=VALUES(policy_json),status='draft',version=version+1,updated_at=UTC_TIMESTAMP()",[$wid,$uid,json_encode($brief,JSON_THROW_ON_ERROR),json_encode($policy,JSON_THROW_ON_ERROR),gmdate('Y-m')]);return $this->overview($uid,$wid);
         });
     }
