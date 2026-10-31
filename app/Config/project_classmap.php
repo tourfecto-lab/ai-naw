@@ -707,6 +707,7 @@ return [
     'ReviewRequestService' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewRequestService.php',
     'ReviewRequestSettings' => dirname(__DIR__,2).'/app/Models/ReviewRequestSettings.php',
     'ReviewRequestTemplate' => dirname(__DIR__,2).'/app/Models/ReviewRequestTemplate.php',
+    'ReputationReport' => dirname(__DIR__,2).'/app/Services/Reputation/ReputationReport.php',
     'ReputationLimits' => dirname(__DIR__,2).'/app/Services/Reputation/ReputationLimits.php',
     'ReputationLimitReached' => dirname(__DIR__,2).'/app/Services/Reputation/ReputationLimits.php',
     'ReviewImporter' => dirname(__DIR__,2).'/app/Services/Reputation/ReviewImporter.php',

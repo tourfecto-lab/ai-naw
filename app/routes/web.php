@@ -228,6 +228,7 @@ $router->group('/reputation', function ($router) {
     $router->get('/reviews', 'ReputationController', 'showReviews', ['AuthMiddleware']);
     $router->get('/review/{id}', 'ReputationController', 'showReview', ['AuthMiddleware']);
     $router->get('/stats', 'ReputationController', 'showStats', ['AuthMiddleware']);
+    $router->get('/report', 'ReputationController', 'report', ['AuthMiddleware']);
     $router->get('/platforms', 'ReputationController', 'showPlatforms', ['AuthMiddleware']);
     $router->get('/intelligence', 'GbpProfileController', 'showReputationIntelligence', ['AuthMiddleware']);
     $router->get('/connect/google/callback', 'ReputationController', 'googleOAuthCallback', ['AuthMiddleware']);
