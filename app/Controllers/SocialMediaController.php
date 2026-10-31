@@ -1152,7 +1152,11 @@ class SocialMediaController extends Controller
         $cur = CurrencyService::forViewer($this->user);
         $cfg = SocialPackages::config();
         $tiers = [];
+        $viewerTier = (string) (SocialPackages::entitlements($this->uid())['tier'] ?? '');
         foreach ($cfg['tiers'] as $k => $t) {
+            if ($k === 'enterprise' && empty($t['for_sale']) && $viewerTier !== 'enterprise') {
+                continue; // مستوى المؤسسات مخفي عن العملاء لحد ما الأدمن يفتحه للبيع
+            }
             $tiers[] = ['key' => $k, 'name' => $ar ? $t['name'] : $t['name_en'], 'for_sale' => (bool) $t['for_sale'], 'rank' => SocialPackages::RANK[$k],
                 'monthly' => $this->priceLabels((float) $t['price_monthly'], $cur, $ar), 'yearly' => $this->priceLabels((float) $t['price_yearly'], $cur, $ar),
                 'limits' => array_intersect_key($t, array_flip(SocialPackages::LIMIT_KEYS)), 'platforms' => array_values(array_intersect($cfg['platforms_enabled'], $t['platforms'])),

@@ -5,7 +5,7 @@
     let P, root, D;
     const api = async (url, body) => { const r = await P.fetchJSON(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, csrf_token: D?.csrf_token }) } : undefined); if (!r?.success) throw new Error(r?.error || 'حصلت مشكلة'); return r; };
     const msg = (m, bad) => { const el = root.querySelector('#spaMsg'); el.textContent = m; el.className = 'ps-msg' + (bad ? ' bad' : ''); el.hidden = !m; };
-    const TIERS = ['free', 'basic', 'pro', 'agency'];
+    const TIERS = ['free', 'basic', 'pro', 'agency', 'enterprise'];
 
     const pct = v => (Number(v) || 0).toFixed(1) + '%';
     const extras = c => {
@@ -17,7 +17,7 @@ ${fld('خصم %', `<input class="p-select" type="number" min="1" max="100" step=
 ${fld('أقصى استخدام (0 = بلا حد)', `<input class="p-select" type="number" min="0" data-pf="max_uses" value="${esc(p.max_uses)}">`)}
 ${fld('من', `<input class="p-select" type="date" data-pf="starts" value="${esc(p.starts)}">`)}
 ${fld('إلى', `<input class="p-select" type="date" data-pf="ends" value="${esc(p.ends)}">`)}
-<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:12px;align-items:center"><span class="p-cell-muted" style="font-size:12px">الباقات (من غير اختيار = الكل):</span>${['basic', 'pro', 'agency', 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join('')}
+<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:12px;align-items:center"><span class="p-cell-muted" style="font-size:12px">الباقات (من غير اختيار = الكل):</span>${['basic', 'pro', 'agency', 'enterprise', 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join('')}
 <span class="p-cell-muted" style="font-size:12px">الدورة:</span>${['monthly', 'yearly'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-pcycle="${t}" ${(p.cycles || []).includes(t) ? 'checked' : ''}> ${t === 'monthly' ? 'شهري' : 'سنوي'}</label>`).join('')}
 <label style="white-space:nowrap"><input type="checkbox" data-pf="enabled" ${p.enabled ? 'checked' : ''}> فعّال</label>
 <button type="button" class="p-btn" data-promo-del="${i}" aria-label="حذف الكود" style="margin-inline-start:auto">✕ حذف</button></div></div>`).join('');

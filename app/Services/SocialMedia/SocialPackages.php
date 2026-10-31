@@ -35,7 +35,7 @@ final class SocialPackageLimit extends InvalidArgumentException
 final class SocialPackages
 {
     public const PLATFORMS = ['facebook', 'instagram', 'tiktok', 'youtube', 'google_business', 'threads', 'linkedin'];
-    public const RANK = ['free' => 0, 'basic' => 1, 'pro' => 2, 'agency' => 3];
+    public const RANK = ['free' => 0, 'basic' => 1, 'pro' => 2, 'agency' => 3, 'enterprise' => 4];
     public const LIMIT_KEYS = ['accounts', 'posts', 'monthly_plans', 'competitors', 'ai_captions'];
     public const FEATURE_KEYS = ['private_reply', 'auto_private', 'attribution', 'client_review', 'team', 'growth'];
 
@@ -55,6 +55,11 @@ final class SocialPackages
             'private_reply' => true, 'auto_private' => true, 'attribution' => true, 'client_review' => true, 'team' => true, 'growth' => true],
         'agency' => ['name' => 'وكالة', 'name_en' => 'Agency', 'price_monthly' => 129, 'price_yearly' => 1290, 'for_sale' => true,
             'accounts' => 25, 'posts' => -1, 'monthly_plans' => -1, 'competitors' => 10, 'ai_captions' => 1500,
+            'platforms' => self::PLATFORMS,
+            'private_reply' => true, 'auto_private' => true, 'attribution' => true, 'client_review' => true, 'team' => true, 'growth' => true],
+        // مستوى المؤسسات: مقفول للبيع افتراضيًا (الأدمن يفعّله من الصفحة بعد ما يراجع الأسعار)، ومش بيظهر للعملاء طول ما هو مقفول
+        'enterprise' => ['name' => 'مؤسسات', 'name_en' => 'Enterprise', 'price_monthly' => 299, 'price_yearly' => 2990, 'for_sale' => false,
+            'accounts' => 100, 'posts' => -1, 'monthly_plans' => -1, 'competitors' => 25, 'ai_captions' => 5000,
             'platforms' => self::PLATFORMS,
             'private_reply' => true, 'auto_private' => true, 'attribution' => true, 'client_review' => true, 'team' => true, 'growth' => true],
     ];
@@ -228,7 +233,7 @@ final class SocialPackages
                 'code' => $code,
                 'label' => mb_substr(trim(strip_tags((string) ($p['label'] ?? ''))), 0, 60),
                 'percent' => $pct,
-                'tiers' => array_values(array_intersect(['basic', 'pro', 'agency', 'custom'], array_map('strval', (array) ($p['tiers'] ?? [])))),
+                'tiers' => array_values(array_intersect(['basic', 'pro', 'agency', 'enterprise', 'custom'], array_map('strval', (array) ($p['tiers'] ?? [])))),
                 'cycles' => array_values(array_intersect(['monthly', 'yearly'], array_map('strval', (array) ($p['cycles'] ?? [])))),
                 'starts' => $date($p['starts'] ?? ''),
                 'ends' => $date($p['ends'] ?? ''),
@@ -930,7 +935,7 @@ final class SocialPackages
     /** "متاحة من باقة X" لأول مستوى بيشمل الميزة/المنصة */
     private static function upgradeHint(string $feature, ?string $platform = null): string
     {
-        foreach (['basic', 'pro', 'agency'] as $k) {
+        foreach (['basic', 'pro', 'agency', 'enterprise'] as $k) {
             $t = self::config()['tiers'][$k];
             if (($platform !== null && in_array($platform, $t['platforms'], true)) || ($platform === null && !empty($t[$feature]))) {
                 return ' - متاحة من باقة «' . $t['name'] . '» أو ضيفها لوحدها في «فصّل باقتك» من صفحة الاشتراكات.';

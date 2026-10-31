@@ -117,4 +117,28 @@ final class SocialPackagesPromoFlowTest extends TestCase
         $this->assertFalse($rep[1]['alert']);
         $this->assertSame(round(80 * 0.001 + 10 * 0.003, 2), $rep[0]['est_cost']);
     }
+
+    public function testEnterpriseTierIsHiddenFromSaleUntilAdminEnablesIt(): void
+    {
+        $cfg = SocialPackages::config();
+        $this->assertArrayHasKey('enterprise', $cfg['tiers']);
+        $this->assertFalse($cfg['tiers']['enterprise']['for_sale']);
+        $this->assertGreaterThan(SocialPackages::RANK['agency'], SocialPackages::RANK['enterprise']);
+        $this->assertGreaterThan(50, SocialPackages::economics($cfg)['enterprise']['margin_pct_monthly']);
+
+        try {
+            SocialPackages::subscribe(self::U1, 'enterprise', 'monthly', 'ent-key-0001');
+            $this->fail('مستوى المؤسسات مقفول للبيع');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('مش متاحة', $e->getMessage());
+        }
+
+        SocialPackages::saveConfig(['tiers' => ['enterprise' => ['for_sale' => true]]], null);
+        $r = SocialPackages::subscribe(self::U1, 'enterprise', 'monthly', 'ent-key-0002');
+        $this->assertSame('subscribed', $r['action']);
+        $this->assertSame(299.0, $r['charged']);
+        $limits = SocialPackages::entitlements(self::U1)['limits'];
+        $this->assertSame(100, $limits['accounts']);
+        $this->assertSame(5000, $limits['ai_captions']);
+    }
 }
