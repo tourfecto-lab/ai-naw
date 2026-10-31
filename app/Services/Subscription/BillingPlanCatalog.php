@@ -73,6 +73,100 @@ class BillingPlanCatalog
         return array_map(static function ($r) { $r['changes'] = json_decode((string) $r['changes_json'], true) ?: []; unset($r['changes_json']); return $r; }, $st->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    public const MAX_CUSTOM_PLANS = 12;
+
+    /**
+     * باقة جديدة من الأدمن: نسخة من باقة موجودة (دورتين شهري وسنوي + صف العرض)، مقفولة للبيع (is_active=0)
+     * لحد ما الأدمن يعدّلها ويفعّلها. العلامة custom في features_json هي اللي بتسمح بحذفها بعدين.
+     */
+    public static function createCustomPlan(Database $db, string $newKey, string $name, string $cloneKey, ?int $actorId): string
+    {
+        if (!preg_match('/^[a-z][a-z0-9-]{2,29}$/D', $newKey)) throw new InvalidArgumentException('مفتاح الباقة: حروف إنجليزية صغيرة وأرقام وشرطة، من 3 لـ 30 حرف');
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name) > 150) throw new InvalidArgumentException('اكتب اسم الباقة');
+        $pdo = $db->getConnection();
+        self::ensureAuditTable($db);
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $st = $pdo->prepare('SELECT * FROM subscription_plans WHERE plan_code IN (?,?,?,?)' . $lock);
+            $st->execute([$newKey . '_monthly', $newKey . '_yearly', $cloneKey . '_monthly', $cloneKey . '_yearly']);
+            $rows = [];
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $rows[$r['plan_code']] = $r;
+            if (isset($rows[$newKey . '_monthly']) || isset($rows[$newKey . '_yearly'])) throw new InvalidArgumentException('المفتاح ده مستخدم قبل كده');
+            $st = $pdo->prepare('SELECT COUNT(*) FROM plan_pricing_display WHERE plan_key = ?');
+            $st->execute([$newKey]);
+            if ((int) $st->fetchColumn() > 0) throw new InvalidArgumentException('المفتاح ده مستخدم قبل كده');
+            if (!isset($rows[$cloneKey . '_monthly'], $rows[$cloneKey . '_yearly'])) throw new InvalidArgumentException('الباقة اللي هتتنسخ منها مش موجودة');
+            $cq = $pdo->prepare("SELECT COUNT(*) FROM subscription_plans WHERE billing_cycle = 'monthly' AND features_json LIKE ?"); $cq->execute(['%"custom":%true%']); $n = (int) $cq->fetchColumn();
+            if ($n >= self::MAX_CUSTOM_PLANS) throw new InvalidArgumentException('وصلت الحد الأقصى للباقات الجديدة (' . self::MAX_CUSTOM_PLANS . ')');
+
+            foreach (['monthly', 'yearly'] as $cycle) {
+                $src = $rows[$cloneKey . '_' . $cycle];
+                $f = json_decode((string) ($src['features_json'] ?? '{}'), true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($f)) throw new RuntimeException('Invalid billing feature configuration');
+                $f['custom'] = true;
+                unset($src['id']);
+                $src['plan_code'] = $newKey . '_' . $cycle;
+                $src['name'] = $name;
+                $src['is_active'] = 0;
+                $src['features_json'] = json_encode($f, JSON_THROW_ON_ERROR);
+                unset($src['created_at'], $src['updated_at']);
+                $cols = array_keys($src);
+                $pdo->prepare('INSERT INTO subscription_plans (' . implode(',', array_map(fn ($c) => '`' . $c . '`', $cols)) . ') VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')')->execute(array_values($src));
+            }
+            $st = $pdo->prepare('SELECT * FROM plan_pricing_display WHERE plan_key = ?');
+            $st->execute([$cloneKey]);
+            $disp = $st->fetch(PDO::FETCH_ASSOC);
+            if ($disp) {
+                unset($disp['id'], $disp['created_at'], $disp['updated_at']);
+                $disp['plan_key'] = $newKey;
+                $disp['name'] = $name;
+                $disp['is_active'] = 0;
+                $cols = array_keys($disp);
+                $pdo->prepare('INSERT INTO plan_pricing_display (' . implode(',', array_map(fn ($c) => '`' . $c . '`', $cols)) . ') VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')')->execute(array_values($disp));
+            }
+            $pdo->prepare('INSERT INTO plan_change_audit (plan_key, actor_id, changes_json) VALUES (?,?,?)')
+                ->execute([$newKey, $actorId, json_encode(['created' => ['from' => null, 'to' => 'نسخة من ' . $cloneKey . ' (مقفولة للبيع)']], JSON_UNESCAPED_UNICODE)]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+        return $newKey;
+    }
+
+    /** حذف باقة اتعملت من الأدمن، بس لو مفيش ولا اشتراك (حتى منتهي) مربوط بيها */
+    public static function deleteCustomPlan(Database $db, string $planKey, ?int $actorId): void
+    {
+        $pdo = $db->getConnection();
+        self::ensureAuditTable($db);
+        $pdo->beginTransaction();
+        try {
+            $lock = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $st = $pdo->prepare('SELECT id, features_json FROM subscription_plans WHERE plan_code IN (?,?)' . $lock);
+            $st->execute([$planKey . '_monthly', $planKey . '_yearly']);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+            if (count($rows) !== 2) throw new InvalidArgumentException('الباقة مش موجودة');
+            foreach ($rows as $r) {
+                $f = json_decode((string) $r['features_json'], true);
+                if (!is_array($f) || empty($f['custom'])) throw new InvalidArgumentException('الباقات الأساسية مبتتحذفش، اقفلها من «مفعّلة»');
+            }
+            $ids = array_map(fn ($r) => (int) $r['id'], $rows);
+            $st = $pdo->prepare('SELECT COUNT(*) FROM subscriptions WHERE plan_id IN (?,?)');
+            $st->execute($ids);
+            if ((int) $st->fetchColumn() > 0) throw new InvalidArgumentException('عليها اشتراكات (حتى المنتهية)، اقفلها من «مفعّلة» بدل الحذف');
+            $pdo->prepare('DELETE FROM subscription_plans WHERE id IN (?,?)')->execute($ids);
+            $pdo->prepare('DELETE FROM plan_pricing_display WHERE plan_key = ?')->execute([$planKey]);
+            $pdo->prepare('INSERT INTO plan_change_audit (plan_key, actor_id, changes_json) VALUES (?,?,?)')
+                ->execute([$planKey, $actorId, json_encode(['deleted' => ['from' => 'موجودة', 'to' => 'اتحذفت']], JSON_UNESCAPED_UNICODE)]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+    }
+
     public static function featureQuota($value): int
     {
         if ($value===true || $value===-1 || $value==='-1') return -1;

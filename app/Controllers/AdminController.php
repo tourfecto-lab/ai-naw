@@ -1221,6 +1221,7 @@ class AdminController extends Controller
                     foreach (['price_monthly','price_yearly','currency','currency_symbol'] as $field) $a[$field]=$billing[$key][$field];
                     foreach ($billing[$key]['features'] as $field=>$value) $a[$field]=$value;
                     $a['is_active']=1;
+                    $a['custom']=!empty($billing[$key]['features']['custom']);
                     foreach ($billingRows as $row) if (in_array($row['plan_code'],[$key.'_monthly',$key.'_yearly'],true)&&!(int)$row['is_active']) $a['is_active']=0;
                 }
                 $a += $this->planQuotas($key);
@@ -1230,6 +1231,44 @@ class AdminController extends Controller
         } catch (Exception $e) {
             Logger::error('Admin listPlansAdmin Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب الباقات', 500);
+        }
+    }
+
+    /** POST /api/admin/plans/create - باقة جديدة منسوخة من باقة موجودة، مقفولة للبيع */
+    public function createPlan(array $params = []): array
+    {
+        if ($error = $this->verifyCsrf()) return $error;
+        try {
+            require_once APP_PATH . '/Services/Subscription/BillingPlanCatalog.php';
+            $key = BillingPlanCatalog::createCustomPlan($this->db, strtolower(trim((string) $this->get('plan_key', ''))), (string) $this->get('name', ''), strtolower(trim((string) $this->get('clone_from', ''))), (int) ($this->user['id'] ?? 0) ?: null);
+            $this->log('Admin Created Plan', ['plan_key' => $key]);
+            return $this->success(['plan_key' => $key], 'اتعملت الباقة مقفولة للبيع. عدّل حدودها وأسعارها وبعدين فعّلها.');
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Admin createPlan Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر إنشاء الباقة', 500);
+        }
+    }
+
+    /** POST /api/admin/plans/{id}/delete - حذف باقة جديدة معندهاش اشتراكات */
+    public function deletePlan(array $params = []): array
+    {
+        if ($error = $this->verifyCsrf()) return $error;
+        try {
+            require_once APP_PATH . '/Services/Subscription/BillingPlanCatalog.php';
+            $st = $this->db->getConnection()->prepare('SELECT plan_key FROM plan_pricing_display WHERE id = ?');
+            $st->execute([(int) ($params['id'] ?? 0)]);
+            $key = (string) $st->fetchColumn();
+            if ($key === '') return $this->error('الباقة غير موجودة', 404);
+            BillingPlanCatalog::deleteCustomPlan($this->db, $key, (int) ($this->user['id'] ?? 0) ?: null);
+            $this->log('Admin Deleted Plan', ['plan_key' => $key]);
+            return $this->success([], 'اتحذفت الباقة');
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Admin deletePlan Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر حذف الباقة', 500);
         }
     }
 
@@ -3132,6 +3171,7 @@ class AdminController extends Controller
             return;
         }
         plansCache = res.data.plans;
+        bindNewPlan();
         loadPlanAudit();
         loadPlanEconomics();
         if (!plansCache.length) {
@@ -3146,12 +3186,33 @@ class AdminController extends Controller
                 <div class="p-cell-muted" style="font-size:12.5px;margin-bottom:10px;">${esc(p.currency_symbol)}${esc(p.price_yearly)}/${I18N['admin.yearly']}</div>
                 <div class="p-kv"><span class="k">${I18N['admin.plans.ai_analysis']}</span><span class="v">${esc(p.ai_analysis)}</span></div>
                 <div class="p-kv"><span class="k">${I18N['admin.plans.chat_credits']}</span><span class="v">${esc(p.chat_credits)}</span></div>
-                <button class="p-btn outline xs" style="margin-top:10px;" onclick="openEditPlan(${p.id})">✏️ ${I18N['common.edit']}</button>
+                <button class="p-btn outline xs" style="margin-top:10px;" onclick="openEditPlan(${p.id})">✏️ ${I18N['common.edit']}</button>${p.custom ? ` <button class="p-btn outline xs" style="margin-top:10px;" onclick="deletePlan(${p.id})">🗑 حذف</button>` : ''}
             </div>
         `).join('');
     }
 
     const AUDIT_LABELS = { name: 'الاسم', price_monthly: 'السعر الشهري', price_yearly: 'السعر السنوي', currency: 'العملة', is_active: 'مفعّلة', seo_cycles: 'فحوصات السيو/شهر', seo_max_pages: 'صفحات الفحص', seo_markets: 'الأسواق', ai_visibility: 'قياسات الذكاء الاصطناعي', seo_data: 'وحدات البيانات', articles: 'المقالات', ai_analysis: 'تحليلات AI', competitor_analysis: 'تحليلات المنافسين', chat_credits: 'رسائل الشات', review_credits: 'ردود التقييمات', multiple_websites: 'المواقع' };
+    window.deletePlan = async function (id) {
+        const p = plansCache.find(x => x.id == id);
+        if (!p || !confirm('تحذف الباقة «' + p.name + '»؟ لو عليها اشتراكات مش هتتحذف.')) return;
+        const res = await fetchJSON('/api/admin/plans/' + id + '/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        toast(res.success ? 'اتحذفت الباقة' : (res.error || 'تعذر الحذف'), res.success ? 'success' : 'error');
+        if (res.success) loadPlans();
+    };
+    function bindNewPlan() {
+        const sel = document.getElementById('newPlanClone');
+        if (sel) sel.innerHTML = plansCache.map(p => '<option value="' + esc(p.plan_key) + '">' + esc(p.name) + '</option>').join('');
+        const btn = document.getElementById('newPlanAdd');
+        if (!btn || btn.dataset.bound) return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', async () => {
+            const msg = document.getElementById('newPlanMsg');
+            const body = { plan_key: document.getElementById('newPlanKey').value.trim(), name: document.getElementById('newPlanName').value.trim(), clone_from: sel.value };
+            const res = await fetchJSON('/api/admin/plans/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            msg.textContent = res.success ? 'اتعملت الباقة مقفولة للبيع. عدّل حدودها وأسعارها وبعدين فعّلها.' : (res.error || 'تعذر إنشاء الباقة');
+            if (res.success) { document.getElementById('newPlanKey').value = ''; document.getElementById('newPlanName').value = ''; loadPlans(); }
+        });
+    }
     async function loadPlanEconomics() {
         const box = document.getElementById('planEconBox');
         if (!box) return;
@@ -4337,6 +4398,12 @@ HTML;
                 $tabsJs = htmlspecialchars(asset_v('/assets/js/admin-section-tabs.js'), ENT_QUOTES, 'UTF-8');
                 return <<<HTML
                 <p class="p-cell-muted" style="margin-bottom:16px;">{$this->tr('admin.plans.hint')}</p>
+                <div class="p-card" style="margin-bottom:16px"><div class="p-card-head"><h3>➕ باقة جديدة</h3><span class="p-card-sub">بتتنسخ من باقة موجودة وبتتعمل مقفولة للبيع لحد ما تفعّلها. ابدأ المفتاح بـ seo- عشان تظهر في تبويب السيو.</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+                <label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">المفتاح (إنجليزي)</span><input class="form-control" id="newPlanKey" dir="ltr" maxlength="30" placeholder="seo-local" style="max-width:170px"></label>
+                <label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">الاسم</span><input class="form-control" id="newPlanName" maxlength="150" style="max-width:200px"></label>
+                <label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">انسخ من</span><select class="form-control" id="newPlanClone" style="max-width:200px"></select></label>
+                <button type="button" class="p-btn" id="newPlanAdd">➕ أضف الباقة</button></div><div id="newPlanMsg" class="p-cell-muted" style="margin-top:8px"></div></div>
                 <div id="plansGrid" class="p-grid cols-3"><div class="p-empty">{$this->tr('common.loading')}</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>إيراد وتكلفة وهامش كل باقة</h3><span class="p-card-sub">فعلي لآخر 30 يوم</span></div><div id="planEconBox" class="p-cell-muted">...</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>سجل تعديل الباقات</h3><span class="p-card-sub">مين غيّر إيه وإمتى (القيمة قبل وبعد)</span></div><div id="planAuditBox" class="p-cell-muted">...</div></div>
