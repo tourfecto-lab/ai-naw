@@ -287,7 +287,21 @@ class ReputationLimits
         if ($override !== null && $override !== '') {
             return in_array($key, self::BOOL_KEYS, true) ? (bool) $override : (int) $override;
         }
-        return self::config($db)[self::tierFor($owner, $db)][$key];
+        $value = self::config($db)[self::tierFor($owner, $db)][$key];
+        // A stand-alone plan bought from the wallet adds to the platform plan: the more generous value wins, never a sum
+        try {
+            $standalone = ReputationPlans::limitsFor($owner, $db);
+        } catch (Throwable $e) {
+            $standalone = null;
+        }
+        if ($standalone !== null && array_key_exists($key, $standalone)) {
+            $other = $standalone[$key];
+            if (in_array($key, self::BOOL_KEYS, true)) {
+                return (bool) $value || (bool) $other;
+            }
+            return ((int) $value === self::UNLIMITED || (int) $other === self::UNLIMITED) ? self::UNLIMITED : max((int) $value, (int) $other);
+        }
+        return $value;
     }
 
     public static function usage(int $userId, ?Database $db = null): array

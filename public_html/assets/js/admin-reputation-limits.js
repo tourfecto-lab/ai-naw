@@ -51,6 +51,7 @@
       (d.overrides.length ? '<div class="p-table-scroll" tabindex="0" aria-label="Customer exceptions"><table class="p-table" style="margin-top:10px"><thead><tr><th>Customer</th><th>Plan</th><th>Exceptions</th><th></th></tr></thead><tbody>' + d.overrides.map(function (o) {
         return '<tr><td>' + esc(o.email) + '</td><td>' + esc(NAMES[o.plan] || o.plan) + '</td><td>' + Object.keys(o.values).map(function (k) { return esc((d.labels[k] || k) + ': ' + (o.values[k] === true ? 'On' : o.values[k] === false ? 'Off' : o.values[k] < 0 ? 'Unlimited' : o.values[k])); }).join('; ') + '</td><td><button class="p-btn outline xs" data-rm="' + esc(o.email) + '" data-keys="' + esc(Object.keys(o.values).join(',')) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table></div>' : '<p class="p-cell-muted" style="margin-top:10px">No exceptions.</p>') + '</div>' +
+      standaloneCard(d) +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Review sources</h3></div>' +
       '<p class="p-cell-muted" style="margin:0 0 10px">Choose, for each outside review site, how reviews may come in. Both can be on together. Automatic sync can only be switched on where the platform has a connector (today TripAdvisor). For the other sites CSV import is the way in until a connector is built; the note on each row says what that site requires.</p>' +
       '<div class="p-table-scroll" tabindex="0" aria-label="Review sources, scrolls sideways"><table class="p-table"><thead><tr><th scope="col">Site</th><th scope="col">CSV import by the customer</th><th scope="col">Automatic sync</th></tr></thead><tbody>' +
@@ -71,6 +72,36 @@
     root.querySelectorAll('[data-rm]').forEach(function (b) {
       b.onclick = function () { var vals = {}; b.dataset.keys.split(',').forEach(function (k) { vals[k] = null; }); sendOverride(b.dataset.rm, vals); };
     });
+  }
+
+  function standaloneCard(d) {
+    var sa = d.standalone;
+    if (!sa) return '';
+    if (!sa.ready) return '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Stand-alone reputation plans</h3></div><p class="p-cell-muted">Not available until the database update 2026_10_31_000004 (table reputation_subscriptions) is applied.</p></div>';
+    var rows = sa.plans.map(function (p) {
+      var f = function (field, val, extra) { return '<input class="p-select" data-sa-plan="' + p.key + '" data-sa-field="' + field + '" value="' + esc(val) + '" ' + (extra || '') + '>'; };
+      var lim = d.number_keys.map(function (k) { return '<td><input type="number" min="-1" max="1000000" step="1" class="p-select" style="width:100px" data-sa-plan="' + p.key + '" data-sa-limit="' + k + '" value="' + Number(p.limits[k]) + '" aria-label="' + esc(d.labels[k] + ' - ' + p.name) + '"></td>'; }).join('') +
+        d.bool_keys.map(function (k) { return '<td><input type="checkbox" data-sa-plan="' + p.key + '" data-sa-limit="' + k + '"' + (p.limits[k] ? ' checked' : '') + ' aria-label="' + esc(d.labels[k] + ' - ' + p.name) + '"></td>'; }).join('');
+      return '<tr><td>' + f('name', p.name, 'maxlength="40" style="width:110px" aria-label="Plan name"') + '</td><td>' + f('price_monthly', p.price_monthly, 'type="number" min="0" step="0.01" style="width:90px" aria-label="Monthly price USD"') + '</td><td>' + f('price_yearly', p.price_yearly, 'type="number" min="0" step="0.01" style="width:90px" aria-label="Yearly price USD"') +
+        '</td><td><input type="checkbox" data-sa-plan="' + p.key + '" data-sa-field="for_sale"' + (p.for_sale ? ' checked' : '') + ' aria-label="On sale - ' + esc(p.name) + '"></td>' + lim + '<td>' + p.subs + '</td><td>$' + Number(p.mrr).toFixed(2) + '</td></tr>';
+    }).join('');
+    return '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Stand-alone reputation plans</h3></div>' +
+      '<p class="p-cell-muted" style="margin:0 0 10px">Plans a customer buys from the wallet for the reputation tools only. Off by default: nothing is sold until you turn selling on <b>and</b> tick "On sale" for a plan. A customer with a platform plan too gets the more generous limit of the two, never both added. Stopping a plan\'s sale never cancels its subscribers; a price change applies at the next renewal, not to the period already paid; a renewal the wallet cannot cover ends the plan. AI replies are not part of these plans (review credits or wallet usage prices, as today). Prices are in USD; the figures below are proposals until you approve them.</p>' +
+      '<label style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-weight:600"><input type="checkbox" id="saEnabled"' + (sa.enabled ? ' checked' : '') + '> Selling is on</label>' +
+      '<div class="p-table-scroll" tabindex="0" aria-label="Stand-alone plans, scrolls sideways"><table class="p-table" style="min-width:900px"><thead><tr><th>Name</th><th>Monthly $</th><th>Yearly $</th><th>On sale</th>' + d.number_keys.concat(d.bool_keys).map(function (k) { return '<th>' + esc(d.labels[k]) + '</th>'; }).join('') + '<th>Subscribers</th><th>Monthly revenue</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+  }
+
+  function collectStandalone() {
+    var out = { plans: {} };
+    var en = document.getElementById('saEnabled');
+    if (en) out.enabled = en.checked;
+    root.querySelectorAll('[data-sa-plan]').forEach(function (el) {
+      var k = el.dataset.saPlan;
+      out.plans[k] = out.plans[k] || { limits: {} };
+      if (el.dataset.saLimit) out.plans[k].limits[el.dataset.saLimit] = el.type === 'checkbox' ? el.checked : el.value;
+      else if (el.dataset.saField) out.plans[k][el.dataset.saField] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    return out;
   }
 
   function collectSources() {
@@ -95,7 +126,7 @@
   function save() {
     var btn = document.getElementById('rlSave'), msg = document.getElementById('rlMsg');
     btn.disabled = true; msg.textContent = 'Saving...';
-    api('/api/admin/reputation-limits', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf_token || '' }, body: JSON.stringify({ limits: collect(), sources: collectSources(), csrf_token: state.csrf_token || '' }) })
+    api('/api/admin/reputation-limits', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf_token || '' }, body: JSON.stringify({ limits: collect(), sources: collectSources(), standalone: collectStandalone(), csrf_token: state.csrf_token || '' }) })
       .then(function (r) {
         btn.disabled = false;
         if (r.success) { toast(r.message || 'Saved', 'success'); load(); } else { msg.textContent = r.error || 'Could not save'; toast(r.error || 'Could not save', 'error'); }

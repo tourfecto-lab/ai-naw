@@ -72,6 +72,7 @@ $router->get('/review-us/{code}', 'ReviewRequestController', 'reviewUs');
 $router->get('/survey/{code}', 'GuestSurveyController', 'show');
 $router->post('/survey/{code}', 'GuestSurveyController', 'submit');
 $router->get('/reputation/surveys', 'GuestSurveyController', 'page', ['AuthMiddleware']);
+$router->get('/reputation/plans', 'ReputationPlansController', 'page', ['AuthMiddleware']);
 $router->get('/verify-email/{token}', 'AuthController', 'verifyEmail');
 
 // تسجيل الدخول الاجتماعي (Google/Facebook)
