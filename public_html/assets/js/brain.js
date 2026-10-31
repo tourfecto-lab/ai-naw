@@ -50,7 +50,7 @@
       const marketsKnown = (u.markets?.countries || []).length || (s.market && s.market.markets_default === false);
       if (!marketsKnown) gaps.push(t('الدول المستهدفة', 'Target countries'));
       if (!s.competitors?.tracked) gaps.push(t('المنافسين', 'Competitors'));
-      // الربحية: المنصة مافيهاش تكلفة الرحلات، فالعقل مابيقترحش على الربح لحد ما تتسجل
+      // الربحية: بتتحسب من التكاليف المسجّلة في الإيرادات؛ من غيرها العقل مابيقترحش على الربح
       if (s.growth_advice && !s.growth_advice.costs_known) gaps.push(t('تكلفة الرحلات (لتوصيات الربحية)', 'Trip costs (for profitability advice)'));
       const row = (k, v) => `<div class="br-fact"><span>${esc(k)}</span><p dir="auto">${v ? esc(String(v).slice(0, 220)) : `<em>${t('مش معروف لسه', 'Not known yet')}</em>`}</p></div>`;
       const known = [u.business_name || s.website?.name, u.services, u.audience, u.goal, marketsKnown, s.competitors?.tracked].filter(Boolean).length;

@@ -46,6 +46,14 @@ final class GrowthAdvisor
             WHERE c.user_id = ? AND p.price IS NOT NULL AND p.price > 0 AND p.detected_at > DATE_SUB(NOW(), INTERVAL 120 DAY)
             ORDER BY p.detected_at DESC LIMIT 500", [$uid]);
 
+        $profit = null;
+        try {
+            if (class_exists('RevenueProfitabilityService')) $profit = (new RevenueProfitabilityService())->getProfitability($uid, 'quarterly');
+        } catch (Throwable $e) {
+            $profit = null; // الربحية إضافة؛ لو مش متاحة القرارات التانية تكمّل
+        }
+        $profitability = self::profitability($profit);
+
         $byId = [];
         foreach ($products as $p) $byId[(int) $p['id']] = $p;
         return [
@@ -58,7 +66,27 @@ final class GrowthAdvisor
                     'price' => ($a['price'] !== null && $b['price'] !== null && $a['currency'] === $b['currency']) ? round((float) $a['price'] + (float) $b['price'], 2) : null, 'currency' => $a['currency']];
             }, $pairs))),
             'pricing' => $competitorPrices === null ? null : self::pricing($products, $competitorPrices),
-            'costs_known' => false,
+            'profitability' => $profitability,
+            'costs_known' => $profitability !== null && ($profitability['coverage_percent'] ?? 0) > 0,
+        ];
+    }
+
+    /**
+     * ملخص الربحية من RevenueProfitabilityService (آخر 90 يوم). المنتج من غير تكلفة مسجّلة مابيدخلش الحساب
+     * (مانفترضش تكلفة صفر). null لو مفيش حجوزات.
+     */
+    public static function profitability(?array $r): ?array
+    {
+        if (!$r || empty($r['has_data'])) return null;
+        $pick = static fn (array $p): array => ['product_id' => $p['product_id'], 'product' => (string) $p['product_name'], 'revenue' => (float) $p['revenue'],
+            'net_profit' => (float) $p['net_profit'], 'margin_percent' => $p['margin_percent'] !== null ? (float) $p['margin_percent'] : null];
+        $withCosts = array_values(array_filter((array) $r['products'], static fn ($p) => $p['net_profit'] !== null));
+        return [
+            'currency' => (string) ($r['currency'] ?? ''),
+            'coverage_percent' => $r['coverage_percent'] !== null ? (float) $r['coverage_percent'] : null,
+            'margin_percent' => $r['totals']['margin_percent'] ?? null,
+            'loss_makers' => array_map($pick, array_slice(array_values(array_filter($withCosts, static fn ($p) => $p['net_profit'] < 0)), 0, 3)),
+            'thin_margin' => array_map($pick, array_slice(array_values(array_filter($withCosts, static fn ($p) => $p['net_profit'] >= 0 && $p['margin_percent'] !== null && $p['margin_percent'] < 15)), 0, 3)),
         ];
     }
 
