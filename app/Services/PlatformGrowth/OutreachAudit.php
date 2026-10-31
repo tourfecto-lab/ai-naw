@@ -148,6 +148,12 @@ class OutreachAudit
     // ------------------------------------------------------------------ جوجل
 
     /** نتيجة Places "Find Place" ← حقائق ملف جوجل */
+    /** أسماء الشركات المنسوخة من خرائط جوجل فيها علامات اتجاه مخفية (U+202A-202E وغيرها) بتبوّظ البحث عن الشركة وبتظهر في الرسالة */
+    public static function cleanName(string $name): string
+    {
+        return trim((string) preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $name));
+    }
+
     public static function googleFacts(?array $placesResponse): array
     {
         if ($placesResponse === null) {

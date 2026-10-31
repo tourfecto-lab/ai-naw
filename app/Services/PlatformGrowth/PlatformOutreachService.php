@@ -713,7 +713,12 @@ class PlatformOutreachService
                 $data['site_status'] = $code;
             }
         }
-        $google = OutreachAudit::googleFacts(($this->places)((string) $l['company'], (string) ($l['city'] ?? '')));
+        $city = trim((string) ($l['city'] ?? ''));
+        $google = OutreachAudit::googleFacts(($this->places)(OutreachAudit::cleanName((string) $l['company']), $city));
+        // البحث بالاسم من غير مدينة ضعيف: «مالقيناش ملف» هنا مش دليل إن الشركة مالهاش ملف، فمنقولهاش في الرسالة ولا التقرير
+        if ($city === '' && empty($google['found'])) {
+            $google = ['checked' => false];
+        }
         $bench = OutreachAudit::benchmark($l, $this->peers((string) ($l['city'] ?? '')));
         $ta = (array) ($data['ta'] ?? []);
         $gaps = OutreachAudit::gaps($l, $ta, $site, $google, $bench);
@@ -842,7 +847,7 @@ class PlatformOutreachService
         $opener = $step === 1 ? $this->opener($lead, $lang, $set, $ai) : '';
         $link = self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => 'step' . $step, 'ref' => $lead['token']]);
         $vars = [
-            '{{company}}' => $lead['company'] !== '' ? $lead['company'] : ($lang === 'ar' ? 'شركتكم' : 'your company'),
+            '{{company}}' => OutreachAudit::cleanName((string) $lead['company']) !== '' ? OutreachAudit::cleanName((string) $lead['company']) : ($lang === 'ar' ? 'شركتكم' : 'your company'),
             '{{city}}' => (string) ($lead['city'] ?? ''),
             '{{rating}}' => $lead['rating'] !== null ? rtrim(rtrim(number_format((float) $lead['rating'], 1), '0'), '.') : '',
             '{{reviews}}' => (string) ($lead['reviews'] ?? ''),
@@ -880,7 +885,7 @@ class PlatformOutreachService
             }
         }
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
-        $company = (string) ($lead['company'] ?? '') !== '' ? (string) $lead['company'] : ['ar' => 'شركتكم', 'en' => 'your company', 'tr' => 'şirketiniz'][$lang];
+        $company = OutreachAudit::cleanName((string) ($lead['company'] ?? '')) !== '' ? OutreachAudit::cleanName((string) $lead['company']) : ['ar' => 'شركتكم', 'en' => 'your company', 'tr' => 'şirketiniz'][$lang];
         $opener = $step === 1 ? $this->aiOpener($lead, $lang, $set, $ai) : '';
         $hasWa = (string) ($set['whatsapp_number'] ?? '') !== '';
         $btn = OutreachNeeds::BUTTONS[$lang];
