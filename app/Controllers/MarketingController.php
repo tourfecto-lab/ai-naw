@@ -951,6 +951,40 @@ class MarketingController extends Controller
             'eq0' => $this->t(['يعني %s شهريًا', 'That’s %s / month']),
         ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG);
 
+        // تبويبات الخدمات: الباقات الشاملة (الأساسي)، السيو، السوشيال. كل تبويب لوحده عشان الصفحة ماتطولش
+        $incSec = '<section class="blk"><div class="sec-head"><h2 class="sec-title">' . $this->te(['موجود في كل الباقات', 'Included in every plan']) . '</h2></div><div class="incl">' . $incl . '</div></section>';
+        $plansHead = '<section class="blk tight" style="padding-top:0"><div class="sec-head"><h2 class="sec-title">' . $this->te(['الباقات الشاملة', 'All-in-one plans']) . '</h2><p class="sec-sub">'
+            . $this->te(['باقة واحدة بتجمع خدمات المنصة الأساسية بحصص واضحة (الجدول تحت بيوضح كل خدمة داخلة في أنهي باقة). محتاج خدمة واحدة بس؟ اختار تبويبها فوق.', 'One plan that bundles the platform’s core services with clear quotas (the table below shows which service is in which plan). Need just one service? Pick its tab above.']) . '</p></div></section>';
+        $tabDefs = [
+            ['plans', $this->t(['الباقات الشاملة', 'All-in-one plans']), true],
+            ['seo', $this->t(['السيو والذكاء الاصطناعي', 'SEO & AI visibility']), $seoSection !== ''],
+            ['social', $this->t(['السوشيال ميديا', 'Social media']), $socialSection !== ''],
+        ];
+        $tabBtns = '';
+        $tabCount = 0;
+        foreach ($tabDefs as [$tid, $tlabel, $ton]) {
+            if (!$ton) {
+                continue;
+            }
+            $tabCount++;
+            $tabBtns .= '<button type="button" role="tab" id="tabbtn-' . $tid . '" data-tab="' . $tid . '" aria-controls="tab-' . $tid . '" aria-selected="' . ($tid === 'plans' ? 'true' : 'false') . '" tabindex="' . ($tid === 'plans' ? '0' : '-1') . '">' . $this->e($tlabel) . '</button>';
+        }
+        $panel = fn (string $tid, string $html) => '<div class="svc-panel" id="tab-' . $tid . '" role="tabpanel" aria-labelledby="tabbtn-' . $tid . '"' . ($tid === 'plans' ? '' : ' hidden') . '>' . $html . '</div>';
+        $tabsBlock = ($tabCount > 1 ? '<style>.svc-wrap{display:flex;justify-content:center;padding:0 16px;margin:6px 0 26px}.svc-tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--panel);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}'
+                . '.svc-tabs::-webkit-scrollbar{display:none}.svc-tabs button{flex:none;border:0;background:none;font:inherit;font-size:14px;padding:10px 18px;border-radius:9px;color:var(--muted);cursor:pointer;white-space:nowrap}'
+                . '.svc-tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}.svc-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}</style>'
+                . '<div class="svc-wrap"><div class="svc-tabs" role="tablist" aria-label="' . $this->te(['خدمات المنصة', 'Platform services']) . '">' . $tabBtns . '</div></div>' : '')
+            . $panel('plans', $plansHead . '<section class="blk tight" style="padding-top:0"><div class="plans">' . $cards . '</div></section>' . $incSec . $cmp . $svc)
+            . ($seoSection !== '' ? $panel('seo', $seoSection) : '')
+            . ($socialSection !== '' ? $panel('social', $socialSection) : '')
+            . ($tabCount > 1 ? '<script>(function(){var tabs=[].slice.call(document.querySelectorAll(".svc-tabs [role=tab]")),panels=[].slice.call(document.querySelectorAll(".svc-panel"));if(!tabs.length)return;'
+                . 'var alias={seo:"seo",social:"social",plans:"plans","services-by-plan":"plans"};'
+                . 'function show(id,focus){tabs.forEach(function(t){var on=t.dataset.tab===id;t.setAttribute("aria-selected",on?"true":"false");t.tabIndex=on?0:-1;if(on&&focus)t.focus();});panels.forEach(function(p){p.hidden=p.id!=="tab-"+id;});}'
+                . 'function fromHash(scroll){var h=decodeURIComponent((location.hash||"").slice(1)),id=alias[h]||"plans";show(id,false);if(scroll&&alias[h]){var el=document.getElementById(h);if(el&&!el.closest("[hidden]"))setTimeout(function(){el.scrollIntoView({block:"start"});},30);}}'
+                . 'tabs.forEach(function(t,i){t.addEventListener("click",function(){show(t.dataset.tab,false);history.replaceState(null,"",t.dataset.tab==="plans"?location.pathname+location.search:"#"+t.dataset.tab);});'
+                . 't.addEventListener("keydown",function(e){var rtl=getComputedStyle(document.documentElement).direction==="rtl",d=0;if(e.key==="ArrowRight")d=rtl?-1:1;else if(e.key==="ArrowLeft")d=rtl?1:-1;else if(e.key==="Home")d=-i;else if(e.key==="End")d=tabs.length-1-i;else return;e.preventDefault();var n=tabs[(i+d+tabs.length)%tabs.length];show(n.dataset.tab,true);});});'
+                . 'window.addEventListener("hashchange",function(){fromHash(true);});fromHash(true);})();</script>' : '');
+
         $body = PublicLayout::hero($this->t(['الأسعار', 'Pricing']), $this->t(['أسعار واضحة على قد شغلك', 'Simple pricing that grows with you']),
             $this->t(['ابدأ مجانًا، وارقّي لما شغلك يكبر. كل الباقات فيها الحجوزات والدفع والأتمتة الأساسية.', 'Start free and upgrade as you grow. Every plan includes bookings, payments and core automation.']))
             . '<section class="blk tight" style="padding-top:0"><div style="text-align:center"><div class="cycle" role="group" aria-label="' . $this->te(['دورة الدفع', 'Billing cycle']) . '">'
@@ -959,13 +993,8 @@ class MarketingController extends Controller
             . '<div style="text-align:center;margin:-6px 0 14px;font-size:13px"><label>' . $this->te(['العملة', 'Currency']) . ' <select id="tfCur" style="padding:5px 8px;border-radius:8px">' . implode('', array_map(fn ($c) => '<option value="' . $this->e($c['code']) . '"' . ($c['code'] === $viewCur ? ' selected' : '') . '>' . $this->e($c['name'] . ' (' . $c['symbol'] . ')') . '</option>', CurrencyService::publicList($isAr))) . '</select></label>'
             . ($viewCur !== 'USD' ? '<div style="opacity:.7;margin-top:4px">' . $this->e(sprintf($this->t(['محسوبة بسعر الصرف النهارده (1$ = %s)', 'Converted at today’s rate ($1 = %s)']), CurrencyService::format(1, $viewCur, $isAr))) . '</div>' : '')
             . '</div><script>document.getElementById("tfCur").addEventListener("change",function(e){fetch("/api/currency",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:e.target.value})}).then(function(){location.reload();});});</script>'
-            . '<div class="plans">' . $cards . '</div></section>'
+            . '</section>' . $tabsBlock
             . $this->activationSteps($wa)
-            . '<section class="blk"><div class="sec-head"><h2 class="sec-title">' . $this->te(['موجود في كل الباقات', 'Included in every plan']) . '</h2></div><div class="incl">' . $incl . '</div></section>'
-            . $seoSection
-            . $socialSection
-            . $cmp
-            . $svc
             . '<section class="blk"><div class="sec-head"><h2 class="sec-title">' . $this->te(['أسئلة عن الأسعار', 'Pricing questions']) . '</h2></div><div class="faq-list">' . $faq . '</div></section>'
             . PublicLayout::ctaBand()
             . '<script>(function(){var T=' . $i18n . ';function f(s){var a=[].slice.call(arguments,1),i=0;return s.replace(/%([sd])(%{1,2})?/g,function(m,type,percent){var v=a[i++];return String(v)+(percent?"%":"");});}'
