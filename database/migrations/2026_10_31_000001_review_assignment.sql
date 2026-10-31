@@ -1,9 +1,11 @@
--- Reputation: assign a review to a team member with a reply deadline (additive, idempotent, MariaDB).
--- The code detects the missing columns and shows "migration pending" instead of failing, so it is safe to deploy first.
+-- Reputation: assign a review to a team member with a reply deadline (additive).
+-- Plain ALTER so it runs on MySQL and MariaDB (production reported "MySQL"; ADD COLUMN IF NOT EXISTS is MariaDB-only).
+-- Applied by hand on production on 2026-10-31. Running it again fails with "Duplicate column name", which is harmless.
+-- The code detects the missing columns and shows "migration pending" instead of failing.
 ALTER TABLE `reviews`
-    ADD COLUMN IF NOT EXISTS `assigned_to` INT(11) NULL DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS `assigned_by` INT(11) NULL DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS `assigned_at` DATETIME NULL DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS `assignment_due_at` DATETIME NULL DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS `assignment_note` VARCHAR(500) NULL DEFAULT NULL;
-ALTER TABLE `reviews` ADD INDEX IF NOT EXISTS `idx_reviews_assigned` (`assigned_to`, `assignment_due_at`);
+    ADD COLUMN `assigned_to` INT NULL DEFAULT NULL,
+    ADD COLUMN `assigned_by` INT NULL DEFAULT NULL,
+    ADD COLUMN `assigned_at` DATETIME NULL DEFAULT NULL,
+    ADD COLUMN `assignment_due_at` DATETIME NULL DEFAULT NULL,
+    ADD COLUMN `assignment_note` VARCHAR(500) NULL DEFAULT NULL,
+    ADD INDEX `idx_reviews_assigned` (`assigned_to`, `assignment_due_at`);

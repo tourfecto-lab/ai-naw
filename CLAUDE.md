@@ -20,7 +20,7 @@ social publishing, ads, creative studio, CRM, bookings/payments, reputation (Goo
 - Cron entry points are in `cron/`. Root-level `scheduler.php`, `schedule.php`, `run_automations.php`, `bootstrap.php`
   are stray copies; `run_automations.php` requires the root `bootstrap.php` (which is a test bootstrap).
 
-## Commands (Windows dev box uses XAMPP PHP 8.2 + MariaDB; CI uses PHP 8.2 + MariaDB 10.11 (production is very likely MariaDB: the migrations use MariaDB-only `ADD COLUMN IF NOT EXISTS`))
+## Commands (Windows dev box uses XAMPP PHP 8.2 + MariaDB; CI uses PHP 8.2 + MariaDB 10.11 (production runs MySQL, confirmed in phpMyAdmin on 2026-10-31 where `ADD COLUMN IF NOT EXISTS` is a syntax error: write new migrations as plain `ALTER TABLE ... ADD COLUMN`; older migrations that use `IF NOT EXISTS` need the same rewrite before being applied by hand))
 - Install: `composer install`
 - Syntax: `git ls-files '*.php' | grep -v '^vendor/' | xargs -n40 php -l`
 - Static analysis: `vendor/bin/phpstan analyse --memory-limit=2G` (level 1 on Core/Middleware/Security/Models/Jobs/..., baseline `phpstan-baseline.neon`)
