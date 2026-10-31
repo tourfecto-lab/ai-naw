@@ -912,6 +912,17 @@ HTML;
     (async function initImport() {
         const sel = document.getElementById('impSite');
         if (!sel) return;
+        const srcRes = await fetchJSON('/api/reputation/sources');
+        if (srcRes.success) {
+            const on = srcRes.data.sources.filter(s => s.csv_import);
+            const srcSel = document.getElementById('impSource');
+            srcSel.innerHTML = on.map(s => '<option value="' + esc(s.key) + '">' + esc(s.label) + '</option>').join('');
+            if (!on.length) {
+                document.getElementById('impResult').textContent = 'CSV import is turned off by the administrator.';
+                ['impPreview', 'impFile', 'impSource', 'impScale', 'impSite'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+                return;
+            }
+        }
         const r = await fetchJSON('/api/websites');
         const sites = (r.success && r.data.websites) || [];
         sel.innerHTML = sites.map(w => '<option value="' + Number(w.id) + '">' + esc(w.company_name || w.main_url || ('#' + w.id)) + '</option>').join('');
@@ -1385,6 +1396,15 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         exit;
     }
 
+    /** GET /api/reputation/sources - what the admin has turned on for each outside review site */
+    public function sources(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success(['sources' => ReviewSources::view()]);
+    }
+
     /** POST /api/reputation/import  {website_id, source, scale, csv, dry_run} */
     public function importReviews(array $params = []): array
     {
@@ -1412,6 +1432,10 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         $source = (string) $this->get('source', '');
         if (!in_array($source, ReviewImporter::SOURCES, true)) {
             return $this->error('Choose the source of these reviews', 422);
+        }
+        $csvKey = $source === 'other' ? 'custom' : $source;
+        if (!ReviewSources::allowed($csvKey, 'csv_import')) {
+            return $this->error('CSV import for this source is turned off by the administrator.', 403);
         }
         try {
             $owner = (int) ($this->db->query('SELECT user_id FROM websites WHERE id = ? LIMIT 1', [$websiteId])[0]['user_id'] ?? 0);
