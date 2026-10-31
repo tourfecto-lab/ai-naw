@@ -333,4 +333,28 @@ final class ReputationPlansTest extends TestCase
             $this->fail('the member must follow the owner plan');
         }
     }
+
+    public function testAdminViewShowsRevenueAiCostAndMarginAfterAiCost(): void
+    {
+        $this->open();
+        $this->fund(100);
+        ReputationPlans::subscribe(self::OWNER, 'rep_pro', 'monthly', 'k', $this->db);
+        $ids = [];
+        foreach ([['review_reply', 0.003], ['sentiment', 0.002], ['seo_audit', 9.0]] as [$feature, $cost]) {
+            $this->pdo->exec("INSERT INTO api_usage_logs (user_id, api_type, feature, model, tokens_used, cost_in_usd) VALUES (" . self::OWNER . ", 'gemini', '$feature', 'gemini-3.8-flash', 100, $cost)");
+            $ids[] = $this->pdo->lastInsertId();
+        }
+        try {
+            $view = ReputationPlans::adminView($this->db);
+            $pro = array_values(array_filter($view['plans'], fn ($p) => $p['key'] === 'rep_pro'))[0];
+            $this->assertSame(1, $pro['subs']);
+            $this->assertEquals(40.0, $pro['mrr']);
+            $this->assertEquals(0.005, $pro['ai_cost'], 'only reputation features, not other services');
+            $this->assertEquals(40.0, $pro['margin'], 'revenue minus AI cost, rounded to the cent');
+            $starter = array_values(array_filter($view['plans'], fn ($p) => $p['key'] === 'rep_starter'))[0];
+            $this->assertEquals(0.0, $starter['margin']);
+        } finally {
+            $this->pdo->exec('DELETE FROM api_usage_logs WHERE id IN (' . implode(',', $ids) . ')');
+        }
+    }
 }

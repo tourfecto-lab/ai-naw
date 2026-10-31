@@ -75,7 +75,14 @@ class ReviewRequestController extends Controller
             return $this->error('Unauthorized', 401);
         }
         try {
-            return $this->success(['usage' => ReputationLimits::summary((int) $this->user['id'])]);
+            $plansUrl = null;
+            try {
+                if (ReputationPlans::ready() && ReputationPlans::config()['enabled']) {
+                    $plansUrl = '/reputation/plans';
+                }
+            } catch (Throwable $e) {
+            }
+            return $this->success(['usage' => ReputationLimits::summary((int) $this->user['id']), 'plans_url' => $plansUrl]);
         } catch (Throwable $e) {
             Logger::warning('Reputation usage unavailable', ['message' => $e->getMessage()]);
             return $this->success(['usage' => null]);
@@ -528,6 +535,7 @@ HTML;
     (async function showUsage() {
         const res = await P.fetchJSON('/api/review-requests/usage');
         const u = res.success && res.data.usage;
+        const plansUrl = res.success && res.data.plans_url;
         if (!u) return;
         const parts = [];
         [['review_requests_monthly', 'Requests this month'], ['sms_requests_monthly', 'SMS this month']].forEach(function (k) {
@@ -537,13 +545,15 @@ HTML;
         if (!parts.length) return;
         const bar = document.querySelector('.p-toolbar');
         if (!bar) return;
-        const chip = document.createElement('span');
+        const reached = parts.some(function (x) { return x.used >= x.limit; });
+        const chip = document.createElement(reached && plansUrl ? 'a' : 'span');
+        if (reached && plansUrl) { chip.href = plansUrl; }
         chip.id = 'rrUsage';
         chip.className = 'pill';
         chip.setAttribute('role', 'status');
         chip.style.cssText = 'align-self:center;padding:6px 12px';
         chip.textContent = parts.map(function (x) { return x.label + ': ' + x.used + ' / ' + x.limit; }).join(' · ');
-        if (parts.some(function (x) { return x.used >= x.limit; })) { chip.style.background = '#fee2e2'; chip.style.color = '#991b1b'; chip.title = 'You reached your plan limit. Upgrade your plan to send more.'; }
+        if (parts.some(function (x) { return x.used >= x.limit; })) { chip.style.background = '#fee2e2'; chip.style.color = '#991b1b'; chip.title = 'You reached your plan limit. Upgrade your plan to send more.'; if (plansUrl) { chip.textContent += ' · See plans'; } }
         bar.appendChild(chip);
     })();
     window.toggleQr = async function () {
