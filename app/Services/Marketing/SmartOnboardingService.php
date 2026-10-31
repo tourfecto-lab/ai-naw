@@ -562,6 +562,11 @@ class SmartOnboardingService
         $own = self::host($ownUrl);
         $m = $this->market($countries, $language);
         $client = $this->dfs();
+        // نفس الدومين في نفس السوق خلال 7 أيام: نتيجة جوجل المقاسة هي هي، فمانكلّفش المنصة مرتين
+        $cacheKey = hash('sha256', 'smartcomp|' . $own . '|' . $m['code'] . '|' . $m['lang']);
+        if ($client && ($hit = SeoApiCache::get($cacheKey, 7 * 86400)) !== null) {
+            return $hit;
+        }
         $site = null;
         $keywords = [];
         $pool = [];
@@ -699,7 +704,11 @@ class SmartOnboardingService
                 $site['of'] = count($traffics) + 1;
             }
         }
-        return ['source' => $source, 'market' => $m, 'site' => $site, 'keywords' => $keywords, 'competitors' => $out];
+        $result = ['source' => $source, 'market' => $m, 'site' => $site, 'keywords' => $keywords, 'competitors' => $out];
+        if ($client && $out) {
+            SeoApiCache::put($cacheKey, $result);
+        }
+        return $result;
     }
 
     /**

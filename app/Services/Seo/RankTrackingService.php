@@ -38,13 +38,13 @@ class RankTrackingService
         $order=WebsiteSchema::has('last_rank_tracked_at')?'w.last_rank_tracked_at ASC,':'';
         return $db->query("SELECT w.id,w.user_id,".WebsiteSchema::col(WebsiteSchema::url(),'main_url','w')." FROM websites w WHERE 1=1".$connected.WebsiteSchema::alive('w')." AND EXISTS (SELECT 1 FROM tracked_keywords k WHERE k.website_id=w.id AND ".self::dueSql('k').") ORDER BY {$order}w.id ASC LIMIT ?",[max(1,min(200,$limit))]);
     }
-    public static function batches(KeywordRankingSourceInterface $source,string $host,array $keywords): array
+    public static function batches(KeywordRankingSourceInterface $source,string $host,array $keywords,array $hints=[]): array
     {
         foreach ($keywords as $keyword) if (DataForSeoRankingSource::keywordPhrase($keyword)!==trim($keyword))
             return ['available'=>false,'reason'=>'keyword_annotations_require_review','rankings'=>[]];
         $rankings=[];
         foreach (array_chunk(array_values(array_unique($keywords)),20) as $chunk) {
-            $r=$source->check($host,$chunk);
+            $r=$source instanceof DataForSeoRankingSource?$source->check($host,$chunk,$hints):$source->check($host,$chunk);
             if (empty($r['available'])) return ['available'=>false,'reason'=>$r['reason']??'source_unavailable','rankings'=>array_merge($rankings,$r['partial_rankings']??[])];
             $rankings=array_merge($rankings,$r['rankings']??[]);
         }
@@ -70,8 +70,9 @@ class RankTrackingService
         foreach ($selected as $market) {
             $scoped=$source instanceof DataForSeoRankingSource?$source->forMarket($market,$websiteId):$source;
             $filter=$onlyKeywords?' AND keyword IN ('.implode(',',array_fill(0,count($onlyKeywords),'?')).')':'';
-            $words=$db->query("SELECT id,keyword FROM tracked_keywords WHERE website_id=? AND user_id=? AND market_id=? AND keyword<>'' AND ".($onlyKeywords?'(last_checked_at IS NULL OR last_checked_at<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY))':self::dueSql()).$filter." ORDER BY last_checked_at,id LIMIT ".self::dailyKeywordCap(),array_merge([$websiteId,$userId,$market['id']],array_values($onlyKeywords)));
-            $result=self::batches($scoped,$host,array_column($words,'keyword'));
+            $words=$db->query("SELECT id,keyword,current_position FROM tracked_keywords WHERE website_id=? AND user_id=? AND market_id=? AND keyword<>'' AND ".($onlyKeywords?'(last_checked_at IS NULL OR last_checked_at<=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY))':self::dueSql()).$filter." ORDER BY last_checked_at,id LIMIT ".self::dailyKeywordCap(),array_merge([$websiteId,$userId,$market['id']],array_values($onlyKeywords)));
+            $hints=[]; foreach ($words as $w) if ($w['current_position']!==null && (int)$w['current_position']>0) $hints[mb_strtolower(trim($w['keyword']))]=(int)$w['current_position'];
+            $result=self::batches($scoped,$host,array_column($words,'keyword'),$hints);
             $by=[]; foreach ($words as $w) $by[mb_strtolower(trim($w['keyword']))]=$w;
             $now=gmdate('Y-m-d H:i:s');
             foreach ($result['rankings']??[] as $row) {

@@ -45,6 +45,9 @@ class DataForSeoRankingSource implements KeywordRankingSourceInterface
     /** عمر الكاش المشترك لنتايج جوجل (ساعات): أقل من فاصل الفحص اليومي، وبيغطي كل المواقع اللي بتتابع نفس الكلمة في نفس السوق في نفس التشغيلة */
     public const SERP_TTL_HOURS = 20;
 
+    /** عمق مخفّض (صفحتين) للكلمات المستقرة في أول 10. لو اختفت منه نتحقق بالعمق الكامل قبل ما نسجّل إنها خرجت */
+    public const DEPTH_STABLE = 20;
+
     private static bool $cacheReady = false;
 
     private static function cacheDb(): ?Database
@@ -66,7 +69,7 @@ class DataForSeoRankingSource implements KeywordRankingSourceInterface
 
     public static function serpCacheKey(string $keyword, int $location, string $language, string $device): string
     {
-        return hash('sha256', 'serp|' . mb_strtolower(trim($keyword)) . '|' . $location . '|' . $language . '|' . $device);
+        return hash('sha256', 'serp|' . preg_replace('/\s+/u', ' ', mb_strtolower(trim($keyword))) . '|' . $location . '|' . $language . '|' . $device);
     }
 
     /** @return list<array{type:string,url:?string,domain:?string,rank_group:int}>|null */
@@ -106,7 +109,10 @@ class DataForSeoRankingSource implements KeywordRankingSourceInterface
         }
     }
 
-    public function check(string $domain,array $keywords): array
+    /**
+     * @param array<string,int> $hints آخر ترتيب معروف لكل كلمة (مفتاح: الكلمة lowercase) - بيسمح بعمق أقل للكلمات المستقرة في أول 10
+     */
+    public function check(string $domain,array $keywords,array $hints=[]): array
     {
         $bad=fn($reason)=>['available'=>false,'reason'=>$reason,'rankings'=>[]];
         if (!$this->isConfigured()) return $bad('no_keyword_ranking_source_configured');
@@ -123,25 +129,48 @@ class DataForSeoRankingSource implements KeywordRankingSourceInterface
         }
         $rankings=[];
         foreach ($keywords as $keyword) {
-            $items = $this->cachedItems($keyword, self::DEPTH);
-            if ($items === null) {
-                $r=$this->client->call('serp/google/organic/live/advanced',[[
-                    'keyword'=>$keyword,'location_code'=>(int)$this->settings['location_code'],'language_code'=>$this->settings['language_code'],
-                    'device'=>($this->settings['device']??'desktop')==='mobile'?'mobile':'desktop','depth'=>self::DEPTH]],$this->websiteId,1,0.10);
-                if (!$r['available']) return $bad($r['reason']??'rank_source_unavailable')+['partial_rankings'=>$rankings];
-                $result=$r['response']['tasks'][0]['result'][0]??[];
-                if (!array_key_exists('items',$result)) return $bad('rank_source_invalid_response');
-                $items = $result['items'] ?? [];
-                $this->storeItems($keyword, self::DEPTH, $items);
-            }
-            $position=null; $url=null;
-            foreach ($items as $item) {
-                if (($item['type']??'')!=='organic' || !self::matchesHost((string)($item['url']??$item['domain']??''),$domain)) continue;
-                $p=(int)($item['rank_group']??0);
-                if ($p>=1 && $p<=100 && ($position===null || $p<$position)) { $position=$p; $url=$item['url']??null; }
+            $hint = $hints[mb_strtolower(trim($keyword))] ?? null;
+            $depth = ($hint !== null && $hint >= 1 && $hint <= 10) ? self::DEPTH_STABLE : self::DEPTH;
+            $err = '';
+            $items = $this->serpItems($keyword, $depth, $err);
+            if ($items === null) return $bad($err)+['partial_rankings'=>$rankings];
+            [$position,$url] = self::locate($items, $domain);
+            if ($position === null && $depth < self::DEPTH) {
+                // كانت في أول 10 ومش ظاهرة في أول 20: ممكن تكون وقعت لـ25 مثلًا، فنفحص العمق الكامل قبل أي تسجيل
+                $items = $this->serpItems($keyword, self::DEPTH, $err);
+                if ($items === null) return $bad($err)+['partial_rankings'=>$rankings];
+                [$position,$url] = self::locate($items, $domain);
             }
             $rankings[]=['keyword'=>$keyword,'position'=>$position,'url'=>$url];
         }
         return ['available'=>true,'reason'=>null,'rankings'=>$rankings];
+    }
+
+    /** أعلى ترتيب عضوي للدومين في النتايج @return array{0:?int,1:?string} */
+    private static function locate(array $items, string $domain): array
+    {
+        $position=null; $url=null;
+        foreach ($items as $item) {
+            if (($item['type']??'')!=='organic' || !self::matchesHost((string)($item['url']??$item['domain']??''),$domain)) continue;
+            $p=(int)($item['rank_group']??0);
+            if ($p>=1 && $p<=100 && ($position===null || $p<$position)) { $position=$p; $url=$item['url']??null; }
+        }
+        return [$position,$url];
+    }
+
+    /** نتايج جوجل للكلمة: من الكاش المشترك لو موجودة بعمق كفاية، وإلا طلب مدفوع واحد بيتخزّن. null + سبب لو فشل */
+    private function serpItems(string $keyword, int $depth, string &$error): ?array
+    {
+        $items = $this->cachedItems($keyword, $depth);
+        if ($items !== null) return $items;
+        $r=$this->client->call('serp/google/organic/live/advanced',[[
+            'keyword'=>$keyword,'location_code'=>(int)$this->settings['location_code'],'language_code'=>$this->settings['language_code'],
+            'device'=>($this->settings['device']??'desktop')==='mobile'?'mobile':'desktop','depth'=>$depth]],$this->websiteId,1,0.10);
+        if (!$r['available']) { $error = $r['reason'] ?? 'rank_source_unavailable'; return null; }
+        $result=$r['response']['tasks'][0]['result'][0]??[];
+        if (!array_key_exists('items',$result)) { $error = 'rank_source_invalid_response'; return null; }
+        $items = $result['items'] ?? [];
+        $this->storeItems($keyword, $depth, $items);
+        return $items;
     }
 }
