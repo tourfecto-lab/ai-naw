@@ -327,6 +327,9 @@ class PlatformOutreachController extends Controller
         $meta = array_filter([$l['city'] ?? '', $l['category'] ?? '', $l['rating'] ? $T['rating'] . ' ' . rtrim(rtrim(number_format((float) $l['rating'], 1), '0'), '.') . ($l['reviews'] ? ' (' . number_format((int) $l['reviews']) . ')' : '') : '']);
         $wa = $r['has_whatsapp'] ? '<a class="btn ghost" href="' . $e($base . '/p/w/' . $l['token'] . '/' . $step) . '">' . $e($T['wa']) . '</a>' : '';
         $dir = $lang === 'ar' ? 'rtl' : 'ltr';
+        // سطر العرض (أيام التجربة من الإعدادات الحية) فوق زرار التسجيل: الزائر مايضطرش ينزل لآخر الصفحة
+        $offer = PlatformOutreachService::trialOffer($lang);
+        $topCta = '<div class="cta">' . ($offer !== '' ? '<p style="margin:0 0 10px;font-weight:bold;text-align:center">' . $e($offer) . '</p>' : '') . '<a class="btn" href="' . $e($base . '/p/c/' . $l['token'] . '/' . $step) . '">' . $e($T['cta']) . '</a>' . $wa . '</div>';
         echo '<!doctype html><html lang="' . $lang . '" dir="' . $dir . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>' . $e($T['title'] . ' ' . $l['company']) . '</title><style>'
             . 'body{margin:0;background:#f4f6f8;color:#1f2933;font-family:Tahoma,Arial,sans-serif;line-height:1.7}.wrap{max-width:760px;margin:0 auto;padding:28px 16px 48px}'
             . 'header{background:#0E4D64;color:#fff;border-radius:16px;padding:26px 24px;margin-bottom:18px}header h1{margin:0 0 6px;font-size:24px}header p{margin:0;opacity:.9}.meta{font-size:13px;opacity:.85;margin-top:8px}'
@@ -341,6 +344,7 @@ class PlatformOutreachController extends Controller
             . '.cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-block;background:#0E4D64;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold}.btn.ghost{background:#25D366}'
             . 'footer{font-size:12px;color:#777;margin-top:26px}footer a{color:#777}</style></head><body><div class="wrap">'
             . '<header><h1>' . $e($T['title'] . ' ' . $l['company']) . '</h1><p>' . $e($T['intro']) . '</p>' . ($meta ? '<div class="meta">' . $e(implode(' · ', $meta)) . '</div>' : '') . '</header>'
+            . $topCta
             . $cards
             . '<div class="cta"><a class="btn" href="' . $e($base . '/p/c/' . $l['token'] . '/' . $step) . '">' . $e($T['cta']) . '</a>' . $wa . '</div>'
             . '<footer>' . $e($T['note']) . ' <a href="' . $e($base . '/p/u/' . $l['token']) . '">' . $e($T['unsub']) . '</a></footer>'

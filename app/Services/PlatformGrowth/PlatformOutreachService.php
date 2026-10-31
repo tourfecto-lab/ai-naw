@@ -845,7 +845,7 @@ class PlatformOutreachService
         $lang = $lead['language'] === 'ar' ? 'ar' : 'en';
         $tpl = $set['templates'][$lang][$step] ?? self::defaultTemplates()[$lang][$step];
         $opener = $step === 1 ? $this->opener($lead, $lang, $set, $ai) : '';
-        $link = self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => 'step' . $step, 'ref' => $lead['token']]);
+        $link = self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => 'step' . $step, 'ref' => $lead['token']] + self::siteParam($lead));
         $vars = [
             '{{company}}' => OutreachAudit::cleanName((string) $lead['company']) !== '' ? OutreachAudit::cleanName((string) $lead['company']) : ($lang === 'ar' ? 'شركتكم' : 'your company'),
             '{{city}}' => (string) ($lead['city'] ?? ''),
@@ -914,7 +914,7 @@ class PlatformOutreachService
         }
         $unsub = $base . '/p/u/' . $lead['token'];
         $links = [
-            '__LINK__' => [$base . '/p/c/' . $lead['token'] . '/' . $step, $btn['signup'], self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => $track . '_' . $step, 'ref' => $lead['token']])],
+            '__LINK__' => [$base . '/p/c/' . $lead['token'] . '/' . $step, $btn['signup'], self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => $track . '_' . $step, 'ref' => $lead['token']] + self::siteParam($lead))],
             '__REPORT__' => [$base . '/p/r/' . $lead['token'] . '?s=' . $step, $btn['report'], $base . '/p/r/' . $lead['token'] . '?s=' . $step],
             '__WA__' => [$base . '/p/w/' . $lead['token'] . '/' . $step, $btn['wa'], $base . '/p/w/' . $lead['token'] . '/' . $step],
         ];
@@ -1344,6 +1344,14 @@ class PlatformOutreachService
         return $out;
     }
 
+    /** موقع الشركة بيتبعت مع لينك التسجيل (نفس باراميتر «افحص موقعك مجانًا») فالتسجيل يكمّل على موقعها بدل ما تكتبه من الأول */
+    public static function siteParam(array $lead): array
+    {
+        $d = strtolower(trim((string) ($lead['domain'] ?? '')));
+        $d = (string) preg_replace('/^www\./', '', $d);
+        return ($d !== '' && strlen($d) <= 120 && preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $d)) ? ['site' => $d] : [];
+    }
+
     private static function withParams(string $url, array $params): string
     {
         return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($params);
@@ -1712,7 +1720,7 @@ class PlatformOutreachService
     public function signupLinkFor(array $lead, int $step): string
     {
         $set = $this->getSettings();
-        return self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => 'step' . $step, 'ref' => $lead['token']]);
+        return self::withParams((string) $set['signup_url'], ['utm_source' => 'outreach', 'utm_medium' => 'email', 'utm_campaign' => 'step' . $step, 'ref' => $lead['token']] + self::siteParam($lead));
     }
 
     // ------------------------------------------------------------------ لوحة الأدمن

@@ -25,4 +25,13 @@ final class OutreachTrialOfferTest extends TestCase
         $this->assertSame('', PlatformOutreachService::trialOffer('ar', ['trial_days' => 0], false));
         $this->assertSame('', PlatformOutreachService::trialOffer('ar', [], false));
     }
+
+    public function testSignupLinkCarriesTheCompanySiteOnlyWhenItIsAValidDomain(): void
+    {
+        $this->assertSame(['site' => 'niledreamtours.com'], PlatformOutreachService::siteParam(['domain' => 'www.NileDreamTours.com']));
+        $this->assertSame([], PlatformOutreachService::siteParam(['domain' => '']));
+        $this->assertSame([], PlatformOutreachService::siteParam(['domain' => 'bad domain/../x']));
+        $this->assertSame([], PlatformOutreachService::siteParam(['domain' => 'javascript:alert(1)']));
+        $this->assertSame([], PlatformOutreachService::siteParam([]));
+    }
 }
