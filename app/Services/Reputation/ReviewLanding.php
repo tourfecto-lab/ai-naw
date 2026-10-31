@@ -84,7 +84,7 @@ class ReviewLanding
             . '<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>' . $e($company) . ' - ' . $e($tr('Leave a review', 'قيّمنا')) . '</title>'
             . '<style>:root{color-scheme:light dark;--bg:#f6f7fb;--card:#fff;--ink:#111827;--muted:#6b7280;--brand:#4f46e5}'
             . '@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--ink:#f1f5f9;--muted:#94a3b8;--brand:#818cf8}}'
-            . 'body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;padding:16px}'
+            . '*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;padding:16px}'
             . '.card{background:var(--card);max-width:420px;width:100%;border-radius:18px;padding:28px 22px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.12)}'
             . 'h1{font-size:22px;margin:0 0 6px}p{margin:0 0 18px;line-height:1.6}.muted{color:var(--muted)}'
             . '.btn{display:block;margin:10px 0;padding:14px;border-radius:12px;background:var(--brand);color:#fff;text-decoration:none;font-weight:700}'

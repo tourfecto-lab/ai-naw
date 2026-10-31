@@ -37,7 +37,10 @@
       '<p class="p-cell-muted" style="margin:0 0 10px">Prices and AI reply credits are managed in <a href="/admin/plans-studio">Plans Studio</a>. Defaults are unlimited, so nothing changes for customers until you set a number. ' +
       'A change applies immediately to everyone on that plan: customers already above a new limit keep their data but cannot create new requests until next month (or until you raise it). ' +
       'For one customer only, use a feature override with the keys reputation_review_requests_monthly, reputation_sms_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import.</p>' +
-      '<div class="p-table-scroll"><table class="p-table">' + head + rows + '</table></div>' +
+      '<style>#rep-limits-root table.rl{min-width:640px}#rep-limits-root table.rl th[scope=row]{position:sticky;inset-inline-start:0;background:var(--panel-card,#fff);min-width:150px;max-width:210px;white-space:normal;z-index:1}' +
+      '#rep-limits-root input[type=number]{min-height:40px}#rep-limits-root input[type=checkbox]{width:22px;height:22px}</style>' +
+      '<p class="p-cell-muted rl-hint" style="margin:0 0 6px;font-size:12.5px">Scroll sideways to see every plan.</p>' +
+      '<div class="p-table-scroll" tabindex="0" aria-label="Limits table, scrolls sideways"><table class="p-table rl">' + head + rows + '</table></div>' +
       '<div style="margin-top:12px"><button class="p-btn primary" id="rlSave">Save changes</button> <span id="rlMsg" role="status" aria-live="polite" class="p-cell-muted"></span></div></div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Usage this month</h3></div>' + usage + '</div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Change history</h3></div>' + audit + '</div>';
