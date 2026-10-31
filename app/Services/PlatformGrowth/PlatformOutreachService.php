@@ -1074,7 +1074,7 @@ class PlatformOutreachService
             'sub' => 'منصة واحدة بتعمل شغل فريق تسويق وخدمة عملاء كامل. إنتم بتركّزوا على الرحلات، وهي بتعمل الباقي - وإنتم بتوافقوا بس.',
             'items' => [
                 ['⭐', 'بترد على كل تقييم', 'بلغة السائح نفسه (15 لغة) وتنبهكم فورًا على أي تقييم سلبي.'],
-                ['🔎', 'بتطلّعكم في جوجل', 'تفحص صفحات رحلاتكم وتصلّحها، وتقيس ظهوركم في ChatGPT وGemini.'],
+                ['🔎', 'بتحسّن ظهوركم في جوجل', 'تفحص صفحات رحلاتكم وتصلّحها وتكتبلكم مقالات.'],
                 ['💬', 'بترد على العملاء', 'على الواتساب والموقع 24 ساعة، وبتعرف رحلاتكم وأسعاركم.'],
                 ['📅', 'حجز ودفع مباشر', 'موقع حجز بلغات كتير ولينكات دفع - من غير عمولة الوسطاء.'],
                 ['📣', 'تسويق جاهز كل شهر', 'بوستات سوشيال ومقالات وإعلانات بصوركم ولوجو شركتكم.'],
@@ -1089,7 +1089,7 @@ class PlatformOutreachService
             'sub' => 'One platform that does the job of a full marketing and customer-service team. You focus on the tours, it handles the rest - you just approve.',
             'items' => [
                 ['⭐', 'Replies to every review', 'In the traveller’s own language (15 languages), with instant alerts for negative reviews.'],
-                ['🔎', 'Gets you found on Google', 'Audits and fixes your tour pages, and tracks your visibility in ChatGPT and Gemini.'],
+                ['🔎', 'Improves how you appear on Google', 'Audits and fixes your tour pages and writes articles for you.'],
                 ['💬', 'Answers your guests', 'On WhatsApp and your website 24/7 - it knows your tours and prices.'],
                 ['📅', 'Direct bookings & payments', 'A multilingual booking site and payment links - no middleman commission.'],
                 ['📣', 'Marketing, ready every month', 'Social posts, articles and ads with your own photos and logo.'],
@@ -1104,7 +1104,7 @@ class PlatformOutreachService
             'sub' => 'Tam bir pazarlama ve müşteri hizmetleri ekibinin işini yapan tek platform. Siz turlara odaklanın, gerisini o halletsin - siz sadece onaylayın.',
             'items' => [
                 ['⭐', 'Her yoruma cevap verir', 'Misafirin kendi dilinde (15 dil) ve olumsuz yorumlarda anında uyarı.'],
-                ['🔎', 'Google’da bulunmanızı sağlar', 'Tur sayfalarınızı inceler ve düzeltir, ChatGPT ve Gemini’deki görünürlüğünüzü ölçer.'],
+                ['🔎', 'Google’daki görünürlüğünüzü iyileştirir', 'Tur sayfalarınızı inceler, düzeltir ve sizin için makale yazar.'],
                 ['💬', 'Misafirlerinize cevap verir', 'WhatsApp’ta ve sitenizde 7/24 - turlarınızı ve fiyatlarınızı bilir.'],
                 ['📅', 'Doğrudan rezervasyon ve ödeme', 'Çok dilli rezervasyon sitesi ve ödeme linkleri - aracı komisyonu yok.'],
                 ['📣', 'Her ay hazır pazarlama', 'Kendi fotoğraflarınız ve logonuzla sosyal medya, makale ve reklamlar.'],
