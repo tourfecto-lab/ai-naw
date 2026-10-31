@@ -1363,6 +1363,13 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         if (!$this->canAccessWebsite($websiteId)) {
             return $this->error('Website not found', 404);
         }
+        try {
+            ReputationLimits::assertFeature((int) $this->user['id'], 'csv_import');
+        } catch (ReputationLimitReached $limit) {
+            return $this->error($limit->getMessage(), 403, ['feature' => $limit->feature]);
+        } catch (Throwable $e) {
+            Logger::warning('Reputation feature check skipped', ['message' => $e->getMessage()]);
+        }
         $csv = (string) $this->get('csv', '');
         if ($csv === '' || strlen($csv) > ReviewImporter::MAX_BYTES) {
             return $this->error('Upload a CSV file up to 1 MB', 422);
@@ -1393,6 +1400,13 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         }
         if ($e = $this->verifyCsrf()) {
             return $e;
+        }
+        try {
+            ReputationLimits::assertFeature((int) $this->user['id'], 'team_assignment');
+        } catch (ReputationLimitReached $limit) {
+            return $this->error($limit->getMessage(), 403, ['feature' => $limit->feature]);
+        } catch (Throwable $e) {
+            Logger::warning('Reputation feature check skipped', ['message' => $e->getMessage()]);
         }
         $assignee = $this->get('assignee_id');
         $assigneeId = ($assignee === null || $assignee === '' || $assignee === 0 || $assignee === '0') ? null : (int) $assignee;
@@ -1856,6 +1870,14 @@ JS;
                 'website_id' => $temp['website_id'],
                 'platform' => 'google_business',
             ], [], 1);
+
+            try {
+                ReputationLimits::assertCanConnectLocation((int) $this->user['id'], (int) $temp['website_id']);
+            } catch (ReputationLimitReached $limit) {
+                return $this->error($limit->getMessage(), 403, ['feature' => $limit->feature]);
+            } catch (Throwable $e) {
+                Logger::warning('Reputation location limit check skipped', ['message' => $e->getMessage()]);
+            }
 
             $data = [
                 'website_id' => $temp['website_id'],

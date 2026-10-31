@@ -1889,6 +1889,8 @@ $router->add('HEAD','/api/admin/creative-studio/media/{id}/content','CreativeAdm
 $router->get('/api/admin/ai-routing', 'AiRoutingAdminController', 'listing', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/growth', 'PlatformOutreachController', 'overview', ['AuthMiddleware','AdminMiddleware']);
 // حماية سمعة التسويق بالبريد (لوحة الأدمن)
+$router->get('/api/admin/reputation-limits', 'AdminReputationLimitsController', 'data', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/reputation-limits', 'AdminReputationLimitsController', 'save', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/admin/email-reputation/overview', 'AdminEmailReputationController', 'overview', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/admin/email-reputation/accounts/{id}', 'AdminEmailReputationController', 'account', ['AuthMiddleware', 'AdminMiddleware']);
 $router->post('/api/admin/email-reputation/accounts/{id}/pause', 'AdminEmailReputationController', 'pauseAccount', ['AuthMiddleware', 'AdminMiddleware']);

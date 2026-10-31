@@ -84,6 +84,14 @@ class ReviewRequestService
         if (!in_array($channel, ['whatsapp', 'email', 'sms'], true)) {
             throw new Exception('قناة غير مدعومة - المتاح حاليًا: واتساب أو إيميل أو SMS');
         }
+        // Admin-controlled plan limit (unlimited unless the admin sets one). An infrastructure error never blocks the customer.
+        try {
+            ReputationLimits::assertCanCreateRequest($userId, $this->db);
+        } catch (ReputationLimitReached $limit) {
+            throw $limit;
+        } catch (Throwable $e) {
+            Logger::warning('Reputation limit check skipped', ['message' => $e->getMessage()]);
+        }
         if (!in_array($destinationPlatform, ['google_business', 'tripadvisor', 'other'], true)) {
             throw new Exception('وجهة تقييم غير مدعومة');
         }
@@ -886,6 +894,9 @@ class ReviewRequestService
                     $channel === 'email' ? $email : null, 'booking', null, $dest);
                 $this->db->exec('UPDATE review_requests SET booking_id = ? WHERE id = ?', [(int) $b['id'], (int) $req->getAttribute('id')]);
                 $made++;
+            } catch (ReputationLimitReached $limit) {
+                // Monthly plan limit reached: do not mark the booking, it is retried when the limit allows again
+                continue;
             } catch (Throwable $e) {
                 // مكرر/opt-out/مفيش رابط: نعلّم الحجز عشان مانحاولش كل ربع ساعة
                 Logger::info('review request from booking skipped', ['booking_id' => $b['id'], 'reason' => $e->getMessage()]);
