@@ -125,6 +125,7 @@ class PublishSocialPostJob implements QueueJobInterface
             $media = $this->resolveMedia((int) $post->getAttribute('media_item_id'));
             if($media&&(int)$media->getAttribute('user_id')!==(int)$post->getAttribute('user_id'))throw new RuntimeException('Media ownership mismatch');
             if($post->getAttribute('media_item_id')&&!$media)throw new RuntimeException('Publish media unavailable');
+            if($media)$this->assertMediaFileExists((string)$media->getAttribute('file_path'));
             $mediaUrl = $media && $platform !== 'youtube' ? (PrivateMedia::valid((string)$media->getAttribute('file_path'))?PrivateMedia::publishUrl($media):$this->toPublicUrl((string)$media->getAttribute('file_path'))) : null;
             $isVideo = $media && $media->getAttribute('type') === 'short_video';
 
@@ -667,6 +668,20 @@ class PublishSocialPostJob implements QueueJobInterface
         return array_map(static fn ($r) => (int) $r['media_item_id'], $rows);
     }
 
+    /** الملف الخاص لازم يكون موجود على السيرفر قبل ما نبعت رابطه لـMeta (بدل فشل غامض عندهم بعد دقايق) */
+    private function assertMediaFileExists(string $path): void
+    {
+        if (!PrivateMedia::valid($path)) {
+            return;
+        }
+        try {
+            PrivateMedia::resolve($path);
+        } catch (Throwable $e) {
+            Logger::warning('Publish media file missing on server', ['path' => $path]);
+            throw new RuntimeException('Publish media unavailable');
+        }
+    }
+
     /** روابط عامة لصور الألبوم بنفس قواعد الصورة الواحدة (ملكية + جاهزة). أي صورة ناقصة = فشل بدل نشر ألبوم ناقص */
     private function albumUrls(array $ids, int $userId): array
     {
@@ -677,6 +692,7 @@ class PublishSocialPostJob implements QueueJobInterface
                 throw new RuntimeException('Publish media unavailable');
             }
             $path = (string) $m->getAttribute('file_path');
+            $this->assertMediaFileExists($path);
             $url = PrivateMedia::valid($path) ? PrivateMedia::publishUrl($m) : $this->toPublicUrl($path);
             if (!$url) {
                 throw new RuntimeException('Publish media unavailable');
