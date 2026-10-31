@@ -22,6 +22,7 @@ $router->post('/api/auth/resend-verification', 'AuthController', 'resendVerifica
 $router->get('/api/auth/verification-status', 'AuthController', 'verificationStatus');
 $router->get('/api/plan-usage', 'PlanUsageController', 'show', ['AuthMiddleware']);
 $router->post('/api/public/free-check', 'MarketingController', 'freeCheck');
+$router->post('/api/public/free-social-check', 'MarketingController', 'freeSocialCheck');
 $router->post('/api/public/smart/analyze', 'SmartSignupController', 'analyze');
 $router->post('/api/public/smart/competitors', 'SmartSignupController', 'competitors');
 $router->post('/api/public/smart/save', 'SmartSignupController', 'save');

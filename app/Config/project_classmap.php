@@ -1001,6 +1001,7 @@ return [
     'VoiceCrmCompat' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceCrmCompat.php',
     'VoiceInsightsService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceInsightsService.php',
     'VoiceSupervisorRules' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceSupervisorRules.php',
+    'FreeSocialCheckService' => dirname(__DIR__,2).'/app/Services/Marketing/FreeSocialCheckService.php',
     'VoiceSupervisorService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceSupervisorService.php',
     'VoiceAnalyticsController' => dirname(__DIR__,2).'/app/Controllers/VoiceAnalyticsController.php',
 ];

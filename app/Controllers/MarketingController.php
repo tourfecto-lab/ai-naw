@@ -195,6 +195,152 @@ class MarketingController extends Controller
         return [];
     }
 
+    /** POST /api/public/free-social-check {url, lang} - فحص الحضور على فيسبوك وإنستجرام من موقع الشركة (عام، من غير تسجيل) */
+    public function freeSocialCheck(array $params = []): array
+    {
+        if ($rl = $this->rateLimitGuard('ip', 'free_social_check', 6, 600)) {
+            return $rl;
+        }
+        $lang = $this->get('lang') === 'ar' ? 'ar' : 'en';
+        $url = FreeSiteCheckService::normalizeUrl((string) $this->get('url', ''));
+        if ($url === null || preg_match('~^https?://(www\.|m\.)?(facebook|instagram|fb)\.com~i', $url)) {
+            return $this->error($lang === 'ar' ? 'اكتب رابط موقعك (مش رابط فيسبوك أو إنستجرام)، مثلًا yourtours.com' : 'Enter your website address (not a Facebook or Instagram link), e.g. yourtours.com', 422);
+        }
+        try {
+            $r = (new FreeSocialCheckService($lang))->run($url);
+        } catch (Throwable $e) {
+            Logger::warning('Free social check failed', ['url' => $url, 'error' => $e->getMessage()]);
+            $r = ['ok' => false, 'error' => $lang === 'ar' ? 'مقدرناش نفحص الموقع دلوقتي، جرّب تاني.' : 'We could not check the site right now, try again.'];
+        }
+        if (empty($r['ok'])) {
+            return $this->error($r['error'] ?? 'Error', 422);
+        }
+        try {
+            $ss = new SystemSettingsService();
+            $log = json_decode($ss->get('free_social_checks_recent', '[]'), true) ?: [];
+            array_unshift($log, ['host' => $r['host'], 'score' => $r['score'], 'lang' => $lang, 'at' => date('Y-m-d H:i:s')]);
+            $ss->set('free_social_checks_recent', json_encode(array_slice($log, 0, 200), JSON_UNESCAPED_UNICODE));
+        } catch (Throwable $e) {
+            error_log('[MarketingController] ignored error: ' . $e->getMessage());
+        }
+        return $this->success($r);
+    }
+
+    /** GET /social-check - صفحة «افحص حضورك على السوشيال مجانًا» */
+    public function socialCheck(array $params = []): array
+    {
+        $ar = MarketingContent::isAr();
+        $L = json_encode([
+            'checking' => $this->t(['بنفحص موقعك…', 'Checking your website…']),
+            'score' => $this->t(['درجة جاهزية السوشيال', 'Social readiness score']),
+            'top' => $this->t(['أهم حاجات بتضيّع عليك متابعين وحجوزات', 'What is costing you followers and bookings']),
+            'all' => $this->t(['كل الفحوصات', 'All checks']),
+            'fix' => $this->t(['الحل: ', 'Fix: ']),
+            'found' => $this->t(['الحسابات اللي لقيناها في موقعك', 'Profiles we found on your site']),
+            'none' => $this->t(['مالقيناش أي حساب سوشيال مربوط في موقعك.', 'We found no social profile linked from your site.']),
+            'cta' => $this->t(['اربط صفحاتك وخلّي Tourfecto تحلل أداءها وتنشر عنك', 'Connect your pages and let Tourfecto analyze and post for you']),
+            'nocard' => $this->t(['من غير كارت · إلغاء في أي وقت', 'No card · cancel any time']),
+            'great' => $this->t(['حضورك كويس. Tourfecto تقدر تنشر وتجدول وترد على التعليقات وتحلل صفحاتك من مكان واحد.', 'Your presence looks good. Tourfecto can publish, schedule, reply to comments and analyze your pages in one place.']),
+            'err' => $this->t(['حصلت مشكلة، جرّب تاني', 'Something went wrong, try again']),
+        ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        $form = '<section class="blk tight" style="padding-top:0"><div class="container-narrow" style="max-width:860px;margin:0 auto">'
+            . '<form id="scForm" style="display:flex;gap:10px;flex-wrap:wrap" novalidate>'
+            . '<input id="scUrl" type="text" inputmode="url" autocomplete="url" dir="ltr" required placeholder="yourtours.com" aria-label="' . $this->te(['رابط موقعك', 'Your website address']) . '" style="flex:1;min-width:220px;padding:14px 16px;border-radius:14px;border:1px solid #D5DBE5;font-size:16px;background:transparent;color:inherit">'
+            . '<button type="submit" class="btn-primary" id="scBtn" style="border:0;cursor:pointer;font-family:inherit">' . $this->te(['افحص حضوري على السوشيال', 'Check my social presence']) . '</button></form>'
+            . '<p style="opacity:.75;font-size:13px;margin:8px 0 0">' . $this->te(['بنفحص موقعك بس: مش بندخل على حساباتك ولا بنسحب بياناتها. التحليل الكامل لصفحاتك بيتم بعد ما تربطها بنفسك بتسجيل دخول فيسبوك الرسمي.', 'We only check your website: we never log into your accounts or pull their data. Full page analysis happens after you connect them yourself through the official Facebook login.']) . '</p>'
+            . '<p id="scErr" role="alert" style="color:#D92D20;font-size:14px;min-height:18px;margin:8px 0 0"></p><div id="scOut" aria-live="polite"></div></div></section>';
+        $js = '<script>(function(){var L=' . $L . ',f=document.getElementById("scForm");if(!f)return;'
+            . 'function esc(s){return String(s).replace(/[&<>"\']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"}[c];});}'
+            . 'var col={pass:"#0E9F6E",warn:"#D97706",fail:"#D92D20"},ic={pass:"✓",warn:"!",fail:"✕"};'
+            . 'function row(c,big){return \'<div style="display:flex;gap:12px;padding:\'+(big?"14px":"10px")+\' 0;border-bottom:1px solid #E5E9F0"><span style="flex:none;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;background:\'+col[c.status]+\'">\'+ic[c.status]+\'</span><div><b>\'+esc(c.title)+\'</b><div style="opacity:.85;margin-top:2px">\'+esc(c.detail)+\'</div>\'+(c.status!=="pass"?\'<div style="margin-top:4px"><b>\'+esc(L.fix)+\'</b>\'+esc(c.fix)+\'</div>\':"")+\'</div></div>\';}'
+            . 'f.addEventListener("submit",async function(e){e.preventDefault();var u=document.getElementById("scUrl").value.trim(),b=document.getElementById("scBtn"),er=document.getElementById("scErr"),o=document.getElementById("scOut");er.textContent="";if(!u){document.getElementById("scUrl").focus();return;}'
+            . 'var bt=b.textContent;b.disabled=true;b.textContent=L.checking;o.innerHTML="";'
+            . 'try{var r=await fetch("/api/public/free-social-check",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({url:u,lang:"' . ($ar ? 'ar' : 'en') . '"})});var d=await r.json();'
+            . 'if(!d.success){er.textContent=d.error||L.err;}else{var x=d.data,sc=x.score,cc=sc>=75?col.pass:(sc>=50?col.warn:col.fail);'
+            . 'var top=x.top.map(function(k){return x.checks.filter(function(c){return c.key===k;})[0];}).filter(Boolean);'
+            . 'var pk=Object.keys(x.profiles||{});'
+            . 'var h=\'<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:18px 0 6px"><div style="width:92px;height:92px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;border:6px solid \'+cc+\';color:\'+cc+\'">\'+sc+\'</div><div><div style="opacity:.8">\'+esc(L.score)+\'</div><b dir="ltr" style="font-size:18px">\'+esc(x.host)+\'</b></div></div>\';'
+            . 'h+=\'<h3 style="margin:18px 0 4px">\'+esc(L.found)+\'</h3>\'+(pk.length?\'<div dir="ltr" style="display:flex;gap:8px;flex-wrap:wrap">\'+pk.map(function(k){return \'<span style="border:1px solid #D5DBE5;border-radius:999px;padding:6px 12px;font-size:14px">\'+esc(k)+" · "+esc(x.profiles[k].handle)+\'</span>\';}).join("")+\'</div>\':\'<p>\'+esc(L.none)+\'</p>\');'
+            . 'h+=top.length?\'<h3 style="margin:18px 0 4px">\'+esc(L.top)+\'</h3>\'+top.map(function(c){return row(c,true);}).join(""):\'<p style="line-height:1.8">\'+esc(L.great)+\'</p>\';'
+            . 'h+=\'<div style="text-align:center;margin:20px 0 6px"><a class="btn-primary" href="/register?site=\'+encodeURIComponent(x.host)+\'&src=free-social-check">\'+esc(L.cta)+\'</a><div style="opacity:.75;font-size:13px;margin-top:8px">\'+esc(L.nocard)+\'</div></div>\';'
+            . 'h+=\'<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">\'+esc(L.all)+\'</summary>\'+x.checks.map(function(c){return row(c,false);}).join("")+\'</details>\';'
+            . 'o.innerHTML=h;o.scrollIntoView({behavior:"smooth",block:"nearest"});}}catch(e2){er.textContent=L.err;}b.disabled=false;b.textContent=bt;});})();</script>';
+        $body = PublicLayout::hero($this->t(['فحص مجاني', 'Free check']), $this->t(['افحص حضورك على فيسبوك وإنستجرام مجانًا', 'Check your Facebook and Instagram presence for free']),
+            $this->t(['في أقل من دقيقة: هل السائح بيلاقي صفحاتك من موقعك؟ هل رابطك بيتشارك بشكل محترم؟ هل مركّب بيكسل ميتا؟ من غير تسجيل.', 'In under a minute: can travellers find your pages from your site? Do your shared links look professional? Is the Meta Pixel installed? No sign-up needed.']))
+            . $form . '<section class="blk tight"><div style="text-align:center"><a href="/pricing#social" class="cta-ghost">' . $this->te(['شوف باقات السوشيال ميديا', 'See the social media plans']) . '</a></div></section>'
+            . PublicLayout::ctaBand() . $js;
+        $this->out(PublicLayout::render([
+            'title' => $this->t(['فحص السوشيال المجاني لشركات الرحلات', 'Free social presence check for tour companies']),
+            'description' => $this->t(['افحص مجانًا هل صفحات فيسبوك وإنستجرام مربوطة بموقعك وهل روابطك بتتشارك صح.', 'Free check: are your Facebook and Instagram pages linked from your site and do your shared links look right.']),
+            'path' => '/social-check', 'active' => 'pricing', 'body' => $body,
+        ]));
+        return [];
+    }
+
+    /** قسم باقات السوشيال في صفحة الأسعار: من نفس إعدادات الأدمن (باقات السوشيال)، وبعملة الزائر */
+    private function socialPlansSection(string $viewCur, bool $isAr, bool $loggedIn): string
+    {
+        try {
+            $cfg = SocialPackages::config();
+        } catch (Throwable $e) {
+            return '';
+        }
+        $ck = self::check();
+        $cards = '';
+        foreach (['basic', 'pro', 'agency', 'enterprise'] as $k) {
+            $t = $cfg['tiers'][$k] ?? null;
+            if (!$t || empty($t['for_sale']) || (float) $t['price_monthly'] <= 0) {
+                continue;
+            }
+            $sym = '$';
+            $m = (float) $t['price_monthly'];
+            $y = (float) $t['price_yearly'];
+            $egM = $viewCur === 'USD' ? CurrencyService::egpHint($m, $isAr) : '';
+            $egY = $viewCur === 'USD' ? CurrencyService::egpHint($y, $isAr) : '';
+            if ($viewCur !== 'USD') {
+                $meta = CurrencyService::CURRENCIES[$viewCur];
+                $sym = ($isAr ? $meta['ar_symbol'] : $meta['symbol']) . ' ';
+                $m = CurrencyService::fromUsd($m, $viewCur);
+                $y = CurrencyService::fromUsd($y, $viewCur);
+            }
+            $save = $m > 0 ? max(0, (int) round((1 - $y / ($m * 12)) * 100)) : 0;
+            $n = static fn ($v) => $v < 0 ? '∞' : number_format((int) $v);
+            $name = $isAr ? $t['name'] : $t['name_en'];
+            $items = [
+                [true, $n($t['accounts']) . ' ' . $this->t(['حساب سوشيال مربوط', 'connected accounts'])],
+                [true, $n($t['posts']) . ' ' . $this->t(['منشور في الشهر', 'posts / month'])],
+                [true, $n($t['ai_captions']) . ' ' . $this->t(['كابشن بالذكاء الاصطناعي', 'AI captions'])],
+                [$t['monthly_plans'] != 0, ($t['monthly_plans'] < 0 ? '∞' : (int) $t['monthly_plans']) . ' ' . $this->t(['خطة شهرية بالذكاء الاصطناعي', 'AI monthly content plans'])],
+                [$t['competitors'] > 0, ($t['competitors'] > 0 ? ((int) $t['competitors']) . ' ' : '') . $this->t(['منافسين على إنستجرام', 'Instagram competitors'])],
+            ];
+            foreach (SocialPackages::FEATURE_KEYS as $fk) {
+                $items[] = [!empty($t[$fk]), SocialPackages::LABELS[$fk][$isAr ? 0 : 1]];
+            }
+            $li = '';
+            $x = '<span class="ck"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12h10"/></svg></span>';
+            foreach ($items as [$on, $txt]) {
+                $li .= '<li class="' . ($on ? '' : 'off') . '">' . ($on ? $ck : $x) . '<span>' . $this->e((string) $txt) . '</span></li>';
+            }
+            $actions = $loggedIn
+                ? '<a href="/social#package" class="btn-primary">' . $this->te(['اشترك من حسابك', 'Subscribe from your account']) . '</a>'
+                : '<a href="/register?src=social-pricing&social=' . rawurlencode($k) . '" class="btn-primary">' . $this->te(['ابدأ مجانًا', 'Start free']) . '</a>';
+            $feat = $k === 'pro';
+            $cards .= '<div class="plan' . ($feat ? ' featured' : '') . '" data-em="' . $this->e($egM) . '" data-ey="' . $this->e($egY) . '" data-m="' . $this->e(number_format($m, 0)) . '" data-y="' . $this->e(number_format($y, 0)) . '" data-ym="' . $this->e(number_format($y / 12, 0)) . '" data-save="' . $save . '">'
+                . ($feat ? '<span class="badge">' . $this->te(['الأكثر اختيارًا', 'Most popular']) . '</span>' : '')
+                . '<h3>' . $this->e($name) . '</h3>'
+                . '<div class="price"><b><span class="cur">' . $this->e($sym) . '</span><span class="amt">' . $this->e(number_format($m, 0)) . '</span></b><small class="unit">' . $this->te(['/ شهر', '/ month']) . '</small></div>'
+                . ($egM !== '' ? '<div class="egp" style="font-size:12.5px;opacity:.7;margin-top:2px">≈ <bdi>' . $this->e($egM) . '</bdi></div>' : '')
+                . '<div class="per">&nbsp;</div><ul>' . $li . '</ul><div class="actions">' . $actions . '</div></div>';
+        }
+        if ($cards === '') {
+            return '';
+        }
+        return '<section class="blk" id="social"><div class="sec-head"><h2 class="sec-title">' . $this->te(['باقات السوشيال ميديا', 'Social media plans']) . '</h2><p class="sec-sub">'
+            . $this->te(['انشر وجدول على فيسبوك وإنستجرام وتيك توك ويوتيوب، ورد على التعليقات، وتابع النتائج من مكان واحد. باقة مستقلة بتتدفع من محفظتك، أو مشمولة في باقة المنصة.', 'Publish and schedule on Facebook, Instagram, TikTok and YouTube, reply to comments and track results in one place. A standalone plan paid from your wallet, or included in your platform plan.'])
+            . '</p></div><div class="plans">' . $cards . '</div><p style="text-align:center;margin-top:16px"><a href="/social-check" class="cta-ghost">'
+            . $this->te(['افحص حضورك على فيسبوك وإنستجرام مجانًا', 'Check your Facebook and Instagram presence for free']) . '</a></p></section>';
+    }
+
     /** محتوى الرئيسية الجديدة: كل اللي فيها ميزة حقيقية في المنصة، والأمثلة شكل الشغل الفعلي (مش نتايج عملاء) */
     /**
      * «افحص موقعك مجانًا»: الزائر يكتب رابط موقعه ويشوف في ثواني إيه اللي بيضيّع عليه حجوزات - من غير تسجيل.
@@ -224,7 +370,8 @@ class MarketingController extends Controller
             . '<input id="fcUrl" type="text" inputmode="url" autocomplete="url" dir="ltr" required placeholder="yourtours.com" aria-label="' . $t(['رابط موقعك', 'Your website address']) . '" style="flex:1;min-width:220px;padding:14px 16px;border-radius:14px;border:1px solid var(--line,#D5DBE5);font-size:16px;background:transparent;color:inherit">'
             . '<button type="submit" class="hv-btn gold" id="fcBtn" style="border:0;cursor:pointer;font-family:inherit">' . $t(['افحص موقعي', 'Check my website']) . '</button></form>'
             . '<p id="fcErr" role="alert" style="color:#D92D20;font-size:14px;min-height:18px;margin:8px 0 0"></p>'
-            . '<div id="fcOut" aria-live="polite"></div></div></section>'
+            . '<div id="fcOut" aria-live="polite"></div>'
+            . '<p style="margin:14px 0 0;font-size:14px"><a href="/social-check">' . $t(['وافحص كمان حضورك على فيسبوك وإنستجرام ←', 'Also check your Facebook and Instagram presence →']) . '</a></p></div></section>'
             . '<script>(function(){var L=' . $L . ',f=document.getElementById("fcForm");if(!f)return;'
             . 'function esc(s){return String(s).replace(/[&<>"\']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#39;"}[c];});}'
             . 'var col={pass:"#0E9F6E",warn:"#D97706",fail:"#D92D20"},ic={pass:"✓",warn:"!",fail:"✕"};'
@@ -709,6 +856,7 @@ class MarketingController extends Controller
                 $cards .= $cardHtml;
             }
         }
+        $socialSection = $this->socialPlansSection($viewCur, $isAr, $loggedIn);
         $seoSection = $seoCards === '' ? '' : '<section class="blk alt" id="seo"><div class="sec-head"><h2 class="sec-title">' . $this->te(['باقات السيو والظهور في الذكاء الاصطناعي', 'SEO and AI visibility plans']) . '</h2><p class="sec-sub">'
             . $this->te(['المنصة بتفحص موقعك وتحسّنه لوحدها كل أسبوع، وبتقيس ظهورك في ChatGPT و Gemini و Perplexity. للي عايز خدمة السيو بس، من غير باقي المنصة.', 'The platform checks and improves your website on its own every week and measures your visibility in ChatGPT, Gemini and Perplexity. For companies that only want SEO, without the rest of the platform.'])
             . '</p></div><div class="plans">' . $seoCards . '</div><p style="text-align:center;font-size:13px;opacity:.75;margin-top:14px">'
@@ -801,6 +949,7 @@ class MarketingController extends Controller
             . $this->activationSteps($wa)
             . '<section class="blk"><div class="sec-head"><h2 class="sec-title">' . $this->te(['موجود في كل الباقات', 'Included in every plan']) . '</h2></div><div class="incl">' . $incl . '</div></section>'
             . $seoSection
+            . $socialSection
             . $cmp
             . $svc
             . '<section class="blk"><div class="sec-head"><h2 class="sec-title">' . $this->te(['أسئلة عن الأسعار', 'Pricing questions']) . '</h2></div><div class="faq-list">' . $faq . '</div></section>'

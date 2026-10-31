@@ -277,6 +277,7 @@ $router->group('/chat', function ($router) {
 // صفحات الاشتراكات
 // ============================================
 $router->get('/pricing', 'MarketingController', 'pricing');
+$router->get('/social-check', 'MarketingController', 'socialCheck');
 $router->get('/subscription', 'SubscriptionController', 'showSubscription', ['AuthMiddleware']);
 $router->get('/plans', 'SubscriptionController', 'showPlans');
 $router->get('/invoice/{id}', 'SubscriptionController', 'showInvoice', ['AuthMiddleware']);
