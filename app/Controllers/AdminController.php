@@ -1233,6 +1233,17 @@ class AdminController extends Controller
         }
     }
 
+    /** GET /api/admin/plans-economics - إيراد وتكلفة وهامش كل باقة من أرقام فعلية */
+    public function planEconomics(array $params = []): array
+    {
+        try {
+            return $this->success(PlanEconomics::report($this->db, 30));
+        } catch (Throwable $e) {
+            Logger::error('Admin planEconomics Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر حساب اقتصاديات الباقات', 500);
+        }
+    }
+
     /** GET /api/admin/plans-audit - آخر تعديلات الباقات (مين غيّر إيه، قبل وبعد) */
     public function planChanges(array $params = []): array
     {
@@ -3122,6 +3133,7 @@ class AdminController extends Controller
         }
         plansCache = res.data.plans;
         loadPlanAudit();
+        loadPlanEconomics();
         if (!plansCache.length) {
             grid.innerHTML = `<div class="p-empty">${I18N['admin.plans.none']}</div>`;
             return;
@@ -3140,6 +3152,14 @@ class AdminController extends Controller
     }
 
     const AUDIT_LABELS = { name: 'الاسم', price_monthly: 'السعر الشهري', price_yearly: 'السعر السنوي', currency: 'العملة', is_active: 'مفعّلة', seo_cycles: 'فحوصات السيو/شهر', seo_max_pages: 'صفحات الفحص', seo_markets: 'الأسواق', ai_visibility: 'قياسات الذكاء الاصطناعي', seo_data: 'وحدات البيانات', articles: 'المقالات', ai_analysis: 'تحليلات AI', competitor_analysis: 'تحليلات المنافسين', chat_credits: 'رسائل الشات', review_credits: 'ردود التقييمات', multiple_websites: 'المواقع' };
+    async function loadPlanEconomics() {
+        const box = document.getElementById('planEconBox');
+        if (!box) return;
+        const res = await fetchJSON('/api/admin/plans-economics');
+        if (!res.success) { box.textContent = 'تعذر حساب الأرقام'; return; }
+        if (!res.data.plans.length) { box.textContent = res.data.note; return; }
+        box.innerHTML = '<div class="p-grid cols-3">' + res.data.plans.map(p => '<div class="p-card"><b>' + esc(p.plan_key) + '</b><div class="p-kv"><span class="k">مشتركين</span><span class="v">' + p.subscribers + '</span></div><div class="p-kv"><span class="k">إيراد شهري</span><span class="v">$' + p.mrr_usd + '</span></div><div class="p-kv"><span class="k">تكلفة (DataForSEO + AI)</span><span class="v">$' + p.cost_usd + '</span></div><div class="p-kv"><span class="k">تكلفة/مشترك</span><span class="v">$' + p.cost_per_subscriber_usd + '</span></div><div class="p-kv"><span class="k">الهامش</span><span class="v" style="' + (p.low_margin ? 'color:#c0392b;font-weight:700' : '') + '">' + (p.margin_pct === null ? '-' : p.margin_pct + '%') + (p.low_margin ? ' ⚠ تحت 40%' : '') + '</span></div></div>').join('') + '</div><p class="p-cell-muted" style="margin-top:8px">' + esc(res.data.note) + '</p>';
+    }
     async function loadPlanAudit() {
         const box = document.getElementById('planAuditBox');
         if (!box) return;
@@ -4318,6 +4338,7 @@ HTML;
                 return <<<HTML
                 <p class="p-cell-muted" style="margin-bottom:16px;">{$this->tr('admin.plans.hint')}</p>
                 <div id="plansGrid" class="p-grid cols-3"><div class="p-empty">{$this->tr('common.loading')}</div></div>
+                <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>إيراد وتكلفة وهامش كل باقة</h3><span class="p-card-sub">فعلي لآخر 30 يوم</span></div><div id="planEconBox" class="p-cell-muted">...</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>سجل تعديل الباقات</h3><span class="p-card-sub">مين غيّر إيه وإمتى (القيمة قبل وبعد)</span></div><div id="planAuditBox" class="p-cell-muted">...</div></div>
 
                 <div class="p-modal-overlay" id="editPlanModal">
