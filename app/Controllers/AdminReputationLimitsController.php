@@ -38,6 +38,7 @@ class AdminReputationLimitsController extends Controller
                 'labels' => ReputationLimits::LABELS,
                 'config' => ReputationLimits::config(),
                 'sources' => ReviewSources::view(),
+                'overrides' => ReputationLimits::overridesView(),
                 'audit' => $audit,
                 'usage' => ReputationLimits::usageReport(30),
                 'csrf_token' => class_exists('Csrf') ? Csrf::token() : '',
@@ -46,6 +47,33 @@ class AdminReputationLimitsController extends Controller
             Logger::error('Reputation limits data failed', ['message' => $e->getMessage()]);
             return $this->error('Could not load the limits', 500);
         }
+    }
+
+    /** POST /api/admin/reputation-limits/override  {email, values: {key: number|bool|null}}  (null removes the key) */
+    public function override(array $params = []): array
+    {
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $email = trim((string) $this->get('email', ''));
+        $values = $this->get('values');
+        if ($email === '' || !is_array($values) || !$values) {
+            return $this->error('Enter the customer e-mail and at least one value', 422);
+        }
+        $user = $this->db->query('SELECT id FROM users WHERE email = ? LIMIT 1', [$email])[0] ?? null;
+        if (!$user) {
+            return $this->error('No customer with this e-mail', 404);
+        }
+        try {
+            $res = ReputationLimits::saveOverride((int) $user['id'], $values, (int) ($this->user['id'] ?? 0));
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Reputation override failed', ['message' => $e->getMessage()]);
+            return $this->error('Could not save the exception', 500);
+        }
+        $this->log('Admin Set Reputation Limit Exception', ['user_id' => (int) $user['id'], 'changes' => count($res['changes'])]);
+        return $this->success(['changes' => $res['changes']], $res['changes'] ? 'Saved' : 'No changes');
     }
 
     /** POST /api/admin/reputation-limits  {limits: {tier: {key: value}}} */

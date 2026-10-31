@@ -36,12 +36,21 @@
       '<div class="p-card"><div class="p-card-head"><h3>Limits per plan</h3></div>' +
       '<p class="p-cell-muted" style="margin:0 0 10px">Prices and AI reply credits are managed in <a href="/admin/plans-studio">Plans Studio</a>. Defaults are unlimited, so nothing changes for customers until you set a number. ' +
       'A change applies immediately to everyone on that plan: customers already above a new limit keep their data but cannot create new requests until next month (or until you raise it). ' +
-      'For one customer only, use a feature override with the keys reputation_review_requests_monthly, reputation_sms_requests_monthly, reputation_locations, reputation_team_assignment, reputation_csv_import.</p>' +
+      'For one customer only, use "Exceptions for one customer" below.</p>' +
       '<style>#rep-limits-root table.rl{min-width:640px}#rep-limits-root table.rl th[scope=row]{position:sticky;inset-inline-start:0;background:var(--panel-card,#fff);min-width:150px;max-width:210px;white-space:normal;z-index:1}' +
-      '#rep-limits-root input[type=number]{min-height:40px}#rep-limits-root input[type=checkbox]{width:22px;height:22px}</style>' +
+      '#rep-limits-root input[type=number]{min-height:40px}#rep-limits-root input[type=checkbox]{width:24px;height:24px}</style>' +
       '<p class="p-cell-muted rl-hint" style="margin:0 0 6px;font-size:12.5px">Scroll sideways to see every plan.</p>' +
       '<div class="p-table-scroll" tabindex="0" aria-label="Limits table, scrolls sideways"><table class="p-table rl">' + head + rows + '</table></div>' +
       '<div style="margin-top:12px"><button class="p-btn primary" id="rlSave">Save changes</button> <span id="rlMsg" role="status" aria-live="polite" class="p-cell-muted"></span></div></div>' +
+      '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Exceptions for one customer</h3></div>' +
+      '<p class="p-cell-muted" style="margin:0 0 10px">Give one customer its own limits instead of its plan\'s (a gift, a pilot, or a restriction). Leave a field empty to keep the plan\'s value; use the Remove column to go back to the plan. Team members follow their account owner.</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end"><label style="display:grid;gap:4px;font-size:13px;min-width:220px">Customer e-mail<input id="exEmail" type="email" class="p-select" autocomplete="off"></label>' +
+      d.number_keys.map(function (k) { return '<label style="display:grid;gap:4px;font-size:13px">' + esc(d.labels[k]) + '<input type="number" min="-1" max="1000000" step="1" class="p-select" style="width:130px" data-ex="' + k + '" placeholder="plan"></label>'; }).join('') +
+      d.bool_keys.map(function (k) { return '<label style="display:grid;gap:4px;font-size:13px">' + esc(d.labels[k]) + '<select class="p-select" data-ex="' + k + '"><option value="">plan</option><option value="1">On</option><option value="0">Off</option></select></label>'; }).join('') +
+      '<button class="p-btn primary" id="exSave">Save exception</button></div><span id="exMsg" role="status" aria-live="polite" class="p-cell-muted"></span>' +
+      (d.overrides.length ? '<div class="p-table-scroll" tabindex="0" aria-label="Customer exceptions"><table class="p-table" style="margin-top:10px"><thead><tr><th>Customer</th><th>Plan</th><th>Exceptions</th><th></th></tr></thead><tbody>' + d.overrides.map(function (o) {
+        return '<tr><td>' + esc(o.email) + '</td><td>' + esc(NAMES[o.plan] || o.plan) + '</td><td>' + Object.keys(o.values).map(function (k) { return esc((d.labels[k] || k) + ': ' + (o.values[k] === true ? 'On' : o.values[k] === false ? 'Off' : o.values[k] < 0 ? 'Unlimited' : o.values[k])); }).join('; ') + '</td><td><button class="p-btn outline xs" data-rm="' + esc(o.email) + '" data-keys="' + esc(Object.keys(o.values).join(',')) + '">Remove</button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="p-cell-muted" style="margin-top:10px">No exceptions.</p>') + '</div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Review sources</h3></div>' +
       '<p class="p-cell-muted" style="margin:0 0 10px">Choose, for each outside review site, how reviews may come in. Both can be on together. Automatic sync can only be switched on where the platform has a connector (today TripAdvisor). For the other sites CSV import is the way in until a connector is built; the note on each row says what that site requires.</p>' +
       '<div class="p-table-scroll" tabindex="0" aria-label="Review sources, scrolls sideways"><table class="p-table"><thead><tr><th scope="col">Site</th><th scope="col">CSV import by the customer</th><th scope="col">Automatic sync</th></tr></thead><tbody>' +
@@ -54,6 +63,14 @@
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Change history</h3></div>' + audit + '</div>';
 
     document.getElementById('rlSave').onclick = save;
+    document.getElementById('exSave').onclick = function () {
+      var vals = {};
+      root.querySelectorAll('[data-ex]').forEach(function (el) { if (el.value !== '') vals[el.dataset.ex] = el.tagName === 'SELECT' ? el.value === '1' : el.value; });
+      sendOverride(document.getElementById('exEmail').value, vals);
+    };
+    root.querySelectorAll('[data-rm]').forEach(function (b) {
+      b.onclick = function () { var vals = {}; b.dataset.keys.split(',').forEach(function (k) { vals[k] = null; }); sendOverride(b.dataset.rm, vals); };
+    });
   }
 
   function collectSources() {
@@ -83,6 +100,15 @@
         btn.disabled = false;
         if (r.success) { toast(r.message || 'Saved', 'success'); load(); } else { msg.textContent = r.error || 'Could not save'; toast(r.error || 'Could not save', 'error'); }
       });
+  }
+
+  function sendOverride(email, values) {
+    var msg = document.getElementById('exMsg');
+    if (!email) { msg.textContent = 'Enter the customer e-mail'; return; }
+    if (!Object.keys(values).length) { msg.textContent = 'Fill at least one value'; return; }
+    msg.textContent = 'Saving...';
+    api('/api/admin/reputation-limits/override', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': state.csrf_token || '' }, body: JSON.stringify({ email: email, values: values, csrf_token: state.csrf_token || '' }) })
+      .then(function (r) { if (r.success) { toast(r.message || 'Saved', 'success'); load(); } else { msg.textContent = r.error || 'Could not save'; toast(r.error || 'Could not save', 'error'); } });
   }
 
   function load() {

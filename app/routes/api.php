@@ -1895,6 +1895,7 @@ $router->get('/api/admin/growth', 'PlatformOutreachController', 'overview', ['Au
 // حماية سمعة التسويق بالبريد (لوحة الأدمن)
 $router->get('/api/admin/reputation-limits', 'AdminReputationLimitsController', 'data', ['AuthMiddleware', 'AdminMiddleware']);
 $router->post('/api/admin/reputation-limits', 'AdminReputationLimitsController', 'save', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/reputation-limits/override', 'AdminReputationLimitsController', 'override', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/admin/email-reputation/overview', 'AdminEmailReputationController', 'overview', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/admin/email-reputation/accounts/{id}', 'AdminEmailReputationController', 'account', ['AuthMiddleware', 'AdminMiddleware']);
 $router->post('/api/admin/email-reputation/accounts/{id}/pause', 'AdminEmailReputationController', 'pauseAccount', ['AuthMiddleware', 'AdminMiddleware']);
