@@ -3948,6 +3948,7 @@ HTML;
                 'platform-growth' => [$L('تسويق المنصة (إيميل)', 'Platform outreach (email)'), 'send', '/admin/growth'],
                 'voice' => [$L('مساعد الصوت (تحكم)', 'AI Voice control'), 'phone', '/admin/voice'],
                 'email-reputation' => [$L('سمعة التسويق بالبريد', 'Email reputation'), 'mail', '/admin/email-reputation'],
+                'reputation-limits' => [$L('حدود السمعة والمراجعات', 'Reputation limits'), 'star', '/admin/reputation-limits'],
                 'contact-messages' => [$this->tr('admin.nav.contact_messages'), 'mail', '/admin/contact-messages'],
             ],
             $L('الاشتراكات والفلوس', 'Subscriptions & money') => [
