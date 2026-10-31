@@ -66,21 +66,22 @@ class ReviewLanding
     }
 
     /** Public page HTML (standalone, no panel chrome). */
-    public static function page(string $company, array $destinations, string $qrSvg = '', string $surveyUrl = ''): string
+    public static function page(string $company, array $destinations, string $qrSvg = '', string $surveyUrl = '', bool $ar = false): string
     {
         $e = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+        $tr = static fn (string $en, string $arText) => $ar ? $arText : $en;
         $buttons = '';
         foreach ($destinations as $d) {
             $buttons .= '<a class="btn" rel="noopener noreferrer" href="' . $e($d['url']) . '">' . $e($d['label']) . '</a>';
         }
         if ($surveyUrl !== '') {
-            $buttons .= '<a class="btn" style="background:transparent;color:var(--brand);border:2px solid var(--brand)" href="' . $e($surveyUrl) . '">Send private feedback</a>';
+            $buttons .= '<a class="btn" style="background:transparent;color:var(--brand);border:2px solid var(--brand)" href="' . $e($surveyUrl) . ($ar ? '?lang=ar' : '') . '">' . $e($tr('Send private feedback', 'ابعت رأيك بشكل خاص')) . '</a>';
         }
         if ($buttons === '') {
-            $buttons = '<p class="muted">This business has not set up its review links yet.</p>';
+            $buttons = '<p class="muted">' . $e($tr('This business has not set up its review links yet.', 'النشاط ده لسه ما ضافش روابط التقييم.')) . '</p>';
         }
-        return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>' . $e($company) . ' - Leave a review</title>'
+        return '<!doctype html><html lang="' . ($ar ? 'ar' : 'en') . '" dir="' . ($ar ? 'rtl' : 'ltr') . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><title>' . $e($company) . ' - ' . $e($tr('Leave a review', 'قيّمنا')) . '</title>'
             . '<style>:root{color-scheme:light dark;--bg:#f6f7fb;--card:#fff;--ink:#111827;--muted:#6b7280;--brand:#4f46e5}'
             . '@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--ink:#f1f5f9;--muted:#94a3b8;--brand:#818cf8}}'
             . 'body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Tahoma,sans-serif;padding:16px}'
@@ -89,6 +90,6 @@ class ReviewLanding
             . '.btn{display:block;margin:10px 0;padding:14px;border-radius:12px;background:var(--brand);color:#fff;text-decoration:none;font-weight:700}'
             . '.btn:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}</style></head><body><main class="card">'
             . '<div aria-hidden="true" style="font-size:34px">⭐⭐⭐⭐⭐</div><h1>' . $e($company) . '</h1>'
-            . '<p class="muted">Thank you for choosing us. Your honest review helps other travellers.</p>' . $buttons . '</main></body></html>';
+            . '<p class="muted">' . $e($tr('Thank you for choosing us. Your honest review helps other travellers.', 'شكرًا إنك اخترتنا. رأيك الصادق بيساعد مسافرين تانيين.')) . '</p>' . $buttons . '</main></body></html>';
     }
 }

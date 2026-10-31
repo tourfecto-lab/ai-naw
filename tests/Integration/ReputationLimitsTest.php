@@ -255,4 +255,34 @@ final class ReputationLimitsTest extends TestCase
         $this->assertSame(['used' => 0, 'limit' => 0], $sum['sms_requests_monthly'], 'SMS off by default');
         $this->assertSame(-1, $sum['locations']['limit']);
     }
+
+    public function testAlertsAtEightyAndHundredPercentOncePerMonth(): void
+    {
+        ReputationLimits::save(['professional' => ['review_requests_monthly' => 5]], 1, $this->db);
+        $keys = "setting_key LIKE 'rep_limit_alert_" . self::UID . "_%'";
+        $this->pdo->exec("DELETE FROM system_settings WHERE $keys");
+        try {
+            for ($i = 0; $i < 3; $i++) {
+                $this->request(self::UID);
+            }
+            $this->assertSame([], ReputationLimits::maybeAlert(self::UID, $this->db), '60% is below the first step');
+            $this->request(self::UID);
+            $this->assertSame(['review_requests_monthly:80'], ReputationLimits::maybeAlert(self::UID, $this->db));
+            $this->assertSame([], ReputationLimits::maybeAlert(self::UID, $this->db), 'the same step is not repeated');
+            $this->request(self::UID);
+            $this->assertSame(['review_requests_monthly:100'], ReputationLimits::maybeAlert(self::UID, $this->db));
+            $this->assertSame([], ReputationLimits::maybeAlert(self::UID, $this->db));
+            $this->assertSame(2, (int) $this->pdo->query("SELECT COUNT(*) FROM notifications WHERE user_id = " . self::UID . " AND type = 'reputation_limit'")->fetchColumn());
+        } finally {
+            $this->pdo->exec("DELETE FROM system_settings WHERE $keys");
+            $this->pdo->exec("DELETE FROM notifications WHERE user_id = " . self::UID);
+        }
+    }
+
+    public function testNoAlertWhenUnlimitedOrNotAllowed(): void
+    {
+        $this->request(self::UID);
+        $this->assertSame([], ReputationLimits::maybeAlert(self::UID, $this->db), 'unlimited');
+        $this->assertSame([], ReputationLimits::maybeAlert(self::OTHER, $this->db), 'SMS is 0 (not allowed): nothing to warn about');
+    }
 }

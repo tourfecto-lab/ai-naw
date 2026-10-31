@@ -57,4 +57,13 @@ final class ReviewLandingTest extends TestCase
         $this->assertStringContainsString('<svg', $svg);
         $this->assertStringContainsString('<path', $svg);
     }
+
+    public function testArabicPageIsRtlAndTranslated(): void
+    {
+        $html = ReviewLanding::page('Co', [['key' => 'google', 'label' => 'Google', 'url' => 'https://g.page/r/abc/review']], '', '/survey/1-abc', true);
+        $this->assertStringContainsString('dir="rtl"', $html);
+        $this->assertStringContainsString('ابعت رأيك بشكل خاص', $html);
+        $this->assertStringContainsString('/survey/1-abc?lang=ar', $html);
+        $this->assertStringContainsString('lang="en"', ReviewLanding::page('Co', []));
+    }
 }

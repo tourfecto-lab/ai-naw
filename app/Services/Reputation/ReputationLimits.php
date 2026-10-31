@@ -266,6 +266,49 @@ class ReputationLimits
         }
     }
 
+    /**
+     * Tell the owner once per month and metric when use reaches 80% and 100% of a limit (in-app notification).
+     * Never throws: a failed alert must not affect the request that triggered it.
+     * @return array<int,string> the alerts sent, e.g. ['review_requests_monthly:80']
+     */
+    public static function maybeAlert(int $userId, ?Database $db = null): array
+    {
+        $sent = [];
+        try {
+            $db = $db ?: Database::getInstance();
+            $owner = self::accountOwner($userId, $db);
+            $usage = self::usage($owner, $db);
+            $month = gmdate('Y-m');
+            foreach (['review_requests_monthly' => 'review requests', 'sms_requests_monthly' => 'SMS review requests'] as $key => $label) {
+                $limit = (int) self::limit($owner, $key, $db);
+                if ($limit <= 0) {
+                    continue; // unlimited or not allowed: nothing to warn about
+                }
+                $pct = (int) floor($usage[$key] / $limit * 100);
+                foreach ([100, 80] as $step) {
+                    if ($pct < $step) {
+                        continue;
+                    }
+                    $flag = 'rep_limit_alert_' . $owner . '_' . $month . '_' . $key . '_' . $step;
+                    if ($db->query('SELECT 1 FROM system_settings WHERE setting_key = ? LIMIT 1', [$flag])) {
+                        break; // this step (and every lower one) was already reported this month
+                    }
+                    $db->exec("INSERT INTO system_settings (setting_key, setting_value, is_secret, category) VALUES (?, ?, 0, 'reputation')", [mb_substr($flag, 0, 80), gmdate('Y-m-d H:i:s')]);
+                    if (class_exists('Notification')) {
+                        Notification::notify($owner, 'reputation_limit', $step >= 100 ? 'You reached your ' . $label . ' limit' : 'You used 80% of your ' . $label . ' limit', $usage[$key] . ' of ' . $limit . ' this month.' . self::hint(self::tierFor($owner, $db)), '/review-requests');
+                    }
+                    $sent[] = $key . ':' . $step;
+                    break; // one alert per metric per call: the highest step reached
+                }
+            }
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) {
+                Logger::warning('Reputation limit alert skipped', ['message' => $e->getMessage()]);
+            }
+        }
+        return $sent;
+    }
+
     /** Admin: accounts with the most review requests this month. */
     public static function usageReport(int $limit = 30, ?Database $db = null): array
     {
