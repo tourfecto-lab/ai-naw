@@ -362,6 +362,8 @@ $router->post('/api/reputation/review/{id}/generate-reply', 'ReputationControlle
     'PlanGateMiddleware:ai_tool'
 ]);
 $router->put('/api/reputation/review/{id}/reply', 'ReputationController', 'updateReply', ['AuthMiddleware']);
+$router->post('/api/reputation/review/{id}/assign', 'ReputationController', 'assignReview', ['AuthMiddleware']);
+$router->get('/api/reputation/overdue-assignments', 'ReputationController', 'overdueAssignments', ['AuthMiddleware']);
 $router->delete('/api/reputation/review/{id}', 'ReputationController', 'deleteReview', ['AuthMiddleware']);
 
 // منصات المراجعات

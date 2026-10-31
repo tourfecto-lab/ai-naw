@@ -691,6 +691,37 @@ HTML;
         }
     };
 
+    function assignCard(a) {
+        if (!a) return '';
+        if (!a.ready) return '<div class="p-card" style="grid-column:1/-1"><div class="p-card-head"><h3>Assign to a teammate</h3></div><div class="p-cell-muted">Assignments are not available yet: a database update is pending. Contact support.</div></div>';
+        const cur = a.current;
+        const opts = '<option value="">Unassigned</option>' + (a.assignees || []).map(m =>
+            '<option value="' + m.id + '"' + (cur && cur.assigned_to === m.id ? ' selected' : '') + '>' + esc(m.name) + (m.role === 'owner' ? ' (you)' : '') + '</option>').join('');
+        const due = cur && cur.due_at ? '<div class="p-cell-muted" style="margin-top:8px">Reply due: ' + esc(formatDate(cur.due_at)) + '</div>' : '';
+        return '<div class="p-card" style="grid-column:1/-1"><div class="p-card-head"><h3>Assign to a teammate</h3></div>'
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+            + '<label style="display:grid;gap:4px;font-size:13px">Assignee<select id="asgUser" class="p-select">' + opts + '</select></label>'
+            + '<label style="display:grid;gap:4px;font-size:13px">Reply within<select id="asgDue" class="p-select"><option value="4">4 hours</option><option value="24" selected>24 hours</option><option value="48">48 hours</option><option value="168">7 days</option></select></label>'
+            + '<label style="display:grid;gap:4px;font-size:13px;flex:1;min-width:200px">Note<input id="asgNote" class="p-select" maxlength="500" value="' + esc((cur && cur.note) || '') + '" placeholder="What should they do?"></label>'
+            + '<button class="p-btn primary" id="asgBtn" onclick="saveAssignment()">Save</button></div>' + due + '</div>';
+    }
+    window.saveAssignment = async function () {
+        const btn = document.getElementById('asgBtn');
+        btn.disabled = true;
+        const res = await fetchJSON('/api/reputation/review/' + reviewId + '/assign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                assignee_id: document.getElementById('asgUser').value || null,
+                due_hours: document.getElementById('asgDue').value,
+                note: document.getElementById('asgNote').value,
+            }),
+        });
+        btn.disabled = false;
+        if (res.success) { toast(res.message || 'Saved', 'success'); load(); }
+        else { toast(res.error || 'Could not save the assignment', 'error'); }
+    };
+
     async function load() {
         const res = await fetchJSON('/api/reputation/review/' + reviewId);
         document.getElementById('loadingReview').style.display = 'none';
@@ -723,6 +754,7 @@ HTML;
                     <button class="p-btn primary" id="sendBtn" onclick="sendReply()">${I18N['rep.review.send_reply']}</button>
                 </div>
             </div>
+            ${assignCard(res.data.assignment)}
         `;
     }
     load();
@@ -755,7 +787,17 @@ JS;
                 return $this->error('المراجعة غير موجودة', 404);
             }
 
-            return $this->success(['review' => $result[0]]);
+            $data = ['review' => $result[0], 'assignment' => ['ready' => ReviewAssignment::ready()]];
+            if ($data['assignment']['ready']) {
+                $data['assignment']['assignees'] = ReviewAssignment::assignable((int) $this->user['id']);
+                $data['assignment']['current'] = !empty($result[0]['assigned_to']) ? [
+                    'assigned_to' => (int) $result[0]['assigned_to'],
+                    'assigned_at' => $result[0]['assigned_at'],
+                    'due_at' => $result[0]['assignment_due_at'],
+                    'note' => $result[0]['assignment_note'],
+                ] : null;
+            }
+            return $this->success($data);
         } catch (Exception $e) {
             Logger::error('Get Review Error', ['message' => $e->getMessage()]);
             return $this->error('تعذر جلب المراجعة', 500);
@@ -1261,6 +1303,45 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
         );
 
         return $api->sendReply($platformReviewId, $replyText);
+    }
+
+    /** POST /api/reputation/review/{id}/assign  {assignee_id|null, due_hours, note} */
+    public function assignReview(array $params): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->verifyCsrf()) {
+            return $e;
+        }
+        $assignee = $this->get('assignee_id');
+        $assigneeId = ($assignee === null || $assignee === '' || $assignee === 0 || $assignee === '0') ? null : (int) $assignee;
+        try {
+            $res = ReviewAssignment::assign(
+                (int) $this->user['id'],
+                (int) ($params['id'] ?? 0),
+                (int) $this->user['id'],
+                $assigneeId,
+                (int) $this->get('due_hours', 24),
+                (string) $this->get('note', '')
+            );
+        } catch (Throwable $e) {
+            Logger::error('Assign Review Error', ['message' => $e->getMessage()]);
+            return $this->error('Could not save the assignment', 500);
+        }
+        if (empty($res['success'])) {
+            return $this->error((string) ($res['error'] ?? 'Could not save the assignment'), (int) ($res['code'] ?? 400));
+        }
+        return $this->success(['assignment' => $res['assignment'] ?? null], $assigneeId === null ? 'Assignment removed' : 'Review assigned');
+    }
+
+    /** GET /api/reputation/overdue-assignments */
+    public function overdueAssignments(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        return $this->success(['ready' => ReviewAssignment::ready(), 'overdue' => ReviewAssignment::overdue((int) $this->user['id'])]);
     }
 
     /** DELETE /api/reputation/review/{id} */
