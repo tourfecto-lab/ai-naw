@@ -39,7 +39,7 @@ class AdminReputationLimitsController extends Controller
                 'config' => ReputationLimits::config(),
                 'audit' => $audit,
                 'usage' => ReputationLimits::usageReport(30),
-                'csrf_token' => function_exists('csrf_token') ? csrf_token() : '',
+                'csrf_token' => class_exists('Csrf') ? Csrf::token() : '',
             ]);
         } catch (Throwable $e) {
             Logger::error('Reputation limits data failed', ['message' => $e->getMessage()]);
