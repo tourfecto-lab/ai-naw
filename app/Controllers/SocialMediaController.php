@@ -1223,7 +1223,7 @@ class SocialMediaController extends Controller
         try {
             $key = $this->get('request_key');
             $custom = $this->get('custom');
-            $r = SocialPackages::subscribe(SocialPackages::owner($this->uid()), (string) $this->get('tier', ''), (string) $this->get('cycle', 'monthly'), is_string($key) && strlen($key) >= 8 ? $key : null, is_array($custom) ? $custom : null);
+            $r = SocialPackages::subscribe(SocialPackages::owner($this->uid()), (string) $this->get('tier', ''), (string) $this->get('cycle', 'monthly'), is_string($key) && strlen($key) >= 8 ? $key : null, is_array($custom) ? $custom : null, is_string($this->get('promo_code')) ? $this->get('promo_code') : null);
             $msg = ['subscribed' => 'اشتركت في الباقة ✅', 'upgraded' => 'اترقّت باقتك ✅', 'scheduled' => 'التغيير هيتطبق عند التجديد', 'resumed' => 'رجع التجديد التلقائي ✅', 'already' => 'اتنفذ قبل كده'][$r['action']] ?? 'تم';
             return $this->success($r + ['package' => SocialPackages::summary($this->uid())], $msg);
         } catch (Throwable $e) {
@@ -1247,6 +1247,33 @@ class SocialMediaController extends Controller
             $q['monthly_label'] = $this->priceLabels($q['monthly'], $cur, $ar);
             $q['yearly_label'] = $this->priceLabels($q['yearly'], $cur, $ar);
             return $this->success($q);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    /** POST /api/social/package/promo  body: {tier, cycle, promo_code, custom?} - معاينة السعر بعد الخصم من غير ما يتخصم حاجة */
+    public function packagePromo(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($e = $this->rateLimitGuard('user', 'social_package_promo', 30, 60)) {
+            return $e;
+        }
+        try {
+            $tier = (string) $this->get('tier', '');
+            $cycle = (string) $this->get('cycle', 'monthly');
+            $cfg = SocialPackages::config();
+            if ($tier === 'custom') {
+                $q = SocialPackages::quoteCustom(is_array($this->get('custom')) ? $this->get('custom') : []);
+                $price = (float) ($q[$cycle === 'yearly' ? 'yearly' : 'monthly']);
+            } elseif (!empty($cfg['tiers'][$tier]['for_sale'])) {
+                $price = (float) $cfg['tiers'][$tier]['price_' . ($cycle === 'yearly' ? 'yearly' : 'monthly')];
+            } else {
+                return $this->error('الباقة دي مش متاحة', 422);
+            }
+            return $this->success(['original' => $price] + SocialPackages::checkPromo(SocialPackages::owner($this->uid()), (string) $this->get('promo_code', ''), $tier, $cycle, $price));
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         }
@@ -1323,7 +1350,7 @@ class SocialMediaController extends Controller
         } catch (Throwable $e) {
         }
         return $this->success(['config' => SocialPackages::config(), 'defaults' => SocialPackages::DEFAULTS, 'labels' => SocialPackages::LABELS, 'platform_names' => SocialPackages::PLATFORM_NAMES,
-            'limit_keys' => SocialPackages::LIMIT_KEYS, 'feature_keys' => SocialPackages::FEATURE_KEYS, 'platform_plans' => $plans, 'stats' => $stats, 'ready' => SocialPackages::ready(), 'csrf_token' => Csrf::token()]);
+            'limit_keys' => SocialPackages::LIMIT_KEYS, 'feature_keys' => SocialPackages::FEATURE_KEYS, 'platform_plans' => $plans, 'stats' => $stats, 'ready' => SocialPackages::ready(), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30), 'csrf_token' => Csrf::token()]);
     }
 
     /** POST /api/admin/social-packages  body: {config} */
@@ -1336,7 +1363,7 @@ class SocialMediaController extends Controller
             return $e;
         }
         $in = $this->get('config', []);
-        return $this->success(['config' => SocialPackages::saveConfig(is_array($in) ? $in : [])], 'اتحفظت باقات السوشيال');
+        return $this->success(['config' => SocialPackages::saveConfig(is_array($in) ? $in : [], $this->uid()), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30)], 'اتحفظت باقات السوشيال');
     }
 
     private function hasColumn(string $table, string $col): bool

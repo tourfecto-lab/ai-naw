@@ -803,6 +803,7 @@ $router->get('/api/social/package', 'SocialMediaController', 'package', ['AuthMi
 $router->get('/api/social/onboarding', 'SocialMediaController', 'onboarding', ['AuthMiddleware']);
 $router->post('/api/social/package/subscribe', 'SocialMediaController', 'packageSubscribe', ['AuthMiddleware']);
 $router->post('/api/social/package/quote', 'SocialMediaController', 'packageQuote', ['AuthMiddleware']);
+$router->post('/api/social/package/promo', 'SocialMediaController', 'packagePromo', ['AuthMiddleware']);
 $router->post('/api/social/package/auto-renew', 'SocialMediaController', 'packageAutoRenew', ['AuthMiddleware']);
 $router->post('/api/social/package/addon', 'SocialMediaController', 'packageAddon', ['AuthMiddleware']);
 $router->get('/api/admin/social-packages', 'SocialMediaController', 'adminPackages', ['AuthMiddleware', 'AdminMiddleware']);

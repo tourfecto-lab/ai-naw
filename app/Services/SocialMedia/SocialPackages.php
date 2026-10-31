@@ -123,6 +123,30 @@ final class SocialPackages
         return self::$ready = $n === 3;
     }
 
+    /** نفس migration ‏2026_10_31_000001 (سجل التعديلات + أكواد الخصم) - احتياطي لو اتنسى */
+    private static function ensureExtras(PDO $pdo): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS social_packages_audit (
+                id INT(11) NOT NULL AUTO_INCREMENT, actor_id INT(11) DEFAULT NULL, changes_json MEDIUMTEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id), KEY idx_created (created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $pdo->exec("CREATE TABLE IF NOT EXISTS social_promo_redemptions (
+                id INT(11) NOT NULL AUTO_INCREMENT, promo_code VARCHAR(24) NOT NULL, user_id INT(11) NOT NULL, ref VARCHAR(80) NOT NULL,
+                discount DECIMAL(10,2) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id), UNIQUE KEY uniq_ref (ref), KEY idx_code (promo_code), KEY idx_user_code (user_id, promo_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            if (self::ready() && !(int) $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'social_subscriptions' AND COLUMN_NAME = 'promo_code'")->fetchColumn()) {
+                $pdo->exec('ALTER TABLE social_subscriptions ADD COLUMN promo_code VARCHAR(24) DEFAULT NULL');
+            }
+            $done = self::ready();
+        } catch (Throwable $e) {
+            Logger::warning('Social packages extras schema failed', ['message' => $e->getMessage()]);
+        }
+    }
+
     /** نفس migration ‏2026_10_22_000001 - احتياطي لو اتنسى (CREATE TABLE بيقفل أي transaction، فمش جوّاها) */
     public static function ensureSchema(): void
     {
@@ -130,6 +154,7 @@ final class SocialPackages
         if ($pdo->inTransaction()) {
             return;
         }
+        self::ensureExtras($pdo);
         if (self::ready()) {
             // نسخة الجدول الأولى من غير أعمدة الباقة المفصّلة
             try {
@@ -163,6 +188,117 @@ final class SocialPackages
     }
 
     // ------------------------------------------------------------------ إعدادات الأدمن
+
+    /** تكلفة تشغيل تقديرية بالدولار (الأدمن يعدّلها بالتكلفة الفعلية): كابشن AI بموديل رخيص، منشور (تخزين + طابور)، حساب (مراقبة الصحة + المزامنة) */
+    public const COSTS = [
+        'ai_caption' => 0.003, 'post' => 0.001, 'channel_month' => 0.30, 'competitor_month' => 0.50, 'monthly_plan' => 0.05,
+        'unlimited_posts_assumed' => 600, 'gateway_fee_pct' => 3.0,
+    ];
+
+    /** @return array<string,float|int> */
+    private static function cleanCosts($raw): array
+    {
+        $c = self::COSTS;
+        foreach ((array) $raw as $k => $v) {
+            if (isset($c[$k]) && is_numeric($v) && $v >= 0 && $v <= ($k === 'gateway_fee_pct' ? 30 : 100000)) {
+                $c[$k] = $k === 'unlimited_posts_assumed' ? (int) $v : round((float) $v, 4);
+            }
+        }
+        return $c;
+    }
+
+    /**
+     * أكواد الخصم والعروض: خصم % على أول دورة بس (التجديد بالسعر العادي).
+     * @return list<array{code:string,label:string,percent:float,tiers:list<string>,cycles:list<string>,starts:string,ends:string,max_uses:int,enabled:bool}>
+     */
+    private static function cleanPromos($raw): array
+    {
+        $out = [];
+        foreach (is_array($raw) ? $raw : [] as $p) {
+            if (!is_array($p) || count($out) >= 30) {
+                continue;
+            }
+            $code = strtoupper(trim((string) ($p['code'] ?? '')));
+            $pct = is_numeric($p['percent'] ?? null) ? round((float) $p['percent'], 2) : 0.0;
+            if (!preg_match('/^[A-Z0-9_-]{3,24}$/', $code) || $pct <= 0 || $pct > 100 || isset($out[$code])) {
+                continue;
+            }
+            $date = static fn ($d) => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) ? $d : '';
+            $out[$code] = [
+                'code' => $code,
+                'label' => mb_substr(trim(strip_tags((string) ($p['label'] ?? ''))), 0, 60),
+                'percent' => $pct,
+                'tiers' => array_values(array_intersect(['basic', 'pro', 'agency', 'custom'], array_map('strval', (array) ($p['tiers'] ?? [])))),
+                'cycles' => array_values(array_intersect(['monthly', 'yearly'], array_map('strval', (array) ($p['cycles'] ?? [])))),
+                'starts' => $date($p['starts'] ?? ''),
+                'ends' => $date($p['ends'] ?? ''),
+                'max_uses' => max(0, min(1000000, (int) ($p['max_uses'] ?? 0))),
+                'enabled' => !array_key_exists('enabled', $p) || !empty($p['enabled']),
+            ];
+        }
+        return array_values($out);
+    }
+
+    /**
+     * يتحقق من الكود ويرجّع السعر بعد الخصم. الأخطاء رسائل مفهومة للعميل.
+     * @param int $uses عدد مرات استخدام الكود لحد دلوقتي (الكل)، @param bool $usedByUser العميل استخدمه قبل كده
+     * @return array{price:float,discount:float,code:string,percent:float}
+     */
+    public static function applyPromo(array $promos, string $code, string $tier, string $cycle, float $price, int $uses = 0, bool $usedByUser = false, ?int $now = null): array
+    {
+        $code = strtoupper(trim($code));
+        $p = null;
+        foreach ($promos as $x) {
+            if ($x['code'] === $code) {
+                $p = $x;
+            }
+        }
+        $today = gmdate('Y-m-d', $now ?? time());
+        if (!$p || !$p['enabled']) {
+            throw new InvalidArgumentException('كود الخصم مش صحيح');
+        }
+        if (($p['starts'] !== '' && $today < $p['starts']) || ($p['ends'] !== '' && $today > $p['ends'])) {
+            throw new InvalidArgumentException('كود الخصم مش ساري دلوقتي');
+        }
+        if (($p['tiers'] && !in_array($tier, $p['tiers'], true)) || ($p['cycles'] && !in_array($cycle, $p['cycles'], true))) {
+            throw new InvalidArgumentException('كود الخصم مش بينطبق على الباقة أو الدورة دي');
+        }
+        if ($p['max_uses'] > 0 && $uses >= $p['max_uses']) {
+            throw new InvalidArgumentException('كود الخصم خلصت استخداماته');
+        }
+        if ($usedByUser) {
+            throw new InvalidArgumentException('استخدمت كود الخصم ده قبل كده');
+        }
+        $discount = round($price * $p['percent'] / 100, 2);
+        return ['price' => round(max(0, $price - $discount), 2), 'discount' => $discount, 'code' => $p['code'], 'percent' => $p['percent']];
+    }
+
+    /**
+     * تكلفة وهامش كل مستوى لو العميل استهلك الحدود كلها (أسوأ حالة). الوحدات من cfg.costs.
+     * @return array<string,array{cost:float,price_monthly:float,price_yearly_per_month:float,margin_monthly:float,margin_pct_monthly:float,margin_pct_yearly:float}>
+     */
+    public static function economics(?array $cfg = null): array
+    {
+        $cfg = $cfg ?? self::config();
+        $c = $cfg['costs'];
+        $out = [];
+        foreach ($cfg['tiers'] as $k => $t) {
+            $posts = $t['posts'] < 0 ? $c['unlimited_posts_assumed'] : $t['posts'];
+            $plans = $t['monthly_plans'] < 0 ? 5 : $t['monthly_plans'];
+            $cost = $t['accounts'] * $c['channel_month'] + $posts * $c['post'] + $t['ai_captions'] * $c['ai_caption']
+                + max(0, $t['competitors']) * $c['competitor_month'] + $plans * $c['monthly_plan'];
+            $net = static fn (float $p) => $p * (1 - $c['gateway_fee_pct'] / 100);
+            $pm = (float) $t['price_monthly'];
+            $py = (float) $t['price_yearly'] / 12;
+            $out[$k] = [
+                'cost' => round($cost, 2), 'price_monthly' => $pm, 'price_yearly_per_month' => round($py, 2),
+                'margin_monthly' => round($net($pm) - $cost, 2),
+                'margin_pct_monthly' => $pm > 0 ? round(($net($pm) - $cost) / $pm * 100, 1) : 0.0,
+                'margin_pct_yearly' => $py > 0 ? round(($net($py) - $cost) / $py * 100, 1) : 0.0,
+            ];
+        }
+        return $out;
+    }
 
     public static function config(): array
     {
@@ -261,6 +397,9 @@ final class SocialPackages
             ? array_values(array_intersect(self::PLATFORMS, $raw['platforms_enabled']))
             : array_values(array_diff(self::PLATFORMS, self::DISABLED_PLATFORMS));
         return self::$cfgCache = [
+            'promos' => self::cleanPromos($raw['promos'] ?? []),
+            'costs' => self::cleanCosts($raw['costs'] ?? []),
+            'renewal_policy' => ($raw['renewal_policy'] ?? '') === 'grandfather' ? 'grandfather' : 'at_renewal',
             'builder' => $b,
             'platforms_enabled' => $enabled,
             // إيقاف التطبيق = كل حساب شغال من غير حدود (زي ما كان قبل الباقات)
@@ -272,8 +411,36 @@ final class SocialPackages
         ];
     }
 
-    public static function saveConfig(array $in): array
+    /** @return array<string,mixed> مسطّح: مسار.بنقط => قيمة (للمقارنة في سجل التعديلات) */
+    private static function flatten(array $a, string $prefix = ''): array
     {
+        $out = [];
+        foreach ($a as $k => $v) {
+            $key = $prefix === '' ? (string) $k : $prefix . '.' . $k;
+            if (is_array($v) && $v !== [] && array_keys($v) !== range(0, count($v) - 1)) {
+                $out += self::flatten($v, $key);
+            } else {
+                $out[$key] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : $v;
+            }
+        }
+        return $out;
+    }
+
+    /** آخر تعديلات الأدمن على الباقات (الأحدث الأول) */
+    public static function auditLog(int $limit = 50): array
+    {
+        self::ensureSchema();
+        try {
+            $rows = Database::getInstance()->query('SELECT a.id, a.actor_id, a.changes_json, a.created_at, u.email AS actor_email FROM social_packages_audit a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT ' . max(1, min(200, $limit))) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+        return array_map(static fn ($r) => ['id' => (int) $r['id'], 'actor' => $r['actor_email'] ?: ($r['actor_id'] ? '#' . $r['actor_id'] : '—'), 'at' => $r['created_at'], 'changes' => json_decode((string) $r['changes_json'], true) ?: []], $rows);
+    }
+
+    public static function saveConfig(array $in, ?int $actorId = null): array
+    {
+        $before = self::flatten(self::config());
         $raw = [];
         try {
             $raw = json_decode((new SystemSettingsService())->get(self::SETTING, ''), true) ?: [];
@@ -353,10 +520,35 @@ final class SocialPackages
             }
             $raw['builder'] = array_replace_recursive(is_array($raw['builder'] ?? null) ? $raw['builder'] : [], $clean);
         }
+        if (array_key_exists('promos', $in)) {
+            $raw['promos'] = self::cleanPromos($in['promos']);
+        }
+        if (isset($in['costs']) && is_array($in['costs'])) {
+            $raw['costs'] = self::cleanCosts($in['costs'] + (array) ($raw['costs'] ?? []));
+        }
+        if (isset($in['renewal_policy'])) {
+            $raw['renewal_policy'] = $in['renewal_policy'] === 'grandfather' ? 'grandfather' : 'at_renewal';
+        }
         (new SystemSettingsService())->set(self::SETTING, json_encode($raw, JSON_UNESCAPED_UNICODE));
         self::$cfgCache = null;
         self::$entCache = [];
-        return self::config();
+        $cfg = self::config();
+        $after = self::flatten($cfg);
+        $changes = [];
+        foreach ($after + $before as $path => $_) {
+            if (($before[$path] ?? null) != ($after[$path] ?? null)) {
+                $changes[$path] = ['old' => $before[$path] ?? null, 'new' => $after[$path] ?? null];
+            }
+        }
+        if ($changes) {
+            self::ensureSchema();
+            try {
+                Database::getInstance()->query('INSERT INTO social_packages_audit (actor_id, changes_json) VALUES (?, ?)', [$actorId, json_encode($changes, JSON_UNESCAPED_UNICODE)]);
+            } catch (Throwable $e) {
+                Logger::warning('Social packages audit insert failed', ['message' => $e->getMessage()]);
+            }
+        }
+        return $cfg;
     }
 
     // ------------------------------------------------------------------ المستوى الفعلي
@@ -927,7 +1119,7 @@ final class SocialPackages
      * والأرخص أو تغيير الدورة بيتطبق عند التجديد.
      * @return array{action:string, tier:string, cycle:string, charged:float, period_end:string}
      */
-    public static function subscribe(int $owner, string $tier, string $cycle, ?string $requestKey = null, ?array $custom = null): array
+    public static function subscribe(int $owner, string $tier, string $cycle, ?string $requestKey = null, ?array $custom = null, ?string $promoCode = null): array
     {
         self::ensureSchema();
         if (!self::ready()) {
@@ -940,10 +1132,15 @@ final class SocialPackages
             throw new InvalidArgumentException('باقة المنصة بتاعتك بتشمل سوشيال «' . $cfg['tiers'][$planTier]['name'] . '» بالفعل');
         }
         $price = (float) $offer['price'];
+        $promo = null;
+        if ($promoCode !== null && trim($promoCode) !== '') {
+            $promo = self::checkPromo($owner, $promoCode, $tier, $cycle, $price);
+            $price = $promo['price'];
+        }
         $customJson = $offer['custom_json'];
         $ref = 'social_pkg:' . $owner . ':' . substr(hash('sha256', $requestKey ?: bin2hex(random_bytes(8))), 0, 32);
         $db = Database::getInstance();
-        $result = $db->transaction(function () use ($db, $owner, $tier, $cycle, $price, $ref, $offer, $customJson) {
+        $result = $db->transaction(function () use ($db, $owner, $tier, $cycle, $price, $ref, $offer, $customJson, $promo) {
             $db->query('SELECT id FROM users WHERE id = ? FOR UPDATE', [$owner]);
             $row = self::standalone($owner, true);
             if ($row && $row['last_ref'] === $ref) {
@@ -978,11 +1175,14 @@ final class SocialPackages
             $from = gmdate('Y-m-d H:i:s', $now);
             $to = gmdate('Y-m-d H:i:s', self::periodEnd($now, $cycle));
             if ($row) {
-                $db->query("UPDATE social_subscriptions SET tier = ?, cycle = ?, price_paid = ?, custom_json = ?, status = 'active', auto_renew = 1, pending_tier = NULL, pending_cycle = NULL, pending_custom_json = NULL, period_start = ?, period_end = ?, last_ref = ?, reminded_at = NULL WHERE id = ?", [$tier, $cycle, $price, $customJson, $from, $to, $ref, (int) $row['id']]);
+                $db->query("UPDATE social_subscriptions SET tier = ?, cycle = ?, price_paid = ?, custom_json = ?, status = 'active', auto_renew = 1, pending_tier = NULL, pending_cycle = NULL, pending_custom_json = NULL, period_start = ?, period_end = ?, last_ref = ?, reminded_at = NULL, promo_code = ? WHERE id = ?", [$tier, $cycle, $price, $customJson, $from, $to, $ref, $promo['code'] ?? null, (int) $row['id']]);
             } else {
-                $db->query("INSERT INTO social_subscriptions (user_id, tier, cycle, price_paid, custom_json, status, auto_renew, period_start, period_end, last_ref) VALUES (?, ?, ?, ?, ?, 'active', 1, ?, ?, ?)", [$owner, $tier, $cycle, $price, $customJson, $from, $to, $ref]);
+                $db->query("INSERT INTO social_subscriptions (user_id, tier, cycle, price_paid, custom_json, status, auto_renew, period_start, period_end, last_ref, promo_code) VALUES (?, ?, ?, ?, ?, 'active', 1, ?, ?, ?, ?)", [$owner, $tier, $cycle, $price, $customJson, $from, $to, $ref, $promo['code'] ?? null]);
             }
-            return ['action' => $active ? 'upgraded' : 'subscribed', 'tier' => $tier, 'cycle' => $cycle, 'charged' => $charge, 'period_end' => $to];
+            if ($promo) {
+                $db->query('INSERT INTO social_promo_redemptions (promo_code, user_id, ref, discount) VALUES (?, ?, ?, ?)', [$promo['code'], $owner, $ref, $promo['discount']]);
+            }
+            return ['action' => $active ? 'upgraded' : 'subscribed', 'tier' => $tier, 'cycle' => $cycle, 'charged' => $charge, 'period_end' => $to] + ($promo ? ['promo' => $promo['code'], 'discount' => $promo['discount']] : []);
         });
         self::flush();
         if (in_array($result['action'], ['subscribed', 'upgraded'], true) && class_exists('ActivityLog')) {
@@ -992,6 +1192,21 @@ final class SocialPackages
             }
         }
         return $result;
+    }
+
+    /** كود خصم لعميل بعينه (الاستخدام الكلي واستخدام العميل من الجدول) */
+    public static function checkPromo(int $owner, string $code, string $tier, string $cycle, float $price): array
+    {
+        $code = strtoupper(trim($code));
+        $db = Database::getInstance();
+        $uses = 0;
+        $mine = false;
+        try {
+            $uses = (int) ($db->query('SELECT COUNT(*) AS n FROM social_promo_redemptions WHERE promo_code = ?', [$code])[0]['n'] ?? 0);
+            $mine = (int) ($db->query('SELECT COUNT(*) AS n FROM social_promo_redemptions WHERE promo_code = ? AND user_id = ?', [$code, $owner])[0]['n'] ?? 0) > 0;
+        } catch (Throwable $e) {
+        }
+        return self::applyPromo(self::config()['promos'], $code, $tier, $cycle, $price, $uses, $mine);
     }
 
     private static function sameSpec(string $a, string $b): bool
@@ -1071,7 +1286,13 @@ final class SocialPackages
         } catch (Throwable $e) {
             return null;
         }
-        return ['tier' => $tier, 'cycle' => $cycle, 'price' => (float) $o['price'], 'name' => $o['name'], 'custom_json' => $o['custom_json']];
+        $price = (float) $o['price'];
+        // سياسة «المشتركين القدام»: نفس الباقة والدورة ومن غير خصم = يفضل على سعره لو السعر الجديد أغلى
+        if (self::config()['renewal_policy'] === 'grandfather' && !$r['pending_tier'] && !$r['pending_cycle'] && $tier !== 'custom' && empty($r['promo_code'])
+            && (float) $r['price_paid'] > 0 && (float) $r['price_paid'] < $price) {
+            $price = (float) $r['price_paid'];
+        }
+        return ['tier' => $tier, 'cycle' => $cycle, 'price' => $price, 'name' => $o['name'], 'custom_json' => $o['custom_json']];
     }
 
     /** بتتنادى من SocialPackagesRenewJob كل ساعة. بترجّع عدد الاشتراكات اللي اتعالجت */
@@ -1121,7 +1342,7 @@ final class SocialPackages
                         return;
                     }
                     $from = max(strtotime($r['period_end'] . ' UTC'), time() - 86400);
-                    $db->query("UPDATE social_subscriptions SET tier = ?, cycle = ?, price_paid = ?, custom_json = ?, pending_tier = NULL, pending_cycle = NULL, pending_custom_json = NULL, period_start = ?, period_end = ?, last_ref = ?, reminded_at = NULL WHERE id = ?",
+                    $db->query("UPDATE social_subscriptions SET tier = ?, cycle = ?, price_paid = ?, custom_json = ?, pending_tier = NULL, pending_cycle = NULL, pending_custom_json = NULL, period_start = ?, period_end = ?, last_ref = ?, reminded_at = NULL, promo_code = NULL WHERE id = ?",
                         [$tier, $cycle, $price, $next['custom_json'], gmdate('Y-m-d H:i:s', $from), gmdate('Y-m-d H:i:s', self::periodEnd($from, $cycle)), $ref, (int) $r['id']]);
                 });
                 $done++;

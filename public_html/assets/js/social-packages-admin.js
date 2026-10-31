@@ -7,6 +7,48 @@
     const msg = (m, bad) => { const el = root.querySelector('#spaMsg'); el.textContent = m; el.className = 'ps-msg' + (bad ? ' bad' : ''); el.hidden = !m; };
     const TIERS = ['free', 'basic', 'pro', 'agency'];
 
+    const pct = v => (Number(v) || 0).toFixed(1) + '%';
+    const extras = c => {
+        const eco = D.economics || {}, cs = c.costs, costLabels = { ai_caption: 'تكلفة كابشن AI $', post: 'تكلفة المنشور $', channel_month: 'تكلفة الحساب/شهر $', competitor_month: 'تكلفة منافس/شهر $', monthly_plan: 'تكلفة خطة شهرية $', unlimited_posts_assumed: 'منشورات «غير محدود» (افتراض)', gateway_fee_pct: 'رسوم بوابة الدفع %' };
+        const promoRows = (c.promos || []).map((p, i) => `<tr data-promo="${i}"><td><input class="p-select" data-pf="code" value="${esc(p.code)}" placeholder="LAUNCH20" maxlength="24" style="text-transform:uppercase"></td>
+<td><input class="p-select" type="number" min="1" max="100" step="1" data-pf="percent" value="${esc(p.percent)}"></td>
+<td>${['basic', 'pro', 'agency', 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join(' ')}<div class="p-cell-muted">من غير اختيار = كل الباقات</div></td>
+<td>${['monthly', 'yearly'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-pcycle="${t}" ${(p.cycles || []).includes(t) ? 'checked' : ''}> ${t === 'monthly' ? 'شهري' : 'سنوي'}</label>`).join(' ')}</td>
+<td><input class="p-select" type="date" data-pf="starts" value="${esc(p.starts)}"> <input class="p-select" type="date" data-pf="ends" value="${esc(p.ends)}"></td>
+<td><input class="p-select" type="number" min="0" data-pf="max_uses" value="${esc(p.max_uses)}"></td>
+<td><input type="checkbox" data-pf="enabled" ${p.enabled ? 'checked' : ''}></td>
+<td><button type="button" class="p-btn" data-promo-del="${i}" aria-label="حذف الكود">✕</button></td></tr>`).join('');
+        const audit = (D.audit || []).map(a => `<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${Object.entries(a.changes).map(([k, v]) => `<div><code>${esc(k)}</code>: ${esc(v.old ?? '—')} ← ${esc(v.new ?? '—')}</div>`).join('')}</td></tr>`).join('');
+        return `
+<h4>💰 التكلفة والهامش (أسوأ حالة: العميل استهلك الحدود كلها)</h4>
+<p class="p-cell-muted">الأرقام دي تقديرات تشغيل لازم تعدّلها بتكلفتك الفعلية (فاتورة Gemini/Meta/الاستضافة). الهامش بعد رسوم بوابة الدفع.</p>
+<div style="overflow-x:auto"><table><thead><tr><th>الباقة</th><th>التكلفة/شهر $</th><th>سعر شهري $</th><th>هامش شهري</th><th>هامش سنوي</th></tr></thead><tbody>
+${TIERS.filter(t => t !== 'free').map(t => { const e = eco[t] || {}; const bad = e.margin_pct_monthly < 40 || e.margin_pct_yearly < 40; return `<tr><td>${esc(c.tiers[t].name)}</td><td>${e.cost}</td><td>${e.price_monthly}</td><td style="color:${e.margin_pct_monthly < 40 ? 'var(--danger,#c0392b)' : 'inherit'}">${pct(e.margin_pct_monthly)} ($${e.margin_monthly})</td><td style="color:${e.margin_pct_yearly < 40 ? 'var(--danger,#c0392b)' : 'inherit'}">${pct(e.margin_pct_yearly)}${bad ? ' ⚠️' : ''}</td></tr>`; }).join('')}
+<tr><td>مجاني</td><td>${(eco.free || {}).cost}</td><td colspan="3" class="p-cell-muted">تكلفة الباقة المجانية بالكامل</td></tr></tbody></table></div>
+<table><tbody>${Object.entries(costLabels).map(([k, l]) => `<tr><td>${l}</td><td><input class="p-select" type="number" min="0" step="0.001" data-cost="${k}" value="${esc(cs[k])}"></td></tr>`).join('')}</tbody></table>
+
+<h4>🏷️ أكواد الخصم والعروض</h4>
+<p class="p-cell-muted">الخصم بيتطبق على أول دورة بس (التجديد بالسعر العادي)، وكل عميل يستخدم الكود مرة واحدة.</p>
+<div style="overflow-x:auto"><table><thead><tr><th>الكود</th><th>خصم %</th><th>الباقات</th><th>الدورة</th><th>من / إلى</th><th>أقصى استخدام (0 = بلا حد)</th><th>فعّال</th><th></th></tr></thead><tbody>${promoRows || '<tr><td colspan="8" class="p-cell-muted">مفيش أكواد. اضغط «إضافة كود».</td></tr>'}</tbody></table></div>
+<button type="button" class="p-btn" id="spaPromoAdd">➕ إضافة كود</button>
+
+<h4>👥 لو غيّرت السعر: المشتركين الحاليين</h4>
+<label><input type="radio" name="spaPolicy" value="at_renewal" ${c.renewal_policy !== 'grandfather' ? 'checked' : ''}> يتجددوا بالسعر الجديد (عند أول تجديد)</label><br>
+<label><input type="radio" name="spaPolicy" value="grandfather" ${c.renewal_policy === 'grandfather' ? 'checked' : ''}> يفضلوا على سعرهم القديم لو السعر الجديد أغلى (نفس الباقة والدورة)</label>
+<p class="p-cell-muted">مفيش تغيير سعر بيتطبق على دورة شغالة بالفعل في الحالتين، والتغيير بيبان للمشترك قبل التجديد بتذكير 3 أيام.</p>
+
+<h4>🧾 سجل التعديلات (آخر 30)</h4>
+<div style="overflow-x:auto;max-height:320px"><table><thead><tr><th>الوقت (UTC)</th><th>الأدمن</th><th>التغيير</th></tr></thead><tbody>${audit || '<tr><td colspan="3" class="p-cell-muted">لسه مفيش تعديلات مسجّلة.</td></tr>'}</tbody></table></div>`;
+    };
+
+    const collectPromos = () => {
+        D.config.promos = [...root.querySelectorAll('tr[data-promo]')].map(tr => {
+            const g = k => tr.querySelector(`[data-pf="${k}"]`);
+            return { code: g('code').value.trim().toUpperCase(), label: '', percent: Number(g('percent').value), starts: g('starts').value, ends: g('ends').value, max_uses: Number(g('max_uses').value), enabled: g('enabled').checked,
+                tiers: [...tr.querySelectorAll('[data-ptier]:checked')].map(x => x.dataset.ptier), cycles: [...tr.querySelectorAll('[data-pcycle]:checked')].map(x => x.dataset.pcycle) };
+        });
+    };
+
     const render = () => {
         const c = D.config, L = D.labels, st = D.stats || {};
         const lim = k => (L[k] ? L[k][0] : k);
@@ -53,8 +95,11 @@ ${D.feature_keys.map(k => `<tr><td>${esc(lim(k))}</td><td><input class="p-select
 <table><thead><tr><th>باقة المنصة</th><th>بتدي سوشيال</th></tr></thead><tbody>${Object.entries(Object.assign({}, D.platform_plans, Object.fromEntries(Object.keys(c.plan_map).map(k => [k, D.platform_plans[k] || k])))).map(([k, n]) => `<tr><td>${esc(n)} <span class="p-cell-muted">(${esc(k)})</span></td><td><select class="p-select" data-map="${esc(k)}">${TIERS.map(t => `<option value="${t}" ${(c.plan_map[k] || c.plan_default) === t ? 'selected' : ''}>${esc(c.tiers[t].name)}</option>`).join('')}</select></td></tr>`).join('')}
 <tr><td>أي باقة تانية (مخصصة)</td><td><select class="p-select" id="spaDefault">${TIERS.map(t => `<option value="${t}" ${c.plan_default === t ? 'selected' : ''}>${esc(c.tiers[t].name)}</option>`).join('')}</select></td></tr></tbody></table>
 <p class="p-cell-muted">لعميل بعينه: حط "social_tier": "agency" (مثلًا) في استثناءات ميزات العميل من صفحة العملاء.</p>
+${extras(c)}
 <button class="p-btn primary" id="spaSave">حفظ باقات السوشيال</button></section>`;
         root.querySelector('#spaSave').addEventListener('click', save);
+        root.querySelector('#spaPromoAdd').addEventListener('click', () => { collectPromos(); D.config.promos.push({ code: '', label: '', percent: 10, tiers: [], cycles: [], starts: '', ends: '', max_uses: 0, enabled: true }); render(); });
+        root.querySelectorAll('[data-promo-del]').forEach(b => b.addEventListener('click', () => { collectPromos(); D.config.promos.splice(Number(b.dataset.promoDel), 1); render(); }));
     };
 
     const save = async (e) => {
@@ -78,8 +123,11 @@ ${D.feature_keys.map(k => `<tr><td>${esc(lim(k))}</td><td><input class="p-select
             root.querySelectorAll('[data-bb]').forEach(el => { (builder[el.dataset.bb] = builder[el.dataset.bb] || {})[el.dataset.g] = Number(el.value); });
             root.querySelectorAll('[data-bfp]').forEach(el => { builder.features[el.dataset.bfp] = Number(el.value); });
             const platforms_enabled = [...root.querySelectorAll('[data-en]:checked')].map(el => el.dataset.en);
-            const r = await api('/api/admin/social-packages', { config: { enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
-            D.config = r.data.config;
+            collectPromos();
+            const costs = {}; root.querySelectorAll('[data-cost]').forEach(el => { costs[el.dataset.cost] = Number(el.value); });
+            const renewal_policy = root.querySelector('input[name="spaPolicy"]:checked')?.value || 'at_renewal';
+            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
+            D.config = r.data.config; D.economics = r.data.economics; D.audit = r.data.audit;
             render();
             msg('اتحفظت باقات السوشيال ✓');
         } catch (err) {
