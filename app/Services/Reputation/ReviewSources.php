@@ -106,7 +106,7 @@ class ReviewSources
     private static function noConnectorNote(string $key, string $label): string
     {
         if ($key === 'trustpilot') {
-            return 'No connector built yet. Needs the "API module" add-on on a Trustpilot for Business plan (included in Enterprise) plus an API key and the business unit id.';
+            return 'No connector built yet. Trustpilot gives API access only on the Enterprise plan or on Premium with the API Module add-on, plus an API key and the business unit id. Use CSV import otherwise.';
         }
         if ($key === 'booking') {
             return 'No connector yet. Booking.com gives review access to approved Connectivity Partners only (application needed).';
