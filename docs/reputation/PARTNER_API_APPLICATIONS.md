@@ -42,3 +42,9 @@ Sync job in the style of the Google sync (schedule, de-duplication on `source_pl
 - **Booking.com** (https://developers.booking.com/connectivity/docs): the Connectivity APIs "retrieve and respond to guest reviews", but only for Connectivity Partners, who must meet specific onboarding requirements. The review-specific pages returned 404, so the exact requirements are Not Verified. Application needed (draft above).
 - **Expedia / Vrbo** (https://developers.expediagroup.com/): the portal mentions property reviews for Vrbo; I could not verify a review API for Expedia hotels. Not Verified.
 - **TripAdvisor**: the Content API we already use returns only the latest 5 reviews.
+
+### Correction to the Trustpilot item above (same day, from https://developers.trustpilot.com/api-module-overview/)
+- Access is not free of conditions: a Trustpilot for Business user must **sign up to the API module add-on**. Tiers by yearly API calls: tier 1 = 200,000, tier 2 = 1,000,000, tier 3 = unlimited; the Enterprise plan includes tier 1. **The add-on price is Not Verified** (ask Trustpilot / check the account).
+- One call to Business Unit Reviews returns up to 100 reviews or 1 MB, so syncing a few customers every 6 hours is far below 200,000 calls a year.
+- Storage rule: a service that pulls and stores Trustpilot review data must mirror Trustpilot's deletions by calling the Deletions API every 28 days; showcasing data publicly requires refreshing the cache every 24 hours (Content Refresh Guidelines). The connector must implement the deletion mirroring before it is enabled.
+- Where the key is created in the Trustpilot account is still Not Verified; the docs only say you create an application with your API key and secret.
