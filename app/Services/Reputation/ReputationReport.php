@@ -137,7 +137,7 @@ class ReputationReport
         };
         $kpi = static fn (string $label, string $value, string $sub = ''): string => '<div class="kpi"><div class="kv">' . $value . '</div><div class="kl">' . $label . '</div>' . ($sub !== '' ? '<div class="ks">' . $sub . '</div>' : '') . '</div>';
         $kpis = $kpi($t('تقييمات جديدة', 'New reviews'), $nf($c['total']), $delta($c['total'], $p['total']))
-            . $kpi($t('متوسط التقييم', 'Average rating'), $nf($c['avg_rating'], 2) . ' ★', $delta($c['avg_rating'], $p['avg_rating']))
+            . $kpi($t('متوسط التقييم', 'Average rating'), ($c['avg_rating'] === null ? '–' : $nf($c['avg_rating'], 2) . ' ★'), $delta($c['avg_rating'], $p['avg_rating']))
             . $kpi($t('نسبة الرد', 'Response rate'), $c['response_rate'] === null ? '–' : $c['response_rate'] . '%', $delta($c['response_rate'], $p['response_rate']))
             . $kpi($t('متوسط وقت الرد', 'Avg reply time'), $c['avg_reply_hours'] === null ? '–' : $nf($c['avg_reply_hours'], 1) . ' h', $delta($c['avg_reply_hours'], $p['avg_reply_hours'], true));
 

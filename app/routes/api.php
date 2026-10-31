@@ -1253,6 +1253,7 @@ $router->get('/api/review-requests', 'ReviewRequestController', 'listRequests', 
 $router->post('/api/review-requests', 'ReviewRequestController', 'createRequest', ['AuthMiddleware']);
 $router->get('/api/review-requests/stats', 'ReviewRequestController', 'getStats', ['AuthMiddleware']);
 $router->get('/api/review-requests/qr', 'ReviewRequestController', 'getQr', ['AuthMiddleware']);
+$router->get('/api/review-requests/usage', 'ReviewRequestController', 'getUsage', ['AuthMiddleware']);
 $router->get('/api/review-requests/analytics', 'ReviewRequestController', 'getAnalytics', ['AuthMiddleware']);
 $router->get('/api/review-requests/channel-status', 'ReviewRequestController', 'getChannelStatus', ['AuthMiddleware']);
 $router->get('/api/review-requests/destinations', 'ReviewRequestController', 'getDestinations', ['AuthMiddleware']);
