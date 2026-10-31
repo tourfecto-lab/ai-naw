@@ -143,6 +143,12 @@ final class SocialPackages
                 id INT(11) NOT NULL AUTO_INCREMENT, promo_code VARCHAR(24) NOT NULL, user_id INT(11) NOT NULL, ref VARCHAR(80) NOT NULL,
                 discount DECIMAL(10,2) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id), UNIQUE KEY uniq_ref (ref), KEY idx_code (promo_code), KEY idx_user_code (user_id, promo_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $pdo->exec("CREATE TABLE IF NOT EXISTS social_topup_prefs (
+                user_id INT(11) NOT NULL PRIMARY KEY, enabled TINYINT(1) NOT NULL DEFAULT 0, monthly_cap_usd DECIMAL(8,2) NOT NULL DEFAULT 20, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $pdo->exec("CREATE TABLE IF NOT EXISTS social_topup_log (
+                id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id INT(11) NOT NULL, month_key CHAR(7) NOT NULL, addon_key VARCHAR(30) NOT NULL, price DECIMAL(8,2) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_user_month (user_id, month_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
             $pdo->exec("CREATE TABLE IF NOT EXISTS social_usage_alerts (
                 user_id INT(11) NOT NULL, month_key CHAR(7) NOT NULL, kind VARCHAR(20) NOT NULL, level TINYINT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, month_key, kind, level)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
@@ -409,6 +415,8 @@ final class SocialPackages
             'costs' => self::cleanCosts($raw['costs'] ?? []),
             'renewal_policy' => ($raw['renewal_policy'] ?? '') === 'grandfather' ? 'grandfather' : 'at_renewal',
             // سقف الإنفاق الشهري على «اكتشف منافسيني» (دولار): -1 من غير سقف، 0 البحث المدفوع مقفول
+            // السماح للعملاء بتفعيل «شحن المنشورات تلقائيًا» (استخدام زائد بحزم الإضافات من المحفظة وبسقف شهري)
+            'auto_topup' => ($raw['auto_topup'] ?? true) !== false,
             'finder_budget_usd' => isset($raw['finder_budget_usd']) && is_numeric($raw['finder_budget_usd']) && $raw['finder_budget_usd'] >= -1 && $raw['finder_budget_usd'] <= 10000 ? round((float) $raw['finder_budget_usd'], 2) : 5.0,
             'builder' => $b,
             'platforms_enabled' => $enabled,
@@ -535,6 +543,9 @@ final class SocialPackages
         }
         if (isset($in['costs']) && is_array($in['costs'])) {
             $raw['costs'] = self::cleanCosts($in['costs'] + (array) ($raw['costs'] ?? []));
+        }
+        if (array_key_exists('auto_topup', $in)) {
+            $raw['auto_topup'] = !empty($in['auto_topup']);
         }
         if (isset($in['finder_budget_usd']) && is_numeric($in['finder_budget_usd'])) {
             $raw['finder_budget_usd'] = max(-1, min(10000, round((float) $in['finder_budget_usd'], 2)));
@@ -1415,6 +1426,106 @@ final class SocialPackages
         return ['tier' => $tier, 'cycle' => $cycle, 'price' => $price, 'name' => $o['name'], 'custom_json' => $o['custom_json']];
     }
 
+    // ------------------------------------------------------------------ الاستخدام الزائد: شحن حزمة منشورات تلقائيًا (اختياري من العميل، بسقف شهري)
+
+    /** @return array{enabled:bool,cap:float,spent:float} */
+    public static function topupPref(int $owner): array
+    {
+        $out = ['enabled' => false, 'cap' => 20.0, 'spent' => 0.0];
+        if (!self::ready()) {
+            return $out;
+        }
+        self::ensureSchema();
+        try {
+            $db = Database::getInstance();
+            $r = $db->query('SELECT enabled, monthly_cap_usd FROM social_topup_prefs WHERE user_id = ?', [$owner])[0] ?? null;
+            if ($r) {
+                $out['enabled'] = (bool) $r['enabled'];
+                $out['cap'] = (float) $r['monthly_cap_usd'];
+            }
+            $out['spent'] = (float) ($db->query('SELECT COALESCE(SUM(price), 0) AS s FROM social_topup_log WHERE user_id = ? AND month_key = ?', [$owner, self::monthKey()])[0]['s'] ?? 0);
+        } catch (Throwable $e) {
+        }
+        return $out;
+    }
+
+    public static function setTopupPref(int $owner, bool $enabled, float $cap): array
+    {
+        self::ensureSchema();
+        $cap = round(max(1, min(500, $cap)), 2);
+        Database::getInstance()->query('INSERT INTO social_topup_prefs (user_id, enabled, monthly_cap_usd) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), monthly_cap_usd = VALUES(monthly_cap_usd), updated_at = NOW()', [$owner, $enabled ? 1 : 0, $cap]);
+        return self::topupPref($owner);
+    }
+
+    /**
+     * لو عدد المنشورات المطلوب هيعدّي حد الشهر والعميل مفعّل «الشحن التلقائي»: نشتري حزم «منشورات» من المحفظة (نفس أسعار الإضافات اللي الأدمن بيحددها)
+     * بس لحد سقفه الشهري. بتتنادى قبل assertPublish من برّه أي transaction. بترجّع true لو الحد بقى كافي.
+     */
+    public static function autoTopUp(int $account, string $kind, int $need): bool
+    {
+        if ($kind !== 'posts' || $need < 1 || !self::ready() || !self::config()['auto_topup']) {
+            return false;
+        }
+        $owner = self::owner($account);
+        $ent = self::entitlements($owner);
+        if (!$ent['enforced'] || (int) $ent['limits']['posts'] < 0) {
+            return false;
+        }
+        $pref = self::topupPref($owner);
+        if (!$pref['enabled']) {
+            return false;
+        }
+        $addonKey = null;
+        $addon = null;
+        foreach (self::config()['addons'] as $k => $a) {
+            if ($a['kind'] === 'posts' && !empty($a['enabled']) && (int) $a['qty'] > 0 && (float) $a['price'] > 0) {
+                [$addonKey, $addon] = [$k, $a];
+                break;
+            }
+        }
+        if (!$addon) {
+            return false;
+        }
+        $db = Database::getInstance();
+        $lock = 'social_topup_' . $owner;
+        if (!(int) ($db->query('SELECT GET_LOCK(?, 5) AS l', [$lock])[0]['l'] ?? 0)) {
+            return false;
+        }
+        try {
+            self::flush();
+            $limit = (int) self::entitlements($owner)['limits']['posts'];
+            $short = self::usage($owner)['posts'] + $need - $limit;
+            if ($short <= 0) {
+                return true; // طلب تاني سبقنا وشحن
+            }
+            $packs = (int) ceil($short / (int) $addon['qty']);
+            $cost = $packs * (float) $addon['price'];
+            if ($packs > 5 || $pref['spent'] + $cost > $pref['cap'] + 0.00001) {
+                return false;
+            }
+            $bought = 0;
+            for ($i = 0; $i < $packs; $i++) {
+                try {
+                    self::buyAddon($owner, $addonKey, 'autotopup:' . self::monthKey() . ':' . bin2hex(random_bytes(6)));
+                } catch (Throwable $e) {
+                    break; // رصيد مش كفاية أو الإضافة اتقفلت: مانكمّلش
+                }
+                $db->query('INSERT INTO social_topup_log (user_id, month_key, addon_key, price) VALUES (?, ?, ?, ?)', [$owner, self::monthKey(), $addonKey, (float) $addon['price']]);
+                $bought++;
+            }
+            if ($bought > 0 && class_exists('Notification')) {
+                try {
+                    Notification::notify($owner, 'social_package', 'اتشحنت حزمة منشورات تلقائيًا', 'وصلت لحد المنشورات فاتشحن ' . $bought . ' × +' . (int) $addon['qty'] . ' منشور (' . round($bought * (float) $addon['price'], 2) . '$) من محفظتك بسقف شهري ' . $pref['cap'] . '$. تقدر توقف ده من صفحة الباقة.', '/social#package');
+                } catch (Throwable $e) {
+                }
+            }
+            self::flush();
+            return self::usage($owner)['posts'] + $need <= (int) self::entitlements($owner)['limits']['posts'];
+        } finally {
+            $db->query('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
+    }
+
     /**
      * تنبيه العميل لما يوصل 80% ثم 100% من منشورات الشهر أو الكابشن، مرة واحدة لكل مستوى في الشهر (بتتنادى كل ساعة).
      * @return int عدد التنبيهات اللي اتبعتت
@@ -1552,6 +1663,7 @@ final class SocialPackages
                 'pending_tier' => $sub['pending_tier'], 'pending_cycle' => $sub['pending_cycle'], 'period_end' => $sub['period_end'], 'price_paid' => (float) $sub['price_paid'],
                 'custom' => json_decode((string) ($sub['custom_json'] ?? ''), true) ?: null] : null,
             'addons_active' => self::activeAddons($ent['owner']),
+            'topup' => self::topupPref((int) $ent['owner']) + ['allowed' => (bool) self::config()['auto_topup']],
             'ready' => self::ready(),
         ];
     }

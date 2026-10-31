@@ -36,6 +36,7 @@ ${tile('فحوصات عامة (30 يوم)', I.checks_30d || 0, 'كمّل وسج�
 ${tile('بحث المنافسين (30 يوم)', I.runs_30d || 0, I.cache_hit_pct == null ? '' : 'من غير تكلفة: ' + I.cache_hit_pct + '%')}
 ${tile('إنفاق جوجل الشهر ده', '$' + (I.spent_month || 0), budTxt + ' · آخر 30 يوم $' + (I.cost_30d || 0))}
 ${tile('دليل المنافسين', I.directory_size || 0, 'شركة محفوظة حسب السوق')}</div>
+<label style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><input type="checkbox" id="spaTopup" ${c.auto_topup ? 'checked' : ''}> <span>السماح للعملاء بتفعيل «شحن المنشورات تلقائيًا» (استخدام زائد بحزمة الإضافات من محفظتهم وبسقفهم الشهري)</span></label>
 <label style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><span>سقف الإنفاق الشهري على «اكتشف منافسيني» ($)</span><input class="p-select" type="number" min="-1" step="1" id="spaFinderBudget" value="${esc(c.finder_budget_usd)}" style="max-width:110px"><span class="p-cell-muted" style="font-size:12px">-1 من غير سقف · 0 مقفول</span></label>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px">
 <div><b>مصادر البحث</b><ul style="margin:6px 0;padding-inline-start:18px">${kv(I.by_source, srcMap)}</ul></div>
@@ -164,7 +165,7 @@ ${extras(c)}
             const costs = {}; root.querySelectorAll('[data-cost]').forEach(el => { costs[el.dataset.cost] = Number(el.value); });
             const renewal_policy = root.querySelector('input[name="spaPolicy"]:checked')?.value || 'at_renewal';
             const finder_budget_usd = Number(root.querySelector('#spaFinderBudget')?.value ?? 5);
-            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, finder_budget_usd, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
+            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, finder_budget_usd, auto_topup: !!root.querySelector('#spaTopup')?.checked, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
             D.config = r.data.config; D.economics = r.data.economics; D.audit = r.data.audit;
             render();
             msg('اتحفظت باقات السوشيال ✓');

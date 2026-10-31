@@ -90,13 +90,32 @@
             + '<div class="pk-grid">' + cards + '</div>' + mapTxt
             + '<p class="p-cell-muted sp-small">' + T('الدفع من رصيد المحفظة. الترقية فورية وبتدفع الفرق بس (الباقي من مدتك بيتحسب رصيد)، والتخفيض بيتطبق عند التجديد. كل منصة في المنشور بتتحسب منشور. كابشن AI بيتحسب من باقة المنصة الأول لو عندك.', 'Paid from your wallet balance. Upgrades are instant and you only pay the difference (remaining time is credited); downgrades apply at renewal. Each platform in a post counts as one post. AI captions use your platform plan quota first if you have one.') + '</p></div>'
             + (PKG.builder ? '<div class="p-card pk-builder" id="pkBuilder"></div>' : '')
-            + addons;
+            + addons + topupCard();
         if (PKG.builder) renderBuilder();
         root.querySelectorAll('input[name=pkCycle]').forEach(r => r.addEventListener('change', () => { pkCycle = r.value; renderPackage(); }));
         root.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => buyTier(b.dataset.buy, b)));
         root.querySelectorAll('[data-addon]').forEach(b => b.addEventListener('click', () => buyAddon(b.dataset.addon, b)));
         const pc = $('pkPromo'); if (pc) pc.addEventListener('input', () => { promoCode = pc.value.trim().toUpperCase(); });
         const rn = $('pkRenew'); if (rn) rn.addEventListener('click', toggleRenew);
+        const tps = $('tpSave'); if (tps) tps.addEventListener('click', saveTopup);
+    }
+    // ---- الاستخدام الزائد: شحن حزمة منشورات تلقائيًا من المحفظة (اختياري، بسقف شهري)
+    function topupCard() {
+        const tp = PKG.topup;
+        if (!tp || !tp.allowed || !PKG.can_buy || (PKG.limits && PKG.limits.posts < 0)) return '';
+        return '<div class="p-card"><div class="p-card-head"><h3>' + IC('plus') + ' ' + T('شحن المنشورات تلقائيًا', 'Auto top-up for posts') + '</h3></div>'
+            + '<label class="sp-check"><input type="checkbox" id="tpOn"' + (tp.enabled ? ' checked' : '') + '> ' + T('لما منشورات الشهر تخلص، اشحن حزمة منشورات من محفظتي تلقائيًا بدل ما النشر يقف.', 'When this month’s posts run out, buy a posts pack from my wallet instead of stopping publishing.') + '</label>'
+            + '<div class="sp-small" style="margin:8px 0">' + T('أقصى مبلغ في الشهر ($): ', 'Monthly cap ($): ') + '<input id="tpCap" class="p-select" type="number" min="1" max="500" step="1" value="' + esc(String(tp.cap)) + '" style="max-width:100px"> · ' + T('اتصرف الشهر ده: ', 'Spent this month: ') + '<b>$' + esc(String(tp.spent)) + '</b></div>'
+            + '<p class="p-cell-muted sp-small">' + T('بتتخصم من المحفظة بنفس سعر الإضافات، وبتتبعتلك إشعار كل مرة. تقدر توقفها في أي وقت.', 'Charged from your wallet at the add-on price, with a notification each time. Turn it off any time.') + '</p>'
+            + '<button type="button" class="p-btn outline sm" id="tpSave">' + T('حفظ', 'Save') + '</button></div>';
+    }
+    async function saveTopup() {
+        const on = !!($('tpOn') || {}).checked, cap = Number(($('tpCap') || {}).value || 20);
+        const r = await jsonPost('/api/social/package/auto-topup', { on, cap });
+        if (!r.success) { P.toast(r.error || T('تعذر', 'Failed'), 'error'); return; }
+        P.toast(r.message || T('تم', 'Done'), 'success');
+        PKG.topup = Object.assign({}, PKG.topup, r.data.topup);
+        renderPackage();
     }
     // ---- فصّل باقتك
     let bld = null;

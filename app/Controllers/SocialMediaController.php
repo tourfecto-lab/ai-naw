@@ -1286,6 +1286,23 @@ class SocialMediaController extends Controller
         }
     }
 
+    /** POST /api/social/package/auto-topup  body: {on, cap} - شحن حزمة منشورات تلقائيًا لما الحد يخلص (بسقف شهري) */
+    public function packageAutoTopup(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if (($denied = $this->guardOwner()) || ($denied = $this->verifyCsrf()) || ($denied = $this->rateLimitGuard('user', 'social_package_topup', 20, 300))) {
+            return $denied;
+        }
+        if (!SocialPackages::config()['auto_topup']) {
+            return $this->error('الشحن التلقائي مقفول حاليًا', 403);
+        }
+        $cap = is_numeric($this->get('cap')) ? (float) $this->get('cap') : 20.0;
+        $pref = SocialPackages::setTopupPref(SocialPackages::owner($this->uid()), filter_var($this->get('on'), FILTER_VALIDATE_BOOLEAN), $cap);
+        return $this->success(['topup' => $pref], $pref['enabled'] ? 'الشحن التلقائي شغّال بسقف ' . $pref['cap'] . '$ في الشهر' : 'الشحن التلقائي اتقفل');
+    }
+
     /** POST /api/social/package/auto-renew  body: {on} */
     public function packageAutoRenew(array $params = []): array
     {
@@ -2233,6 +2250,9 @@ class SocialMediaController extends Controller
         try {
             $cids = array_column($targets, 'platform_connection_id');
             // عضو الفريق: نتأكد بس إن الحسابات مش مقفولة (المنشورات بتتحسب لما المدير يعتمد)
+            if (!$needsApproval) {
+                SocialPackages::autoTopUp($uid, 'posts', count($targets));
+            }
             $needsApproval ? SocialPackages::assertConnections($uid, $cids) : SocialPackages::assertPublish($uid, $cids, count($targets));
         } catch (SocialPackageLimit $e) {
             return $this->limitError($e);
@@ -2337,6 +2357,7 @@ class SocialMediaController extends Controller
             return $this->error('المنشور مالوش صفحات نشر', 422);
         }
         try {
+            SocialPackages::autoTopUp($uid, 'posts', count($targets));
             SocialPackages::assertPublish($uid, array_column($targets, 'platform_connection_id'), count($targets));
         } catch (SocialPackageLimit $e) {
             return $this->limitError($e);
