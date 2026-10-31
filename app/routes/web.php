@@ -68,6 +68,7 @@ $router->post('/pay/{token}/checkout', 'PaymentLinkController', 'checkout');
 $router->post('/pay/{token}/paid', 'PaymentLinkController', 'paid');
 // رابط طلب التقييم المتتبَّع (عام)
 $router->get('/rr/{token}', 'ReviewRequestController', 'trackClick');
+$router->get('/review-us/{code}', 'ReviewRequestController', 'reviewUs');
 $router->get('/verify-email/{token}', 'AuthController', 'verifyEmail');
 
 // تسجيل الدخول الاجتماعي (Google/Facebook)
