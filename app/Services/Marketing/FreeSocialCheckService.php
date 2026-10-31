@@ -233,7 +233,7 @@ class FreeSocialCheckService
         } catch (Throwable $e) {
             return null;
         }
-        foreach (['basic', 'pro', 'agency', 'enterprise'] as $k) {
+        foreach (SocialPackages::sellableTierKeys() as $k) {
             $t = $cfg['tiers'][$k] ?? null;
             if (!$t || empty($t['for_sale']) || (float) $t['price_monthly'] <= 0) {
                 continue;

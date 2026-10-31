@@ -39,6 +39,51 @@ final class SocialPackages
     public const LIMIT_KEYS = ['accounts', 'posts', 'monthly_plans', 'competitors', 'ai_captions'];
     public const FEATURE_KEYS = ['private_reply', 'auto_private', 'attribution', 'client_review', 'team', 'growth'];
 
+    /** أقصى عدد باقات مخصصة يضيفها الأدمن (فوق الخمس الأساسية) */
+    public const MAX_CUSTOM_TIERS = 12;
+
+    /** @return array<string,array{rank:float}> الباقات اللي الأدمن أضافها (مفتاح صالح + ترتيب) */
+    private static function cleanCustomTiers($raw): array
+    {
+        $out = [];
+        foreach (is_array($raw) ? $raw : [] as $k => $v) {
+            $k = strtolower((string) $k);
+            if (!preg_match('/^[a-z][a-z0-9_]{2,13}$/', $k) || isset(self::DEFAULTS[$k]) || $k === 'custom' || count($out) >= self::MAX_CUSTOM_TIERS) {
+                continue;
+            }
+            $rank = is_array($v) && isset($v['rank']) && is_numeric($v['rank']) ? max(0.1, min(98.0, (float) $v['rank'])) : 5.0;
+            $out[$k] = ['rank' => $rank];
+        }
+        return $out;
+    }
+
+    /** مفتاح باقة صالح: أساسية أو مخصصة (من إعدادات الأدمن الخام) */
+    public static function isTierKey(string $k, array $raw): bool
+    {
+        return isset(self::DEFAULTS[$k]) || isset(self::cleanCustomTiers($raw['custom_tiers'] ?? [])[$k]);
+    }
+
+    /** ترتيب الباقة (للمقارنة ترقية/تخفيض). null لو الباقة مش موجودة */
+    public static function rank(string $tier): ?float
+    {
+        $t = self::config()['tiers'][$tier] ?? null;
+        return $t ? (float) $t['rank'] : null;
+    }
+
+    /** كل الباقات اللي ممكن تتباع (من غير المجانية) بترتيبها، بما فيها المخصصة. التحقق من for_sale على اللي بيستخدمها */
+    public static function sellableTierKeys(): array
+    {
+        $tiers = self::config()['tiers'];
+        unset($tiers['free']);
+        uasort($tiers, static fn ($a, $b) => (float) $a['rank'] <=> (float) $b['rank']);
+        return array_keys($tiers);
+    }
+
+    private static function currencyOk(string $code): bool
+    {
+        return $code === 'USD' || (class_exists('CurrencyService') && CurrencyService::valid($code));
+    }
+
     /** أسعار وحدود افتراضية (الأدمن يعدّلها من صفحة الباقات) */
     public const DEFAULTS = [
         'free' => ['name' => 'مجاني', 'name_en' => 'Free', 'price_monthly' => 0, 'price_yearly' => 0, 'for_sale' => false,
@@ -225,8 +270,9 @@ final class SocialPackages
      * أكواد الخصم والعروض: خصم % على أول دورة بس (التجديد بالسعر العادي).
      * @return list<array{code:string,label:string,percent:float,tiers:list<string>,cycles:list<string>,starts:string,ends:string,max_uses:int,enabled:bool}>
      */
-    private static function cleanPromos($raw): array
+    private static function cleanPromos($raw, ?array $validTiers = null): array
     {
+        $validTiers ??= ['basic', 'pro', 'agency', 'enterprise'];
         $out = [];
         foreach (is_array($raw) ? $raw : [] as $p) {
             if (!is_array($p) || count($out) >= 30) {
@@ -242,7 +288,7 @@ final class SocialPackages
                 'code' => $code,
                 'label' => mb_substr(trim(strip_tags((string) ($p['label'] ?? ''))), 0, 60),
                 'percent' => $pct,
-                'tiers' => array_values(array_intersect(['basic', 'pro', 'agency', 'enterprise', 'custom'], array_map('strval', (array) ($p['tiers'] ?? [])))),
+                'tiers' => array_values(array_intersect(array_merge($validTiers, ['custom']), array_map('strval', (array) ($p['tiers'] ?? [])))),
                 'cycles' => array_values(array_intersect(['monthly', 'yearly'], array_map('strval', (array) ($p['cycles'] ?? [])))),
                 'starts' => $date($p['starts'] ?? ''),
                 'ends' => $date($p['ends'] ?? ''),
@@ -325,7 +371,12 @@ final class SocialPackages
         } catch (Throwable $e) {
         }
         $tiers = [];
-        foreach (self::DEFAULTS as $k => $d) {
+        $custom = self::cleanCustomTiers($raw['custom_tiers'] ?? []);
+        $bases = self::DEFAULTS;
+        foreach ($custom as $ck => $cv) {
+            $bases[$ck] = ['name' => $ck, 'name_en' => $ck, 'for_sale' => false] + self::DEFAULTS['basic'];
+        }
+        foreach ($bases as $k => $d) {
             $o = is_array($raw['tiers'][$k] ?? null) ? $raw['tiers'][$k] : [];
             $t = $d;
             foreach (['name', 'name_en'] as $f) {
@@ -333,16 +384,30 @@ final class SocialPackages
                     $t[$f] = mb_substr(trim($o[$f]), 0, 40);
                 }
             }
-            if ($k !== 'free') {
-                foreach (['price_monthly', 'price_yearly'] as $f) {
-                    if (isset($o[$f]) && is_numeric($o[$f]) && $o[$f] >= 0 && $o[$f] <= 100000) {
-                        $t[$f] = round((float) $o[$f], 2);
+            // عملة التسعير: الأدمن بيسعّر الباقة بعملة مدعومة، والخصم من المحفظة بالدولار المكافئ بسعر الصرف الحالي
+            $cur = 'USD';
+            if ($k !== 'free' && isset($o['currency']) && is_string($o['currency']) && strtoupper($o['currency']) !== 'USD' && self::currencyOk(strtoupper($o['currency']))) {
+                $cur = strtoupper($o['currency']);
+            }
+            $t['currency'] = $cur;
+            foreach (['monthly', 'yearly'] as $p) {
+                $nat = null;
+                if ($k !== 'free') {
+                    if (isset($o['price_native_' . $p]) && is_numeric($o['price_native_' . $p]) && $o['price_native_' . $p] >= 0 && $o['price_native_' . $p] <= 10000000) {
+                        $nat = round((float) $o['price_native_' . $p], 2);
+                    } elseif ($cur === 'USD' && isset($o['price_' . $p]) && is_numeric($o['price_' . $p]) && $o['price_' . $p] >= 0 && $o['price_' . $p] <= 100000) {
+                        $nat = round((float) $o['price_' . $p], 2);
                     }
                 }
-                if (array_key_exists('for_sale', $o)) {
-                    $t['for_sale'] = !empty($o['for_sale']);
-                }
+                $nat ??= (float) $t['price_' . $p];
+                $t['price_native_' . $p] = $nat;
+                $t['price_' . $p] = $cur === 'USD' ? $nat : round(CurrencyService::toUsd($nat, $cur), 2);
             }
+            if ($k !== 'free' && array_key_exists('for_sale', $o)) {
+                $t['for_sale'] = !empty($o['for_sale']);
+            }
+            $t['rank'] = isset(self::RANK[$k]) ? (float) self::RANK[$k] : (float) $custom[$k]['rank'];
+            $t['custom'] = !isset(self::DEFAULTS[$k]);
             foreach (self::LIMIT_KEYS as $f) {
                 if (isset($o[$f]) && is_numeric($o[$f]) && (int) $o[$f] >= -1 && (int) $o[$f] <= 1000000) {
                     $t[$f] = (int) $o[$f];
@@ -372,7 +437,7 @@ final class SocialPackages
         }
         $map = self::PLAN_MAP;
         foreach ((array) ($raw['plan_map'] ?? []) as $plan => $tier) {
-            if (is_string($plan) && preg_match('/^[a-z0-9-]+$/', $plan) && isset(self::RANK[$tier])) {
+            if (is_string($plan) && preg_match('/^[a-z0-9-]+$/', $plan) && is_string($tier) && isset($tiers[$tier])) {
                 $map[$plan] = $tier;
             }
         }
@@ -411,7 +476,7 @@ final class SocialPackages
             ? array_values(array_intersect(self::PLATFORMS, $raw['platforms_enabled']))
             : array_values(array_diff(self::PLATFORMS, self::DISABLED_PLATFORMS));
         return self::$cfgCache = [
-            'promos' => self::cleanPromos($raw['promos'] ?? []),
+            'promos' => self::cleanPromos($raw['promos'] ?? [], array_values(array_diff(array_keys($tiers), ['free']))),
             'costs' => self::cleanCosts($raw['costs'] ?? []),
             'renewal_policy' => ($raw['renewal_policy'] ?? '') === 'grandfather' ? 'grandfather' : 'at_renewal',
             // سقف الإنفاق الشهري على «اكتشف منافسيني» (دولار): -1 من غير سقف، 0 البحث المدفوع مقفول
@@ -422,7 +487,7 @@ final class SocialPackages
             'platforms_enabled' => $enabled,
             // إيقاف التطبيق = كل حساب شغال من غير حدود (زي ما كان قبل الباقات)
             'enforce' => ($raw['enforce'] ?? true) !== false,
-            'plan_default' => isset(self::RANK[$raw['plan_default'] ?? '']) ? $raw['plan_default'] : 'basic',
+            'plan_default' => isset($tiers[$raw['plan_default'] ?? '']) ? $raw['plan_default'] : 'basic',
             'tiers' => $tiers,
             'addons' => $addons,
             'plan_map' => $map,
@@ -467,11 +532,63 @@ final class SocialPackages
         if (array_key_exists('enforce', $in)) {
             $raw['enforce'] = !empty($in['enforce']);
         }
-        if (isset($in['plan_default']) && isset(self::RANK[$in['plan_default']])) {
+        $cfgBefore = self::config();
+        $customNow = self::cleanCustomTiers($raw['custom_tiers'] ?? []);
+        // ---- باقات جديدة بالكامل: بتتنسخ من باقة موجودة، ومقفولة للبيع لحد ما الأدمن يفتحها
+        foreach ((array) ($in['new_tiers'] ?? []) as $n) {
+            if (!is_array($n)) {
+                continue;
+            }
+            $key = strtolower(trim((string) ($n['key'] ?? '')));
+            if (!preg_match('/^[a-z][a-z0-9_]{2,13}$/', $key) || isset(self::DEFAULTS[$key]) || $key === 'custom' || isset($customNow[$key])) {
+                throw new InvalidArgumentException('مفتاح الباقة (بالإنجليزي) لازم يكون من 3 لـ14 حرف أو رقم أو _ ويبدأ بحرف، ومايتكررش');
+            }
+            if (count($customNow) >= self::MAX_CUSTOM_TIERS) {
+                throw new InvalidArgumentException('وصلت للحد الأقصى من الباقات المضافة (' . self::MAX_CUSTOM_TIERS . ')');
+            }
+            $name = mb_substr(trim(strip_tags((string) ($n['name'] ?? ''))), 0, 40);
+            if ($name === '') {
+                throw new InvalidArgumentException('اكتب اسم الباقة');
+            }
+            $nameEn = mb_substr(trim(strip_tags((string) ($n['name_en'] ?? ''))), 0, 40) ?: $name;
+            $ranks = array_map(static fn ($t) => (float) $t['rank'], $cfgBefore['tiers']);
+            foreach ($customNow as $c) {
+                $ranks[] = (float) $c['rank'];
+            }
+            $after = (string) ($n['after'] ?? 'pro');
+            $base = isset($cfgBefore['tiers'][$after]) ? (float) $cfgBefore['tiers'][$after]['rank'] : (isset($customNow[$after]) ? (float) $customNow[$after]['rank'] : 2.0);
+            $next = null;
+            foreach ($ranks as $r) {
+                if ($r > $base && ($next === null || $r < $next)) {
+                    $next = $r;
+                }
+            }
+            $rank = $next === null ? $base + 1.0 : round(($base + $next) / 2, 4);
+            $srcKey = isset($cfgBefore['tiers'][(string) ($n['clone_from'] ?? '')]) ? (string) $n['clone_from'] : 'basic';
+            $src = $cfgBefore['tiers'][$srcKey];
+            $seed = ['name' => $name, 'name_en' => $nameEn, 'for_sale' => false, 'currency' => $srcKey === 'free' ? 'USD' : $src['currency']];
+            foreach (['monthly', 'yearly'] as $p) {
+                $seed['price_native_' . $p] = (float) $src['price_native_' . $p];
+                if ($seed['currency'] === 'USD') {
+                    $seed['price_' . $p] = (float) $src['price_' . $p];
+                }
+            }
+            foreach (self::LIMIT_KEYS as $f) {
+                $seed[$f] = (int) $src[$f];
+            }
+            $seed['platforms'] = $src['platforms'];
+            foreach (self::FEATURE_KEYS as $f) {
+                $seed[$f] = !empty($src[$f]);
+            }
+            $raw['tiers'][$key] = $seed;
+            $customNow[$key] = ['rank' => $rank];
+        }
+        $raw['custom_tiers'] = $customNow;
+        if (isset($in['plan_default']) && is_string($in['plan_default']) && self::isTierKey($in['plan_default'], $raw)) {
             $raw['plan_default'] = $in['plan_default'];
         }
         foreach ((array) ($in['tiers'] ?? []) as $k => $o) {
-            if (!isset(self::DEFAULTS[$k]) || !is_array($o)) {
+            if (!self::isTierKey((string) $k, $raw) || !is_array($o)) {
                 continue;
             }
             $clean = [];
@@ -480,9 +597,33 @@ final class SocialPackages
                     $clean[$f] = mb_substr(trim(strip_tags($o[$f])), 0, 40);
                 }
             }
-            foreach (['price_monthly', 'price_yearly'] as $f) {
-                if (isset($o[$f]) && is_numeric($o[$f])) {
-                    $clean[$f] = max(0, min(100000, round((float) $o[$f], 2)));
+            // عملة التسعير: الأسعار الأصلية (price_native_*) بنفس عملة الباقة، والدولار المكافئ (price_*) بيتحسب لوحده بسعر الصرف
+            $curNow = (string) ($cfgBefore['tiers'][$k]['currency'] ?? ($raw['tiers'][$k]['currency'] ?? 'USD'));
+            $curNew = ($k !== 'free' && isset($o['currency']) && is_string($o['currency'])) ? strtoupper(trim($o['currency'])) : null;
+            if ($curNew !== null && !self::currencyOk($curNew)) {
+                $curNew = null;
+            }
+            $effective = $curNew ?? $curNow;
+            if ($curNew !== null) {
+                $clean['currency'] = $curNew;
+            }
+            foreach (['monthly', 'yearly'] as $p) {
+                $given = null;
+                if (isset($o['price_native_' . $p]) && is_numeric($o['price_native_' . $p])) {
+                    $given = max(0, min(10000000, round((float) $o['price_native_' . $p], 2)));
+                } elseif (isset($o['price_' . $p]) && is_numeric($o['price_' . $p]) && $effective === 'USD') {
+                    $given = max(0, min(100000, round((float) $o['price_' . $p], 2)));
+                }
+                if ($given === null && $curNew !== null && $curNew !== $curNow) {
+                    // العملة اتغيّرت من غير سعر جديد: بنحوّل السعر الحالي بسعر الصرف عشان ماحدش يشوف سعر غلط
+                    $usdNow = (float) ($cfgBefore['tiers'][$k]['price_' . $p] ?? 0);
+                    $given = $curNew === 'USD' ? $usdNow : round(CurrencyService::fromUsd($usdNow, $curNew), 2);
+                }
+                if ($given !== null) {
+                    $clean['price_native_' . $p] = $given;
+                    if ($effective === 'USD') {
+                        $clean['price_' . $p] = $given;
+                    }
                 }
             }
             foreach (self::LIMIT_KEYS as $f) {
@@ -500,13 +641,35 @@ final class SocialPackages
             }
             $raw['tiers'][$k] = $clean + (is_array($raw['tiers'][$k] ?? null) ? $raw['tiers'][$k] : []);
         }
+        // ---- حذف باقة مضافة: ممنوع لو عليها مشتركين شغالين (وقّف بيعها بدل الحذف). الأساسية مابتتحذفش.
+        foreach ((array) ($in['remove_tiers'] ?? []) as $rk) {
+            $rk = strtolower((string) $rk);
+            if (!isset($customNow[$rk])) {
+                continue;
+            }
+            self::ensureSchema();
+            $subs = (int) (Database::getInstance()->query("SELECT COUNT(*) AS n FROM social_subscriptions WHERE (tier = ? OR pending_tier = ?) AND status = 'active'", [$rk, $rk])[0]['n'] ?? 0);
+            if ($subs > 0) {
+                throw new InvalidArgumentException('فيه ' . $subs . ' مشترك شغال على الباقة دي. وقّف بيعها (شيل «متاحة للبيع») بدل ما تحذفها.');
+            }
+            unset($customNow[$rk], $raw['tiers'][$rk]);
+            foreach ((array) ($raw['plan_map'] ?? []) as $plan => $t) {
+                if ($t === $rk) {
+                    unset($raw['plan_map'][$plan]);
+                }
+            }
+            if (($raw['plan_default'] ?? '') === $rk) {
+                $raw['plan_default'] = 'basic';
+            }
+        }
+        $raw['custom_tiers'] = $customNow;
         foreach ((array) ($in['addons'] ?? []) as $k => $o) {
             if (isset(self::ADDONS[$k]) && is_array($o)) {
                 $raw['addons'][$k] = array_intersect_key($o, ['price' => 1, 'qty' => 1, 'enabled' => 1]);
             }
         }
         foreach ((array) ($in['plan_map'] ?? []) as $plan => $tier) {
-            if (is_string($plan) && preg_match('/^[a-z0-9-]+$/', $plan) && isset(self::RANK[$tier])) {
+            if (is_string($plan) && preg_match('/^[a-z0-9-]+$/', $plan) && is_string($tier) && self::isTierKey($tier, $raw)) {
                 $raw['plan_map'][$plan] = $tier;
             }
         }
@@ -539,7 +702,7 @@ final class SocialPackages
             $raw['builder'] = array_replace_recursive(is_array($raw['builder'] ?? null) ? $raw['builder'] : [], $clean);
         }
         if (array_key_exists('promos', $in)) {
-            $raw['promos'] = self::cleanPromos($in['promos']);
+            $raw['promos'] = self::cleanPromos($in['promos'], array_values(array_diff(array_merge(array_keys(self::DEFAULTS), array_keys($customNow)), ['free'])));
         }
         if (isset($in['costs']) && is_array($in['costs'])) {
             $raw['costs'] = self::cleanCosts($in['costs'] + (array) ($raw['costs'] ?? []));
@@ -657,7 +820,7 @@ final class SocialPackages
         } catch (Throwable $e) {
             $forced = null;
         }
-        if (is_string($forced) && isset(self::RANK[$forced])) {
+        if (is_string($forced) && isset(self::config()['tiers'][$forced])) {
             return $forced;
         }
         return $cfg['plan_map'][(string) ($sub['plan_name'] ?? '')] ?? $cfg['plan_default'];
@@ -780,7 +943,7 @@ final class SocialPackages
             }
             return ['limits' => $q['limits'], 'features' => $q['features'], 'platforms' => $q['platforms']];
         }
-        return isset(self::DEFAULTS[$row['tier']]) ? self::tierSpec($row['tier']) : null;
+        return isset(self::config()['tiers'][$row['tier']]) ? self::tierSpec($row['tier']) : null;
     }
 
     public static function entitlements(int $account): array
@@ -832,7 +995,7 @@ final class SocialPackages
         // المستوى المعروض: الأعلى بين الجاهزين، أو «مفصّلة» لو هي اللي العميل دافعها
         $tier = 'free';
         foreach ([$planTier, $socialTier] as $t) {
-            if ($t && isset(self::RANK[$t]) && self::RANK[$t] > self::RANK[$tier]) {
+            if ($t && self::rank($t) !== null && self::rank($t) > (self::rank($tier) ?? 0)) {
                 $tier = $t;
             }
         }
@@ -1011,7 +1174,7 @@ final class SocialPackages
     /** "متاحة من باقة X" لأول مستوى بيشمل الميزة/المنصة */
     private static function upgradeHint(string $feature, ?string $platform = null): string
     {
-        foreach (['basic', 'pro', 'agency', 'enterprise'] as $k) {
+        foreach (self::sellableTierKeys() as $k) {
             $t = self::config()['tiers'][$k];
             if (($platform !== null && in_array($platform, $t['platforms'], true)) || ($platform === null && !empty($t[$feature]))) {
                 return ' - متاحة من باقة «' . $t['name'] . '» أو ضيفها لوحدها في «فصّل باقتك» من صفحة الاشتراكات.';
@@ -1241,7 +1404,7 @@ final class SocialPackages
         $cfg = self::config();
         $offer = self::offer($tier, $cycle, $custom);
         $planTier = self::tierFromPlan($owner);
-        if ($tier !== 'custom' && $planTier && self::RANK[$planTier] >= self::RANK[$tier]) {
+        if ($tier !== 'custom' && $planTier && (self::rank($planTier) ?? 0) >= (self::rank($tier) ?? 0)) {
             throw new InvalidArgumentException('باقة المنصة بتاعتك بتشمل سوشيال «' . $cfg['tiers'][$planTier]['name'] . '» بالفعل');
         }
         $price = (float) $offer['price'];

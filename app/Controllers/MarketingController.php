@@ -392,7 +392,7 @@ class MarketingController extends Controller
         }
         $ck = self::check();
         $cards = '';
-        foreach (['basic', 'pro', 'agency', 'enterprise'] as $k) {
+        foreach (SocialPackages::sellableTierKeys() as $k) {
             $t = $cfg['tiers'][$k] ?? null;
             if (!$t || empty($t['for_sale']) || (float) $t['price_monthly'] <= 0) {
                 continue;
@@ -400,13 +400,20 @@ class MarketingController extends Controller
             $sym = '$';
             $m = (float) $t['price_monthly'];
             $y = (float) $t['price_yearly'];
+            $tierCur = (string) ($t['currency'] ?? 'USD');
             $egM = $viewCur === 'USD' ? CurrencyService::egpHint($m, $isAr) : '';
             $egY = $viewCur === 'USD' ? CurrencyService::egpHint($y, $isAr) : '';
+            // باقة مسعّرة بالجنيه والزائر بيشوف بالدولار: نعرض الجنيه الأصلي بالظبط مش مبلغ متحوّل ومقرّب
+            if ($tierCur === 'EGP' && $viewCur === 'USD') {
+                $egM = $isAr ? number_format((float) $t['price_native_monthly'], 0) . ' ج.م' : 'EGP ' . number_format((float) $t['price_native_monthly'], 0);
+                $egY = $isAr ? number_format((float) $t['price_native_yearly'], 0) . ' ج.م' : 'EGP ' . number_format((float) $t['price_native_yearly'], 0);
+            }
             if ($viewCur !== 'USD') {
                 $meta = CurrencyService::CURRENCIES[$viewCur];
                 $sym = ($isAr ? $meta['ar_symbol'] : $meta['symbol']) . ' ';
-                $m = CurrencyService::fromUsd($m, $viewCur);
-                $y = CurrencyService::fromUsd($y, $viewCur);
+                // الباقة مسعّرة بعملة الزائر نفسها: المبلغ الأصلي بالظبط
+                $m = $tierCur === $viewCur ? (float) $t['price_native_monthly'] : CurrencyService::fromUsd($m, $viewCur);
+                $y = $tierCur === $viewCur ? (float) $t['price_native_yearly'] : CurrencyService::fromUsd($y, $viewCur);
             }
             $save = $m > 0 ? max(0, (int) round((1 - $y / ($m * 12)) * 100)) : 0;
             $n = static fn ($v) => $v < 0 ? '∞' : number_format((int) $v);

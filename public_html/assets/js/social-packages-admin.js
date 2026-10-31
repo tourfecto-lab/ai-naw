@@ -5,7 +5,7 @@
     let P, root, D;
     const api = async (url, body) => { const r = await P.fetchJSON(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, csrf_token: D?.csrf_token }) } : undefined); if (!r?.success) throw new Error(r?.error || 'حصلت مشكلة'); return r; };
     const msg = (m, bad) => { const el = root.querySelector('#spaMsg'); el.textContent = m; el.className = 'ps-msg' + (bad ? ' bad' : ''); el.hidden = !m; };
-    const TIERS = ['free', 'basic', 'pro', 'agency', 'enterprise'];
+    let TIERS = ['free', 'basic', 'pro', 'agency', 'enterprise'];
 
     const pct = v => (Number(v) || 0).toFixed(1) + '%';
     const extras = c => {
@@ -17,7 +17,7 @@ ${fld('خصم %', `<input class="p-select" type="number" min="1" max="100" step=
 ${fld('أقصى استخدام (0 = بلا حد)', `<input class="p-select" type="number" min="0" data-pf="max_uses" value="${esc(p.max_uses)}">`)}
 ${fld('من', `<input class="p-select" type="date" data-pf="starts" value="${esc(p.starts)}">`)}
 ${fld('إلى', `<input class="p-select" type="date" data-pf="ends" value="${esc(p.ends)}">`)}
-<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:12px;align-items:center"><span class="p-cell-muted" style="font-size:12px">الباقات (من غير اختيار = الكل):</span>${['basic', 'pro', 'agency', 'enterprise', 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join('')}
+<div style="flex:1 1 100%;display:flex;flex-wrap:wrap;gap:12px;align-items:center"><span class="p-cell-muted" style="font-size:12px">الباقات (من غير اختيار = الكل):</span>${[...TIERS.filter(x => x !== 'free'), 'custom'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-ptier="${t}" ${(p.tiers || []).includes(t) ? 'checked' : ''}> ${esc(c.tiers[t]?.name || 'مفصّلة')}</label>`).join('')}
 <span class="p-cell-muted" style="font-size:12px">الدورة:</span>${['monthly', 'yearly'].map(t => `<label style="white-space:nowrap"><input type="checkbox" data-pcycle="${t}" ${(p.cycles || []).includes(t) ? 'checked' : ''}> ${t === 'monthly' ? 'شهري' : 'سنوي'}</label>`).join('')}
 <label style="white-space:nowrap"><input type="checkbox" data-pf="enabled" ${p.enabled ? 'checked' : ''}> فعّال</label>
 <button type="button" class="p-btn" data-promo-del="${i}" aria-label="حذف الكود" style="margin-inline-start:auto">✕ حذف</button></div></div>`).join('');
@@ -48,7 +48,7 @@ ${tile('دليل المنافسين', I.directory_size || 0, 'شركة محفو�
 <h4>💰 التكلفة والهامش (أسوأ حالة: العميل استهلك الحدود كلها)</h4>
 <p class="p-cell-muted">الأرقام دي تقديرات تشغيل لازم تعدّلها بتكلفتك الفعلية (فاتورة Gemini/Meta/الاستضافة). الهامش بعد رسوم بوابة الدفع.</p>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-${TIERS.map(t => { const e = eco[t] || {}; const free = t === 'free'; const low = !free && (e.margin_pct_monthly < 40 || e.margin_pct_yearly < 40); const col = v => v < 40 ? 'var(--danger,#e5484d)' : 'inherit';
+${TIERS.map(t => { if (!eco[t]) return ''; const e = eco[t]; const free = t === 'free'; const low = !free && (e.margin_pct_monthly < 40 || e.margin_pct_yearly < 40); const col = v => v < 40 ? 'var(--danger,#e5484d)' : 'inherit';
     return `<div style="padding:12px;border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px"><b>${esc(c.tiers[t].name)}${low ? ' ⚠️' : ''}</b>
 <div class="p-cell-muted" style="font-size:12px">التكلفة/شهر: <b>$${e.cost}</b></div>
 ${free ? '<div class="p-cell-muted" style="font-size:12px">باقة مجانية: تكلفة بالكامل</div>' : `<div class="p-cell-muted" style="font-size:12px">السعر الشهري: <b>$${e.price_monthly}</b></div>
@@ -87,8 +87,10 @@ ${intelHtml}
 
     const render = () => {
         const c = D.config, L = D.labels, st = D.stats || {};
+        TIERS = Object.keys(c.tiers).sort((a, b) => Number(c.tiers[a].rank) - Number(c.tiers[b].rank));
         const lim = k => (L[k] ? L[k][0] : k);
         const row = (label, cell) => `<tr><td>${label}</td>${TIERS.map(cell).join('')}</tr>`;
+        const priceCell = (t, k, usdKey) => num(t, k, 'min="0" step="0.5"').replace('</td>', c.tiers[t].currency !== 'USD' ? `<div class="p-cell-muted" style="font-size:12px">≈ $${c.tiers[t][usdKey]} (بسعر الصرف الحالي، ده اللي بيتخصم)</div></td>` : '</td>');
         const num = (t, k, attrs) => `<td><input class="p-select" type="number" data-t="${t}" data-k="${k}" value="${esc(c.tiers[t][k])}" ${attrs || ''}></td>`;
         root.innerHTML = `<div id="spaMsg" class="ps-msg" hidden></div>
 <section class="ps-box ps-adm"><h3>📱 باقات السوشيال ميديا</h3>
@@ -96,11 +98,12 @@ ${intelHtml}
 ${D.ready ? '' : '<div class="ps-msg bad">جداول الباقات مش موجودة: شغّل migration ‏2026_10_22_000001_social_packages.sql.</div>'}
 <p><b>اشتراكات سوشيال شغالة:</b> ${st.active || 0} · <b>إيراد شهري متكرر تقريبي:</b> $${st.mrr || 0} ${Object.entries(st.by_tier || {}).map(([k, n]) => '· ' + esc(c.tiers[k]?.name || k) + ': ' + n).join(' ')}</p>
 <label><input type="checkbox" id="spaEnforce" ${c.enforce ? 'checked' : ''}> تطبيق حدود الباقات (لو اتقفل: كل العملاء من غير حدود زي الأول)</label>
-<div style="overflow-x:auto"><table><thead><tr><th></th>${TIERS.map(t => `<th>${esc(c.tiers[t].name)}</th>`).join('')}</tr></thead><tbody>
+<div style="overflow-x:auto"><table><thead><tr><th></th>${TIERS.map(t => `<th>${esc(c.tiers[t].name)}${c.tiers[t].custom ? ` <button type="button" class="p-btn" data-rmtier="${esc(t)}" aria-label="حذف الباقة" title="حذف الباقة (ممنوع لو عليها مشتركين)">✕</button>` : ''}</th>`).join('')}</tr></thead><tbody>
 ${row('الاسم (عربي)', t => `<td><input class="p-select" data-t="${t}" data-k="name" value="${esc(c.tiers[t].name)}"></td>`)}
 ${row('الاسم (إنجليزي)', t => `<td><input class="p-select" data-t="${t}" data-k="name_en" value="${esc(c.tiers[t].name_en)}"></td>`)}
-${row('السعر الشهري $', t => t === 'free' ? '<td class="p-cell-muted">مجاني</td>' : num(t, 'price_monthly', 'min="0" step="0.5"'))}
-${row('السعر السنوي $', t => t === 'free' ? '<td class="p-cell-muted">مجاني</td>' : num(t, 'price_yearly', 'min="0" step="1"'))}
+${row('عملة التسعير', t => t === 'free' ? '<td class="p-cell-muted">$</td>' : `<td><select class="p-select" data-t="${t}" data-k="currency">${(D.currencies || [{ code: 'USD', symbol: '$' }]).map(cu => `<option value="${esc(cu.code)}" ${c.tiers[t].currency === cu.code ? 'selected' : ''}>${esc(cu.code)} ${esc(cu.symbol)}</option>`).join('')}</select></td>`)}
+${row('السعر الشهري (بعملة الباقة)', t => t === 'free' ? '<td class="p-cell-muted">مجاني</td>' : priceCell(t, 'price_native_monthly', 'price_monthly'))}
+${row('السعر السنوي (بعملة الباقة)', t => t === 'free' ? '<td class="p-cell-muted">مجاني</td>' : priceCell(t, 'price_native_yearly', 'price_yearly'))}
 ${row('متاحة للبيع', t => t === 'free' ? '<td class="p-cell-muted">—</td>' : `<td><input type="checkbox" data-t="${t}" data-k="for_sale" ${c.tiers[t].for_sale ? 'checked' : ''}></td>`)}
 ${D.limit_keys.map(k => row(esc(lim(k)), t => num(t, k, 'min="-1"'))).join('')}
 ${D.feature_keys.map(k => row(esc(lim(k)), t => `<td><input type="checkbox" data-t="${t}" data-k="${k}" ${c.tiers[t][k] ? 'checked' : ''}></td>`)).join('')}
@@ -132,13 +135,32 @@ ${D.feature_keys.map(k => `<tr><td>${esc(lim(k))}</td><td><input class="p-select
 <tr><td>أي باقة تانية (مخصصة)</td><td><select class="p-select" id="spaDefault">${TIERS.map(t => `<option value="${t}" ${c.plan_default === t ? 'selected' : ''}>${esc(c.tiers[t].name)}</option>`).join('')}</select></td></tr></tbody></table>
 <p class="p-cell-muted">لعميل بعينه: حط "social_tier": "agency" (مثلًا) في استثناءات ميزات العميل من صفحة العملاء.</p>
 ${extras(c)}
+<h4>➕ إضافة باقة جديدة</h4>
+<p class="p-cell-muted">الباقة الجديدة بتتنسخ من باقة موجودة (حدود وميزات وأسعار) وبتتعمل <b>مقفولة للبيع</b>: عدّل أي حاجة فيها وبعدين فعّل «متاحة للبيع». ممكن تتحذف طول ما مفيش عليها مشتركين شغالين.</p>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+<label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">المفتاح (إنجليزي، 3-14)</span><input class="p-select" id="spaNewKey" dir="ltr" maxlength="14" placeholder="starterplus" style="max-width:150px"></label>
+<label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">الاسم (عربي)</span><input class="p-select" id="spaNewName" maxlength="40" style="max-width:150px"></label>
+<label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">الاسم (إنجليزي)</span><input class="p-select" id="spaNewNameEn" dir="ltr" maxlength="40" style="max-width:150px"></label>
+<label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">تيجي بعد</span><select class="p-select" id="spaNewAfter">${TIERS.map(t => `<option value="${esc(t)}" ${t === 'basic' ? 'selected' : ''}>${esc(c.tiers[t].name)}</option>`).join('')}</select></label>
+<label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">انسخ المواصفات من</span><select class="p-select" id="spaNewClone">${TIERS.map(t => `<option value="${esc(t)}" ${t === 'basic' ? 'selected' : ''}>${esc(c.tiers[t].name)}</option>`).join('')}</select></label>
+<button type="button" class="p-btn" id="spaNewAdd">➕ أضف الباقة</button></div>
 <button class="p-btn primary" id="spaSave">حفظ باقات السوشيال</button></section>`;
         root.querySelector('#spaSave').addEventListener('click', save);
+        root.querySelector('#spaNewAdd').addEventListener('click', e => {
+            const v = id => root.querySelector(id).value.trim();
+            if (!v('#spaNewKey') || !v('#spaNewName')) { msg('اكتب مفتاح الباقة واسمها', true); return; }
+            save(e, { new_tiers: [{ key: v('#spaNewKey'), name: v('#spaNewName'), name_en: v('#spaNewNameEn'), after: v('#spaNewAfter'), clone_from: v('#spaNewClone') }] });
+        });
+        root.querySelectorAll('[data-rmtier]').forEach(b => b.addEventListener('click', e => {
+            const k = b.dataset.rmtier;
+            if (!confirm('تحذف الباقة «' + (D.config.tiers[k]?.name || k) + '»؟ لو عليها مشتركين شغالين مش هتتحذف.')) return;
+            save({ currentTarget: b }, { remove_tiers: [k] });
+        }));
         root.querySelector('#spaPromoAdd').addEventListener('click', () => { collectPromos(); D.config.promos.push({ code: '', label: '', percent: 10, tiers: [], cycles: [], starts: '', ends: '', max_uses: 0, enabled: true }); render(); });
         root.querySelectorAll('[data-promo-del]').forEach(b => b.addEventListener('click', () => { collectPromos(); D.config.promos.splice(Number(b.dataset.promoDel), 1); render(); }));
     };
 
-    const save = async (e) => {
+    const save = async (e, extra) => {
         const b = e.currentTarget; b.disabled = true;
         try {
             const tiers = {};
@@ -165,7 +187,7 @@ ${extras(c)}
             const costs = {}; root.querySelectorAll('[data-cost]').forEach(el => { costs[el.dataset.cost] = Number(el.value); });
             const renewal_policy = root.querySelector('input[name="spaPolicy"]:checked')?.value || 'at_renewal';
             const finder_budget_usd = Number(root.querySelector('#spaFinderBudget')?.value ?? 5);
-            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, finder_budget_usd, auto_topup: !!root.querySelector('#spaTopup')?.checked, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
+            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, finder_budget_usd, auto_topup: !!root.querySelector('#spaTopup')?.checked, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled, ...(extra || {}) } });
             D.config = r.data.config; D.economics = r.data.economics; D.audit = r.data.audit;
             render();
             msg('اتحفظت باقات السوشيال ✓');

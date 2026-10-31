@@ -1141,6 +1141,21 @@ class SocialMediaController extends Controller
         return ['usd' => round($usd, 2), 'label' => $cur === 'USD' ? $exact : '≈ ' . CurrencyService::format($usd, $cur, $ar) . ' (' . $exact . ')', 'usd_label' => $exact];
     }
 
+    /** سعر الباقة بعملة العميل. لو الباقة مسعّرة بعملة العميل نفسها بنعرض المبلغ الأصلي بالظبط (مش مبلغ متحوّل ومقرّب)، والخصم الفعلي بالدولار المكافئ */
+    private function tierPriceLabels(array $t, string $p, string $cur, bool $ar): array
+    {
+        $base = $this->priceLabels((float) $t['price_' . $p], $cur, $ar);
+        $tc = (string) ($t['currency'] ?? 'USD');
+        $nat = (float) ($t['price_native_' . $p] ?? $t['price_' . $p]);
+        if ($tc !== 'USD' && $tc === $cur && isset(CurrencyService::CURRENCIES[$cur])) {
+            $meta = CurrencyService::CURRENCIES[$cur];
+            $num = number_format($nat, floor($nat) == $nat ? 0 : 2);
+            $base['label'] = ($ar ? $num . ' ' . $meta['ar_symbol'] : $meta['symbol'] . ' ' . $num) . ' (' . $base['usd_label'] . ')';
+        }
+        $base['native'] = ['currency' => $tc, 'amount' => $nat];
+        return $base;
+    }
+
     /** GET /api/social/package - الباقة الحالية + الاستخدام + الكتالوج بأسعار عملة العميل */
     public function package(array $params = []): array
     {
@@ -1154,11 +1169,11 @@ class SocialMediaController extends Controller
         $tiers = [];
         $viewerTier = (string) (SocialPackages::entitlements($this->uid())['tier'] ?? '');
         foreach ($cfg['tiers'] as $k => $t) {
-            if ($k === 'enterprise' && empty($t['for_sale']) && $viewerTier !== 'enterprise') {
-                continue; // مستوى المؤسسات مخفي عن العملاء لحد ما الأدمن يفتحه للبيع
+            if (($k === 'enterprise' || !empty($t['custom'])) && empty($t['for_sale']) && $viewerTier !== $k) {
+                continue; // المؤسسات والباقات اللي الأدمن أضافها مخفية عن العملاء لحد ما تتفتح للبيع
             }
-            $tiers[] = ['key' => $k, 'name' => $ar ? $t['name'] : $t['name_en'], 'for_sale' => (bool) $t['for_sale'], 'rank' => SocialPackages::RANK[$k],
-                'monthly' => $this->priceLabels((float) $t['price_monthly'], $cur, $ar), 'yearly' => $this->priceLabels((float) $t['price_yearly'], $cur, $ar),
+            $tiers[] = ['key' => $k, 'name' => $ar ? $t['name'] : $t['name_en'], 'for_sale' => (bool) $t['for_sale'], 'rank' => SocialPackages::rank($k), 'currency' => $t['currency'],
+                'monthly' => $this->tierPriceLabels($t, 'monthly', $cur, $ar), 'yearly' => $this->tierPriceLabels($t, 'yearly', $cur, $ar),
                 'limits' => array_intersect_key($t, array_flip(SocialPackages::LIMIT_KEYS)), 'platforms' => array_values(array_intersect($cfg['platforms_enabled'], $t['platforms'])),
                 'features' => array_map('boolval', array_intersect_key($t, array_flip(SocialPackages::FEATURE_KEYS)))];
         }
@@ -1374,7 +1389,7 @@ class SocialMediaController extends Controller
         } catch (Throwable $e) {
         }
         return $this->success(['config' => SocialPackages::config(), 'defaults' => SocialPackages::DEFAULTS, 'labels' => SocialPackages::LABELS, 'platform_names' => SocialPackages::PLATFORM_NAMES,
-            'limit_keys' => SocialPackages::LIMIT_KEYS, 'feature_keys' => SocialPackages::FEATURE_KEYS, 'platform_plans' => $plans, 'stats' => $stats, 'ready' => SocialPackages::ready(), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30), 'usage_report' => SocialPackages::usageReport(30), 'intel' => (new SocialIntelService())->insights(), 'csrf_token' => Csrf::token()]);
+            'limit_keys' => SocialPackages::LIMIT_KEYS, 'feature_keys' => SocialPackages::FEATURE_KEYS, 'platform_plans' => $plans, 'stats' => $stats, 'ready' => SocialPackages::ready(), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30), 'currencies' => array_map(static fn ($c, $code) => ['code' => $code, 'name' => $c['ar'], 'symbol' => $c['ar_symbol']], CurrencyService::CURRENCIES, array_keys(CurrencyService::CURRENCIES)), 'usage_report' => SocialPackages::usageReport(30), 'intel' => (new SocialIntelService())->insights(), 'csrf_token' => Csrf::token()]);
     }
 
     /** POST /api/admin/social-packages  body: {config} */
@@ -1387,7 +1402,12 @@ class SocialMediaController extends Controller
             return $e;
         }
         $in = $this->get('config', []);
-        return $this->success(['config' => SocialPackages::saveConfig(is_array($in) ? $in : [], $this->uid()), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30)], 'اتحفظت باقات السوشيال');
+        try {
+            $saved = SocialPackages::saveConfig(is_array($in) ? $in : [], $this->uid());
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+        return $this->success(['config' => $saved, 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30)], 'اتحفظت باقات السوشيال');
     }
 
     private function hasColumn(string $table, string $col): bool
