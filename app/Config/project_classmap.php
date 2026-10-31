@@ -131,6 +131,8 @@ return [
     'AdminAccountsController' => dirname(__DIR__,2).'/app/Controllers/AdminAccountsController.php',
     'AdminAlertService' => dirname(__DIR__,2).'/app/Services/Admin/AdminAlertService.php',
     'AdminController' => dirname(__DIR__,2).'/app/Controllers/AdminController.php',
+    'AdminWhatsAppMarketingController' => dirname(__DIR__,2).'/app/Controllers/AdminWhatsAppMarketingController.php',
+    'WhatsAppOversight' => dirname(__DIR__,2).'/app/Services/Chat/WhatsAppOversight.php',
     'AdminReputationLimitsController' => dirname(__DIR__,2).'/app/Controllers/AdminReputationLimitsController.php',
     'AdminInsightsController' => dirname(__DIR__,2).'/app/Controllers/AdminInsightsController.php',
     'AdminMiddleware' => dirname(__DIR__,2).'/app/Middleware/AdminMiddleware.php',

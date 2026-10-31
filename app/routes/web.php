@@ -437,6 +437,7 @@ $router->get('/admin/growth', 'PlatformOutreachController', 'index', ['AuthMiddl
 $router->get('/admin/plans-studio', 'PlansStudioController', 'adminPage', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/email-reputation', 'AdminEmailReputationController', 'page', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/reputation-limits', 'AdminReputationLimitsController', 'page', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/admin/whatsapp-marketing', 'AdminWhatsAppMarketingController', 'page', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/wallet/xpay/return', 'XPayController', 'returnPage', []);
 
 $router->get('/admin/usage-reservations', 'UsageReservationAdminController', 'index', ['AuthMiddleware','BillingAdminMiddleware']);
