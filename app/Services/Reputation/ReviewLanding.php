@@ -66,12 +66,15 @@ class ReviewLanding
     }
 
     /** Public page HTML (standalone, no panel chrome). */
-    public static function page(string $company, array $destinations, string $qrSvg = ''): string
+    public static function page(string $company, array $destinations, string $qrSvg = '', string $surveyUrl = ''): string
     {
         $e = static fn ($v) => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
         $buttons = '';
         foreach ($destinations as $d) {
             $buttons .= '<a class="btn" rel="noopener noreferrer" href="' . $e($d['url']) . '">' . $e($d['label']) . '</a>';
+        }
+        if ($surveyUrl !== '') {
+            $buttons .= '<a class="btn" style="background:transparent;color:var(--brand);border:2px solid var(--brand)" href="' . $e($surveyUrl) . '">Send private feedback</a>';
         }
         if ($buttons === '') {
             $buttons = '<p class="muted">This business has not set up its review links yet.</p>';

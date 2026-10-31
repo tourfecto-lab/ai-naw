@@ -443,6 +443,7 @@ class ReputationController extends Controller
             <button class="p-btn outline xs" onclick="clearGbpReviewFilters()">مسح الفلاتر</button>
             <button class="p-btn outline xs" id="syncNowBtn" onclick="syncReviewsNow()">🔄 زامن دلوقتي</button>
             <a href="/reputation/report" target="_blank" rel="noopener" class="p-btn outline xs">📄 Monthly report</a>
+            <a href="/reputation/surveys" class="p-btn outline xs">💬 Private feedback</a>
             <a href="/reputation/platforms" class="p-btn primary xs">{$this->tr('rep.connect_new_platform')}</a>
         </div>
         <div class="p-card no-pad">
