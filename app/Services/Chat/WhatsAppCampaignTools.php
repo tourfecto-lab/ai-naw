@@ -25,6 +25,7 @@ final class WhatsAppCampaignTools extends WhatsAppMarketingService
     }
     public function launch(int $uid,int $id,array $ids,?string $scheduled): array
     {
+        if(class_exists('WhatsAppOversight'))WhatsAppOversight::assertNotSuspended($uid);
         if(!$this->experimentLaunch){try{if($this->q('SELECT id FROM wa_campaign_experiments WHERE user_id=? AND (campaign_a=? OR campaign_b=?) LIMIT 1',[$uid,$id,$id])->fetchColumn())throw new InvalidArgumentException('Schedule both variants from the A/B experiment section');}catch(PDOException $e){if($e->getCode()!=='42S02')throw $e;}}
         $key='wa_quota:'.$uid;if(!ExternalExecution::lock($key))throw new RuntimeException('Another campaign is reserving quota. Try again.');
         try{$c=$this->campaign($uid,$id);if($c['state']!=='draft')return $c;$quota=$this->quota($uid);$units=count(array_unique($ids));if(!$quota['enabled']||($quota['remaining']!==null&&$units>$quota['remaining']))throw new InvalidArgumentException('Your subscription does not have enough WhatsApp marketing allowance.');

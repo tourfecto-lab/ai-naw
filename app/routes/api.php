@@ -1903,6 +1903,11 @@ $router->get('/api/admin/ai-routing', 'AiRoutingAdminController', 'listing', ['A
 $router->get('/api/admin/growth', 'PlatformOutreachController', 'overview', ['AuthMiddleware','AdminMiddleware']);
 // حماية سمعة التسويق بالبريد (لوحة الأدمن)
 $router->get('/api/admin/reputation-limits', 'AdminReputationLimitsController', 'data', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/api/admin/whatsapp-marketing', 'AdminWhatsAppMarketingController', 'data', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/api/admin/whatsapp-marketing/campaigns', 'AdminWhatsAppMarketingController', 'campaigns', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/whatsapp-marketing/campaigns/{id}/action', 'AdminWhatsAppMarketingController', 'campaignAction', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/whatsapp-marketing/suspend', 'AdminWhatsAppMarketingController', 'suspend', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/whatsapp-marketing/resume', 'AdminWhatsAppMarketingController', 'resume', ['AuthMiddleware', 'AdminMiddleware']);
 $router->post('/api/admin/reputation-limits', 'AdminReputationLimitsController', 'save', ['AuthMiddleware', 'AdminMiddleware']);
 $router->post('/api/admin/reputation-limits/override', 'AdminReputationLimitsController', 'override', ['AuthMiddleware', 'AdminMiddleware']);
 $router->get('/api/admin/email-reputation/overview', 'AdminEmailReputationController', 'overview', ['AuthMiddleware', 'AdminMiddleware']);
