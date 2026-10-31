@@ -405,6 +405,8 @@ final class SocialPackages
             'promos' => self::cleanPromos($raw['promos'] ?? []),
             'costs' => self::cleanCosts($raw['costs'] ?? []),
             'renewal_policy' => ($raw['renewal_policy'] ?? '') === 'grandfather' ? 'grandfather' : 'at_renewal',
+            // سقف الإنفاق الشهري على «اكتشف منافسيني» (دولار): -1 من غير سقف، 0 البحث المدفوع مقفول
+            'finder_budget_usd' => isset($raw['finder_budget_usd']) && is_numeric($raw['finder_budget_usd']) && $raw['finder_budget_usd'] >= -1 && $raw['finder_budget_usd'] <= 10000 ? round((float) $raw['finder_budget_usd'], 2) : 5.0,
             'builder' => $b,
             'platforms_enabled' => $enabled,
             // إيقاف التطبيق = كل حساب شغال من غير حدود (زي ما كان قبل الباقات)
@@ -530,6 +532,9 @@ final class SocialPackages
         }
         if (isset($in['costs']) && is_array($in['costs'])) {
             $raw['costs'] = self::cleanCosts($in['costs'] + (array) ($raw['costs'] ?? []));
+        }
+        if (isset($in['finder_budget_usd']) && is_numeric($in['finder_budget_usd'])) {
+            $raw['finder_budget_usd'] = max(-1, min(10000, round((float) $in['finder_budget_usd'], 2)));
         }
         if (isset($in['renewal_policy'])) {
             $raw['renewal_policy'] = $in['renewal_policy'] === 'grandfather' ? 'grandfather' : 'at_renewal';

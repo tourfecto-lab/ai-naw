@@ -243,6 +243,11 @@ class SocialPlanController extends Controller
         if (!$intake) return $this->error(self::L('مفيش فحص محفوظ. ابدأ من صفحة تحليل السوشيال.', 'No saved check. Start from the social analysis page.'), 404);
         $audit = new SocialAuditService($this->db);
         $results = [];
+        $fbH = $igH = null;
+        foreach ($intake['own'] as $o) {
+            if ($o['platform'] === 'facebook') $fbH = $o['handle']; else $igH = $o['handle'];
+        }
+        (new SocialIntelService($this->db))->markConverted($fbH, $igH);
         foreach ($intake['own'] as $o) {
             if (!$o['connected']) {
                 $results[] = ['kind' => 'own', 'target' => $o['handle'], 'platform' => $o['platform'], 'status' => 'needs_connect', 'text' => self::L('الصفحة دي مش مربوطة بحسابك لسه - اربطها الأول عشان نقرا أرقامها من Meta.', 'This page is not connected yet - connect it first so we can read its numbers from Meta.')];
@@ -335,9 +340,14 @@ class SocialPlanController extends Controller
             return $this->error(self::L('تعذر البحث عن المنافسين دلوقتي — جرّب كمان شوية', 'Could not search for competitors right now — try again shortly'), 503);
         }
         if (!empty($r['none'])) {
-            $msg = self::L('مالقيناش منافسين مؤكدين من بيانات جوجل لموقعك. ده بيحصل مع المواقع الجديدة أو اللي لسه ماظهرتش في جوجل. ضيف منافسين بإيدك من «مركز المنافسين».', 'We found no confirmed competitors from Google data for your site. This happens with new sites or ones not yet visible on Google. Add competitors manually from the Competitor Center.');
+            $why = ['monthly_budget_reached' => self::L('البحث المدفوع وصل للحد الشهري للمنصة', 'The platform’s monthly paid-search limit was reached'), 'search_disabled' => self::L('البحث المدفوع مقفول حاليًا', 'Paid search is currently off'),
+                'site_not_ranked' => self::L('موقعك لسه مش ظاهر في جوجل فمفيش كلمات مشتركة نقارن بيها', 'Your site is not visible on Google yet, so there are no shared keywords to compare'), 'provider_not_configured' => self::L('مصدر بيانات جوجل مش متاح دلوقتي', 'The Google data source is not available right now')][(string) ($r['reason'] ?? '')] ?? '';
+            $msg = self::L('مالقيناش منافسين مؤكدين لموقعك.', 'We found no confirmed competitors for your site.') . ($why !== '' ? ' ' . $why . '.' : '') . ' ' . self::L('ضيف منافسين بإيدك من «مركز المنافسين».', 'Add competitors manually from the Competitor Center.');
         } else {
-            $msg = sprintf(self::L('لقينا %d منافس حقيقي من بيانات جوجل', 'Found %d real competitors from Google data'), (int) $r['found'])
+            $from = ['google_data' => self::L('من بيانات جوجل لموقعك', 'from Google data for your site'), 'cache' => self::L('من نتيجة محفوظة', 'from a saved result'), 'global_cache' => self::L('من نتيجة محفوظة لنفس الموقع', 'from a saved result for the same site'),
+                'ci_candidates' => self::L('من مرشحي المنافسين اللي في حسابك', 'from competitor candidates already in your account'),
+                'directory' => self::L('شركات في نفس سوقك ظهرت كمنافسين لعملاء تانيين (مش مقاسة من جوجل لموقعك)', 'companies in your market that showed up as competitors for other customers (not measured on Google for your site)')][(string) ($r['source'] ?? '')] ?? '';
+            $msg = sprintf(self::L('لقينا %d منافس', 'Found %d competitors'), (int) $r['found']) . ($from !== '' ? ' ' . $from : '')
                 . ($r['tracked'] ? sprintf(self::L(' — و%d بيتتابعوا بالأرقام على إنستجرام', ' — %d tracked with numbers on Instagram'), (int) $r['tracked']) : '')
                 . ($r['limit_note'] ? ' — ' . $r['limit_note'] : '');
         }

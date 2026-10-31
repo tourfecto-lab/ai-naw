@@ -34,6 +34,9 @@ final class SocialCompetitorFinderTest extends TestCase
     {
         $this->pdo->exec("DELETE FROM system_settings WHERE setting_key = 'social_comp_find_" . self::OWNER . "'");
         $this->pdo->exec('DELETE FROM social_competitor_pages WHERE user_id = ' . self::OWNER);
+        $this->pdo->exec("DELETE FROM system_settings WHERE setting_key LIKE 'social_comp_global_%'");
+        $this->pdo->exec("DELETE FROM social_market_directory WHERE market_key = 'XX-en'");
+        $this->pdo->exec('DELETE FROM social_finder_runs WHERE user_id = ' . self::OWNER);
     }
 
     /** نسخة من الاكتشاف من غير شبكة: بتسجّل صفحات وهمية بدل ما تفتح مواقع */

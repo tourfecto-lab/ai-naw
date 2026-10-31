@@ -209,8 +209,11 @@ class MarketingController extends Controller
             'competitors' => is_array($comps) ? $comps : [],
         ]);
         if (empty($r['ok'])) {
+            (new SocialIntelService())->logCheck($lang, null, null, [], array_keys((array) ($r['field_errors'] ?? [])));
             return $this->error($r['error'] ?? 'Error', 422, ['field_errors' => $r['field_errors'] ?? []]);
         }
+        (new SocialIntelService())->logCheck($lang, $r['own']['facebook']['handle'] ?? null, $r['own']['instagram']['handle'] ?? null,
+            array_map(static fn ($c) => $c['platform'] . ':' . $c['handle'], $r['competitors']), []);
         // بنسلّم اللينكات للمنصة بعد التسجيل (كوكي موقّعة 14 يوم) - اللينكات نفسها بس، مفيش بيانات
         $token = FreeSocialCheckService::seal($r['intake']);
         if ($token !== null && !headers_sent()) {

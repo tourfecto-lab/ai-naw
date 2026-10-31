@@ -24,6 +24,25 @@ ${fld('إلى', `<input class="p-select" type="date" data-pf="ends" value="${esc
         const audit = (D.audit || []).map(a => `<tr><td>${esc(a.at)}</td><td>${esc(a.actor)}</td><td>${Object.entries(a.changes).map(([k, v]) => `<div><code>${esc(k)}</code>: ${esc(v.old ?? '—')} ← ${esc(v.new ?? '—')}</div>`).join('')}</td></tr>`).join('');
         const lim = (n, m) => m < 0 ? `${n} / ∞` : `${n} / ${m}`;
         const usageRows = (D.usage_report || []).length ? (D.usage_report || []).map(u => `<div style="display:flex;flex-wrap:wrap;gap:8px 16px;padding:8px 0;border-bottom:1px solid var(--border,rgba(128,128,128,.25))"><b style="flex:1 1 200px;word-break:break-all">${u.alert ? '⚠️ ' : ''}${esc(u.email)}</b><span>${esc(c.tiers[u.tier]?.name || u.tier)}</span><span>منشورات ${lim(u.posts, u.posts_limit)}</span><span>كابشن ${lim(u.ai, u.ai_limit)}</span><span>تكلفة ≈ $${u.est_cost}</span></div>`).join('') : '<p class="p-cell-muted">لسه مفيش استهلاك مسجّل الشهر ده.</p>';
+        const I = D.intel || {};
+        const tile = (label, value, sub) => `<div style="padding:12px;border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px"><div class="p-cell-muted" style="font-size:12px">${label}</div><b style="font-size:20px">${value}</b>${sub ? `<div class="p-cell-muted" style="font-size:12px">${sub}</div>` : ''}</div>`;
+        const kv = (obj, map) => Object.entries(obj || {}).map(([k, n]) => `<li>${esc((map && map[k]) || k)} <b>× ${n}</b></li>`).join('') || '<li class="p-cell-muted">لسه مفيش</li>';
+        const errMap = { facebook: 'لينك فيسبوك غلط', instagram: 'لينك إنستجرام غلط', competitor: 'لينك منافس غلط', competitors: 'أكتر من 3 منافسين', own: 'ما كتبش أي صفحة' };
+        const srcMap = { google_data: 'بحث جوجل (مدفوع)', cache: 'كاش العميل', global_cache: 'كاش مشترك', ci_candidates: 'مرشحي الحساب', directory: 'دليل السوق', none: 'مفيش نتيجة', monthly_budget_reached: 'وصل السقف', search_disabled: 'مقفول' };
+        const bud = Number(I.budget);
+        const budTxt = bud < 0 ? 'من غير سقف' : bud === 0 ? 'البحث المدفوع مقفول' : 'سقف $' + bud;
+        const intelHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+${tile('فحوصات عامة (30 يوم)', I.checks_30d || 0, 'كمّل وسجّل: ' + (I.converted_30d || 0) + (I.checks_30d ? ' (' + Math.round((I.converted_30d || 0) * 100 / I.checks_30d) + '%)' : ''))}
+${tile('بحث المنافسين (30 يوم)', I.runs_30d || 0, I.cache_hit_pct == null ? '' : 'من غير تكلفة: ' + I.cache_hit_pct + '%')}
+${tile('إنفاق جوجل الشهر ده', '$' + (I.spent_month || 0), budTxt + ' · آخر 30 يوم $' + (I.cost_30d || 0))}
+${tile('دليل المنافسين', I.directory_size || 0, 'شركة محفوظة حسب السوق')}</div>
+<label style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><span>سقف الإنفاق الشهري على «اكتشف منافسيني» ($)</span><input class="p-select" type="number" min="-1" step="1" id="spaFinderBudget" value="${esc(c.finder_budget_usd)}" style="max-width:110px"><span class="p-cell-muted" style="font-size:12px">-1 من غير سقف · 0 مقفول</span></label>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px">
+<div><b>مصادر البحث</b><ul style="margin:6px 0;padding-inline-start:18px">${kv(I.by_source, srcMap)}</ul></div>
+<div><b>أكتر منافسين بيتكرروا</b><ul dir="ltr" style="margin:6px 0;padding-inline-start:18px;text-align:left">${(I.directory_top || []).map(d => `<li>${esc(d.domain)} <small>(${esc(d.market)})</small> <b>× ${d.seen}</b></li>`).join('') || '<li class="p-cell-muted">لسه مفيش</li>'}</ul></div>
+<div><b>أكتر حاجة بتغلّط الزوار</b><ul style="margin:6px 0;padding-inline-start:18px">${kv(I.top_errors, errMap)}</ul></div>
+<div><b>أسباب فشل متابعة المنافسين</b><ul style="margin:6px 0;padding-inline-start:18px">${kv(I.blockers)}</ul></div></div>
+<div style="max-height:260px;overflow:auto;margin-top:8px"><b>آخر المهتمين</b>${(I.recent || []).map(r => `<div dir="ltr" style="display:flex;flex-wrap:wrap;gap:6px 14px;padding:6px 0;border-bottom:1px solid var(--border,rgba(128,128,128,.25))"><span>${r.fb ? 'fb: ' + esc(r.fb) : ''}</span><span>${r.ig ? 'ig: ' + esc(r.ig) : ''}</span><span>${r.n_comp} comp</span><span class="p-cell-muted">${esc(r.at)}</span><span>${r.converted ? '✅ سجّل' : ''}</span></div>`).join('') || '<p class="p-cell-muted">لسه مفيش</p>'}</div>`;
         return `
 <h4>💰 التكلفة والهامش (أسوأ حالة: العميل استهلك الحدود كلها)</h4>
 <p class="p-cell-muted">الأرقام دي تقديرات تشغيل لازم تعدّلها بتكلفتك الفعلية (فاتورة Gemini/Meta/الاستضافة). الهامش بعد رسوم بوابة الدفع.</p>
@@ -50,6 +69,9 @@ ${free ? '<div class="p-cell-muted" style="font-size:12px">باقة مجانية
 <p class="p-cell-muted">التكلفة تقديرية من أسعار الوحدة فوق. ⚠️ = وصل 80% أو أكتر من حد المنشورات أو الكابشن.</p>
 <div style="overflow-x:auto;max-height:340px">${usageRows}</div>
 
+<h4>🧠 اللي بنتعلمه من الفحوصات</h4>
+<p class="p-cell-muted">كل فحص بيتحوّل لمعلومة: مين مهتم ومين كمّل، وأي منافسين بيتكرروا في كل سوق (بنوفّر بيهم تكلفة بحث جوجل لعملاء جايين)، وإيه اللي بيعطّل العملاء. بنسجّل أسماء الصفحات العامة بس، من غير IP ولا بيانات شخصية.</p>
+${intelHtml}
 <h4>🧾 سجل التعديلات (آخر 30)</h4>
 <div style="overflow-x:auto;max-height:320px"><table><thead><tr><th>الوقت (UTC)</th><th>الأدمن</th><th>التغيير</th></tr></thead><tbody>${audit || '<tr><td colspan="3" class="p-cell-muted">لسه مفيش تعديلات مسجّلة.</td></tr>'}</tbody></table></div>`;
     };
@@ -141,7 +163,8 @@ ${extras(c)}
             collectPromos();
             const costs = {}; root.querySelectorAll('[data-cost]').forEach(el => { costs[el.dataset.cost] = Number(el.value); });
             const renewal_policy = root.querySelector('input[name="spaPolicy"]:checked')?.value || 'at_renewal';
-            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
+            const finder_budget_usd = Number(root.querySelector('#spaFinderBudget')?.value ?? 5);
+            const r = await api('/api/admin/social-packages', { config: { promos: D.config.promos, costs, renewal_policy, finder_budget_usd, enforce: root.querySelector('#spaEnforce').checked, plan_default: root.querySelector('#spaDefault').value, tiers, addons, plan_map, builder, platforms_enabled } });
             D.config = r.data.config; D.economics = r.data.economics; D.audit = r.data.audit;
             render();
             msg('اتحفظت باقات السوشيال ✓');

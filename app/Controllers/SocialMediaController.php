@@ -1357,7 +1357,7 @@ class SocialMediaController extends Controller
         } catch (Throwable $e) {
         }
         return $this->success(['config' => SocialPackages::config(), 'defaults' => SocialPackages::DEFAULTS, 'labels' => SocialPackages::LABELS, 'platform_names' => SocialPackages::PLATFORM_NAMES,
-            'limit_keys' => SocialPackages::LIMIT_KEYS, 'feature_keys' => SocialPackages::FEATURE_KEYS, 'platform_plans' => $plans, 'stats' => $stats, 'ready' => SocialPackages::ready(), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30), 'usage_report' => SocialPackages::usageReport(30), 'csrf_token' => Csrf::token()]);
+            'limit_keys' => SocialPackages::LIMIT_KEYS, 'feature_keys' => SocialPackages::FEATURE_KEYS, 'platform_plans' => $plans, 'stats' => $stats, 'ready' => SocialPackages::ready(), 'economics' => SocialPackages::economics(), 'audit' => SocialPackages::auditLog(30), 'usage_report' => SocialPackages::usageReport(30), 'intel' => (new SocialIntelService())->insights(), 'csrf_token' => Csrf::token()]);
     }
 
     /** POST /api/admin/social-packages  body: {config} */

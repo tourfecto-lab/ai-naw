@@ -702,6 +702,52 @@ class SmartOnboardingService
         return ['source' => $source, 'market' => $m, 'site' => $site, 'keywords' => $keywords, 'competitors' => $out];
     }
 
+    /**
+     * نسخة أخف من competitors() لخدمة السوشيال: منافسين من بيانات جوجل الحقيقية بس، من غير كلمات ولا ترتيب ولا تقدير زيارات.
+     * طلبين (ترتيب الموقع + المواقع المنافسة) بدل 3-5. التكلفة اللي بترجع هي الفعلية من رد المزوّد.
+     * @return array{source:string, reason?:string, competitors:list<array>, cost:float}
+     */
+    public function competitorsLean(string $ownUrl, string $language, array $countries = []): array
+    {
+        $own = self::host($ownUrl);
+        $m = $this->market($countries, $language);
+        $client = $this->dfs();
+        if (!$client) {
+            return ['source' => 'none', 'reason' => 'provider_not_configured', 'competitors' => [], 'cost' => 0.0];
+        }
+        $cost = 0.0;
+        $base = ['target' => $own, 'location_code' => $m['code'], 'language_code' => $m['lang']];
+        $ov = $client->callPlatform('dataforseo_labs/google/domain_rank_overview/live', [$base], 0.02);
+        $cost += (float) ($ov['cost'] ?? 0);
+        if (empty($ov['available'])) {
+            return ['source' => 'none', 'reason' => (string) ($ov['reason'] ?? 'unavailable'), 'competitors' => [], 'cost' => $cost];
+        }
+        $ownKw = (int) (DataForSeoClient::items($ov)[0]['metrics']['organic']['count'] ?? 0);
+        if ($ownKw <= 0) {
+            return ['source' => 'none', 'reason' => 'site_not_ranked', 'competitors' => [], 'cost' => $cost];
+        }
+        $cd = $client->callPlatform('dataforseo_labs/google/competitors_domain/live', [$base + ['limit' => 20, 'exclude_top_domains' => true]], 0.03);
+        $cost += (float) ($cd['cost'] ?? 0);
+        $pool = [];
+        foreach ($cd['available'] ? DataForSeoClient::items($cd) : [] as $it) {
+            $h = self::host((string) ($it['domain'] ?? ''));
+            if ($h === '' || $h === $own || $this->isMarketplace($h)) continue;
+            $o = $it['full_domain_metrics']['organic'] ?? ($it['metrics']['organic'] ?? []);
+            if (self::isPublisher((int) ($o['count'] ?? 0), $ownKw)) continue;
+            $pool[$h] = ['shared' => (int) ($it['intersections'] ?? 0), 'traffic' => (int) round((float) ($o['etv'] ?? 0)), 'keywords' => (int) ($o['count'] ?? 0)];
+        }
+        uasort($pool, fn ($a, $b) => $b['shared'] <=> $a['shared']);
+        $top = array_slice(array_keys($pool), 0, 10);
+        $verified = $top ? $this->verify($top, 7) : [];
+        $out = [];
+        foreach ($top as $d) {
+            $out[] = ['domain' => $d, 'title' => $verified[$d]['title'] ?? $d, 'shared_keywords' => $pool[$d]['shared'], 'traffic' => $pool[$d]['traffic'], 'keywords' => $pool[$d]['keywords'], 'measured' => true, 'verified' => isset($verified[$d])];
+        }
+        // اللي فتحنا موقعه الأول (بنفضّله)، وبعدين اللي جوجل شايفه بس رفض فحصنا
+        usort($out, fn ($a, $b) => ($b['verified'] <=> $a['verified']) ?: ($b['shared_keywords'] <=> $a['shared_keywords']));
+        return ['source' => $out ? 'google_data' : 'none', 'competitors' => array_slice($out, 0, 8), 'cost' => $cost];
+    }
+
     private function isMarketplace(string $host): bool
     {
         return self::notACompetitor($host);

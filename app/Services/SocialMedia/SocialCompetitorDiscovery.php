@@ -146,38 +146,111 @@ class SocialCompetitorDiscovery
     }
 
     /**
-     * «اكتشف منافسيني الحقيقيين»: منافسين من بيانات جوجل الحقيقية لموقع العميل (DataForSEO: كلمات مشتركة وترتيب)،
-     * ونطلع صفحاتهم على فيسبوك وإنستجرام من مواقعهم. مفيش تخمين: اللي مالوش قياس من جوجل مابيتعرضش، ولو مفيش بيانات نقول كده.
-     * الكاش 7 أيام لكل عميل (الطلب بيتكلف). المتابعة بالأرقام على إنستجرام بتتم في حدود باقة العميل.
-     * @return array{success:bool, found:int, none?:bool, source:string, cached:bool, tracked:int, limit_note:?string, domains:array}
+     * «اكتشف منافسيني الحقيقيين». الترتيب من الأرخص للأغلى، ومفيش تخمين في أي مصدر:
+     *   1) نتيجة محفوظة لنفس العميل (30 يوم) ← 2) نتيجة محفوظة لأي عميل بنفس الموقع والسوق ← 3) مرشحي المنافسين الموجودين في حسابه (Competitor Intelligence)
+     *   ← 4) بحث جوجل المدفوع (طلبين بس، بسقف شهري، والتكلفة الفعلية بتتسجّل) ← 5) دليل السوق: شركات ظهرت كمنافسين لأكتر من عميل (مكتوب إنها مش مقاسة لموقعه).
+     * كل نتيجة حقيقية بتتحفظ في دليل السوق عشان العميل الجاي في نفس السوق يستفيد من غير تكلفة.
+     * @return array{success:bool, found:int, none?:bool, source:string, cached:bool, cost:float, tracked:int, limit_note:?string, domains:array, reason?:string}
      */
     public function findReal(int $owner, int $websiteId, string $siteUrl, string $language, array $countries = [], bool $force = false): array
     {
         $host = self::host($siteUrl);
+        $market = SocialIntelService::marketKey($countries, $language);
+        $intel = new SocialIntelService($this->db);
         $ss = new SystemSettingsService();
-        $key = 'social_comp_find_' . $owner;
-        $cached = json_decode((string) $ss->get($key, ''), true);
-        $fresh = is_array($cached) && (int) ($cached['at'] ?? 0) > time() - 7 * 86400 && ($cached['site'] ?? '') === $host && !$force;
-        if ($fresh) {
-            $source = (string) ($cached['source'] ?? 'none');
-            $found = (array) ($cached['competitors'] ?? []);
-        } else {
-            $r = self::$competitorFinder ? (self::$competitorFinder)($siteUrl, $language, $websiteId, $countries) : (new SmartOnboardingService())->competitors($siteUrl, [], [], $language, $websiteId, $countries);
-            $source = (string) ($r['source'] ?? 'none');
-            $found = [];
-            foreach ((array) ($r['competitors'] ?? []) as $c) {
-                if (empty($c['measured']) || empty($c['domain'])) continue;
-                $found[] = ['domain' => self::host((string) $c['domain']), 'title' => (string) ($c['title'] ?? ''), 'shared_keywords' => $c['shared_keywords'] ?? null, 'traffic' => $c['traffic'] ?? null];
-                if (count($found) >= 6) break;
-            }
-            $ss->set($key, json_encode(['at' => time(), 'site' => $host, 'source' => $source, 'competitors' => $found], JSON_UNESCAPED_UNICODE));
+        $ownKey = 'social_comp_find_' . $owner;
+        $globalKey = 'social_comp_global_' . substr(md5($host . '|' . $market), 0, 24);
+        $ttl = 30 * 86400;
+        $valid = static fn ($c) => is_array($c) && (int) ($c['at'] ?? 0) > time() - $ttl && ($c['site'] ?? '') === $host;
+        $found = [];
+        $source = '';
+        $cost = 0.0;
+        $cached = false;
+        $reason = null;
+        $searchedBefore = false;
+
+        $c = json_decode((string) $ss->get($ownKey, ''), true);
+        if (!$force && $valid($c)) {
+            $cached = true;
+            $found = (array) ($c['competitors'] ?? []);
+            $source = $found ? 'cache' : '';
+            $searchedBefore = true;
         }
-        if (!$found) return ['success' => true, 'found' => 0, 'none' => true, 'source' => $source, 'cached' => $fresh, 'tracked' => 0, 'limit_note' => null, 'domains' => []];
+        if (!$found && !$force) {
+            $g = json_decode((string) $ss->get($globalKey, ''), true);
+            if ($valid($g) && !empty($g['competitors'])) {
+                $found = (array) $g['competitors'];
+                $source = 'global_cache';
+                $cached = true;
+            }
+        }
+        if (!$found && !$searchedBefore) {
+            $found = $this->ciCandidates($owner, $host);
+            if ($found) {
+                $source = 'ci_candidates';
+                $ss->set($ownKey, json_encode(['at' => time(), 'site' => $host, 'source' => $source, 'competitors' => $found], JSON_UNESCAPED_UNICODE));
+            }
+        }
+        if (!$found && !$searchedBefore) {
+            if (!$intel->budgetAllows()) {
+                $reason = SocialIntelService::budget() == 0.0 ? 'search_disabled' : 'monthly_budget_reached';
+            } else {
+                $r = self::$competitorFinder ? (self::$competitorFinder)($siteUrl, $language, $websiteId, $countries) : (new SmartOnboardingService())->competitorsLean($siteUrl, $language, $countries);
+                $cost = (float) ($r['cost'] ?? 0);
+                $reason = isset($r['reason']) ? (string) $r['reason'] : null;
+                foreach ((array) ($r['competitors'] ?? []) as $x) {
+                    if (empty($x['measured']) || empty($x['domain'])) continue;
+                    $found[] = ['domain' => self::host((string) $x['domain']), 'title' => (string) ($x['title'] ?? ''), 'shared_keywords' => $x['shared_keywords'] ?? null, 'traffic' => $x['traffic'] ?? null];
+                    if (count($found) >= 6) break;
+                }
+                $source = $found ? 'google_data' : '';
+                // النتيجة (حتى لو فاضية) بتتحفظ: مانكرّرش طلب مدفوع لنفس الموقع
+                $payload = json_encode(['at' => time(), 'site' => $host, 'source' => $source ?: 'none', 'competitors' => $found], JSON_UNESCAPED_UNICODE);
+                $ss->set($ownKey, $payload);
+                if ($found) $ss->set($globalKey, $payload);
+            }
+        }
+        $measured = $found !== [];
+        if (!$found) {
+            $found = array_map(static fn ($d) => ['domain' => $d['domain'], 'title' => (string) ($d['name'] ?? ''), 'shared_keywords' => null, 'traffic' => null], $intel->directory($market, [$host]));
+            if ($found) $source = 'directory';
+        }
+        $intel->logRun($owner, $source ?: ($reason ?: 'none'), count($found), $cost);
+        if (!$found) {
+            return ['success' => true, 'found' => 0, 'none' => true, 'source' => $source ?: 'none', 'cached' => $cached, 'cost' => $cost, 'tracked' => 0, 'limit_note' => null, 'domains' => [], 'reason' => $reason];
+        }
         $domains = [];
-        foreach ($found as $c) $domains[$c['domain']] = ($c['title'] !== '' && strtolower($c['title']) !== $c['domain']) ? mb_substr($c['title'], 0, 120) : '';
+        foreach ($found as $x) $domains[$x['domain']] = ($x['title'] !== '' && strtolower($x['title']) !== $x['domain']) ? mb_substr($x['title'], 0, 120) : '';
         $this->fetchPages($owner, $domains, $force);
+        if (in_array($source, ['google_data', 'ci_candidates', 'global_cache'], true)) {
+            $rows = [];
+            foreach ($this->db->query('SELECT domain, name, facebook_url, instagram_username FROM social_competitor_pages WHERE user_id = ? AND domain IN (' . implode(',', array_fill(0, count($domains), '?')) . ')', array_merge([$owner], array_keys($domains))) ?: [] as $p) {
+                $fb = null;
+                if (!empty($p['facebook_url']) && preg_match('~facebook\.com/([A-Za-z0-9.\-]+)~i', (string) $p['facebook_url'], $mm)) $fb = strtolower($mm[1]);
+                $rows[] = ['domain' => $p['domain'], 'name' => $p['name'], 'facebook' => $fb, 'instagram' => $p['instagram_username']];
+            }
+            $intel->recordCompetitors($market, $rows);
+        }
         [$tracked, $limitNote] = $this->trackWithinPlan($owner);
-        return ['success' => true, 'found' => count($found), 'source' => $source, 'cached' => $fresh, 'tracked' => $tracked, 'limit_note' => $limitNote, 'domains' => array_keys($domains)];
+        return ['success' => true, 'found' => count($found), 'source' => $source, 'cached' => $cached, 'cost' => $cost, 'tracked' => $tracked, 'limit_note' => $limitNote, 'domains' => array_keys($domains), 'reason' => $reason];
+    }
+
+    /** مرشحو المنافسين اللي اتجمعوا قبل كده في حساب العميل (Google Places أو اقتراحه اليدوي): مجانًا، ومواقعهم حقيقية */
+    private function ciCandidates(int $owner, string $ownHost): array
+    {
+        $out = [];
+        try {
+            $rows = $this->db->query("SELECT competitor_name, website FROM ci_discovery_candidates WHERE user_id = ? AND status IN ('pending','added') AND website IS NOT NULL AND website <> '' ORDER BY id DESC LIMIT 12", [$owner]) ?: [];
+        } catch (Throwable $e) {
+            return [];
+        }
+        foreach ($rows as $r) {
+            $h = self::host((string) $r['website']);
+            if ($h === '' || $h === $ownHost || SmartOnboardingService::notACompetitor($h) || isset($out[$h])) continue;
+            $out[$h] = ['domain' => $h, 'title' => (string) $r['competitor_name'], 'shared_keywords' => null, 'traffic' => null];
+            if (count($out) >= 6) break;
+        }
+        return array_values($out);
     }
 
     /** متابعة حسابات إنستجرام المنافسين بالأرقام، لحد حدود باقة العميل بس (من غير ما نتخطاها) */
