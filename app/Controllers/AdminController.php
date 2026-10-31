@@ -1233,6 +1233,18 @@ class AdminController extends Controller
         }
     }
 
+    /** GET /api/admin/plans-audit - آخر تعديلات الباقات (مين غيّر إيه، قبل وبعد) */
+    public function planChanges(array $params = []): array
+    {
+        try {
+            require_once APP_PATH . '/Services/Subscription/BillingPlanCatalog.php';
+            return $this->success(['changes' => BillingPlanCatalog::recentChanges($this->db, 40)]);
+        } catch (Throwable $e) {
+            Logger::error('Admin planChanges Error', ['message' => $e->getMessage()]);
+            return $this->error('تعذر جلب سجل التعديلات', 500);
+        }
+    }
+
     /** PUT /api/admin/plans/{id} */
     public function updatePlan(array $params = []): array
     {
@@ -1242,8 +1254,10 @@ class AdminController extends Controller
             $fields=['name','price_monthly','price_yearly','currency','ai_analysis','competitor_analysis','chat_credits','review_credits','multiple_websites','whatsapp_bot','auto_pilot','advanced_analytics','is_active'];
             $patch=[];$extra=[];
             foreach($fields as $field)if($this->get($field)!==null)$patch[$field]=$this->get($field);
-            foreach(['ai_assistant_messages','website_generations','website_items','whatsapp_marketing_messages'] as $field)if($this->get($field)!==null&&$this->get($field)!=='')$extra[$field]=$this->get($field);
-            $plan=$this->db->transaction(function()use($id,$fields,$patch,$extra){
+            foreach(array_merge(['ai_assistant_messages','website_generations','website_items','whatsapp_marketing_messages'],array_keys(BillingPlanCatalog::SEO_LIMITS)) as $field)if($this->get($field)!==null&&$this->get($field)!=='')$extra[$field]=$this->get($field);
+            BillingPlanCatalog::ensureAuditTable($this->db);
+            $actor=(int)($this->user['id']??0)?:null;
+            $plan=$this->db->transaction(function()use($id,$fields,$patch,$extra,$actor){
                 $pdo=$this->db->getConnection();$lock=$pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';
                 $stmt=$pdo->prepare('SELECT * FROM plan_pricing_display WHERE id=?'.$lock);$stmt->execute([$id]);$plan=$stmt->fetch(PDO::FETCH_ASSOC);
                 if(!$plan)return null;
@@ -1256,6 +1270,7 @@ class AdminController extends Controller
                     foreach(['price_monthly','price_yearly','currency'] as $field)$plan[$field]=$billing[$key][$field];
                     foreach($billing[$key]['features'] as $field=>$value)$plan[$field]=$value;
                 }
+                $before=$plan;
                 $plan=array_replace($plan,$patch);
                 if(!is_string($plan['name'])||trim($plan['name'])===''||mb_strlen($plan['name'])>150)throw new InvalidArgumentException('Invalid plan name');
                 BillingPlanCatalog::syncDisplay($this->db,$plan,$extra);
@@ -1264,6 +1279,7 @@ class AdminController extends Controller
                 $sets=implode(',',array_map(fn($field)=>'`'.$field.'`=?',$persistFields));
                 $values=array_map(fn($field)=>$plan[$field],$persistFields);$values[]=$id;
                 $stmt=$pdo->prepare('UPDATE plan_pricing_display SET '.$sets.' WHERE id=?');$stmt->execute($values);
+                BillingPlanCatalog::recordChange($this->db,$key,$actor,$before,array_replace($plan,$extra));
                 return $plan;
             });
             if($plan===null)return $this->error('الباقة غير موجودة',404);
@@ -3105,6 +3121,7 @@ class AdminController extends Controller
             return;
         }
         plansCache = res.data.plans;
+        loadPlanAudit();
         if (!plansCache.length) {
             grid.innerHTML = `<div class="p-empty">${I18N['admin.plans.none']}</div>`;
             return;
@@ -3120,6 +3137,15 @@ class AdminController extends Controller
                 <button class="p-btn outline xs" style="margin-top:10px;" onclick="openEditPlan(${p.id})">✏️ ${I18N['common.edit']}</button>
             </div>
         `).join('');
+    }
+
+    const AUDIT_LABELS = { name: 'الاسم', price_monthly: 'السعر الشهري', price_yearly: 'السعر السنوي', currency: 'العملة', is_active: 'مفعّلة', seo_cycles: 'فحوصات السيو/شهر', seo_max_pages: 'صفحات الفحص', seo_markets: 'الأسواق', ai_visibility: 'قياسات الذكاء الاصطناعي', seo_data: 'وحدات البيانات', articles: 'المقالات', ai_analysis: 'تحليلات AI', competitor_analysis: 'تحليلات المنافسين', chat_credits: 'رسائل الشات', review_credits: 'ردود التقييمات', multiple_websites: 'المواقع' };
+    async function loadPlanAudit() {
+        const box = document.getElementById('planAuditBox');
+        if (!box) return;
+        const res = await fetchJSON('/api/admin/plans-audit');
+        if (!res.success || !res.data.changes.length) { box.textContent = res.success ? 'مفيش تعديلات متسجّلة لسه.' : 'تعذر تحميل السجل'; return; }
+        box.innerHTML = res.data.changes.map(c => '<div style="padding:6px 0;border-bottom:1px solid var(--panel-border)"><b>' + esc(c.plan_key) + '</b> <span class="p-cell-muted" dir="ltr">' + esc(c.created_at) + ' · ' + esc(c.actor_email || ('#' + c.actor_id)) + '</span><div>' + Object.entries(c.changes).map(([k, v]) => esc(AUDIT_LABELS[k] || k) + ': <s>' + esc(v.from ?? '-') + '</s> ← <b>' + esc(v.to ?? '-') + '</b>').join(' · ') + '</div></div>').join('');
     }
 
     window.openEditPlan = function (id) {
@@ -3143,6 +3169,9 @@ class AdminController extends Controller
         document.getElementById('planAssistantMsgs').value = p.ai_assistant_messages ?? '';
         document.getElementById('planWebsiteGens').value = p.website_generations ?? '';
         document.getElementById('planWebsiteItems').value = p.website_items ?? '';
+        ['seo_cycles','seo_max_pages','seo_markets','ai_visibility','seo_data','articles'].forEach(k => { document.getElementById('plan_' + k).value = p[k] ?? ''; });
+        // الفحص بيشتغل على 100/300/500 صفحة بس: القيم القديمة (80 / 200 / 400) كانت بتتقرّب في صمت، فبنعرض القيمة الفعلية
+        if (p.seo_max_pages) { const n = Number(p.seo_max_pages); document.getElementById('plan_seo_max_pages').value = n >= 500 ? '500' : (n >= 300 ? '300' : '100'); }
         document.getElementById('planWhatsAppMarketing').value = p.whatsapp_marketing_messages ?? ({starter:500,professional:2000,enterprise:10000}[p.plan_key] ?? 0);
         document.getElementById('editPlanAlert').style.display = 'none';
         P.openModal('editPlanModal');
@@ -3173,6 +3202,7 @@ class AdminController extends Controller
             website_items: document.getElementById('planWebsiteItems').value,
             whatsapp_marketing_messages: document.getElementById('planWhatsAppMarketing').value,
         };
+        ['seo_cycles','seo_max_pages','seo_markets','ai_visibility','seo_data','articles'].forEach(k => { payload[k] = document.getElementById('plan_' + k).value; });
 
         const res = await fetchJSON('/api/admin/plans/' + id, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -4288,6 +4318,7 @@ HTML;
                 return <<<HTML
                 <p class="p-cell-muted" style="margin-bottom:16px;">{$this->tr('admin.plans.hint')}</p>
                 <div id="plansGrid" class="p-grid cols-3"><div class="p-empty">{$this->tr('common.loading')}</div></div>
+                <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>سجل تعديل الباقات</h3><span class="p-card-sub">مين غيّر إيه وإمتى (القيمة قبل وبعد)</span></div><div id="planAuditBox" class="p-cell-muted">...</div></div>
 
                 <div class="p-modal-overlay" id="editPlanModal">
                     <div class="p-modal">
@@ -4336,6 +4367,13 @@ HTML;
                                 <div><label for="planWebsiteItems" class="form-label">إضافة رحلة/غرفة لموقع (لكل فترة)</label><input type="number" min="-1" id="planWebsiteItems" class="form-control" style="margin-bottom:10px;"></div>
                                 <div><label for="planWhatsAppMarketing" class="form-label">WhatsApp marketing recipients per subscription period (0 disables, -1 unlimited)</label><input type="number" min="-1" id="planWhatsAppMarketing" class="form-control" style="margin-bottom:10px;"></div>
                                 <div class="p-cell-muted" style="grid-column:1/-1;font-size:12px;margin:-4px 0 10px">-1 = غير محدود، 0 = مش مشمولة (بتتخصم من المحفظة). أي حاجة بعد ما الحصة تخلص بتتخصم من المحفظة.</div>
+                                <div class="p-cell-muted" style="grid-column:1/-1;font-weight:600">حدود خدمة السيو والظهور في الذكاء الاصطناعي</div>
+                                <div><label for="plan_seo_cycles" class="form-label">فحوصات وتحسين تلقائي في الشهر (1-4)</label><input type="number" min="1" max="4" id="plan_seo_cycles" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="plan_seo_max_pages" class="form-label">صفحات في كل فحص (100 أو 300 أو 500)</label><select id="plan_seo_max_pages" class="form-control" style="margin-bottom:10px;"><option value="100">100</option><option value="300">300</option><option value="500">500</option></select></div>
+                                <div><label for="plan_seo_markets" class="form-label">أسواق ولغات لكل موقع (1-12)</label><input type="number" min="1" max="12" id="plan_seo_markets" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="plan_ai_visibility" class="form-label">قياسات الظهور في ChatGPT/Gemini/Perplexity في الشهر</label><input type="number" min="0" id="plan_ai_visibility" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="plan_seo_data" class="form-label">وحدات بيانات الكلمات والمنافسين في الشهر</label><input type="number" min="0" id="plan_seo_data" class="form-control" style="margin-bottom:10px;"></div>
+                                <div><label for="plan_articles" class="form-label">مقالات في الشهر</label><input type="number" min="0" id="plan_articles" class="form-control" style="margin-bottom:10px;"></div>
                             </div>
                             <label style="display:flex;align-items:center;gap:8px;margin:8px 0;"><input type="checkbox" id="planWhatsappBot"> {$this->tr('admin.plans.whatsapp_bot')}</label>
                             <label style="display:flex;align-items:center;gap:8px;margin:8px 0;"><input type="checkbox" id="planAutoPilot"> {$this->tr('admin.plans.auto_pilot')}</label>

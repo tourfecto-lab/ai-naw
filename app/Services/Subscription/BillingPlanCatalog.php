@@ -8,6 +8,64 @@ class BillingPlanCatalog
         'enterprise'=>['ai_visibility'=>500,'seo_data'=>6000,'seo_markets'=>4,'website_generations'=>12,'website_items'=>300,'articles'=>40,'marketing_tools'=>500,'media_images'=>120,'media_videos'=>6,'ai_tools'=>800],
     ];
 
+    /** حدود خدمة السيو اللي الأدمن يقدر يعدلها: [أقل قيمة, أكبر قيمة] */
+    public const SEO_LIMITS = ['seo_cycles'=>[1,4],'seo_max_pages'=>[100,500],'seo_markets'=>[1,12],'ai_visibility'=>[0,100000],'seo_data'=>[0,1000000],'articles'=>[0,10000]];
+
+    public static function seoLimit(string $field, $value): int
+    {
+        if (!isset(self::SEO_LIMITS[$field])) throw new InvalidArgumentException('Unknown SEO limit');
+        if (!is_scalar($value) || !preg_match('/^[0-9]+$/D', (string) $value)) throw new InvalidArgumentException('Invalid SEO limit');
+        [$min, $max] = self::SEO_LIMITS[$field];
+        $v = (int) $value;
+        if ($v < $min || $v > $max) throw new InvalidArgumentException('SEO limit out of range');
+        // الفحص بيشتغل على 100 أو 300 أو 500 صفحة بس، فأي رقم تاني كان هيتقرّب في صمت
+        if ($field === 'seo_max_pages' && !in_array($v, [100, 300, 500], true)) throw new InvalidArgumentException('Pages must be 100, 300 or 500');
+        return $v;
+    }
+
+    private const AUDIT_FIELDS = ['name','price_monthly','price_yearly','currency','is_active','ai_analysis','competitor_analysis','chat_credits','review_credits','multiple_websites','whatsapp_bot','auto_pilot','advanced_analytics','ai_assistant_messages','website_generations','website_items','whatsapp_marketing_messages','seo_cycles','seo_max_pages','seo_markets','ai_visibility','seo_data','articles'];
+
+    /** الجدول بيتعمل قبل الترانزاكشن (DDL بيقفل أي ترانزاكشن مفتوحة في MySQL) */
+    public static function ensureAuditTable(Database $db): void
+    {
+        $db->getConnection()->exec('CREATE TABLE IF NOT EXISTS plan_change_audit (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            plan_key VARCHAR(80) NOT NULL,
+            actor_id INT UNSIGNED NULL,
+            changes_json TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_plan_time (plan_key, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+
+    /** بيرجع الفروق بس (قبل/بعد) ويسجّلها؛ لو مفيش تغيير مبيكتبش حاجة */
+    public static function recordChange(Database $db, string $planKey, ?int $actorId, array $before, array $after): array
+    {
+        $diff = [];
+        foreach (self::AUDIT_FIELDS as $field) {
+            if (!array_key_exists($field, $after)) continue;
+            $old = $before[$field] ?? null;
+            $new = $after[$field];
+            if (is_bool($old)) $old = (int) $old;
+            if (is_bool($new)) $new = (int) $new;
+            $same = is_numeric($old) && is_numeric($new) ? (float) $old === (float) $new : (string) $old === (string) $new;
+            if (!$same) $diff[$field] = ['from' => $old, 'to' => $new];
+        }
+        if ($diff) {
+            $db->getConnection()->prepare('INSERT INTO plan_change_audit (plan_key, actor_id, changes_json) VALUES (?,?,?)')
+                ->execute([$planKey, $actorId, json_encode($diff, JSON_UNESCAPED_UNICODE)]);
+        }
+        return $diff;
+    }
+
+    public static function recentChanges(Database $db, int $limit = 40): array
+    {
+        self::ensureAuditTable($db);
+        $st = $db->getConnection()->prepare('SELECT a.plan_key, a.actor_id, a.changes_json, a.created_at, u.email AS actor_email FROM plan_change_audit a LEFT JOIN users u ON u.id = a.actor_id ORDER BY a.id DESC LIMIT ' . max(1, min(200, $limit)));
+        $st->execute();
+        return array_map(static function ($r) { $r['changes'] = json_decode((string) $r['changes_json'], true) ?: []; unset($r['changes_json']); return $r; }, $st->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     public static function featureQuota($value): int
     {
         if ($value===true || $value===-1 || $value==='-1') return -1;
@@ -125,6 +183,7 @@ class BillingPlanCatalog
                 $f[$field]=$v===1||$v==='1'||$v===true;
             }
             foreach (['ai_assistant_messages','website_generations','website_items','whatsapp_marketing_messages'] as $field) if (array_key_exists($field,$extra)) $f[$field]=self::featureQuota($extra[$field]);
+            foreach (array_keys(self::SEO_LIMITS) as $field) if (array_key_exists($field,$extra)) $f[$field]=self::seoLimit($field,$extra[$field]);
             $active=$plan['is_active']??0;
             if (!in_array($active,[0,1,'0','1',true,false],true)) throw new InvalidArgumentException('Invalid active flag');
             $stmt=$pdo->prepare('UPDATE subscription_plans SET name=?, price=?, currency=?, ai_analysis_limit=?, ai_message_limit=?, review_auto_reply_limit=?, websites_limit=?, is_active=?, features_json=? WHERE id=?');
