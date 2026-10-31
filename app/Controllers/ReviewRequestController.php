@@ -64,7 +64,7 @@ class ReviewRequestController extends Controller
             }
             unset($d);
         }
-        echo ReviewLanding::page($company, $dest, '', GuestSurveys::ready() ? '/survey/' . GuestSurveys::code($websiteId) : '', $ar);
+        echo ReviewLanding::page($company, $dest, '', GuestSurveys::ready() && GuestSurveyController::surveysAllowed((int) $site->getAttribute('user_id')) ? '/survey/' . GuestSurveys::code($websiteId) : '', $ar);
         exit;
     }
 

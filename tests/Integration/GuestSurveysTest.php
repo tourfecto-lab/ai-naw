@@ -158,4 +158,39 @@ final class GuestSurveysTest extends TestCase
         $this->assertStringContainsString('/survey/1-abc', $html);
         $this->assertStringContainsString('https://g.page/r/abc/review', $html, 'the public link stays');
     }
+
+    public function testSurveysCanBeSwitchedOffPerPlanOrPerCustomer(): void
+    {
+        $keys = ['reputation_limits', 'reputation_limits_audit', 'reputation_limit_overrides'];
+        $saved = [];
+        foreach ($keys as $k) {
+            $v = $this->pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = '$k'")->fetchColumn();
+            $saved[$k] = $v === false ? null : $v;
+            $this->pdo->exec("DELETE FROM system_settings WHERE setting_key = '$k'");
+        }
+        try {
+            $this->assertTrue(GuestSurveyController::surveysAllowed(self::A), 'on by default');
+            ReputationLimits::save(['free' => ['surveys' => false]], 1, $this->db);
+            $this->assertFalse(GuestSurveyController::surveysAllowed(self::A));
+            $c = new GuestSurveyController();
+            foreach (['data' => ['score' => 9], 'authenticated' => false] as $prop => $value) {
+                $r = new ReflectionProperty(Controller::class, $prop);
+                $r->setAccessible(true);
+                $r->setValue($c, $value);
+            }
+            $res = $c->submit(['code' => GuestSurveys::code(self::WA)]);
+            $this->assertFalse($res['success'] ?? true, 'the public form must refuse while the feature is off');
+            $this->assertSame(0, (int) $this->pdo->query('SELECT COUNT(*) FROM guest_surveys WHERE website_id = ' . self::WA)->fetchColumn());
+            ReputationLimits::saveOverride(self::A, ['surveys' => true], 1, $this->db);
+            $this->assertTrue(GuestSurveyController::surveysAllowed(self::A), 'a per-customer exception turns it back on');
+        } finally {
+            foreach ($saved as $k => $v) {
+                $this->pdo->exec("DELETE FROM system_settings WHERE setting_key = '$k'");
+                if ($v !== null) {
+                    $st = $this->pdo->prepare('INSERT INTO system_settings (setting_key, setting_value, is_secret) VALUES (?, ?, 0)');
+                    $st->execute([$k, $v]);
+                }
+            }
+        }
+    }
 }

@@ -1382,6 +1382,15 @@ $creditsCheck = $this->subscription->reserveReviewCredits((int) $this->user['id'
             echo '<!doctype html><meta charset="utf-8"><p style="font-family:sans-serif;text-align:center;margin-top:20vh">Website not found.</p>';
             exit;
         }
+        try {
+            ReputationLimits::assertFeature((int) $this->user['id'], 'monthly_report');
+        } catch (ReputationLimitReached $limit) {
+            http_response_code(403);
+            echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><p style="font-family:sans-serif;text-align:center;margin:20vh 16px 0">' . htmlspecialchars($limit->getMessage(), ENT_QUOTES, 'UTF-8') . '</p>';
+            exit;
+        } catch (Throwable $e) {
+            // a settings error never blocks the report
+        }
         $lang = (string) $this->get('lang', '');
         $ar = $lang === 'ar' || ($lang !== 'en' && function_exists('current_lang') && current_lang() === 'ar');
         try {
