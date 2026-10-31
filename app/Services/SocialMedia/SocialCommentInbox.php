@@ -695,10 +695,25 @@ final class SocialCommentInbox
             throw new InvalidArgumentException('اكتب رد من 1 لـ 2000 حرف');
         }
         $c = $this->owned($userId, $id);
-        $token = $this->token((int) $c['platform_connection_id']);
-        $res = $this->api($token)->replyToComment((string) $c['platform'], (string) $c['external_comment_id'], $token, $text);
-        if (!$res['success']) {
-            throw new RuntimeException(self::permissionHint($res));
+        $prev = (string) $c['status'];
+        if (in_array($prev, ['replied', 'replying'], true)) {
+            throw new InvalidArgumentException('اتردّ على التعليق ده قبل كده');
+        }
+        // حجز ذري: ضغطتين سريعتين على «رد» مايبعتوش ردّين علنيين لنفس العميل
+        $claim = $this->db->getConnection()->prepare("UPDATE social_comments SET status = 'replying' WHERE id = ? AND status = ?");
+        $claim->execute([$id, $prev]);
+        if ($claim->rowCount() !== 1) {
+            throw new InvalidArgumentException('التعليق بيتردّ عليه دلوقتي - استنى ثانية');
+        }
+        try {
+            $token = $this->token((int) $c['platform_connection_id']);
+            $res = $this->api($token)->replyToComment((string) $c['platform'], (string) $c['external_comment_id'], $token, $text);
+            if (!$res['success']) {
+                throw new RuntimeException(self::permissionHint($res));
+            }
+        } catch (Throwable $e) {
+            $this->db->query("UPDATE social_comments SET status = ? WHERE id = ? AND status = 'replying'", [$prev, $id]);
+            throw $e;
         }
         $this->db->query("UPDATE social_comments SET status = 'replied', reply_text = ?, reply_external_id = ?, replied_at = UTC_TIMESTAMP() WHERE id = ?", [$text, $res['reply_id'] ?? null, $id]);
         return ['status' => 'replied'];
