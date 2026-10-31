@@ -59,6 +59,20 @@ class ReviewRequestController extends Controller
         exit;
     }
 
+    /** GET /api/review-requests/usage - this month's use against the plan limits (only meaningful when a limit is set) */
+    public function getUsage(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        try {
+            return $this->success(['usage' => ReputationLimits::summary((int) $this->user['id'])]);
+        } catch (Throwable $e) {
+            Logger::warning('Reputation usage unavailable', ['message' => $e->getMessage()]);
+            return $this->success(['usage' => null]);
+        }
+    }
+
     /** GET /api/review-requests/qr?website_id= - link + QR (SVG) for the owner */
     public function getQr(array $params = []): array
     {
@@ -502,6 +516,27 @@ HTML;
         window.location.href = '/api/review-requests/export?' + qs.toString();
     };
 
+    (async function showUsage() {
+        const res = await P.fetchJSON('/api/review-requests/usage');
+        const u = res.success && res.data.usage;
+        if (!u) return;
+        const parts = [];
+        [['review_requests_monthly', 'Requests this month'], ['sms_requests_monthly', 'SMS this month']].forEach(function (k) {
+            const m = u[k[0]];
+            if (m && m.limit >= 0 && !(k[0] === 'sms_requests_monthly' && m.limit === 0)) parts.push({ label: k[1], used: m.used, limit: m.limit });
+        });
+        if (!parts.length) return;
+        const bar = document.querySelector('.p-toolbar');
+        if (!bar) return;
+        const chip = document.createElement('span');
+        chip.id = 'rrUsage';
+        chip.className = 'pill';
+        chip.setAttribute('role', 'status');
+        chip.style.cssText = 'align-self:center;padding:6px 12px';
+        chip.textContent = parts.map(function (x) { return x.label + ': ' + x.used + ' / ' + x.limit; }).join(' · ');
+        if (parts.some(function (x) { return x.used >= x.limit; })) { chip.style.background = '#fee2e2'; chip.style.color = '#991b1b'; chip.title = 'You reached your plan limit. Upgrade your plan to send more.'; }
+        bar.appendChild(chip);
+    })();
     window.toggleQr = async function () {
         let box = document.getElementById('qrPanel');
         if (box) { box.remove(); return; }

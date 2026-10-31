@@ -243,4 +243,16 @@ final class ReputationLimitsTest extends TestCase
             $this->assertTrue(true, 'any other failure (channel not configured in the test DB) is fine');
         }
     }
+
+    public function testSummaryGivesUsedAndLimitForTheCustomerPage(): void
+    {
+        ReputationLimits::save(['professional' => ['review_requests_monthly' => 10]], 1, $this->db);
+        $this->request(self::UID);
+        $this->request(self::UID);
+        $sum = ReputationLimits::summary(self::UID, $this->db);
+        $this->assertSame('professional', $sum['plan']);
+        $this->assertSame(['used' => 2, 'limit' => 10], $sum['review_requests_monthly']);
+        $this->assertSame(['used' => 0, 'limit' => 0], $sum['sms_requests_monthly'], 'SMS off by default');
+        $this->assertSame(-1, $sum['locations']['limit']);
+    }
 }
