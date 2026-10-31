@@ -143,6 +143,9 @@ final class SocialPackages
                 id INT(11) NOT NULL AUTO_INCREMENT, promo_code VARCHAR(24) NOT NULL, user_id INT(11) NOT NULL, ref VARCHAR(80) NOT NULL,
                 discount DECIMAL(10,2) NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id), UNIQUE KEY uniq_ref (ref), KEY idx_code (promo_code), KEY idx_user_code (user_id, promo_code)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            $pdo->exec("CREATE TABLE IF NOT EXISTS social_usage_alerts (
+                user_id INT(11) NOT NULL, month_key CHAR(7) NOT NULL, kind VARCHAR(20) NOT NULL, level TINYINT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, month_key, kind, level)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
             if (self::ready() && !(int) $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'social_subscriptions' AND COLUMN_NAME = 'promo_code'")->fetchColumn()) {
                 $pdo->exec('ALTER TABLE social_subscriptions ADD COLUMN promo_code VARCHAR(24) DEFAULT NULL');
             }
@@ -558,7 +561,55 @@ final class SocialPackages
                 Logger::warning('Social packages audit insert failed', ['message' => $e->getMessage()]);
             }
         }
+        self::notifyPriceChanges($changes, $cfg);
         return $cfg;
+    }
+
+    /**
+     * لو الأدمن غيّر سعر باقة: بنبلّغ المشتركين الحاليين فيها (من نفس الدورة) بإيه اللي هيحصل عند التجديد حسب السياسة.
+     * مفيش دورة شغالة بتتغير: التغيير بيتطبق عند التجديد بس.
+     * @param array<string,array{old:mixed,new:mixed}> $changes
+     */
+    private static function notifyPriceChanges(array $changes, array $cfg): int
+    {
+        if (!$changes || !self::ready() || !class_exists('Notification')) {
+            return 0;
+        }
+        $sent = 0;
+        $policy = $cfg['renewal_policy'];
+        foreach ($changes as $path => $c) {
+            if (!preg_match('/^tiers\.(basic|pro|agency|enterprise)\.price_(monthly|yearly)$/', $path, $m) || !is_numeric($c['old']) || !is_numeric($c['new']) || (float) $c['old'] == (float) $c['new']) {
+                continue;
+            }
+            [$tier, $cycle] = [$m[1], $m[2]];
+            $old = (float) $c['old'];
+            $new = (float) $c['new'];
+            $name = (string) $cfg['tiers'][$tier]['name'];
+            try {
+                $subs = Database::getInstance()->query("SELECT user_id, period_end, price_paid FROM social_subscriptions WHERE tier = ? AND cycle = ? AND status = 'active' AND period_end > UTC_TIMESTAMP() AND auto_renew = 1 LIMIT 1000", [$tier, $cycle]) ?: [];
+            } catch (Throwable $e) {
+                continue;
+            }
+            foreach ($subs as $s) {
+                $date = substr((string) $s['period_end'], 0, 10);
+                if ($new > $old) {
+                    $body = $policy === 'grandfather'
+                        ? 'سعر باقة «' . $name . '» زاد لـ' . $new . '$، لكن سعرك الحالي (' . (float) $s['price_paid'] . '$) ثابت لك عند التجديد.'
+                        : 'سعر باقة «' . $name . '» زاد من ' . $old . '$ لـ' . $new . '$. باقتك الحالية مكتملة لحد ' . $date . '، وهتتجدد بعدها بالسعر الجديد.';
+                    $title = $policy === 'grandfather' ? 'تحديث على سعر باقة السوشيال (سعرك ثابت)' : 'تغيير سعر باقة السوشيال';
+                } else {
+                    $title = 'سعر باقة السوشيال نزل';
+                    $body = 'سعر باقة «' . $name . '» نزل من ' . $old . '$ لـ' . $new . '$، وهتتجدد بالسعر الأقل بعد ' . $date . '.';
+                }
+                try {
+                    Notification::notify((int) $s['user_id'], 'social_package', $title, $body, '/subscription#social');
+                    $sent++;
+                } catch (Throwable $e) {
+                    Logger::warning('Social price notice failed', ['user_id' => (int) $s['user_id'], 'message' => $e->getMessage()]);
+                }
+            }
+        }
+        return $sent;
     }
 
     // ------------------------------------------------------------------ المستوى الفعلي
@@ -902,6 +953,15 @@ final class SocialPackages
         $cfg = self::config();
         $c = $cfg['costs'];
         $out = [];
+        $actual = [];
+        try {
+            $mk = $month ?? self::monthKey();
+            foreach (Database::getInstance()->query("SELECT user_id, SUM(cost_in_usd) AS c FROM api_usage_logs WHERE feature = 'social_content' AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 MONTH) GROUP BY user_id", [$mk . '-01', $mk . '-01']) ?: [] as $a) {
+                $actual[(int) $a['user_id']] = round((float) $a['c'], 4);
+            }
+        } catch (Throwable $e) {
+            $actual = [];
+        }
         try {
             $rows = Database::getInstance()->query('SELECT m.user_id, m.posts, m.ai_captions, u.email FROM social_usage_monthly m LEFT JOIN users u ON u.id = m.user_id WHERE m.month_key = ? ORDER BY (m.posts * ? + m.ai_captions * ?) DESC LIMIT ' . max(1, min(100, $limit)), [$month ?? self::monthKey(), $c['post'], $c['ai_caption']]) ?: [];
         } catch (Throwable $e) {
@@ -917,7 +977,7 @@ final class SocialPackages
             $ai = (int) $r['ai_captions'];
             $hot = static fn (int $used, int $max) => $max > 0 && $used >= 0.8 * $max;
             $out[] = ['user_id' => $uid, 'email' => (string) ($r['email'] ?? '#' . $uid), 'tier' => (string) $ent['tier'], 'posts' => $posts, 'posts_limit' => $pl, 'ai' => $ai, 'ai_limit' => $al,
-                'est_cost' => round($posts * $c['post'] + $ai * $c['ai_caption'], 2), 'alert' => $hot($posts, $pl) || $hot($ai, $al)];
+                'est_cost' => round($posts * $c['post'] + $ai * $c['ai_caption'], 2), 'ai_cost_actual' => $actual[$uid] ?? null, 'alert' => $hot($posts, $pl) || $hot($ai, $al)];
         }
         return $out;
     }
@@ -1355,6 +1415,62 @@ final class SocialPackages
         return ['tier' => $tier, 'cycle' => $cycle, 'price' => $price, 'name' => $o['name'], 'custom_json' => $o['custom_json']];
     }
 
+    /**
+     * تنبيه العميل لما يوصل 80% ثم 100% من منشورات الشهر أو الكابشن، مرة واحدة لكل مستوى في الشهر (بتتنادى كل ساعة).
+     * @return int عدد التنبيهات اللي اتبعتت
+     */
+    public static function alertSweep(int $limit = 500): int
+    {
+        if (!self::ready() || !class_exists('Notification')) {
+            return 0;
+        }
+        self::ensureSchema();
+        $db = Database::getInstance();
+        $month = self::monthKey();
+        $sent = 0;
+        try {
+            $rows = $db->query('SELECT user_id, posts, ai_captions FROM social_usage_monthly WHERE month_key = ? AND (posts > 0 OR ai_captions > 0) ORDER BY user_id LIMIT ' . max(1, min(2000, $limit)), [$month]) ?: [];
+        } catch (Throwable $e) {
+            return 0;
+        }
+        $kinds = ['posts' => ['منشورات الشهر', 'منشور'], 'ai_captions' => ['كابشن الذكاء الاصطناعي', 'كابشن']];
+        foreach ($rows as $r) {
+            $uid = (int) $r['user_id'];
+            $limits = self::entitlements($uid)['limits'];
+            foreach ($kinds as $kind => [$label, $unit]) {
+                $max = (int) $limits[$kind];
+                $used = (int) $r[$kind];
+                if ($max <= 0) {
+                    continue;
+                }
+                $level = $used >= $max ? 100 : ($used >= 0.8 * $max ? 80 : 0);
+                if ($level === 0) {
+                    continue;
+                }
+                try {
+                    $ins = $db->getConnection()->prepare('INSERT IGNORE INTO social_usage_alerts (user_id, month_key, kind, level) VALUES (?, ?, ?, ?)');
+                    $ins->execute([$uid, $month, $kind, $level]);
+                    $isNew = $ins->rowCount() === 1;
+                    if ($level === 100) {
+                        $ins->execute([$uid, $month, $kind, 80]);
+                    }
+                    if (!$isNew) {
+                        continue;
+                    }
+                    $title = $level === 100 ? 'خلصت ' . $label : 'وصلت 80% من ' . $label;
+                    $body = $level === 100
+                        ? 'استهلكت ' . $used . ' من ' . $max . ' ' . $unit . ' في باقتك. الاستخدام هيتوقف لحد الشهر الجاي أو لحد ما تضيف حصة من صفحة الاشتراكات.'
+                        : 'استهلكت ' . $used . ' من ' . $max . ' ' . $unit . ' في باقتك الشهر ده. رقّي باقتك أو اشترِ إضافة قبل ما توصل للحد.';
+                    Notification::notify($uid, 'social_package', $title, $body, '/social#package');
+                    $sent++;
+                } catch (Throwable $e) {
+                    Logger::warning('Social usage alert failed', ['user_id' => $uid, 'message' => $e->getMessage()]);
+                }
+            }
+        }
+        return $sent;
+    }
+
     /** بتتنادى من SocialPackagesRenewJob كل ساعة. بترجّع عدد الاشتراكات اللي اتعالجت */
     public static function renewDue(int $limit = 200): int
     {
@@ -1411,6 +1527,11 @@ final class SocialPackages
             }
         }
         self::flush();
+        try {
+            self::alertSweep();
+        } catch (Throwable $e) {
+            Logger::warning('Social alert sweep failed', ['message' => $e->getMessage()]);
+        }
         return $done;
     }
 
