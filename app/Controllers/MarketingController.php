@@ -969,18 +969,21 @@ class MarketingController extends Controller
             $tabCount++;
             $tabBtns .= '<button type="button" role="tab" id="tabbtn-' . $tid . '" data-tab="' . $tid . '" aria-controls="tab-' . $tid . '" aria-selected="' . ($tid === 'plans' ? 'true' : 'false') . '" tabindex="' . ($tid === 'plans' ? '0' : '-1') . '">' . $this->e($tlabel) . '</button>';
         }
+        $fold = fn (string $title, string $html) => $html === '' ? '' : '<details class="svc-fold"><summary>' . $title . '</summary>' . $html . '</details>';
+        $foldCmp = $fold($this->te(['قارن الباقات بالتفصيل', 'Compare plans in detail']), $cmp);
+        $foldSvc = $fold($this->te(['الخدمات في كل باقة', 'Services in every plan']), $svc);
         $panel = fn (string $tid, string $html) => '<div class="svc-panel" id="tab-' . $tid . '" role="tabpanel" aria-labelledby="tabbtn-' . $tid . '"' . ($tid === 'plans' ? '' : ' hidden') . '>' . $html . '</div>';
-        $tabsBlock = ($tabCount > 1 ? '<style>.svc-wrap{display:flex;justify-content:center;padding:0 16px;margin:6px 0 26px}.svc-tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--panel);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}'
-                . '.svc-tabs::-webkit-scrollbar{display:none}.svc-tabs button{flex:none;border:0;background:none;font:inherit;font-size:14px;padding:10px 18px;border-radius:9px;color:var(--muted);cursor:pointer;white-space:nowrap}'
+        $tabsBlock = ($tabCount > 1 ? '<style>.svc-wrap{display:flex;justify-content:center;padding:0 16px;margin:6px 0 26px}.svc-tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--panel);max-width:100%;flex-wrap:wrap;justify-content:center}'
+                . '.svc-tabs button{flex:0 1 auto;border:0;background:none;font:inherit;font-size:14px;padding:10px 16px;border-radius:9px;color:var(--muted);cursor:pointer}.svc-fold>summary{cursor:pointer;list-style:none;text-align:center;font-weight:700;padding:14px 16px;margin:8px auto;max-width:560px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.svc-fold>summary::-webkit-details-marker{display:none}.svc-fold>summary::after{content:" ▾"}.svc-fold[open]>summary::after{content:" ▴"}'
                 . '.svc-tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}.svc-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}</style>'
                 . '<div class="svc-wrap"><div class="svc-tabs" role="tablist" aria-label="' . $this->te(['خدمات المنصة', 'Platform services']) . '">' . $tabBtns . '</div></div>' : '')
-            . $panel('plans', $plansHead . '<section class="blk tight" style="padding-top:0"><div class="plans">' . $cards . '</div></section>' . $incSec . $cmp . $svc)
+            . $panel('plans', $plansHead . '<section class="blk tight" style="padding-top:0"><div class="plans">' . $cards . '</div></section>' . $incSec . $foldCmp . $foldSvc)
             . ($seoSection !== '' ? $panel('seo', $seoSection) : '')
             . ($socialSection !== '' ? $panel('social', $socialSection) : '')
             . ($tabCount > 1 ? '<script>(function(){var tabs=[].slice.call(document.querySelectorAll(".svc-tabs [role=tab]")),panels=[].slice.call(document.querySelectorAll(".svc-panel"));if(!tabs.length)return;'
                 . 'var alias={seo:"seo",social:"social",plans:"plans","services-by-plan":"plans"};'
                 . 'function show(id,focus){tabs.forEach(function(t){var on=t.dataset.tab===id;t.setAttribute("aria-selected",on?"true":"false");t.tabIndex=on?0:-1;if(on&&focus)t.focus();});panels.forEach(function(p){p.hidden=p.id!=="tab-"+id;});}'
-                . 'function fromHash(scroll){var h=decodeURIComponent((location.hash||"").slice(1)),id=alias[h]||"plans";show(id,false);if(scroll&&alias[h]){var el=document.getElementById(h);if(el&&!el.closest("[hidden]"))setTimeout(function(){el.scrollIntoView({block:"start"});},30);}}'
+                . 'function fromHash(scroll){var h=decodeURIComponent((location.hash||"").slice(1)),id=alias[h]||"plans";show(id,false);if(scroll&&alias[h]){var el=document.getElementById(h);var dt=el&&el.closest("details");if(dt)dt.open=true;if(el&&!el.closest("[hidden]"))setTimeout(function(){el.scrollIntoView({block:"start"});},30);}}'
                 . 'tabs.forEach(function(t,i){t.addEventListener("click",function(){show(t.dataset.tab,false);history.replaceState(null,"",t.dataset.tab==="plans"?location.pathname+location.search:"#"+t.dataset.tab);});'
                 . 't.addEventListener("keydown",function(e){var rtl=getComputedStyle(document.documentElement).direction==="rtl",d=0;if(e.key==="ArrowRight")d=rtl?-1:1;else if(e.key==="ArrowLeft")d=rtl?1:-1;else if(e.key==="Home")d=-i;else if(e.key==="End")d=tabs.length-1-i;else return;e.preventDefault();var n=tabs[(i+d+tabs.length)%tabs.length];show(n.dataset.tab,true);});});'
                 . 'window.addEventListener("hashchange",function(){fromHash(true);});fromHash(true);})();</script>' : '');
