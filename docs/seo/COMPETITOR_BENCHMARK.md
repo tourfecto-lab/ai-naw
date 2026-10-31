@@ -17,13 +17,15 @@ Similarweb publishes no prices (sales-led), so it is listed without numbers.
 | Ahrefs | Brand Radar (AI visibility add-on) | from $199 | prompt packages $50 (2,500 checks) / $100 (7,000) / $250 (25,000) |
 | Similarweb | Strategic SEO Suite, Gen AI Intel Suite | not published | sales-led |
 
-## Tourfecto SEO plans (seed values in `database/migrations/2026_10_24_000001_pricing_v3.sql`; live prices are set in the admin and may differ)
+## Tourfecto SEO plans (live prices after 2026-10-31; set in the admin, change log under /admin/plans)
 
-| Plan | Monthly seed |
-|---|---|
-| seo-essential | $99 |
-| seo-growth | $249 |
-| seo-agency | $549 |
+| Plan | Monthly | Reference competitor (price) |
+|---|---|---|
+| seo-essential | $99 | Ahrefs Lite ($129) |
+| seo-growth | $199 | Semrush Starter ($199) |
+| seo-agency | $299 | Semrush Pro+ ($299) |
+
+Positioning rule in the admin: the maximum price equals the reference price minus the configured percentage (currently 0%). Reference prices are the verified list prices above; plans without a verified reference are left blank.
 
 ## What the comparison shows
 
