@@ -75,6 +75,12 @@ final class SeoPlanAdminControlsTest extends TestCase
         }
     }
 
+    public function testEffectivePagesMatchWhatTheCrawlerRuns(): void
+    {
+        // الأسعار المنشورة كانت 80/200/400 والفحص الفعلي 100/100/300
+        $this->assertSame([100, 100, 300, 500, 100], array_map([BillingPlanCatalog::class, 'effectiveSeoPages'], [80, 200, 400, 600, null]));
+    }
+
     public function testSavesLimitsIntoBothCyclesAndKeepsThemEqual(): void
     {
         $plan = $this->planArray();

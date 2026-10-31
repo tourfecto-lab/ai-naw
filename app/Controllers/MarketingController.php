@@ -874,7 +874,7 @@ class MarketingController extends Controller
             [true, $sites > 1 ? $this->t(['حتى ', 'Up to ']) . $n($sites) . ' ' . $this->t(['مواقع', 'websites']) : $this->t(['موقع واحد', 'One website'])],
             [true, $markets > 1 ? $n($markets) . ' ' . $this->t(['أسواق ولغات (المحتوى بلغة كل سوق)', 'markets and languages (content in each market language)']) : $this->t(['سوق ولغة واحدة', 'One market and language'])],
             [true, $cycles >= 4 ? $this->t(['فحص وتحسين تلقائي كل أسبوع', 'Automatic check and fixes every week']) : ($cycles >= 2 ? $this->t(['فحص وتحسين تلقائي كل أسبوعين', 'Automatic check and fixes every two weeks']) : $this->t(['فحص وتحسين تلقائي كل شهر', 'Automatic check and fixes every month']))],
-            [true, $this->t(['لحد ', 'Up to ']) . $n($f['seo_max_pages'] ?? 100) . ' ' . $this->t(['صفحة في كل فحص', 'pages per check'])],
+            [true, $this->t(['لحد ', 'Up to ']) . $n(BillingPlanCatalog::effectiveSeoPages($f['seo_max_pages'] ?? 100)) . ' ' . $this->t(['صفحة في كل فحص', 'pages per check'])],
             [true, $n($f['articles'] ?? 0) . ' ' . $this->t(['مقالات في الشهر بلغة السوق', 'articles / month in the market language'])],
             [true, $this->t(['قياس ظهورك في ChatGPT و Gemini و Perplexity', 'Visibility tracking in ChatGPT, Gemini and Perplexity']) . ' (' . $n($f['ai_visibility'] ?? 0) . ' ' . $this->t(['قياس شهريًا', 'checks / month']) . ')'],
             [true, $this->t(['إرسال صفحاتك لجوجل و Bing و Yandex تلقائيًا', 'Pages sent to Google, Bing and Yandex automatically'])],

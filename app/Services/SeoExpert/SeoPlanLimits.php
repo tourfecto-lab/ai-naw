@@ -46,7 +46,7 @@ final class SeoPlanLimits
             'seo_plan' => self::isSeoPlan($key),
             'cycles' => max(1, min(4, $int($features['seo_cycles'] ?? null, $base['cycles']))),
             // إعدادات الفحص بتقبل 100 أو 300 أو 500 صفحة بس
-            'pages' => $pages >= 500 ? 500 : ($pages >= 300 ? 300 : 100),
+            'pages' => BillingPlanCatalog::effectiveSeoPages($pages),
             'markets' => $int($features['seo_markets'] ?? null, $base['markets']),
         ];
         return self::$cache[$userId] = $limits;

@@ -11,6 +11,13 @@ class BillingPlanCatalog
     /** حدود خدمة السيو اللي الأدمن يقدر يعدلها: [أقل قيمة, أكبر قيمة] */
     public const SEO_LIMITS = ['seo_cycles'=>[1,4],'seo_max_pages'=>[100,500],'seo_markets'=>[1,12],'ai_visibility'=>[0,100000],'seo_data'=>[0,1000000],'articles'=>[0,10000]];
 
+    /** الفحص بيشتغل على 100 أو 300 أو 500 صفحة بس: ده الرقم الفعلي لأي قيمة مخزّنة (مصدر واحد للفحص وصفحة الأسعار) */
+    public static function effectiveSeoPages($stored): int
+    {
+        $n = is_numeric($stored) ? (int) $stored : 100;
+        return $n >= 500 ? 500 : ($n >= 300 ? 300 : 100);
+    }
+
     public static function seoLimit(string $field, $value): int
     {
         if (!isset(self::SEO_LIMITS[$field])) throw new InvalidArgumentException('Unknown SEO limit');
