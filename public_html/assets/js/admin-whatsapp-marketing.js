@@ -5,7 +5,7 @@
   var P = window.Panel;
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var state = null, cstate = { state: '', q: '', page: 1 }, camp = null;
-  var FLAGS = { high_failure_rate: 'High failure rate', uncertain_sends: 'Uncertain sends', blocked: 'Blocked' };
+  var FLAGS = { high_failure_rate: 'High failure rate', high_opt_out_rate: 'High opt-out rate', uncertain_sends: 'Uncertain sends', blocked: 'Blocked' };
 
   function api(url, opts) {
     return (P && P.fetchJSON ? P.fetchJSON(url, opts) : fetch(url, opts).then(function (r) { return r.json(); }))
@@ -43,7 +43,7 @@
       var act = (can ? '<button class="p-btn outline xs" data-act="pause" data-id="' + c.id + '">Pause</button> ' : '') + (['completed', 'cancelled'].indexOf(c.state) < 0 ? '<button class="p-btn outline xs" data-act="cancel" data-id="' + c.id + '">Cancel</button> ' : '') +
         (c.account_suspended ? '<span class="pill gray">Account suspended</span>' : '<button class="p-btn danger xs" data-susp="' + esc(c.email) + '">Suspend account</button>');
       return '<tr><td><b>' + esc(c.customer) + '</b><div class="p-cell-muted" style="font-size:12px">' + esc(c.email) + '</div></td><td>' + esc(c.name) + '<div class="p-cell-muted" style="font-size:12px">' + esc(c.template_name) + ' · ' + esc(c.language) + '</div></td><td>' + esc(c.state) + (c.last_error ? '<div class="p-cell-muted" style="font-size:12px">' + esc(c.last_error) + '</div>' : '') + '</td>' +
-        '<td>' + (n.accepted || 0) + ' / ' + (n.failed || 0) + ' / ' + (n.skipped || 0) + ' / ' + ((n.pending || 0) + (n.processing || 0)) + '</td><td>' + flags + '</td><td>' + esc(c.created_at) + '</td><td style="white-space:nowrap">' + act + '</td></tr>';
+        '<td>' + (n.accepted || 0) + ' / ' + (n.failed || 0) + ' / ' + (n.skipped || 0) + ' / ' + ((n.pending || 0) + (n.processing || 0)) + (c.opt_outs ? '<div class="p-cell-muted" style="font-size:12px">' + c.opt_outs + ' STOP' + (n.accepted ? ' (' + Math.round(c.opt_outs / n.accepted * 1000) / 10 + '%)' : '') + '</div>' : '') + '</td><td>' + flags + '</td><td>' + esc(c.created_at) + '</td><td style="white-space:nowrap">' + act + '</td></tr>';
     }).join('');
   }
 
@@ -55,7 +55,7 @@
       '<div class="p-grid cols-4">' + tile(k.campaigns, 'Campaigns this month') + tile(k.accepted, 'Messages accepted') + tile(k.failed + k.uncertain, 'Failed or uncertain') + tile(k.opt_outs, 'Opt-outs this month') + '</div>' +
       '<div style="margin-top:14px">' + hubCard(d.hub) + '</div>' +
       '<div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>Customer campaigns</h3></div>' +
-      '<p class="p-cell-muted" style="margin:0 0 8px">Counts are accepted / failed / skipped / pending. A campaign is flagged when at least ' + d.min_sent_for_flags + ' messages were tried and ' + d.failure_flag_pct + '% or more failed, when any send is uncertain, or when it is blocked. Pausing or cancelling needs a written reason, the customer sees it in the campaign. Suspending an account pauses its campaigns and stops launches and sending until you resume it.</p>' +
+      '<p class="p-cell-muted" style="margin:0 0 8px">Counts are accepted / failed / skipped / pending. A campaign is flagged when at least ' + d.min_sent_for_flags + ' messages were tried and ' + d.failure_flag_pct + '% or more failed, when ' + d.opt_out_flag_pct + '% or more of the accepted messages were followed by a STOP within ' + d.opt_out_days + ' days, when any send is uncertain, or when it is blocked. Pausing or cancelling needs a written reason, the customer sees it in the campaign. Suspending an account pauses its campaigns and stops launches and sending until you resume it.</p>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><select id="waState" class="p-select" aria-label="State"><option value="">All states</option>' + ['draft', 'scheduled', 'running', 'paused', 'blocked', 'completed', 'partial', 'cancelled'].map(function (s) { return '<option value="' + s + '"' + (cstate.state === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select><input id="waQ" class="p-select" placeholder="Customer or campaign" value="' + esc(cstate.q) + '" aria-label="Search"><button class="p-btn outline xs" id="waGo">Search</button></div>' +
       '<div class="p-table-scroll" tabindex="0" aria-label="Customer campaigns, scrolls sideways"><table class="p-table" style="min-width:860px"><thead><tr><th>Customer</th><th>Campaign</th><th>State</th><th>Accepted / failed / skipped / pending</th><th>Flags</th><th>Created</th><th></th></tr></thead><tbody id="waRows"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>' +
       '<div style="display:flex;gap:10px;justify-content:center;padding:10px" id="waPager"></div></div>' +
