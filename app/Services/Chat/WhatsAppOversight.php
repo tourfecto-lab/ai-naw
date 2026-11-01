@@ -17,6 +17,9 @@ class WhatsAppOversight
     private const AUDIT_KEEP = 200;
     public const MIN_SENT_FOR_FLAGS = 20;
     public const FAILURE_FLAG = 0.20;
+    /** share of accepted messages followed by an opt-out within OPT_OUT_DAYS that raises a flag (recipients who say STOP are a quality signal for the sender number) */
+    public const OPT_OUT_FLAG = 0.05;
+    public const OPT_OUT_DAYS = 3;
 
     private static function read(string $key, ?Database $db = null): array
     {
@@ -162,6 +165,10 @@ class WhatsAppOversight
         if (($counts['uncertain'] ?? 0) > 0) {
             $flags[] = 'uncertain_sends';
         }
+        $accepted = (int) ($counts['accepted'] ?? 0);
+        if ($accepted >= self::MIN_SENT_FOR_FLAGS && (int) ($counts['opt_outs'] ?? 0) / $accepted >= self::OPT_OUT_FLAG) {
+            $flags[] = 'high_opt_out_rate';
+        }
         if ($state === 'blocked') {
             $flags[] = 'blocked';
         }
@@ -197,12 +204,20 @@ class WhatsAppOversight
                 $counts[(int) $x['campaign_id']][$x['state']] = (int) $x['n'];
             }
         }
+        $optOuts = [];
+        if ($rows) {
+            // recipients whose contact opted out within OPT_OUT_DAYS after the message was accepted
+            foreach ($db->query('SELECT r.campaign_id, COUNT(DISTINCT r.contact_id) AS n FROM wa_marketing_recipients r JOIN wa_marketing_consent_events e ON e.contact_id = r.contact_id AND e.state = \'opted_out\' AND e.created_at >= r.updated_at AND e.created_at < DATE_ADD(r.updated_at, INTERVAL ' . self::OPT_OUT_DAYS . ' DAY) WHERE r.state = \'accepted\' AND r.campaign_id IN (' . implode(',', array_map(static fn ($r) => (int) $r['id'], $rows)) . ') GROUP BY r.campaign_id') as $x) {
+                $optOuts[(int) $x['campaign_id']] = (int) $x['n'];
+            }
+        }
         $suspended = self::read(self::SUSPENDED, $db);
         foreach ($rows as &$r) {
             $r['id'] = (int) $r['id'];
             $r['user_id'] = (int) $r['user_id'];
             $r['counts'] = $counts[$r['id']] ?? [];
-            $r['flags'] = self::flags($r['counts'], (string) $r['state']);
+            $r['opt_outs'] = $optOuts[$r['id']] ?? 0;
+            $r['flags'] = self::flags($r['counts'] + ['opt_outs' => $r['opt_outs']], (string) $r['state']);
             $r['account_suspended'] = isset($suspended[(string) $r['user_id']]);
         }
         unset($r);

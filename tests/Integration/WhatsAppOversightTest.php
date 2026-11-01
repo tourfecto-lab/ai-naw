@@ -85,7 +85,7 @@ final class WhatsAppOversightTest extends TestCase
         foreach ($recipients as $rState => $count) {
             for ($i = 0; $i < $count; $i++) {
                 $n++;
-                $this->pdo->exec("INSERT INTO wa_marketing_recipients (campaign_id, contact_id, phone, name, language, state) VALUES ($id, $n, '2010000" . str_pad((string) ($id % 1000 * 100 + $n), 5, '0', STR_PAD_LEFT) . "', 'G', 'en', '$rState')");
+                $this->pdo->exec("INSERT INTO wa_marketing_recipients (campaign_id, contact_id, phone, name, language, state) VALUES ($id, " . ($id * 1000 + $n) . ", '2010000" . str_pad((string) ($id % 1000 * 100 + $n), 5, '0', STR_PAD_LEFT) . "', 'G', 'en', '$rState')");
             }
         }
         return $id;
@@ -232,5 +232,23 @@ final class WhatsAppOversightTest extends TestCase
         $this->assertFalse(strpos(json_encode($hub), 'SECRET-TOKEN-DO-NOT-LEAK') !== false, 'no credential may reach the page');
         $empty = WhatsAppOversight::hub(self::MEMBER, null, $this->db);
         $this->assertSame(0, $empty['website_id'], 'an account without a website gets a clear empty state');
+    }
+
+    public function testOptOutRateIsMeasuredPerCampaignWithinThreeDaysOfTheMessage(): void
+    {
+        $id = $this->campaign(self::A, self::WA, 'Pushy', 'completed', ['accepted' => 40]);
+        // contacts 1..40 are the recipients; four say STOP right after the message, one says it two weeks later, one before it was sent
+        $rows = $this->pdo->query("SELECT contact_id, updated_at FROM wa_marketing_recipients WHERE campaign_id = $id ORDER BY contact_id")->fetchAll(PDO::FETCH_ASSOC);
+        $offsets = [0 => '+1 hour', 1 => '+5 hours', 2 => '+1 day', 3 => '+2 days', 4 => '+14 days', 5 => '-2 days'];
+        foreach ($offsets as $i => $off) {
+            $at = gmdate('Y-m-d H:i:s', strtotime($rows[$i]['updated_at'] . ' UTC ' . $off));
+            $this->pdo->exec("INSERT INTO wa_marketing_consent_events (contact_id, user_id, website_id, state, evidence, created_at) VALUES (" . (int) $rows[$i]['contact_id'] . ", " . self::A . ", " . self::WA . ", 'opted_out', 'STOP', '$at')");
+        }
+        $r = $this->row(WhatsAppOversight::campaigns('', '', 1, 100, $this->db), $id);
+        $this->assertSame(4, $r['opt_outs'], 'only STOPs within 3 days after the message count');
+        $this->assertContains('high_opt_out_rate', $r['flags'], '4 of 40 is 10%, above the 5% line');
+        $quiet = $this->campaign(self::B, self::WB, 'Welcome', 'completed', ['accepted' => 40]);
+        $this->assertSame([], $this->row(WhatsAppOversight::campaigns('', '', 1, 100, $this->db), $quiet)['flags']);
+        $this->assertSame([], WhatsAppOversight::flags(['accepted' => 10, 'failed' => 0, 'opt_outs' => 5], 'completed'), 'under 20 accepted: not enough data to flag');
     }
 }

@@ -35,6 +35,8 @@ class AdminWhatsAppMarketingController extends Controller
                 'audit' => WhatsAppOversight::auditLog(30),
                 'min_sent_for_flags' => WhatsAppOversight::MIN_SENT_FOR_FLAGS,
                 'failure_flag_pct' => (int) round(WhatsAppOversight::FAILURE_FLAG * 100),
+                'opt_out_flag_pct' => (int) round(WhatsAppOversight::OPT_OUT_FLAG * 100),
+                'opt_out_days' => WhatsAppOversight::OPT_OUT_DAYS,
                 'csrf_token' => class_exists('Csrf') ? Csrf::token() : '',
             ]);
         } catch (Throwable $e) {
