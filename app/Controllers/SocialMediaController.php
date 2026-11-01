@@ -2483,7 +2483,7 @@ class SocialMediaController extends Controller
         );
 
         if (!$result['success']) {
-            return $this->error($result['error'], 502);
+            return $this->error($result['error'], 422);
         }
 
         return $this->success($result);
