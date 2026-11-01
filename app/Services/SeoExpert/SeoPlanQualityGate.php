@@ -24,6 +24,19 @@ class SeoPlanQualityGate
      * مشكلة حقيقية في القيمة الحالية (أو null لو القيمة كويسة).
      * @param string[] $sameFieldOnOtherPages نفس الحقل في باقي الصفحات المفحوصة
      */
+    /**
+     * العنوان فيه البراند بالفعل؟ كلمة البراند الأولى كفاية («Tourfecto» جوه «Tourfecto Travel»): النموذج بيكتب الاسم المختصر،
+     * ولو أضفنا الاسم الكامل فوقه بيطلع العنوان «... | Tourfecto | Tourfecto Travel» (اسم مكرر وطول زيادة).
+     */
+    public static function mentionsBrand(string $title, string $brand): bool
+    {
+        if (mb_stripos($title, $brand) !== false) {
+            return true;
+        }
+        $first = preg_split('/\s+/u', trim($brand), -1, PREG_SPLIT_NO_EMPTY)[0] ?? '';
+        return mb_strlen($first) >= 4 && mb_stripos($title, $first) !== false;
+    }
+
     public static function issue(string $field, string $current, array $sameFieldOnOtherPages = []): ?string
     {
         if (!isset(self::LIMITS[$field])) {
@@ -106,7 +119,7 @@ class SeoPlanQualityGate
             if(in_array($field,['title','description'],true)&&SeoClaimEvidence::review([$field=>$value],$confirmedFacts)['state']==='needs_confirmation')continue;
             if ($issue !== 'not_gated') {
                 // البراند كان موجود في العنوان الحالي: لازم يفضل
-                if ($field === 'title' && $brand !== '' && mb_stripos($now, $brand) !== false && mb_stripos($value, $brand) === false) {
+                if ($field === 'title' && $brand !== '' && mb_stripos($now, $brand) !== false && !self::mentionsBrand($value, $brand)) {
                     $withBrand = $value . ' | ' . $brand;
                     if (mb_strlen($withBrand) > self::LIMITS['title'][1]) {
                         continue;
