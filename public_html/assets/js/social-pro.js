@@ -4,6 +4,12 @@
  * محرر منشور: منشور أو ستوري، كاتب ذكي بـ 3 نسخ، هاشتاجات، أول تعليق، UTM، معاينة حية، فحص جودة، أفضل ميعاد.
  * كل النصوص ثنائية اللغة عبر T(ar, en) حسب لغة اللوحة.
  */
+// صور مكتبة الاستوديو اللي ملفها مفقود من السيرفر (404): نخفيها بدل ما تظهر أيقونة صورة مكسورة
+document.addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t.tagName === 'IMG' && /\/api\/creative-studio\/media\/\d+\/content/.test(t.currentSrc || t.src || '')) { t.style.visibility = 'hidden'; }
+}, true);
+
 (function () {
     'use strict';
     const P = window.Panel;
