@@ -96,6 +96,21 @@ class EdgeFixController extends Controller
         return $row && !empty($row['last_seen_at']) && strtotime((string) $row['last_seen_at']) > time() - 172800;
     }
 
+    /**
+     * «متصل» بمهلة يومين مضلّلة: الموصّل المفروض يسحب القواعد كل دقايق مع أي زيارة. بنرجّع كمان عمر آخر سحب،
+     * وعلامة stale لو عدّى أكتر من 6 ساعات (الموصّل مركّب لكن مش بيسحب، فالتعديلات مش بتتطبق).
+     * @return array{minutes:?int, stale:bool}
+     */
+    public static function freshness(?string $lastSeen, ?int $now = null): array
+    {
+        $t = $lastSeen ? strtotime($lastSeen) : false;
+        if ($t === false) {
+            return ['minutes' => null, 'stale' => true];
+        }
+        $min = max(0, (int) floor((($now ?? time()) - $t) / 60));
+        return ['minutes' => $min, 'stale' => $min > 360];
+    }
+
     // ------------------------------------------------------------------ القواعد (عام)
 
     public function rules(array $params = []): array
@@ -144,10 +159,22 @@ class EdgeFixController extends Controller
         }
         $row = $this->connectionRow($websiteId);
         $active = $this->db->query('SELECT COUNT(DISTINCT field_name) c FROM auto_seo_applied_fixes WHERE website_id = ? AND is_active = 1', [$websiteId]);
+        // قواعد الصفحات من خدمة السيو (seo_expert_tasks) كانت مش بتتعدّ، فكان العدّاد بيقول 0 والقواعد شغالة
+        $pageRules = 0;
+        try {
+            $pr = $this->db->query("SELECT COUNT(*) c FROM seo_expert_tasks WHERE website_id = ? AND kind = 'metadata' AND is_active = 1 AND status IN ('active','verified','needs_client')", [$websiteId]);
+            $pageRules = (int) ($pr[0]['c'] ?? 0);
+        } catch (Throwable $e) {
+            $pageRules = 0;
+        }
+        $fresh = self::freshness($row['last_seen_at'] ?? null);
         return $this->success([
             'connected' => $this->isConnected($row),
             'last_seen_at' => $row['last_seen_at'] ?? null,
-            'active_rules' => (int) ($active[0]['c'] ?? 0),
+            'active_rules' => (int) ($active[0]['c'] ?? 0) + $pageRules,
+            'page_rules' => $pageRules,
+            'last_seen_minutes' => $fresh['minutes'],
+            'stale' => $fresh['stale'],
             'snippet' => EdgeRules::snippet($websiteId, $this->appUrl()),
             'plugin_url' => '/api/website-optimizer/edge/plugin?website_id=' . $websiteId,
             'csrf_token'=>Csrf::token(),
