@@ -106,6 +106,33 @@ final class GeoInsightsServiceTest extends TestCase
         }
     }
 
+    public function testNotMeasuredSiteExplainsWhyWithoutPaidCalls(): void
+    {
+        $db = $this->db();
+        if (!$db) $this->markTestSkipped('DB غير متاحة');
+        $pdo = $db->getConnection();
+        $u = self::OWNER;
+        $pdo->exec("DELETE FROM seo_ai_answers WHERE user_id=$u");
+        $pdo->exec("DELETE FROM websites WHERE user_id=$u");
+        $pdo->exec("INSERT INTO users (id,email,password,company_name,created_at) VALUES ($u,'geo-$u@tourfecto.test','x','G',NOW()) ON DUPLICATE KEY UPDATE email=email");
+        $pdo->exec("INSERT INTO websites (user_id,main_url,company_name,brand_name) VALUES ($u,'https://geo2.example.com','G','G')");
+        $wid = (int) $pdo->lastInsertId();
+        try {
+            $ov = (new GeoInsightsService($db))->overview($u, $wid);
+            $this->assertSame('not_measured', $ov['state']);
+            $this->assertNotEmpty($ov['diagnosis']);
+            foreach ($ov['diagnosis'] as $d) {
+                $this->assertNotSame('', $d['code']);
+                $this->assertNotSame('', $d['message_ar']);
+                $this->assertNotSame('', $d['message_en']);
+            }
+            $this->assertContains('no_provider_configured', array_column($ov['diagnosis'], 'code')); // no keys in the test DB
+            $this->assertSame(0, (int) $pdo->query("SELECT COUNT(*) FROM seo_ai_calls WHERE website_id=$wid")->fetchColumn()); // diagnosis never reserves/spends
+        } finally {
+            $pdo->exec("DELETE FROM websites WHERE id=$wid");
+        }
+    }
+
     public function testOverviewReadsOnlyTheOwnersAnswers(): void
     {
         $db = $this->db();

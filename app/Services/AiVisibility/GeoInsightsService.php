@@ -39,7 +39,59 @@ final class GeoInsightsService
         )) ?? [];
         $known = $this->safe(fn () => $this->db->query('SELECT competitor_name AS name, competitor_domain AS domain FROM competitors WHERE website_id = ? AND user_id = ? AND is_active = 1 LIMIT 30', [$wid, $uid])) ?? [];
         $host = self::host((string) $site[0]['main_url']);
-        return self::compose((array) $rows, (array) $known, $host, $now ?? gmdate('Y-m-d H:i:s')) + ['website_id' => $wid, 'market_id' => $marketId];
+        $out = self::compose((array) $rows, (array) $known, $host, $now ?? gmdate('Y-m-d H:i:s')) + ['website_id' => $wid, 'market_id' => $marketId];
+        if ($out['state'] === 'not_measured') {
+            $out['diagnosis'] = $this->diagnose($uid, $wid);
+        }
+        return $out;
+    }
+
+    /**
+     * ليه مفيش قياس؟ نفس شروط AiVisibilityService::run بس بدون أي استدعاء مدفوع: مزوّد مفعّل؟ أسئلة معتمدة؟ موافقة حالية؟ أسئلة صالحة؟
+     * @return array<int,array{code:string,market_id:int,message_ar:string,message_en:string}>
+     */
+    public function diagnose(int $uid, int $wid): array
+    {
+        $out = [];
+        $add = static function (string $code, int $mid, string $ar, string $en) use (&$out): void {
+            $out[] = ['code' => $code, 'market_id' => $mid, 'message_ar' => $ar, 'message_en' => $en];
+        };
+        try {
+            $svc = new AiVisibilityService($this->db);
+            if (!array_filter($svc->providers(), static fn ($p) => $p->configured())) {
+                $add('no_provider_configured', 0, 'مفيش مزوّد AI مكتمل الإعداد (مفتاح + تفعيل + geo_enabled) من إعدادات الأدمن.', 'No AI provider is fully configured (key + enabled + geo_enabled) in admin settings.');
+            }
+            foreach ((new SeoMarketService($this->db))->markets($wid, $uid) as $m) {
+                $mid = (int) $m['id'];
+                $set = $svc->set($uid, $wid, $mid);
+                if (!$set) continue;
+                if (empty($set['approved_at'])) {
+                    $add('questions_not_approved', $mid, 'أسئلة السوق ده مش معتمدة.', 'The questions for this market are not approved.');
+                    continue;
+                }
+                try {
+                    $c = $svc->context($uid, $wid, $mid);
+                } catch (Throwable $e) {
+                    $add('business_profile_not_confirmed', $mid, 'بيانات الشركة في Business Hub مش مؤكدة أو مش مطابقة للموقع.', 'The business profile in Business Hub is not confirmed or does not match the site.');
+                    continue;
+                }
+                if ((int) $set['profile_version'] !== $c['profile_version'] || $set['facts_hash'] !== $c['facts_hash']) {
+                    $add('questions_need_current_approval', $mid, 'بيانات الشركة اتغيّرت بعد اعتماد الأسئلة، فلازم تعتمد الأسئلة تاني علشان القياس يشتغل.', 'Business data changed after the questions were approved; approve the questions again so measurement can run.');
+                    continue;
+                }
+                try {
+                    AiVisibilityQuestions::validate($set['questions'], $c['aliases']);
+                } catch (InvalidArgumentException $e) {
+                    $add('questions_invalid', $mid, 'الأسئلة المعتمدة مش صالحة للقياس: ' . $e->getMessage(), 'The approved questions are not valid for measurement: ' . $e->getMessage());
+                }
+            }
+        } catch (Throwable $e) {
+            Logger::error('GEO diagnosis unavailable', ['website_id' => $wid, 'exception' => get_class($e)]);
+        }
+        if (!$out) {
+            $add('waiting_for_first_run', 0, 'كل الشروط سليمة. القياس بيتنفّذ سؤال سؤال من الطابور (حوالي سؤال كل دقيقة)، فالنتائج بتظهر تدريجيًا.', 'All conditions look fine. Measurement runs one question at a time from the queue (about one per minute), so results appear gradually.');
+        }
+        return $out;
     }
 
     /**
