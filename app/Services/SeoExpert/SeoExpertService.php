@@ -108,7 +108,18 @@ class SeoExpertService
         foreach($contexts as $ctx)foreach(($ctx['links']??[]) as $link){$u=is_string($link)?$link:(string)($link['url']??'');if($u==='')continue;
             if(!WordPressConnector::hostsEqual((string)parse_url($u,PHP_URL_HOST),$tourHost))continue;$p=(string)parse_url($u,PHP_URL_PATH);
             if(preg_match('#^/tours?/[^/]+/?$#i',$p)&&stripos($p,'/tour/')===0)$tourUrls[strtolower(rtrim($p,'/'))]=$u;}
-        $tourDeadline=microtime(true)+15;
+        // صفحة الموقع بتعرض 8 روابط بس، فروابط الرحلات غالبًا مش فيها: بنكمّل من خريطة الموقع (sitemap.xml)
+        if(count($tourUrls)<8&&microtime(true)<$deadline+4){
+            try{
+                $smBase=(string)parse_url($home['final_url'],PHP_URL_SCHEME).'://'.(string)parse_url($home['final_url'],PHP_URL_HOST);
+                $fetchSm=static function(string $u){$r=SafeHttp::exec($u,[CURLOPT_TIMEOUT=>5,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_USERAGENT=>'TourfectoBot/1.0 (+https://tourfecto.pro)',CURLOPT_ENCODING=>'',CURLOPT_MAXFILESIZE=>2000000],3);return is_string($r['response']??null)&&(int)($r['code']??0)===200?(string)$r['response']:'';};
+                $xml=$fetchSm($smBase.'/sitemap.xml');$parsed=$xml!==''?SeoDiscoveryService::parseSitemap($xml,$home['final_url']):['pages'=>[],'sitemaps'=>[]];
+                $pages=$parsed['pages'];
+                foreach(array_slice($parsed['sitemaps'],0,2) as $child){$cx=$fetchSm($child);if($cx!=='')$pages=array_merge($pages,SeoDiscoveryService::parseSitemap($cx,$home['final_url'])['pages']);}
+                foreach($pages as $u){$p=(string)parse_url($u,PHP_URL_PATH);if(stripos($p,'/tour/')===0&&preg_match('#^/tour/[^/]+/?$#i',$p))$tourUrls[strtolower(rtrim($p,'/'))]=$u;if(count($tourUrls)>=40)break;}
+            }catch(Throwable $e){}
+        }
+        $tourDeadline=min(microtime(true)+12,$deadline+14);
         foreach(array_slice(array_values($tourUrls),0,8) as $url){if(microtime(true)>$tourDeadline)break;
             try{$tc=$reader->fresh($url);}catch(Throwable $e){continue;}
             if(!empty($tc['ok'])&&empty($tc['coming_soon'])&&($fact=SeoBusinessBriefBuilder::tourFact($tc))!==null){$tourFacts[$fact]=true;$contexts[]=$tc;}}
