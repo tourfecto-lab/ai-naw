@@ -176,6 +176,8 @@ class EmailMarketingController extends Controller
                 <div class="p-modal-body">
                     <label for="importList" class="p-cell-muted" style="font-size:12px;">Target list</label>
                     <select id="importList" class="p-select" style="width:100%;margin-bottom:8px;"></select>
+                    <label for="importFile" class="p-cell-muted" style="font-size:12px;">Upload a file (CSV / TXT / JSON - in Excel use Save As → CSV)</label>
+                    <input type="file" id="importFile" accept=".csv,.txt,.json,text/csv,text/plain,application/json" onchange="loadImportFile(this)" style="width:100%;margin-bottom:8px;"/>
                     <label for="importData" class="p-cell-muted" style="font-size:12px;">Data (JSON or CSV format: email,name on each line)</label>
                     <textarea id="importData" class="p-select" style="width:100%;min-height:120px;font-family:monospace;font-size:12px;"
                         placeholder='[{&quot;email&quot;:&quot;a@example.com&quot;,&quot;name&quot;:&quot;Ahmed&quot;},{&quot;email&quot;:&quot;b@example.com&quot;,&quot;name&quot;:&quot;Sara&quot;}]'></textarea>
@@ -1034,6 +1036,25 @@ class EmailMarketingController extends Controller
             </div>
             <p class="p-cell-muted" style="margin-top:12px;">Your settings override the global .env settings. The password is not shown again after saving.</p>
         </details>
+
+        <div class="p-card" style="margin-top:16px;">
+            <div class="p-card-head">
+                <h3>🛡️ Domain authentication (SPF / DKIM / DMARC)</h3>
+                <span class="p-card-sub">Gmail and Yahoo require these for bulk sending - without them your emails land in spam</span>
+            </div>
+            <div style="display:grid;grid-template-columns:2fr 1fr auto;gap:10px;margin-top:10px;align-items:end;">
+                <div>
+                    <label for="emDomain" class="p-label">Sending domain</label>
+                    <input class="p-input" id="emDomain" placeholder="example.com" dir="ltr" style="width:100%;"/>
+                </div>
+                <div>
+                    <label for="emDkimSelector" class="p-label">DKIM selector (optional)</label>
+                    <input class="p-input" id="emDkimSelector" placeholder="default" dir="ltr" style="width:100%;"/>
+                </div>
+                <button class="p-btn primary" id="emDomainCheckBtn" onclick="checkSendingDomain()">🔍 Check domain</button>
+            </div>
+            <div id="emDomainResult" style="margin-top:14px;"></div>
+        </div>
 
         <div class="p-card" style="margin-top:16px;">
             <div class="p-card-head">
@@ -2316,6 +2337,10 @@ HTML;
         if (!$this->isAuthenticated()) {
             return $this->error('Unauthorized', 401);
         }
+        // كل فحص بيعمل حوالي 15 استعلام DNS: نحدّه عشان الصفحة ماتتحولش لأداة فحص دومينات
+        if ($e = $this->rateLimitGuard('user', 'email_domain_check', 20, 60)) {
+            return $e;
+        }
         $domain = strtolower(trim((string) $this->get('domain')));
         if (!DomainAuthChecker::isValidDomain($domain)) {
             return $this->error('Invalid domain', 422);
@@ -3115,7 +3140,7 @@ HTML;
 
     private function parseImportData(string $raw): array
     {
-        $raw = trim($raw);
+        $raw = trim((string) preg_replace('/^\xEF\xBB\xBF/', '', $raw)); // ملفات Excel بتبدأ بعلامة BOM
         if ($raw === '') {
             return [];
         }
@@ -3124,17 +3149,58 @@ HTML;
         if (is_array($decoded)) {
             return $decoded;
         }
-        // غير كده فسر كـ CSV: email,name في كل سطر
+        // غير كده CSV: بترويسة (email,name,...) أو من غيرها (email,name في كل سطر)
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $raw)), static fn ($l) => $l !== ''));
+        if (!$lines) {
+            return [];
+        }
+        // Excel بالعربي بيحفظ CSV بفاصلة منقوطة، وفيه ملفات بـ Tab
+        $delimiter = ',';
+        $best = 0;
+        foreach ([',', ';', "\t"] as $d) {
+            $n = substr_count($lines[0], $d);
+            if ($n > $best) {
+                $best = $n;
+                $delimiter = $d;
+            }
+        }
+        $emailCol = null;
+        $names = array_map(static fn ($h) => mb_strtolower(trim((string) $h)), str_getcsv($lines[0], $delimiter));
+        foreach ($names as $i => $h) {
+            if (in_array($h, ['email', 'e-mail', 'email address', 'mail', 'البريد', 'البريد الإلكتروني', 'البريد الالكتروني', 'الإيميل', 'الايميل', 'ايميل'], true)) {
+                $emailCol = $i;
+                break;
+            }
+        }
+        if ($emailCol !== null) {
+            array_shift($lines);
+        }
         $rows = [];
-        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
-            $line = trim($line);
-            if ($line === '') {
+        foreach ($lines as $line) {
+            $parts = str_getcsv($line, $delimiter);
+            if (!isset($parts[0])) {
                 continue;
             }
-            $parts = str_getcsv($line);
-            if (isset($parts[0])) {
+            if ($emailCol === null) {
                 $rows[] = ['email' => $parts[0], 'name' => $parts[1] ?? ''];
+                continue;
             }
+            $row = [];
+            foreach ($names as $i => $h) {
+                if ($h !== '' && !isset($row[$h])) {
+                    $row[$h] = trim((string) ($parts[$i] ?? ''));
+                }
+            }
+            $row['email'] = trim((string) ($parts[$emailCol] ?? ''));
+            if (empty($row['name'])) {
+                $row['name'] = trim(($row['first_name'] ?? $row['firstname'] ?? '') . ' ' . ($row['last_name'] ?? $row['lastname'] ?? ''));
+                foreach (['full name', 'fullname', 'full_name', 'الاسم الكامل', 'الاسم'] as $k) {
+                    if ($row['name'] === '' && !empty($row[$k])) {
+                        $row['name'] = (string) $row[$k];
+                    }
+                }
+            }
+            $rows[] = $row;
         }
         return $rows;
     }
@@ -3427,7 +3493,21 @@ HTML;
             if (r.success) { document.getElementById('subscriberModal').classList.remove('open'); loadSubscribers(); }
             else notify(r.error);
         }
-        function openImportModal() { document.getElementById('importData').value = ''; document.getElementById('importResult').innerHTML=''; document.getElementById('importModal').classList.add('open'); }
+        function openImportModal() { document.getElementById('importData').value = ''; document.getElementById('importFile').value = ''; document.getElementById('importResult').innerHTML=''; document.getElementById('importModal').classList.add('open'); }
+        async function loadImportFile(input) {
+            const file = input.files && input.files[0];
+            const box = document.getElementById('importResult');
+            if (!file) return;
+            if (/\.(xlsx|xls)$/i.test(file.name)) { box.innerHTML = '❌ Excel files are not supported directly - in Excel use Save As → CSV, then upload it.'; input.value = ''; return; }
+            if (file.size > 5 * 1024 * 1024) { box.innerHTML = '❌ The file is too large (max 5 MB). Split it into smaller files.'; input.value = ''; return; }
+            const buf = await file.arrayBuffer();
+            let text = new TextDecoder('utf-8').decode(buf);
+            // Excel بالعربي بيحفظ CSV بترميز windows-1256 مش UTF-8
+            if (text.indexOf('�') !== -1) text = new TextDecoder('windows-1256').decode(buf);
+            document.getElementById('importData').value = text;
+            box.innerHTML = '';
+            previewImport();
+        }
         async function importSubscribers() {
             const body = {list_id: document.getElementById('importList').value, data: document.getElementById('importData').value};
             const r = await emApi('/subscribers/import', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
@@ -5463,6 +5543,10 @@ HTML;
             if (s.username) document.getElementById('emSmtpUsername').value = s.username;
             if (s.from_email) document.getElementById('emSmtpFromEmail').value = s.from_email;
             if (s.from_name) document.getElementById('emSmtpFromName').value = s.from_name;
+            // دومين الإرسال الفعلي (بتاع الحساب أو بتاع المنصة) يتكتب لوحده في فاحص الدومين
+            const sendFrom = String(s.from_email || (r.data.effective || {}).from_email || '');
+            const dom = document.getElementById('emDomain');
+            if (dom && !dom.value && sendFrom.indexOf('@') > 0) dom.value = sendFrom.split('@').pop().toLowerCase();
             const active = parseInt(s.is_active) === 1;
             document.getElementById('emSmtpActive').checked = active;
             document.getElementById('emSmtpToggleBtn').textContent = active ? '⏻ Disable' : '⏻ Enable';
@@ -5534,6 +5618,30 @@ HTML;
             if (!r.success) { notify(r.error || 'An error occurred'); return; }
             notify('New key generated - copy it now, it will not be shown in full again');
             document.getElementById('emDeliveryWebhookSecret').textContent = r.data.secret || '••••';
+        }
+        async function checkSendingDomain() {
+            const domain = document.getElementById('emDomain').value.trim().toLowerCase();
+            const selector = document.getElementById('emDkimSelector').value.trim();
+            const box = document.getElementById('emDomainResult');
+            if (!domain) { notify('Enter the sending domain first'); return; }
+            const btn = document.getElementById('emDomainCheckBtn');
+            btnBusy(btn, true);
+            const r = await emApi('/domain-check?domain=' + encodeURIComponent(domain) + (selector ? '&selector=' + encodeURIComponent(selector) : ''));
+            btnBusy(btn, false);
+            if (!r.success) { box.innerHTML = '<div class="alert alert-danger">❌ ' + emText(r.error || 'Could not check the domain') + '</div>'; return; }
+            const d = r.data;
+            const color = {pass: '#16a34a', warn: '#d97706', fail: '#dc2626'};
+            const icon = {pass: '✅', warn: '⚠️', fail: '❌'};
+            const scoreColor = d.score >= 80 ? color.pass : (d.score >= 50 ? color.warn : color.fail);
+            const rows = [['SPF', d.spf], ['DKIM', d.dkim], ['DMARC', d.dmarc]].map(([name, x]) => `
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:8px;">
+                    <span style="font-size:18px;">${icon[x.status] || '•'}</span>
+                    <div style="min-width:0;flex:1;"><b style="color:${color[x.status] || '#111'}">${name}</b> — ${emText(x.detail)}
+                        ${x.record ? '<code style="display:block;margin-top:6px;direction:ltr;text-align:left;word-break:break-all;font-size:12px;">' + emText(Array.isArray(x.record) ? x.record.join(' | ') : x.record) + '</code>' : ''}</div>
+                </div>`).join('');
+            const recs = (d.recommendations || []).map(t => '<li>' + emText(t) + '</li>').join('');
+            box.innerHTML = `<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;"><div style="font-size:32px;font-weight:700;color:${scoreColor}">${d.score}<small style="font-size:14px;color:#6b7280">/100</small></div><div class="p-cell-muted">${emText(d.domain)}</div></div>${rows}
+                ${recs ? '<div style="margin-top:10px;"><b>What to fix</b><ul style="margin:6px 0 0;padding-inline-start:20px;">' + recs + '</ul></div>' : '<div class="alert alert-success">✔ Your domain is fully authenticated.</div>'}`;
         }
         loadSmtpSettings();
         loadDeliveryWebhook();

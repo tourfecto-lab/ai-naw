@@ -13,7 +13,8 @@
  */
 class DomainAuthChecker
 {
-    public const DEFAULT_SELECTORS = ['default', 'google', 'selector1', 'selector2', 's1', 's2', 'k1', 'mail', 'smtp', 'dkim'];
+    // hostingermail-a/b/c: Hostinger (SMTP المنصة) بينشر DKIM بالأسماء دي، وكان الفاحص بيقول "مفيش DKIM" غلط
+    public const DEFAULT_SELECTORS = ['default', 'google', 'selector1', 'selector2', 's1', 's2', 'k1', 'mail', 'smtp', 'dkim', 'hostingermail-a', 'hostingermail-b', 'hostingermail-c'];
 
     /** @var callable */
     private $resolver;

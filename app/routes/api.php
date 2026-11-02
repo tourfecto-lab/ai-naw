@@ -1061,6 +1061,8 @@ $router->delete('/api/email-marketing/smtp-settings', 'EmailMarketingController'
 // بند 1: webhook تتبع التسليم (توليد مفتاح + تفعيل/تعطيل)
 $router->get('/api/email-marketing/smtp-settings/webhook', 'EmailMarketingController', 'deliveryWebhookSettings', ['AuthMiddleware']);
 $router->post('/api/email-marketing/smtp-settings/webhook', 'EmailMarketingController', 'saveDeliveryWebhook', ['AuthMiddleware']);
+// فحص SPF/DKIM/DMARC لدومين الإرسال (زرار في صفحة الإعدادات)
+$router->get('/api/email-marketing/domain-check', 'EmailMarketingController', 'domainCheck', ['AuthMiddleware']);
 
 $router->get('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'transactionalTemplates', ['AuthMiddleware']);
 $router->post('/api/email-marketing/transactional/templates', 'EmailMarketingController', 'createTransactionalTemplate', ['AuthMiddleware']);
