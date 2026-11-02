@@ -40,9 +40,11 @@ final class GeoInsightsService
         $known = $this->safe(fn () => $this->db->query('SELECT competitor_name AS name, competitor_domain AS domain FROM competitors WHERE website_id = ? AND user_id = ? AND is_active = 1 LIMIT 30', [$wid, $uid])) ?? [];
         $host = self::host((string) $site[0]['main_url']);
         $out = self::compose((array) $rows, (array) $known, $host, $now ?? gmdate('Y-m-d H:i:s')) + ['website_id' => $wid, 'market_id' => $marketId];
-        if ($out['state'] === 'not_measured') {
-            $out['diagnosis'] = $this->diagnose($uid, $wid);
-            $out['progress'] = $this->progress($uid, $wid);
+        $out['diagnosis'] = $this->diagnose($uid, $wid);
+        $out['progress'] = $this->progress($uid, $wid);
+        if ($out['state'] !== 'not_measured') {
+            // عينة جزئية: نعرض بس الأسباب اللي بتوقف القياس، مش رسالة "مستني أول تشغيل"
+            $out['diagnosis'] = array_values(array_filter($out['diagnosis'], static fn ($d) => $d['code'] !== 'waiting_for_first_run'));
         }
         return $out;
     }
