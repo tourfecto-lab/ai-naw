@@ -60,6 +60,10 @@ final class VisibilityScoreService
             'seo' => self::pickSeo(self::seo(is_array($seoReport) ? $seoReport : null, $now), self::seoFromRun(is_array($run) ? $run : null, $open, $now)),
             'aeo' => self::aeo(AeoCoverageStore::measurement(AeoCoverageStore::summary($this->db, $uid, $wid), $now)),
             'geo' => self::geo(is_array($geoMetrics) ? $geoMetrics : null, $now),
+            'impact' => SeoImpactSummary::aggregate((array) ($this->safe(fn () => $this->db->query(
+                "SELECT page_path, change_date, window_days, result_json FROM seo_impact_monitors WHERE website_id = ? AND user_id = ? AND status = 'reported' AND result_json IS NOT NULL AND change_date >= DATE_SUB(UTC_DATE(), INTERVAL 120 DAY) ORDER BY change_date DESC LIMIT 400",
+                [$wid, $uid]
+            )) ?? [])),
             'actions' => self::topActions($candidates, 5),
         ];
     }

@@ -194,6 +194,8 @@ final class VisibilityScoreServiceTest extends TestCase
         $ov = $svc->overview(self::OWNER, $wid);
         $this->assertSame(72, $ov['seo']['score']);
         $this->assertSame('not_measured', $ov['aeo']['state']);
+        $this->assertSame('not_measured', $ov['impact']['state']);
+        $this->assertFalse($ov['impact']['causality_proven']);
 
         $this->expectException(InvalidArgumentException::class);
         try {

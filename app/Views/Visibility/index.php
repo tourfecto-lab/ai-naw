@@ -15,6 +15,7 @@ $t = static fn (string $a, string $e): string => htmlspecialchars($ar ? $a : $e,
 <label class="vis-muted" for="vis-site"><?= $t('الموقع', 'Site') ?><br><select class="p-select" id="vis-site" disabled><option><?= $t('جارٍ التحميل…', 'Loading…') ?></option></select></label></div>
 <p id="vis-msg" role="status" aria-live="polite" class="vis-muted" hidden></p>
 <div id="vis-cards" class="vis-grid" hidden></div>
+<div id="vis-impact" class="vis-card" hidden></div>
 <h3 id="vis-actions-h" hidden><?= $t('أهم الإجراءات', 'Top actions') ?></h3>
 <ul id="vis-actions" class="vis-list" hidden></ul>
 </section>
@@ -30,12 +31,21 @@ function card(k,s){const n=AX[k][0],d=AX[k][1],m=s.score!==null&&s.score!==undef
  return '<article class="vis-card"><div class="vis-muted">'+esc(n)+' · '+esc(d)+'</div>'+(m
   ?'<div class="vis-score">'+s.score+'<small>/100</small></div><div><span class="vis-badge">'+esc(CONF[s.confidence]||'')+'</span>'+(s.stale?'<span class="vis-badge vis-warn">'+L('قديم','Stale')+'</span>':'')+'</div><div class="vis-muted">'+L('بتاريخ','As of')+' '+esc(s.as_of||'-')+'</div>'
   :'<div class="vis-score" aria-label="'+L('مش مقاس','Not measured')+'">—</div><div class="vis-muted">'+L('مش مقاس لسه','Not measured yet')+'</div>')+'</article>';}
-function render(d){el('vis-cards').innerHTML=['seo','aeo','geo'].map(k=>card(k,d[k])).join('');el('vis-cards').hidden=false;
+function impact(i){const b=el('vis-impact');if(!i||i.state!=='measured'){b.innerHTML='<div class="vis-muted">'+L('أثر التعديلات (قبل/بعد من Search Console)','Impact of changes (before/after from Search Console)')+'</div><div class="vis-muted">'+L('لسه مفيش مقارنات اتجمّعت. بتظهر بعد 7 و14 و28 يوم من تطبيق التعديلات.','No comparisons collected yet. They appear 7, 14 and 28 days after changes are applied.')+'</div>';b.hidden=false;return;}
+ const pc=v=>v===null?'':' ('+(v>0?'+':'')+v+'%)',pos=i.avg_position_change;
+ b.innerHTML='<div class="vis-muted">'+L('أثر التعديلات (قبل/بعد من Search Console)','Impact of changes (before/after from Search Console)')+'</div>'+
+  '<div class="vis-score" style="font-size:1.6rem">'+L('النقرات: ','Clicks: ')+i.clicks.before+' → '+i.clicks.after+esc(pc(i.clicks.change_pct))+'</div>'+
+  '<div>'+L('الظهور: ','Impressions: ')+i.impressions.before+' → '+i.impressions.after+esc(pc(i.impressions.change_pct))+'</div>'+
+  '<div>'+L('صفحات زادت نقراتها ','Pages with more clicks ')+i.pages_up+' · '+L('قلّت ','fewer ')+i.pages_down+' · '+L('ثابتة ','flat ')+i.pages_flat+(pos===null?'':' · '+L('متوسط تغيّر الترتيب ','avg position change ')+(pos>0?'+':'')+pos+L(' (الأقل أفضل)',' (lower is better)'))+'</div>'+
+  '<div><span class="vis-badge">'+esc(CONF[i.confidence]||'')+'</span>'+i.pages+L(' صفحة قارنّاها · بتاريخ ',' pages compared · as of ')+esc(String(i.as_of||'-').slice(0,10))+'</div>'+
+  '<div class="vis-muted">'+L('ده فرق قبل/بعد على نفس الصفحات، مش إثبات إن التعديل هو السبب: الموسم وتغييرات تانية بتأثر.','This is a before/after difference on the same pages, not proof the changes caused it: seasonality and other changes also move these numbers.')+'</div>'+
+  '<a class="p-btn outline" href="/seo-expert">'+L('تفاصيل النتائج','Result details')+'</a>';b.hidden=false;}
+function render(d){el('vis-cards').innerHTML=['seo','aeo','geo'].map(k=>card(k,d[k])).join('');el('vis-cards').hidden=false;impact(d.impact);
  const a=d.actions||[],ul=el('vis-actions');el('vis-actions-h').hidden=false;ul.hidden=false;
  ul.innerHTML=a.length?a.map(x=>'<li><span><span class="vis-badge">'+esc(String(x.area).toUpperCase())+'</span>'+esc(x.title)+'<br><small class="vis-muted">'+esc(x.detail||'')+'</small></span><a class="p-btn outline" href="'+esc(safeUrl(x.url))+'">'+L('افتح ونفّذ','Open and apply')+'</a></li>').join('')
   :'<li class="vis-muted">'+L('مفيش إجراءات معلّقة دلوقتي.','No pending actions right now.')+'</li>';}
 let epoch=0;
-async function load(wid){const my=++epoch;msg(L('جارٍ التحميل…','Loading…'));el('vis-cards').hidden=true;
+async function load(wid){const my=++epoch;msg(L('جارٍ التحميل…','Loading…'));el('vis-cards').hidden=true;el('vis-impact').hidden=true;
  try{const r=await window.Panel.fetchJSON('/api/visibility/overview?website_id='+encodeURIComponent(wid));if(my!==epoch)return;if(!r.success)throw Error(r.error||r.message);msg('');render(r.data);}
  catch(e){if(my!==epoch)return;msg((e&&e.message)||L('تعذر التحميل. جرّب تاني.','Could not load. Try again.'),true);}}
 const start=async()=>{try{const r=await window.Panel.fetchJSON('/api/websites');const list=(r.data&&r.data.websites)||r.data||r.websites||[],sel=el('vis-site');
