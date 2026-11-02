@@ -41,7 +41,7 @@ async function run(btn,out,fn){btn.disabled=true;out.innerHTML='<p class="sch-mu
  try{out.innerHTML=await fn();}catch(e){out.innerHTML='<p class="sch-err">'+esc((e&&e.message)||L('تعذر إتمام الطلب.','Request failed.'))+'</p>';}finally{btn.disabled=false;}}
 el('sch-validate').onclick=e=>run(e.currentTarget,el('sch-result'),async()=>{const t=el('sch-json').value.trim();if(!t)throw Error(L('الصق كود JSON-LD الأول.','Paste JSON-LD first.'));
  const r=await post('/api/seo/schema/validate',{jsonld:t});if(!r.success)throw Error(r.error||r.message);return report(r.data);});
-el('sch-preview').onclick=e=>run(e.currentTarget,el('sch-preview-out'),async()=>{const u=el('sch-url').value.trim(),w=el('sch-site').value;if(!u||!w)throw Error(L('اختار الموقع واكتب رابط الصفحة.','Choose a site and enter a page URL.'));
+el('sch-preview').onclick=e=>run(e.currentTarget,el('sch-preview-out'),async()=>{const u=el('sch-url').value.trim(),w=el('sch-site').disabled?'':el('sch-site').value;if(!u||!w)throw Error(L('اختار الموقع واكتب رابط الصفحة.','Choose a site and enter a page URL.'));
  const r=await post('/api/seo/schema/preview',{website_id:Number(w),url:u});if(!r.success)throw Error(r.error||r.message);const d=r.data;
  const ex=(d.existing_types||[]).map(t=>'<span class="sch-badge">'+esc(t)+'</span>').join('')||'<span class="sch-muted">'+L('مفيش Schema موجود','No schema found')+'</span>';
  let h='<p><strong>'+L('الموجود حاليًا','Currently on the page')+':</strong> '+ex+'</p>';

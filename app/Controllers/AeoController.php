@@ -50,7 +50,7 @@ final class AeoController extends Controller
             if ($u !== '' && SeoSameSiteUrl::allowed((string) $rows[0]['main_url'], $u) && SeoSchemaBuilder::isTourPath((string) parse_url($u, PHP_URL_PATH))) $urls[$u] = true;
         }
         if (!$urls) return $this->error('مفيش صفحات رحلات في آخر دورة SEO Expert. شغّل دورة الأول.', 422);
-        $batch = AeoCoverageStore::nextUrls($this->db, $uid, $wid, array_keys($urls), 5);
+        $batch = AeoCoverageStore::nextUrls($this->db, $uid, $wid, array_keys($urls), 8);
         $reader = new SeoExpertPageContext();
         $deadline = microtime(true) + 40;
         $done = 0;
