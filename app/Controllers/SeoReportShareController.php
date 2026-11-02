@@ -53,8 +53,8 @@ final class SeoReportShareController extends Controller
         }
         $grant = (new SeoReportShareService($this->db))->resolve((string) ($params['token'] ?? ''));
         if (!$grant) {
-            http_response_code(404);
-            echo '<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>404</title><p style="font-family:sans-serif;padding:2rem">الرابط غير صالح أو انتهى أو اتلغى. / This link is invalid, expired or revoked.</p>';
+            http_response_code(410); // 404 بيتغطى بصفحة nginx العامة فالعميل مش بيشوف السبب
+            echo '<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><title>Link unavailable</title><p style="font-family:sans-serif;padding:2rem">الرابط غير صالح أو انتهى أو اتلغى. / This link is invalid, expired or revoked.</p>';
             exit;
         }
         $site = $this->db->query('SELECT company_name, brand_name, main_url FROM websites WHERE id = ? AND user_id = ?', [$grant['website_id'], $grant['user_id']]);
