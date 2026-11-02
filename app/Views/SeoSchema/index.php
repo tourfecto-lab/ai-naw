@@ -45,6 +45,7 @@ el('sch-preview').onclick=e=>run(e.currentTarget,el('sch-preview-out'),async()=>
  const r=await post('/api/seo/schema/preview',{website_id:Number(w),url:u});if(!r.success)throw Error(r.error||r.message);const d=r.data;
  const ex=(d.existing_types||[]).map(t=>'<span class="sch-badge">'+esc(t)+'</span>').join('')||'<span class="sch-muted">'+L('مفيش Schema موجود','No schema found')+'</span>';
  let h='<p><strong>'+L('الموجود حاليًا','Currently on the page')+':</strong> '+ex+'</p>';
+ h+=(d.existing_invalid_blocks?'<p class="sch-err">'+d.existing_invalid_blocks+' '+L('كتلة JSON-LD على الصفحة مش صالحة (JSON مكسور).','JSON-LD block(s) on the page are not valid JSON.')+'</p>':'')+(d.existing_validation||[]).map((v,i)=>'<h4>'+L('فحص الموجود فعلًا على الصفحة','Check of the markup already on the page')+' #'+(i+1)+'</h4>'+report(v)).join('');
  h+=d.proposed?'<p><strong>'+L('المقترح (معاينة فقط)','Proposed (preview only)')+'</strong></p>'+report(d.proposed.validation)+'<pre id="sch-proposed">'+esc(JSON.stringify(d.proposed.jsonld,null,2))+'</pre>':'<p class="sch-muted">'+L('مفيش إضافة مقترحة للصفحة دي (الموجود كافي أو الصفحة مش مناسبة).','No addition proposed for this page (existing markup is enough or the page does not fit).')+'</p>';
  return h+'<p class="sch-muted">'+esc(d.note)+'</p>';});
 const start=async()=>{try{const r=await window.Panel.fetchJSON('/api/websites');const list=(r.data&&r.data.websites)||[],sel=el('sch-site');

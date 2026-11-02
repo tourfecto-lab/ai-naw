@@ -26,13 +26,10 @@ final class SeoSchemaController extends Controller
         if (!$rows) return $this->error('الموقع مش موجود', 422);
         $site = parse_url((string) $rows[0]['main_url']);
         $page = parse_url($url);
-        $host = static fn ($p) => strtolower(preg_replace('/^www\./', '', (string) ($p['host'] ?? '')));
-        if (!$site || !$page || ($page['scheme'] ?? '') !== 'https' || $host($site) === '' || $host($site) !== $host($page) || isset($page['user']) || isset($page['pass'])) {
+        if (!SeoSameSiteUrl::allowed((string) $rows[0]['main_url'], $url)) {
             return $this->error('الرابط لازم يكون https ومن نفس موقعك', 422);
         }
-        $key = 'schema_preview_' . gmdate('YmdH');
-        $_SESSION[$key] = ($_SESSION[$key] ?? 0) + 1;
-        if ($_SESSION[$key] > self::PREVIEWS_PER_HOUR) return $this->error('وصلت للحد الأقصى للمعاينات في الساعة. جرّب بعد شوية.', 429);
+        if (!SeoSameSiteUrl::throttle('schema_preview', self::PREVIEWS_PER_HOUR)) return $this->error('وصلت للحد الأقصى للمعاينات في الساعة. جرّب بعد شوية.', 429);
         try {
             $fetched = (new SeoExpertPageContext())->fresh($url);
         } catch (Throwable $e) {
@@ -46,6 +43,8 @@ final class SeoSchemaController extends Controller
         return $this->success([
             'url' => $url,
             'existing_types' => $this->typesOf((array) ($fetched['schema'] ?? [])),
+            'existing_validation' => array_map(static fn ($d) => SeoSchemaValidator::validate($d), array_slice(array_values((array) ($fetched['schema'] ?? [])), 0, 10)),
+            'existing_invalid_blocks' => (int) ($fetched['invalid_schema'] ?? 0),
             'proposed' => $built ? ['types' => $built['types'], 'jsonld' => $built['graph'], 'validation' => SeoSchemaValidator::validate($built['graph'])] : null,
             'note' => 'معاينة فقط: مفيش نشر. أي إضافة بتتطبق من خلال دورة SEO Expert بموافقتك.',
         ]);
