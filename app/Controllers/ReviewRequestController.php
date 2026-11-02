@@ -1247,6 +1247,10 @@ JS;
         if (!$this->validate(['action' => 'required'])) {
             return $this->error('بيانات ناقصة', 422);
         }
+        // استدعاء Gemini من غير حصة: نمنع الاستنزاف بحد معدّل لكل مستخدم
+        if ($rl = $this->rateLimitGuard('user', 'review_request_ai_assist', 30, 3600)) {
+            return $rl;
+        }
 
         $websiteId = (int) $this->get('website_id', 0);
         $website = ($websiteId && $this->ownsWebsite($websiteId)) ? (new Website())->find($websiteId) : null;
