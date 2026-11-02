@@ -72,7 +72,7 @@ class OutreachController extends Controller
         $result = $this->discoveryService->discoverForWebsite((int) $this->user['id'], $websiteId);
 
         if (!$result['available']) {
-            return $this->success($result, 'مفيش بيانات كافية للاكتشاف حاليًا - أضف منافسين متتبعين الأول', 200);
+            return $this->success($result, self::discoveryUnavailableMessage((string) ($result['reason'] ?? '')), 200);
         }
 
         return $this->success($result, 'تم الاكتشاف - المرشحون الجدد محفوظون ومسوداتهم جاهزة للمراجعة والموافقة قبل أي إرسال');
@@ -498,6 +498,21 @@ class OutreachController extends Controller
 
         $this->log('Outreach Email Sent', ['prospect_id' => $prospect->getAttribute('id'), 'email_id' => $emailId]);
         return $this->success(['email' => $email->toArray()], 'تم إرسال الرسالة');
+    }
+
+    /** سبب عدم توفر الاكتشاف بالظبط (كانت الرسالة دايمًا «أضف منافسين» حتى لو المصدر نفسه مقفول من الأدمن) */
+    public static function discoveryUnavailableMessage(string $reason): string
+    {
+        if (str_contains($reason, 'backlinks_provider_disabled')) {
+            return 'اكتشاف الروابط من المنافسين مش مفعّل على المنصة دلوقتي (بيحتاج مصدر بيانات روابط مدفوع يفعّله الأدمن). تقدر تضيف المواقع المرشحة بإيديك.';
+        }
+        if (str_contains($reason, 'two_real_competitors_required')) {
+            return 'محتاج منافسين اتنين على الأقل متتبعين الأول (من مركز المنافسين)، وبعدها اكتشف.';
+        }
+        if (str_contains($reason, 'coverage_incomplete')) {
+            return 'بيانات الروابط من المصدر ناقصة لموقع أو أكتر من المنافسين، فمش هنقترح مرشحين من بيانات ناقصة. جرّب بعد شوية.';
+        }
+        return 'مفيش بيانات كافية للاكتشاف حاليًا. تقدر تضيف المواقع المرشحة بإيديك.';
     }
 
     /** دومين نضيف (من غير http ولا مسار ولا www) أو null لو شكله مش دومين حقيقي */

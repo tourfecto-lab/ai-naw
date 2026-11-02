@@ -35,4 +35,12 @@ final class OutreachInputGuardsTest extends TestCase
         $this->assertStringContainsString('إلغاء', $ar);
         $this->assertStringContainsString('--', $ar);
     }
+
+    public function testDiscoveryExplainsTheRealReason(): void
+    {
+        $this->assertStringContainsString('مش مفعّل', OutreachController::discoveryUnavailableMessage('insufficient_data: competitor_backlinks:backlinks_provider_disabled'));
+        $this->assertStringContainsString('منافسين اتنين', OutreachController::discoveryUnavailableMessage('two_real_competitors_required'));
+        $this->assertStringContainsString('ناقصة', OutreachController::discoveryUnavailableMessage('referring_domain_coverage_incomplete'));
+        $this->assertStringContainsString('إيديك', OutreachController::discoveryUnavailableMessage('something_else'));
+    }
 }
