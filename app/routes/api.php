@@ -2064,6 +2064,7 @@ $router->post('/api/seo/schema/preview','SeoSchemaController','preview',['AuthMi
 $router->post('/api/aeo/draft','AeoController','draft',['AuthMiddleware']);
 $router->post('/api/aeo/scan','AeoController','scan',['AuthMiddleware']);
 $router->post('/api/aeo/build','AeoController','build',['AuthMiddleware']);
+$router->get('/api/geo/insights','GeoInsightsController','overview',['AuthMiddleware']);
 $router->get('/api/visibility/overview','VisibilityController','overview',['AuthMiddleware']);
 $router->get('/api/ai-visibility/data','AiVisibilityController','data',['AuthMiddleware']);
 $router->get('/api/ai-visibility/overview','AiVisibilityController','data',['AuthMiddleware']);

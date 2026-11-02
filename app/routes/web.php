@@ -116,6 +116,7 @@ $router->get('/competitor-intelligence/reports/{id}/export', 'CompetitorIntellig
 // ============================================
 $router->get('/ai-visibility','AiVisibilityController','index',['AuthMiddleware']);
 $router->get('/visibility','VisibilityController','index',['AuthMiddleware']);
+$router->get('/geo-insights','GeoInsightsController','index',['AuthMiddleware']);
 $router->get('/seo-schema','SeoSchemaController','index',['AuthMiddleware']);
 $router->get('/aeo','AeoController','index',['AuthMiddleware']);
 $router->group('/ai', function ($router) {

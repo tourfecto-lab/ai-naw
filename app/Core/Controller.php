@@ -834,6 +834,7 @@ abstract class Controller
             'ai' => ['✨', $L('الظهور في الذكاء الاصطناعي', 'AI visibility'), [
                 ['/visibility', $L('لوحة الظهور (SEO/AEO/GEO)', 'Visibility dashboard (SEO/AEO/GEO)'), 'seo_expert'],
                 ['/ai-visibility', $L('ظهورك في الإجابات', 'Your visibility in answers'), 'ai_visibility'],
+                ['/geo-insights', $L('الأسئلة والمنافسين', 'Prompts and competitors'), 'ai_visibility'],
                 ['/ai-insights', $L('المصادر والانطباع', 'Sources and sentiment'), 'ai_insights'],
             ]],
         ];
