@@ -157,6 +157,8 @@ class AiVisibilityService
             }
             $ledger->finish($id,$result,$analysis,$cap);
             if($analysis!==null)$checked++;else{$failed++;$errors[]=$provider->name().':'.($result['reason']??'unavailable');}
+            // مفتاح مرفوض (401/403) = مشكلة إعداد؛ التكرار بيحرق الحصة من غير فايدة، فنوقف الدفعة ومفيش continuation.
+            if($analysis===null && in_array((int)($result['http']??0),[401,403],true))return compact('checked','skipped','failed','errors')+['state'=>'stopped','reason'=>'provider_auth_failed:'.$provider->name()];
         }
         $this->generateTasks($uid,$wid,$mid);
         return compact('checked','skipped','failed','errors')+['state'=>$checked?'measured_sample':($failed?'unavailable':'already_checked')];
