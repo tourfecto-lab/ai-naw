@@ -171,6 +171,7 @@ return [
         'title' => 'مراقبة المنافسين', 'enabled' => true, 'max_minutes' => 25,
     ],
     'seo_content_decay' => ['file'=>'seo_content_decay.php','when'=>'0 7 * * 1','group'=>'seo','title'=>'Weekly content refresh review','enabled'=>true,'max_minutes'=>10],
+    'seo_ai_visibility_alerts' => ['file'=>'seo_ai_visibility_alerts.php','when'=>'0 12 * * 1','group'=>'seo','title'=>'تنبيه فقد ذكر/اقتباس الشركة في إجابات AI','enabled'=>true,'max_minutes'=>10],
     'seo_ai_visibility' => ['file'=>'seo_ai_visibility.php','when'=>'0 6 * * 1','group'=>'seo','title'=>'قياس ظهور AI الأسبوعي','enabled'=>true,'max_minutes'=>10],
     'ci_rankings' => [
         'file' => 'ci_keyword_rankings.php', 'when' => '0 5 * * *', 'group' => 'competitors',

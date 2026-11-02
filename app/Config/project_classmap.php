@@ -49,6 +49,7 @@ return [
     'AiVisibilityDetector' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityDetector.php',
     'AiVisibilityEvidence' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityEvidence.php',
     'AiVisibilityLedger' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityLedger.php',
+    'AiVisibilityAlertService' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityAlertService.php',
     'AiVisibilityMetrics' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityMetrics.php',
     'AiVisibilityProvider' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityProvider.php',
     'AiVisibilityQuestions' => dirname(__DIR__,2).'/app/Services/AiVisibility/AiVisibilityQuestions.php',
