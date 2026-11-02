@@ -22,7 +22,7 @@ final class VisibilityController extends Controller
         try {
             return $this->success((new VisibilityScoreService($this->db))->overview((int) $this->user['id'], $wid));
         } catch (InvalidArgumentException $e) {
-            return $this->error($e->getMessage(), 404);
+            return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {
             Logger::error('Visibility overview unavailable', ['website_id' => $wid, 'user_id' => (int) $this->user['id'], 'exception' => get_class($e), 'error' => $e->getMessage()]);
             return $this->error('تعذر تحميل لوحة الظهور دلوقتي. جرّب مرة تانية.', 503);
