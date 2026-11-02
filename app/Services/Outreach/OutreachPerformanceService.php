@@ -71,9 +71,25 @@ class OutreachPerformanceService
             $avgDays = round((float) $avgRow[0]['avg_sec'] / 86400, 1);
         }
 
+        // 3-ب) الأرقام الفعلية: رسايل اتبعتت من المنصة، مقابل مراحل العميل غيّرها بإيده من غير إرسال
+        $sent = $db->query(
+            "SELECT COUNT(*) AS emails, COUNT(DISTINCT e.prospect_id) AS prospects FROM outreach_emails e
+             JOIN outreach_prospects p ON p.id = e.prospect_id WHERE p.user_id = ? AND p.website_id = ? AND e.status = 'sent'",
+            [$userId, $websiteId]
+        );
+        $emails = (int) ($sent[0]['emails'] ?? 0);
+        $emailed = (int) ($sent[0]['prospects'] ?? 0);
+        $verified = [
+            'emails_sent' => $emails,
+            'prospects_emailed' => $emailed,
+            'manual_without_email' => max(0, $reached - $emailed),
+            'note' => 'المراحل بتتحدد من العميل بإيده؛ «تواصل» الفعلي هو اللي اتبعت من المنصة. الردود بتتسجل يدويًا (المنصة مش بتقرا صندوق الإيميل).',
+        ];
+
         return [
             'funnel' => $funnel,
             'conversion' => $conversion,
+            'verified' => $verified,
             'backlinks' => $backlinks,
             'avg_time_to_link_days' => $avgDays,
         ];

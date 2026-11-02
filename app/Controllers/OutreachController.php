@@ -500,6 +500,79 @@ class OutreachController extends Controller
         return $this->success(['email' => $email->toArray()], 'تم إرسال الرسالة');
     }
 
+    /** POST /api/outreach/prospects/{id}/delete - بيحذف المرشّح ورسايله وروابطه المراقبة (بيانات العميل نفسه بس) */
+    public function deleteProspect(array $params = []): array
+    {
+        if ($csrfError = $this->verifyCsrf()) return $csrfError;
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $id = (int) ($params['id'] ?? 0);
+        $prospect = $id ? $this->ownedProspect($id) : null;
+        if (!$prospect) return $this->error('المرشّح غير موجود', 404);
+        $uid = (int) $this->user['id'];
+        $this->db->transaction(function () use ($id, $uid) {
+            $this->db->exec('DELETE e FROM seo_backlink_evidence e JOIN monitored_backlinks b ON b.id = e.backlink_id WHERE b.prospect_id = ? AND b.user_id = ?', [$id, $uid]);
+            $this->db->exec('DELETE FROM monitored_backlinks WHERE prospect_id = ? AND user_id = ?', [$id, $uid]);
+            $this->db->exec('DELETE FROM outreach_emails WHERE prospect_id = ?', [$id]);
+            $this->db->exec('DELETE FROM outreach_prospects WHERE id = ? AND user_id = ?', [$id, $uid]);
+        });
+        $this->log('Outreach Prospect Deleted', ['prospect_id' => $id]);
+        return $this->success([], 'اتحذف المرشّح مع رسايله وروابطه');
+    }
+
+    /** POST /api/outreach/backlinks/{id}/delete */
+    public function deleteBacklink(array $params = []): array
+    {
+        if ($csrfError = $this->verifyCsrf()) return $csrfError;
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $id = (int) ($params['id'] ?? 0);
+        $uid = (int) $this->user['id'];
+        $row = $id ? $this->db->query('SELECT id FROM monitored_backlinks WHERE id = ? AND user_id = ?', [$id, $uid]) : [];
+        if (!$row) return $this->error('الرابط غير موجود', 404);
+        $this->db->transaction(function () use ($id, $uid) {
+            $this->db->exec('DELETE FROM seo_backlink_evidence WHERE backlink_id = ?', [$id]);
+            $this->db->exec('DELETE FROM monitored_backlinks WHERE id = ? AND user_id = ?', [$id, $uid]);
+        });
+        return $this->success([], 'اتحذف الرابط من المراقبة');
+    }
+
+    /** POST /api/outreach/disavow/analyze { website_id, text } - اقتراحات فقط، مفيش حاجة بتتحفظ */
+    public function disavowAnalyze(array $params = []): array
+    {
+        if ($csrfError = $this->verifyCsrf()) return $csrfError;
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $websiteId = (int) $this->get('website_id');
+        $site = $websiteId && $this->ownsWebsite($websiteId) ? (new Website())->find($websiteId) : null;
+        if (!$site) return $this->error('الموقع غير موجود', 404);
+        $text = (string) $this->get('text', '');
+        if (strlen($text) > DisavowBuilder::MAX_INPUT_BYTES) return $this->error('القايمة كبيرة (الحد 500 كيلوبايت)', 413);
+        $parsed = DisavowBuilder::parse($text, (string) $site->getAttribute('main_url'));
+        if (!$parsed['domains']) return $this->error('ما لقيناش دومينات صالحة في اللي لصقته', 422);
+        $rows = DisavowBuilder::analyze($parsed['domains']);
+        return $this->success([
+            'total' => count($parsed['domains']),
+            'flagged' => count($rows),
+            'skipped_lines' => $parsed['skipped'],
+            'truncated' => $parsed['truncated'],
+            'rows' => array_slice($rows, 0, 500),
+            'note' => 'اقتراحات من شكل الدومين بس، مش حكم على جودة الرابط. راجع كل سطر قبل ما تختاره.',
+        ]);
+    }
+
+    /** POST /api/outreach/disavow/file { website_id, domains[] } - بيرجّع نص الملف للتنزيل، من غير تخزين */
+    public function disavowFile(array $params = []): array
+    {
+        if ($csrfError = $this->verifyCsrf()) return $csrfError;
+        if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
+        $websiteId = (int) $this->get('website_id');
+        $site = $websiteId && $this->ownsWebsite($websiteId) ? (new Website())->find($websiteId) : null;
+        if (!$site) return $this->error('الموقع غير موجود', 404);
+        $domains = $this->get('domains', []);
+        if (!is_array($domains) || !$domains) return $this->error('اختار دومين واحد على الأقل', 422);
+        $host = DisavowBuilder::normalizeDomain((string) $site->getAttribute('main_url')) ?? 'your-site';
+        $content = DisavowBuilder::file($domains, $host, gmdate('Y-m-d'));
+        return $this->success(['filename' => 'disavow-' . $host . '.txt', 'content' => $content, 'count' => substr_count($content, "\ndomain:") + (str_starts_with($content, 'domain:') ? 1 : 0)]);
+    }
+
     /** سبب عدم توفر الاكتشاف بالظبط (كانت الرسالة دايمًا «أضف منافسين» حتى لو المصدر نفسه مقفول من الأدمن) */
     public static function discoveryUnavailableMessage(string $reason): string
     {

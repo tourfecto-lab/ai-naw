@@ -627,6 +627,7 @@ return [
     'OutreachEmail' => dirname(__DIR__,2).'/app/Models/OutreachEmail.php',
     'OutreachEmailGenerator' => dirname(__DIR__,2).'/app/Services/Outreach/OutreachEmailGenerator.php',
     'OutreachFollowUpDraftService' => dirname(__DIR__,2).'/app/Services/Outreach/OutreachFollowUpDraftService.php',
+    'DisavowBuilder' => dirname(__DIR__,2).'/app/Services/Outreach/DisavowBuilder.php',
     'OutreachPerformanceService' => dirname(__DIR__,2).'/app/Services/Outreach/OutreachPerformanceService.php',
     'OutreachProspect' => dirname(__DIR__,2).'/app/Models/OutreachProspect.php',
     'PageContext' => dirname(__DIR__,2).'/app/Services/AutoFix/PageContext.php',
