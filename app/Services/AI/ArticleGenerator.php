@@ -87,6 +87,9 @@ class ArticleGenerator
 
         $content = (string) $parsed['content'];
         $faqs = $this->sanitizeFaqs($parsed['faqs'] ?? []);
+        if (self::languageMixed($language, [(string) ($parsed['title'] ?? ''), (string) ($parsed['meta_description'] ?? ''), $content, json_encode($faqs, JSON_UNESCAPED_UNICODE)])) {
+            return ['success' => false, 'error' => 'المقال طلع فيه كلام عربي وسط لغة تانية. اتلغى بدل ما يتنشر مشوّه؛ جرّب التوليد تاني.'];
+        }
         if ($brief !== null) {
             $error = self::validateBriefOutput($parsed, $brief);
             if ($error !== null) return ['success'=>false, 'error'=>$error];
@@ -305,6 +308,38 @@ class ArticleGenerator
         return json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
+    /**
+     * قواعد صارمة بالإنجليزي: البرومبت الأساسي عربي، فالنموذج كان بيسرّب كلمة عربية وسط مقال إنجليزي («- التوقيت: …»)،
+     * وبيحط أماكن في غير مكانها (المتحف النوبي «على الجزيرة» وهو في أسوان) ومطاعم ومحلات مش مذكورة في أي مصدر.
+     */
+    /** لغات بتتكتب بالحروف العربية: مفيش فيها «خلط» */
+    private const ARABIC_SCRIPT = ['ar', 'fa', 'ur', 'ps', 'ku', 'ckb', 'sd', 'ug'];
+
+    public static function guardRules(string $language, string $languageName): string
+    {
+        $rules = [];
+        $arabicScript = in_array($language, self::ARABIC_SCRIPT, true);
+        if (!$arabicScript) {
+            $rules[] = "5. CRITICAL LANGUAGE RULE: write every word of the title, meta description, headings, bullet labels, body and FAQs in {$languageName} only. Never use Arabic words or Arabic script (a label such as the Arabic word for 'timing' is a mistake).";
+        }
+        $rules[] = ($arabicScript ? '5' : '6') . ". CRITICAL ACCURACY RULE: never state that a specific museum, restaurant, cafe, shop, hotel, price, opening time or service exists at or near the destination unless it is named in the brief or is a famous, well-established landmark you are certain belongs exactly there. Keep every other piece of advice generic and hedged. If you are unsure whether something is on the island, in the village or in the nearby city, omit it. Do not repeat the FAQ questions inside the body: put them only in the faqs field.";
+        return implode("\n", $rules);
+    }
+
+    /** نص عربي في مقال بلغة تانية = خلط لغات؛ بنرفض التوليد بدل ما ننشر نص مشوّه */
+    public static function languageMixed(string $language, array $parts): bool
+    {
+        if (in_array($language, self::ARABIC_SCRIPT, true)) {
+            return false;
+        }
+        foreach ($parts as $p) {
+            if (is_string($p) && preg_match('/\p{Arabic}/u', $p) === 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private function buildPrompt(string $topic, string $language, string $tone, ?string $companyName, ?string $websiteUrl, array $existingPages = []): string
     {
         $languageMap = [
@@ -338,6 +373,8 @@ class ArticleGenerator
             $pagesLine = "\n\nصفحات موجودة فعليًا على الموقع (لو مناسب، اقترح روابط داخلية لها فقط، ماتخترعش صفحات مش موجودة):\n{$list}";
         }
 
+        $guardRules = self::guardRules($language, $languageName);
+
         return <<<PROMPT
 أنت كاتب محتوى تسويقي متخصص في قطاع السياحة، وخبير SEO. اكتب مقالة تسويقية
 كاملة جاهزة للنشر مباشرة على موقع شركة سياحة، بالمواصفات التالية:
@@ -354,6 +391,7 @@ class ArticleGenerator
 2. مقسّم بعناوين فرعية واضحة (H2/H3) بصيغة Markdown (## و ###).
 3. مفيد وحقيقي المعلومات، مش عام وسطحي.
 4. خالي من أي معلومات ملفّقة عن أماكن أو أسعار محددة غير مؤكدة.
+{$guardRules}
 
 رجّع الرد **بصيغة JSON فقط** (بدون أي نص قبله أو بعده)، بالشكل ده بالظبط:
 

@@ -6,7 +6,14 @@ final class ArticleFaqContent
     public static function hasQuestion(string $content, string $question): bool
     {
         $q = preg_quote(trim($question), '~');
-        return $q !== '' && preg_match('~^\h*(?:\#{1,6}\h+)?(?:\*\*)?' . $q . '(?:\*\*)?\h*$~imu', $content) === 1;
+        if ($q === '') {
+            return false;
+        }
+        if (preg_match('~^\h*(?:\#{1,6}\h+)?(?:\*\*)?' . $q . '(?:\*\*)?\h*$~imu', $content) === 1) {
+            return true;
+        }
+        // السؤال مكتوب جوه المقال كبند قايمة («- السؤال؟ الإجابة») أو بخط عريض في أول السطر: نفس السؤال، فمنكرّروش تاني تحت
+        return preg_match('~^\h*(?:[-*\x{2022}]\h+)?(?:\*\*)?' . $q . '~imu', $content) === 1;
     }
 
     /** Remove only exact legacy-generated FAQ blocks at the end of an article. */
