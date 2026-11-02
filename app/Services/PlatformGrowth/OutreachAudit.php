@@ -46,6 +46,13 @@ class OutreachAudit
         if (preg_match_all('#href=["\'](?:https?://[^/"\']+)?/(en|tr|ar|de|ru|fr|es|it|zh|ja|fa|nl|pl)(?:/|["\'])#i', $h, $ll)) {
             $langs = array_merge($langs, array_map('strtolower', $ll[1]));
         }
+        // تبديل اللغات بالـ JavaScript مابيظهرش في hreflang ولا في روابط /en/: أسماء اللغات في القايمة هي الدليل
+        $names = ['english' => 'en', 'français' => 'fr', 'francais' => 'fr', 'español' => 'es', 'espanol' => 'es', 'deutsch' => 'de', 'italiano' => 'it', 'português' => 'pt', 'portugues' => 'pt', 'русский' => 'ru', 'türkçe' => 'tr', 'العربية' => 'ar', '中文' => 'zh', '日本語' => 'ja', 'nederlands' => 'nl', 'polski' => 'pl'];
+        if (preg_match_all('#>\s*(English|Fran[cç]ais|Espa[nñ]ol|Deutsch|Italiano|Portugu[eê]s|Русский|Türkçe|العربية|中文|日本語|Nederlands|Polski)\s*<#iu', $h, $ln)) {
+            foreach ($ln[1] as $label) {
+                $langs[] = $names[mb_strtolower($label)] ?? mb_strtolower($label);
+            }
+        }
         $year = null;
         if (preg_match_all('/(?:©|&copy;|copyright)\s*(?:\d{4}\s*[-–]\s*)?(20\d{2})/iu', $h, $cy)) {
             $year = max(array_map('intval', $cy[1]));
@@ -82,6 +89,8 @@ class OutreachAudit
             'h1' => $has('#<h1\b[^>]*>\s*(?:<[^>]+>\s*)*[^<\s]#i'),
             'schema' => $schema,
             'langs' => array_values(array_unique($langs)),
+            // إضافات الترجمة (GTranslate وWeglot وWPML...) بتبدّل اللغة من غير ما تظهر أسماؤها في الـ HTML
+            'lang_widget' => $has('#(?:gtranslate|google_translate_element|translate\.google\.com/translate_a|weglot|wpml-ls|polylang|pll-switcher|trp-language|translatepress|transposh|lang(?:uage)?[-_]?(?:switch|select|menu|picker))#i'),
             'copyright_year' => $year,
             'images' => count($imgs[0]),
             'images_no_alt' => $noAlt,
@@ -133,7 +142,7 @@ class OutreachAudit
         $home = $pages[0];
         $merged = $home;
         foreach (array_slice($pages, 1) as $p) {
-            foreach (['whatsapp', 'chat_widget', 'booking_engine', 'payments', 'meta_pixel', 'google_tag', 'blog', 'contact_form'] as $k) {
+            foreach (['whatsapp', 'chat_widget', 'booking_engine', 'payments', 'meta_pixel', 'google_tag', 'blog', 'contact_form', 'lang_widget'] as $k) {
                 $merged[$k] = $merged[$k] || $p[$k];
             }
             $merged['social'] += $p['social'];
@@ -263,7 +272,7 @@ class OutreachAudit
             if (!array_intersect((array) $site['schema'], ['LocalBusiness', 'TravelAgency', 'TouristTrip', 'Product', 'Organization', 'TouristAttraction', 'Event'])) {
                 $add('no_schema', 'website', 'seo', 3, ['domain' => $domain]);
             }
-            if (count((array) $site['langs']) < 2) {
+            if (count((array) $site['langs']) < 2 && empty($site['lang_widget'])) {
                 $add('one_language', 'website', 'seo', 5, ['domain' => $domain]);
             }
             if (!empty($site['copyright_year']) && (int) $site['copyright_year'] < (int) date('Y') - 1) {
