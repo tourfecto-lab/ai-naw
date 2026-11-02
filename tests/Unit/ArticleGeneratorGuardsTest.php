@@ -48,6 +48,35 @@ final class ArticleGeneratorGuardsTest extends TestCase
         $this->assertStringContainsString('CRITICAL ACCURACY RULE', $ar);
     }
 
+    public function testRawFaqJsonInsideTheContentIsRemovedAndTheQuestionsRecovered(): void
+    {
+        $live = "## Conclusion\n\nA boat trip is a lovely way to spend an afternoon.\n\n## FAQs\n\n{\"question\":\"What is the best time to visit Sohail Island?\",\"answer\":\"October to March.\"},{\"question\":\"Can I swim in the Nile?\",\"answer\":\"Swimming is not recommended due to strong currents.\"}]";
+        [$clean, $faqs] = ArticleGenerator::stripEmbeddedFaqJson($live);
+        $this->assertSame("## Conclusion\n\nA boat trip is a lovely way to spend an afternoon.", $clean);
+        $this->assertSame([
+            ['question' => 'What is the best time to visit Sohail Island?', 'answer' => 'October to March.'],
+            ['question' => 'Can I swim in the Nile?', 'answer' => 'Swimming is not recommended due to strong currents.'],
+        ], $faqs);
+        $plain = "## Tips\n\nBring water.";
+        $this->assertSame([$plain, []], ArticleGenerator::stripEmbeddedFaqJson($plain));
+    }
+
+    public function testGenerationRebuildsTheFaqFromJsonLeftInTheContent(): void
+    {
+        $client = new class {
+            public function generateContent(string $prompt, array $opts = []): array
+            {
+                $content = "## Intro\n\nSohail Island is near Aswan.\n\n## FAQs\n\n{\"question\":\"Best time?\",\"answer\":\"Morning.\"}]";
+                return ['success' => true, 'data' => json_encode(['title' => 'Sohail Island', 'meta_description' => 'Guide.', 'content' => $content, 'suggested_keywords' => [], 'faqs' => [], 'internal_link_suggestions' => []]), 'tokens_used' => 1, 'cost' => 0.0];
+            }
+        };
+        $r = (new ArticleGenerator($client))->generate('Sohail Island', 'en');
+        $this->assertTrue($r['success']);
+        $this->assertStringNotContainsString('"question"', $r['data']['content']);
+        $this->assertSame(1, substr_count($r['data']['content'], 'Best time?'));
+        $this->assertSame('Morning.', $r['data']['faqs'][0]['answer']);
+    }
+
     public function testGenerationRefusesAMixedLanguageArticleAndAcceptsAClean(): void
     {
         $mk = static function (string $content) {

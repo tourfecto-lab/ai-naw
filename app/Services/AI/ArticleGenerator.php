@@ -85,8 +85,11 @@ class ArticleGenerator
             ];
         }
 
-        $content = (string) $parsed['content'];
+        [$content, $embedded] = self::stripEmbeddedFaqJson((string) $parsed['content']);
         $faqs = $this->sanitizeFaqs($parsed['faqs'] ?? []);
+        if (!$faqs && $embedded) {
+            $faqs = $this->sanitizeFaqs($embedded);
+        }
         if (self::languageMixed($language, [(string) ($parsed['title'] ?? ''), (string) ($parsed['meta_description'] ?? ''), $content, json_encode($faqs, JSON_UNESCAPED_UNICODE)])) {
             return ['success' => false, 'error' => 'المقال طلع فيه كلام عربي وسط لغة تانية. اتلغى بدل ما يتنشر مشوّه؛ جرّب التوليد تاني.'];
         }
@@ -322,8 +325,39 @@ class ArticleGenerator
         if (!$arabicScript) {
             $rules[] = "5. CRITICAL LANGUAGE RULE: write every word of the title, meta description, headings, bullet labels, body and FAQs in {$languageName} only. Never use Arabic words or Arabic script (a label such as the Arabic word for 'timing' is a mistake).";
         }
-        $rules[] = ($arabicScript ? '5' : '6') . ". CRITICAL ACCURACY RULE: never state that a specific museum, restaurant, cafe, shop, hotel, price, opening time or service exists at or near the destination unless it is named in the brief or is a famous, well-established landmark you are certain belongs exactly there. Keep every other piece of advice generic and hedged. If you are unsure whether something is on the island, in the village or in the nearby city, omit it. Do not repeat the FAQ questions inside the body: put them only in the faqs field.";
+        $rules[] = ($arabicScript ? '5' : '6') . ". CRITICAL ACCURACY RULE: never state that a specific museum, restaurant, cafe, shop, hotel, price, opening time or service exists at or near the destination unless it is named in the brief or is a famous, well-established landmark you are certain belongs exactly there. Keep every other piece of advice generic and hedged. If you are unsure whether something is on the island, in the village or in the nearby city, omit it. Do not write a FAQ section inside the content (the faqs field is displayed separately), and never put JSON of any kind inside the content.";
         return implode("\n", $rules);
+    }
+
+    /**
+     * النموذج أحيانًا بيكتب أسئلة الـFAQ كـJSON خام جوه نص المقال («## FAQs» وبعدها {"question":…}): بنشيله من النص
+     * وبنرجّع الأسئلة منه لو الحقل المنفصل فاضي، عشان تتعرض كأسئلة مش كـJSON.
+     * @return array{0:string,1:array} [النص بعد التنضيف، الأسئلة المستخرجة]
+     */
+    public static function stripEmbeddedFaqJson(string $content): array
+    {
+        $pos = strpos($content, '"question"');
+        if ($pos === false) {
+            return [$content, []];
+        }
+        $found = [];
+        if (preg_match_all('/\{\s*"question"\s*:\s*("(?:[^"\\\\]|\\\\.)*")\s*,\s*"answer"\s*:\s*("(?:[^"\\\\]|\\\\.)*")\s*\}/s', $content, $m, PREG_SET_ORDER)) {
+            foreach ($m as $x) {
+                $q = json_decode($x[1], true);
+                $a = json_decode($x[2], true);
+                if (is_string($q) && is_string($a) && trim($q) !== '' && trim($a) !== '') {
+                    $found[] = ['question' => trim($q), 'answer' => trim($a)];
+                }
+            }
+        }
+        $head = substr($content, 0, $pos);
+        if (preg_match_all('/^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*)?(?:FAQs?|Frequently Asked Questions)[^\n]*$/im', $head, $h, PREG_OFFSET_CAPTURE) && $h[0]) {
+            $cut = (int) end($h[0])[1];
+        } else {
+            $nl = strrpos($head, "\n");
+            $cut = $nl === false ? 0 : $nl;
+        }
+        return [rtrim(substr($content, 0, $cut)), $found];
     }
 
     /** نص عربي في مقال بلغة تانية = خلط لغات؛ بنرفض التوليد بدل ما ننشر نص مشوّه */
