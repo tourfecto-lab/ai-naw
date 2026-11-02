@@ -30,11 +30,19 @@ final class VisibilityScoreService
 
         $geoMetrics = $this->safe(fn () => (new AiVisibilityService($this->db))->metrics($uid, $wid));
 
-        $candidates = [];
-        foreach ((array) $this->safe(fn () => $this->db->query(
-            "SELECT id, priority, title, page_path FROM seo_expert_tasks WHERE website_id = ? AND user_id = ? AND is_active = 1 AND status = 'pending' ORDER BY id DESC LIMIT 40",
+        // آخر دورة SEO Expert مكتملة، والمهام المفتوحة فيها (active/pending/needs_client). الدورات القديمة ما بتدخلش.
+        $run = $this->safe(fn () => $this->db->query(
+            "SELECT id, created_at, JSON_UNQUOTE(JSON_EXTRACT(snapshot_json, '$.coverage.audited')) AS audited, JSON_UNQUOTE(JSON_EXTRACT(snapshot_json, '$.partial')) AS is_partial
+             FROM seo_expert_runs WHERE website_id = ? AND user_id = ? AND status = 'completed' ORDER BY id DESC LIMIT 1",
             [$wid, $uid]
-        )) as $t) {
+        )[0] ?? null);
+        $open = is_array($run) ? (array) $this->safe(fn () => $this->db->query(
+            "SELECT id, priority, title, page_path FROM seo_expert_tasks WHERE run_id = ? AND website_id = ? AND user_id = ? AND status IN ('active','pending','needs_client') ORDER BY id DESC LIMIT 200",
+            [(int) $run['id'], $wid, $uid]
+        )) : [];
+
+        $candidates = [];
+        foreach (array_slice($open, 0, 40) as $t) {
             $candidates[] = ['area' => 'seo', 'ref' => 'seo_expert:' . $t['id'], 'priority' => (string) $t['priority'],
                 'title' => (string) $t['title'], 'detail' => (string) $t['page_path'], 'url' => '/seo-expert?website_id=' . $wid];
         }
@@ -49,7 +57,7 @@ final class VisibilityScoreService
         return [
             'website_id' => $wid,
             'generated_at' => $now,
-            'seo' => self::seo(is_array($seoReport) ? $seoReport : null, $now),
+            'seo' => self::pickSeo(self::seo(is_array($seoReport) ? $seoReport : null, $now), self::seoFromRun(is_array($run) ? $run : null, $open, $now)),
             'aeo' => self::aeo(null),
             'geo' => self::geo(is_array($geoMetrics) ? $geoMetrics : null, $now),
             'actions' => self::topActions($candidates, 5),
@@ -67,6 +75,35 @@ final class VisibilityScoreService
             'stale' => self::isStale((string) $report['created_at'], $now),
             'findings_total' => (int) ($report['findings_total'] ?? 0),
         ];
+    }
+
+    /**
+     * درجة SEO من دورة SEO Expert: نسبة الصفحات اللي اتفحصت وما عليهاش مهمة مفتوحة.
+     * ده مقياس "صحة الصفحات" وليس درجة تقييم شاملة؛ الثقة بتقل لو الفحص جزئي أو عدد الصفحات قليل.
+     */
+    public static function seoFromRun(?array $run, array $openTasks, string $now): array
+    {
+        $audited = $run ? (int) ($run['audited'] ?? 0) : 0;
+        if (!$run || $audited <= 0) {
+            return ['state' => 'not_measured', 'score' => null, 'source' => 'seo_expert_run', 'as_of' => null, 'confidence' => null, 'stale' => false];
+        }
+        $paths = [];
+        foreach ($openTasks as $t) {
+            $paths[(string) $t['page_path']] = true;
+        }
+        $score = (int) round(100 * max(0, 1 - count($paths) / $audited));
+        $partial = in_array(strtolower((string) ($run['is_partial'] ?? '')), ['1', 'true'], true);
+        return ['state' => 'measured', 'score' => $score, 'source' => 'seo_expert_run', 'basis' => 'audited_pages_without_open_tasks',
+            'as_of' => $run['created_at'], 'confidence' => $partial || $audited < 5 ? 'low' : ($audited >= 20 ? 'high' : 'medium'),
+            'stale' => self::isStale((string) $run['created_at'], $now), 'audited_pages' => $audited, 'pages_with_open_tasks' => count($paths)];
+    }
+
+    /** الأحدث تاريخًا بين لقطة الـAuto SEO ودورة SEO Expert؛ لو واحدة بس مقاسة نرجّعها. */
+    public static function pickSeo(array $a, array $b): array
+    {
+        if ($a['state'] !== 'measured') return $b;
+        if ($b['state'] !== 'measured') return $a;
+        return strcmp((string) $b['as_of'], (string) $a['as_of']) > 0 ? $b : $a;
     }
 
     /** AEO مش مقيس لحد ما مولّد/قياس الإجابات (مرحلة AEO) يتفعّل؛ نرجّع not_measured صراحة. */

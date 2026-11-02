@@ -60,6 +60,30 @@ final class VisibilityScoreServiceTest extends TestCase
         $this->assertSame(['s1', 's2', 's3', 'g1'], array_column($out, 'ref'));
     }
 
+    public function testSeoFromRunCountsAuditedPagesWithoutOpenTasks(): void
+    {
+        $run = ['id' => 1, 'created_at' => '2026-11-02 04:00:05', 'audited' => '96', 'is_partial' => 'false'];
+        $open = [['page_path' => '/a'], ['page_path' => '/a'], ['page_path' => '/b']];
+        $s = VisibilityScoreService::seoFromRun($run, $open, self::NOW);
+        $this->assertSame(98, $s['score']); // 2 of 96 pages have open tasks
+        $this->assertSame('high', $s['confidence']);
+        $this->assertSame(2, $s['pages_with_open_tasks']);
+        $this->assertSame('not_measured', VisibilityScoreService::seoFromRun(null, [], self::NOW)['state']);
+        $this->assertSame('not_measured', VisibilityScoreService::seoFromRun(['created_at' => 'x', 'audited' => '0'], [], self::NOW)['state']);
+        $this->assertSame('low', VisibilityScoreService::seoFromRun(['is_partial' => '1'] + $run, [], self::NOW)['confidence']);
+    }
+
+    public function testPickSeoPrefersTheNewerMeasuredSource(): void
+    {
+        $old = ['state' => 'measured', 'as_of' => '2026-10-01 00:00:00', 'score' => 50];
+        $new = ['state' => 'measured', 'as_of' => '2026-11-01 00:00:00', 'score' => 80];
+        $none = ['state' => 'not_measured', 'as_of' => null, 'score' => null];
+        $this->assertSame(80, VisibilityScoreService::pickSeo($old, $new)['score']);
+        $this->assertSame(80, VisibilityScoreService::pickSeo($new, $old)['score']);
+        $this->assertSame(50, VisibilityScoreService::pickSeo($old, $none)['score']);
+        $this->assertSame('not_measured', VisibilityScoreService::pickSeo($none, $none)['state']);
+    }
+
     private function db(): ?Database
     {
         try {
@@ -78,6 +102,42 @@ final class VisibilityScoreServiceTest extends TestCase
             return $db;
         } catch (Throwable $e) {
             return null;
+        }
+    }
+
+    public function testOverviewReadsLatestSeoExpertRunAndOnlyOpenTasks(): void
+    {
+        $db = $this->db();
+        if (!$db) $this->markTestSkipped('DB غير متاحة');
+        $pdo = $db->getConnection();
+        $u = self::OWNER;
+        foreach (['seo_expert_tasks', 'seo_expert_runs'] as $t) {
+            if (!$pdo->query("SHOW TABLES LIKE '$t'")->fetchAll()) $this->markTestSkipped("$t غير موجود");
+        }
+        $pdo->exec("DELETE FROM seo_expert_tasks WHERE user_id=$u");
+        $pdo->exec("DELETE FROM seo_expert_runs WHERE user_id=$u");
+        $pdo->exec("DELETE FROM websites WHERE user_id=$u");
+        $pdo->exec("INSERT INTO users (id,email,password,company_name,created_at) VALUES ($u,'vis-$u@tourfecto.test','x','V',NOW()) ON DUPLICATE KEY UPDATE email=email");
+        $pdo->exec("INSERT INTO websites (user_id,main_url,company_name,brand_name) VALUES ($u,'https://vis2.example.com','V','V')");
+        $wid = (int) $pdo->lastInsertId();
+        $snap = json_encode(['coverage' => ['audited' => 20], 'partial' => false]);
+        $ins = $pdo->prepare("INSERT INTO seo_expert_runs (website_id,user_id,request_key,status,version,snapshot_json,created_at,updated_at) VALUES (?,?,?,'completed',1,?,NOW(),NOW())");
+        $ins->execute([$wid, $u, 'old', json_encode(['coverage' => ['audited' => 20]])]);
+        $ins->execute([$wid, $u, 'new', $snap]);
+        $newRun = (int) $pdo->lastInsertId();
+        $oldRun = $newRun - 1;
+        $task = $pdo->prepare("INSERT INTO seo_expert_tasks (run_id,website_id,user_id,kind,category,priority,page_url,page_path,title,instructions,status,is_active,created_at,updated_at) VALUES (?,?,?,'manual','seo',?,?,?,?,'x',?,0,NOW(),NOW())");
+        $task->execute([$newRun, $wid, $u, 'high', 'https://x/a', '/a', 'fix a', 'active']);
+        $task->execute([$newRun, $wid, $u, 'low', 'https://x/b', '/b', 'done b', 'verified']);
+        $task->execute([$oldRun, $wid, $u, 'high', 'https://x/c', '/c', 'old c', 'active']);
+        try {
+            $ov = (new VisibilityScoreService($db))->overview($u, $wid);
+            $this->assertSame(95, $ov['seo']['score']); // 1 of 20 pages has an open task in the latest run
+            $this->assertSame(['fix a'], array_column($ov['actions'], 'title'));
+        } finally {
+            $pdo->exec("DELETE FROM seo_expert_tasks WHERE user_id=$u");
+            $pdo->exec("DELETE FROM seo_expert_runs WHERE user_id=$u");
+            $pdo->exec("DELETE FROM websites WHERE id=$wid");
         }
     }
 
