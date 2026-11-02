@@ -54,6 +54,7 @@ final class AeoController extends Controller
         $reader = new SeoExpertPageContext();
         $deadline = microtime(true) + 40;
         $done = 0;
+        $skipped = 0;
         foreach ($batch as $u) {
             if (microtime(true) > $deadline) break;
             try {
@@ -62,11 +63,16 @@ final class AeoController extends Controller
                 continue;
             }
             if (empty($page['ok'])) continue;
+            if (!AeoAnswerBuilder::isTripPage($page)) {
+                AeoCoverageStore::recordNotATrip($this->db, $uid, $wid, $u);
+                $skipped++;
+                continue;
+            }
             AeoCoverageStore::record($this->db, $uid, $wid, $u, AeoAnswerBuilder::readiness($page), count(AeoAnswerBuilder::draft($page)['pairs']));
             $done++;
         }
         $summary = AeoCoverageStore::summary($this->db, $uid, $wid);
-        return $this->success(['scanned_now' => $done, 'trip_pages_total' => count($urls), 'summary' => $summary, 'measurement' => AeoCoverageStore::measurement($summary, gmdate('Y-m-d H:i:s'))]);
+        return $this->success(['scanned_now' => $done, 'skipped_not_trip' => $skipped, 'candidate_pages' => count($urls), 'summary' => $summary, 'measurement' => AeoCoverageStore::measurement($summary, gmdate('Y-m-d H:i:s'))]);
     }
 
     /** POST /api/aeo/build {pairs:[{question,answer}]} */

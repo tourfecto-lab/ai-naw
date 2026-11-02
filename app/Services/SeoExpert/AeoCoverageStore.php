@@ -6,6 +6,8 @@
 final class AeoCoverageStore
 {
     public const STALE_DAYS = 14;
+    /** علامة في answers_found: صفحة اتفحصت وطلعت مش صفحة رحلة (قسم/مقال)، فما بتدخلش في التغطية ولا بتتفحص تاني قبل غيرها. */
+    public const NOT_A_TRIP = 255;
 
     public static function record(Database $db, int $uid, int $wid, string $url, array $readiness, int $answersFound): bool
     {
@@ -13,7 +15,7 @@ final class AeoCoverageStore
             $db->exec(
                 'INSERT INTO seo_aeo_pages (website_id, user_id, url_hash, url, has_faq, has_howto, answers_found, checked_at) VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())
                  ON DUPLICATE KEY UPDATE url = VALUES(url), has_faq = VALUES(has_faq), has_howto = VALUES(has_howto), answers_found = VALUES(answers_found), checked_at = UTC_TIMESTAMP()',
-                [$wid, $uid, sha1($url), mb_substr($url, 0, 1000), (int) !empty($readiness['has_faq_schema']), (int) !empty($readiness['has_howto_schema']), min(255, max(0, $answersFound))]
+                [$wid, $uid, sha1($url), mb_substr($url, 0, 1000), (int) !empty($readiness['has_faq_schema']), (int) !empty($readiness['has_howto_schema']), min(self::NOT_A_TRIP - 1, max(0, $answersFound))]
             );
             return true;
         } catch (Throwable $e) {
@@ -21,16 +23,32 @@ final class AeoCoverageStore
         }
     }
 
-    /** @return ?array{total:int,with_faq:int,with_howto:int,last_checked:?string} null لو الجدول مش موجود */
+    /** يسجّل إن الرابط اتفحص وطلع مش صفحة رحلة. */
+    public static function recordNotATrip(Database $db, int $uid, int $wid, string $url): bool
+    {
+        try {
+            $db->exec(
+                'INSERT INTO seo_aeo_pages (website_id, user_id, url_hash, url, has_faq, has_howto, answers_found, checked_at) VALUES (?, ?, ?, ?, 0, 0, ?, UTC_TIMESTAMP())
+                 ON DUPLICATE KEY UPDATE has_faq = 0, has_howto = 0, answers_found = VALUES(answers_found), checked_at = UTC_TIMESTAMP()',
+                [$wid, $uid, sha1($url), mb_substr($url, 0, 1000), self::NOT_A_TRIP]
+            );
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+
+    /** @return ?array{total:int,with_faq:int,with_howto:int,last_checked:?string,excluded:int} null لو الجدول مش موجود */
     public static function summary(Database $db, int $uid, int $wid): ?array
     {
         try {
             $r = $db->query(
-                'SELECT COUNT(*) AS total, COALESCE(SUM(has_faq),0) AS with_faq, COALESCE(SUM(has_howto),0) AS with_howto, MAX(checked_at) AS last_checked
+                'SELECT COALESCE(SUM(answers_found < ?),0) AS total, COALESCE(SUM(has_faq AND answers_found < ?),0) AS with_faq, COALESCE(SUM(has_howto AND answers_found < ?),0) AS with_howto,
+                        COALESCE(SUM(answers_found >= ?),0) AS excluded, MAX(CASE WHEN answers_found < ? THEN checked_at END) AS last_checked
                  FROM seo_aeo_pages WHERE website_id = ? AND user_id = ? AND checked_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 60 DAY)',
-                [$wid, $uid]
+                [self::NOT_A_TRIP, self::NOT_A_TRIP, self::NOT_A_TRIP, self::NOT_A_TRIP, self::NOT_A_TRIP, $wid, $uid]
             );
-            return $r ? ['total' => (int) $r[0]['total'], 'with_faq' => (int) $r[0]['with_faq'], 'with_howto' => (int) $r[0]['with_howto'], 'last_checked' => $r[0]['last_checked']] : null;
+            return $r ? ['total' => (int) $r[0]['total'], 'with_faq' => (int) $r[0]['with_faq'], 'with_howto' => (int) $r[0]['with_howto'], 'last_checked' => $r[0]['last_checked'], 'excluded' => (int) $r[0]['excluded']] : null;
         } catch (Throwable $e) {
             return null;
         }

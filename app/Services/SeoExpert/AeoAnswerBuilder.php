@@ -21,6 +21,12 @@ final class AeoAnswerBuilder
         'guide' => ['المرشد (مثال: "Guide: Licensed Egyptologist")', 'the guide (e.g. "Guide: Licensed Egyptologist")'],
     ];
 
+    /** صفحة رحلة فعلًا = فيها TouristTrip/Trip/Product بالاسم في الـSchema (مش مجرد مسار شبه رحلة). */
+    public static function isTripPage(array $page): bool
+    {
+        return self::name($page) !== '';
+    }
+
     /** @param array $page ناتج SeoExpertPageContext::fresh (lang,text,schema,url) */
     public static function draft(array $page): array
     {

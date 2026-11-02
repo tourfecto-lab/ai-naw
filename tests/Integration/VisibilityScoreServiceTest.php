@@ -163,6 +163,12 @@ final class VisibilityScoreServiceTest extends TestCase
             $this->assertSame(2, $aeo['pages']);
             $this->assertSame('low', $aeo['confidence']);
             $this->assertSame(0, AeoCoverageStore::summary($db, self::OTHER, $wid)['total']);
+            // صفحة اتفحصت وطلعت مش رحلة: ما بتدخلش في التغطية، ومتعلّم عليها كمستبعدة
+            $this->assertTrue(AeoCoverageStore::recordNotATrip($db, $u, $wid, 'https://vis3.example.com/tours/category'));
+            $sum = AeoCoverageStore::summary($db, $u, $wid);
+            $this->assertSame(2, $sum['total']);
+            $this->assertSame(1, $sum['excluded']);
+            $this->assertSame(50, (new VisibilityScoreService($db))->overview($u, $wid)['aeo']['score']);
             $this->assertSame(['https://vis3.example.com/tour/a'], array_slice(AeoCoverageStore::nextUrls($db, $u, $wid, ['https://vis3.example.com/tour/a', 'https://vis3.example.com/tour/new'], 5), 1));
         } finally {
             $pdo->exec("DELETE FROM seo_aeo_pages WHERE website_id=$wid");
