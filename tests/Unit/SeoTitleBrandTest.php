@@ -41,6 +41,15 @@ final class SeoTitleBrandTest extends TestCase
         $this->assertNull(SeoPlanQualityGate::issue('title', 'Luxor Tours | Cairo Tours | Egypt Travel Guide'), 'only words repeated after the first part count');
     }
 
+    public function testDuplicatedBrandIsCollapsedDeterministically(): void
+    {
+        $this->assertSame('Day Tours in Egypt: Private Excursions | Tourfecto Travel', SeoPlanQualityGate::collapseRepeatedBrand('Day Tours in Egypt: Private Excursions | Tourfecto | Tourfecto Travel'));
+        $this->assertSame('Cairo Shore Excursion from Sokhna Port | Tourfecto Travel', SeoPlanQualityGate::collapseRepeatedBrand('Cairo Shore Excursion from Sokhna Port | Tourfecto | Tourfecto Travel'));
+        $this->assertNull(SeoPlanQualityGate::collapseRepeatedBrand('Hurghada Tours and Excursions | Tourfecto Travel'));
+        $this->assertNull(SeoPlanQualityGate::collapseRepeatedBrand('Luxor Tours | Cairo Tours | Egypt Travel Guide'));
+        $this->assertNull(SeoPlanQualityGate::collapseRepeatedBrand('A | Tourfecto | Tourfecto Travel'), 'a result shorter than 25 characters is not a valid title');
+    }
+
     public function testProposalThatRepairsTheDuplicateIsKeptAndOneThatRepeatsItIsDropped(): void
     {
         $now = 'Day Tours in Egypt: Private Excursions | Tourfecto | Tourfecto Travel';

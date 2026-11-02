@@ -62,6 +62,34 @@ class SeoPlanQualityGate
         return false;
     }
 
+    /**
+     * إصلاح حتمي (من غير ذكاء اصطناعي) لعنوان فيه اسم الشركة مرتين في آخره:
+     * «Page | Tourfecto | Tourfecto Travel» ← «Page | Tourfecto Travel». بنشيل الجزء المكرر الأقصر اللي هو بداية جزء بعده.
+     * بيرجّع null لو مفيش تكرار أو لو الناتج مش صالح كعنوان (أقصر من 25 حرف).
+     */
+    public static function collapseRepeatedBrand(string $title): ?string
+    {
+        if (!self::repeatedBrandSegments($title)) {
+            return null;
+        }
+        $parts = array_values(array_filter(array_map('trim', explode('|', $title)), static fn ($p) => $p !== ''));
+        $keep = [];
+        foreach ($parts as $i => $seg) {
+            $dup = false;
+            for ($j = $i + 1; $j < count($parts) && $i > 0; $j++) {
+                if (stripos($parts[$j], $seg) === 0 && mb_strlen($parts[$j]) > mb_strlen($seg)) {
+                    $dup = true;
+                    break;
+                }
+            }
+            if (!$dup) {
+                $keep[] = $seg;
+            }
+        }
+        $out = implode(' | ', $keep);
+        return ($out !== $title && count($keep) < count($parts) && mb_strlen($out) >= 25 && mb_strlen($out) <= 65) ? $out : null;
+    }
+
     public static function issue(string $field, string $current, array $sameFieldOnOtherPages = []): ?string
     {
         if (!isset(self::LIMITS[$field])) {

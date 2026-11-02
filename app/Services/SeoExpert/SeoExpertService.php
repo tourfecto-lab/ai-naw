@@ -606,6 +606,12 @@ class SeoExpertService
             $plan['client_tasks']=SeoPlanQualityGate::filterClientTasks($plan['client_tasks'],$pages);
             // صفحات بتنافس بعض على نفس البحث: الأضعف بتاخد عنوان ووصف لكلمة تانية أدق (بعد البوابة عمدًا، لأن عنوانها الحالي غالبًا مش "غلط")
             $stage='conflict_retargeting';try{$plan['changes']=array_merge($plan['changes'],$this->retargetConflicts($snapshot,$pages,$plan['changes'],$brand,(int)$r['website_id']));}catch(Throwable $e){Logger::warning('SEO conflict retargeting skipped',['run_id'=>$id,'error'=>$e->getMessage()]);}
+            // عنوان فيه اسم الشركة مرتين («… | Tourfecto | Tourfecto Travel»): بنصلّحه حتميًا حتى لو الذكاء الاصطناعي ما اقترحش حاجة للصفحة دي
+            foreach($pages as $pi=>$pg){
+                $nowTitle=(string)($pg['values']['title'][0]??($pg['title']??''));$fixed=SeoPlanQualityGate::collapseRepeatedBrand($nowTitle);
+                if($fixed===null)continue;$taken=false;foreach($plan['changes'] as $ch)if(($ch['page_index']??-1)===$pi&&($ch['field']??'')==='title'){$taken=true;break;}
+                if(!$taken)$plan['changes'][]=['page_index'=>$pi,'field'=>'title','value'=>$fixed,'reason'=>'The company name appears twice at the end of the title; keeping it once makes it shorter and cleaner.'];
+            }
             $stage='task_persistence';$this->db->transaction(function()use($r,$id,$plan,$pages,$snapshot,$cfg,$policy,$site){
                 $this->q('DELETE FROM seo_expert_tasks WHERE run_id=?',[$id]);
                 foreach($plan['changes'] as $c){$p=$pages[$c['page_index']];$duplicate=count($p['values'][$c['field']]??[])>1;$this->task($r,$duplicate?'manual':'metadata','seo',$p,'Update '.$c['field'],$c['reason'],$c['field'],$c['value'],$duplicate?'needs_client':'pending');}
