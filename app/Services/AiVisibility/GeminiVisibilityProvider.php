@@ -2,13 +2,14 @@
 final class GeminiVisibilityProvider extends AiVisibilityProvider
 {
     public function name(): string{return 'gemini';}
-    public function model(): string{return 'gemini-2.5-flash';}
+    // gemini-2.5-flash بيرجّع 404 لمفاتيح جديدة (متاح لمن استخدمه قبل كده بس حسب صفحة الموديلات). الأسعار من صفحة Gemini API الرسمية (2026-11-02): دخل 0.30 / خرج 2.50 لكل مليون توكن.
+    public function model(): string{return 'gemini-3.5-flash-lite';}
     protected function request(string $question,array $market): array
     {
         return ['https://generativelanguage.googleapis.com/v1beta/models/'.$this->model().':generateContent',
             ['Content-Type: application/json','x-goog-api-key: '.$this->config['key']],
             ['contents'=>[['role'=>'user','parts'=>[['text'=>$this->context($question,$market)]]]],'tools'=>[['google_search'=>(object)[]]],
-             'generationConfig'=>['maxOutputTokens'=>1200,'temperature'=>0.2,'thinkingConfig'=>['thinkingBudget'=>0]]]];
+             'generationConfig'=>['maxOutputTokens'=>2500,'temperature'=>0.2]]];
     }
     public function parse(array $response): array
     {

@@ -51,8 +51,8 @@ class AiVisibilityLedger
         $basis=$result['cost_basis']??($cost===null?'unknown':'calculated_from_reported_usage');
         // سبب الفشل بيتسجّل في cost_basis (VARCHAR 60) عشان التشخيص من غير migration: fail:<reason>[:<http>]
         if ($cost===null && $analysis===null && !empty($result['reason'])) $basis=mb_substr('fail:'.preg_replace('/[^a-z_]/','',(string)$result['reason']).(isset($result['http'])?':'.(int)$result['http']:''),0,60);
-        // 401/403 = المزوّد رفض الطلب قبل أي معالجة، فمفيش تكلفة: بنفك الحجز من الميزانية بدل ما نسيبه "غير معروف".
-        if ($cost===null && $analysis===null && in_array((int)($result['http']??0),[401,403],true)) $cost=0.0;
+        // 400/401/403/404 = المزوّد رفض الطلب قبل أي معالجة، فمفيش تكلفة: بنفك الحجز من الميزانية بدل ما نسيبه "غير معروف".
+        if ($cost===null && $analysis===null && in_array((int)($result['http']??0),[400,401,403,404],true)) $cost=0.0;
         $this->db->transaction(function()use($pdo,$id,$result,$analysis,$cost,$basis){
             $s=$pdo->prepare('SELECT * FROM seo_ai_calls WHERE id=? FOR UPDATE');$s->execute([$id]);$call=$s->fetch(PDO::FETCH_ASSOC);if(!$call)throw new RuntimeException('GEO claim missing');
             if ($analysis!==null && !empty($result['available'])) {
