@@ -78,6 +78,15 @@ final class GeoInsightsService
             if (!array_filter($svc->providers(), static fn ($p) => $p->configured())) {
                 $add('no_provider_configured', 0, 'مفيش مزوّد AI مكتمل الإعداد (مفتاح + تفعيل + geo_enabled) من إعدادات الأدمن.', 'No AI provider is fully configured (key + enabled + geo_enabled) in admin settings.');
             }
+            $cap = (float) (new SystemSettingsService())->get('geo_monthly_budget_usd', '0');
+            if (!is_finite($cap) || $cap <= 0) {
+                $add('budget_not_configured', 0, 'السقف الشهري لقياس GEO مش مضبوط (geo_monthly_budget_usd = 0) من إعدادات الأدمن، فالقياس بيرفض يبدأ.', 'The monthly GEO budget is not set (geo_monthly_budget_usd = 0) in admin settings, so measurement refuses to start.');
+            } else {
+                $spent = (float) ($this->safe(fn () => $this->db->query("SELECT COALESCE(SUM(IF(cost IS NULL, reserved_cost, cost)), 0) AS s FROM seo_ai_calls WHERE created_at >= DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-01')"))[0]['s'] ?? 0);
+                if ($spent + 0.10 > $cap) {
+                    $add('budget_reached', 0, 'السقف الشهري لقياس GEO اتوصّل له (' . round($spent, 2) . ' من ' . round($cap, 2) . ' دولار).', 'The monthly GEO budget is reached (' . round($spent, 2) . ' of ' . round($cap, 2) . ' USD).');
+                }
+            }
             foreach ((new SeoMarketService($this->db))->markets($wid, $uid) as $m) {
                 $mid = (int) $m['id'];
                 $set = $svc->set($uid, $wid, $mid);
