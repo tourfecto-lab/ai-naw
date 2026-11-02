@@ -38,6 +38,7 @@ function impact(i){const b=el('vis-impact');if(!i||i.state!=='measured'){b.inner
   '<div>'+L('الظهور: ','Impressions: ')+i.impressions.before+' → '+i.impressions.after+esc(pc(i.impressions.change_pct))+'</div>'+
   '<div>'+L('صفحات زادت نقراتها ','Pages with more clicks ')+i.pages_up+' · '+L('قلّت ','fewer ')+i.pages_down+' · '+L('ثابتة ','flat ')+i.pages_flat+(pos===null?'':' · '+L('متوسط تغيّر الترتيب ','avg position change ')+(pos>0?'+':'')+pos+L(' (الأقل أفضل)',' (lower is better)'))+'</div>'+
   '<div><span class="vis-badge">'+esc(CONF[i.confidence]||'')+'</span>'+i.pages+L(' صفحة قارنّاها · بتاريخ ',' pages compared · as of ')+esc(String(i.as_of||'-').slice(0,10))+'</div>'+
+  (i.low_traffic?'<div class="vis-warn">'+L('الزيارات قليلة جدًا، فالفروق دي ممكن تكون ضوضاء.','Traffic is very low, so these differences may be noise.')+'</div>':'')+
   '<div class="vis-muted">'+L('ده فرق قبل/بعد على نفس الصفحات، مش إثبات إن التعديل هو السبب: الموسم وتغييرات تانية بتأثر.','This is a before/after difference on the same pages, not proof the changes caused it: seasonality and other changes also move these numbers.')+'</div>'+
   '<a class="p-btn outline" href="/seo-expert">'+L('تفاصيل النتائج','Result details')+'</a>';b.hidden=false;}
 function render(d){el('vis-cards').innerHTML=['seo','aeo','geo'].map(k=>card(k,d[k])).join('');el('vis-cards').hidden=false;impact(d.impact);

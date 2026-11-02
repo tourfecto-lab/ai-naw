@@ -38,6 +38,19 @@ final class SeoImpactSummaryTest extends TestCase
         $this->assertSame('low', $r['confidence']);
     }
 
+    public function testManyPagesButTinyTrafficStaysLowConfidence(): void
+    {
+        $rows = [];
+        foreach (range(1, 25) as $i) $rows[] = $this->row("/p$i", '2026-10-01', 7, $this->s(0, 0, 0, 3));
+        $r = SeoImpactSummary::aggregate($rows);
+        $this->assertSame(25, $r['pages']);
+        $this->assertSame('low', $r['confidence']);
+        $this->assertTrue($r['low_traffic']);
+        $big = [];
+        foreach (range(1, 25) as $i) $big[] = $this->row("/q$i", '2026-10-01', 28, $this->s(10, 12, 100, 120));
+        $this->assertSame('high', SeoImpactSummary::aggregate($big)['confidence']);
+    }
+
     public function testTotalsUpDownFlatAndPositionChange(): void
     {
         $rows = [

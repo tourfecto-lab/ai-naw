@@ -8,6 +8,7 @@
  */
 final class SeoImpactSummary
 {
+    private const MIN_CLICKS = 30;
     private const NOTE = 'Before/after on the same pages from Search Console. Not proof that the changes caused the difference: seasonality and other changes also move these numbers.';
 
     /** @param array<int,array<string,mixed>> $rows صفوف seo_impact_monitors (page_path, change_date, window_days, result_json) */
@@ -58,8 +59,11 @@ final class SeoImpactSummary
             return ['state' => 'not_measured', 'pages' => 0, 'causality_proven' => false, 'note' => self::NOTE];
         }
         $pct = static fn (float $b, float $a): ?float => $b > 0 ? round(($a - $b) / $b * 100, 1) : null;
+        // عدد الصفحات لوحده مش كفاية: لو النقرات الكلية قليلة، الفروق ضوضاء فالثقة تتخفّض.
+        $lowTraffic = ($tot['clicks_before'] + $tot['clicks_after']) < self::MIN_CLICKS;
+        $confidence = $lowTraffic ? 'low' : ($pages >= 20 ? 'high' : ($pages >= 5 ? 'medium' : 'low'));
         return [
-            'state' => 'measured', 'pages' => $pages, 'confidence' => $pages >= 20 ? 'high' : ($pages >= 5 ? 'medium' : 'low'),
+            'state' => 'measured', 'pages' => $pages, 'confidence' => $confidence, 'low_traffic' => $lowTraffic,
             'clicks' => ['before' => (int) $tot['clicks_before'], 'after' => (int) $tot['clicks_after'], 'change_pct' => $pct($tot['clicks_before'], $tot['clicks_after'])],
             'impressions' => ['before' => (int) $tot['impressions_before'], 'after' => (int) $tot['impressions_after'], 'change_pct' => $pct($tot['impressions_before'], $tot['impressions_after'])],
             'pages_up' => $up, 'pages_down' => $down, 'pages_flat' => $flat,
