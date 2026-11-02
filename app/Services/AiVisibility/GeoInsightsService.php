@@ -54,12 +54,12 @@ final class GeoInsightsService
     public function progress(int $uid, int $wid): array
     {
         $week = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->modify('monday this week')->format('Y-m-d');
-        $calls = $this->safe(fn () => $this->db->query('SELECT provider, status, COUNT(*) AS n FROM seo_ai_calls WHERE website_id = ? AND user_id = ? AND week_start = ? GROUP BY provider, status ORDER BY provider, status', [$wid, $uid, $week])) ?? [];
+        $calls = $this->safe(fn () => $this->db->query('SELECT provider, status, MAX(cost_basis) AS basis, COUNT(*) AS n FROM seo_ai_calls WHERE website_id = ? AND user_id = ? AND week_start = ? GROUP BY provider, status ORDER BY provider, status', [$wid, $uid, $week])) ?? [];
         $jobs = $this->safe(fn () => $this->db->query(
             "SELECT status, COUNT(*) AS n, MIN(available_at) AS next_at FROM jobs WHERE job_class = 'AiVisibilityCheckJob' AND payload LIKE ? AND payload LIKE ? GROUP BY status",
             ['%"website_id":' . $wid . ',%', '%"user_id":' . $uid . ',%']
         )) ?? [];
-        return ['week' => $week, 'calls' => array_map(static fn ($r) => ['provider' => (string) $r['provider'], 'status' => (string) $r['status'], 'n' => (int) $r['n']], (array) $calls),
+        return ['week' => $week, 'calls' => array_map(static fn ($r) => ['provider' => (string) $r['provider'], 'status' => (string) $r['status'], 'why' => str_starts_with((string) ($r['basis'] ?? ''), 'fail:') ? substr((string) $r['basis'], 5) : '', 'n' => (int) $r['n']], (array) $calls),
             'jobs' => array_map(static fn ($r) => ['status' => (string) $r['status'], 'n' => (int) $r['n'], 'next_at' => $r['next_at']], (array) $jobs)];
     }
 

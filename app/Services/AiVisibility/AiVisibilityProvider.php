@@ -30,7 +30,7 @@ abstract class AiVisibilityProvider
                 $raw='';$ch=curl_init($url);
                 curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>json_encode($payload,JSON_THROW_ON_ERROR),CURLOPT_HTTPHEADER=>$headers,CURLOPT_RETURNTRANSFER=>true,CURLOPT_WRITEFUNCTION=>static function($ch,$chunk)use(&$raw){$raw.=$chunk;return strlen($raw)>2000000?0:strlen($chunk);},CURLOPT_TIMEOUT=>90,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
                 $executed=curl_exec($ch);$code=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);curl_close($ch);
-                if ($executed===false || $code!==200) return ['available'=>false,'reason'=>'provider_request_failed','cost'=>null];
+                if ($executed===false || $code!==200) return ['available'=>false,'reason'=>'provider_request_failed','http'=>$code,'cost'=>null];
                 $body=json_decode($raw,true,512,JSON_THROW_ON_ERROR);
             }
             if (!is_array($body)) throw new RuntimeException('Malformed response');

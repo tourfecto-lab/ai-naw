@@ -49,6 +49,8 @@ class AiVisibilityLedger
         $pdo=$this->db->getConnection();$cost=$result['cost']??null;
         if ($cost!==null && (!is_numeric($cost)||!is_finite((float)$cost)||$cost<0)) $cost=null;
         $basis=$result['cost_basis']??($cost===null?'unknown':'calculated_from_reported_usage');
+        // سبب الفشل بيتسجّل في cost_basis (VARCHAR 60) عشان التشخيص من غير migration: fail:<reason>[:<http>]
+        if ($cost===null && $analysis===null && !empty($result['reason'])) $basis=mb_substr('fail:'.preg_replace('/[^a-z_]/','',(string)$result['reason']).(isset($result['http'])?':'.(int)$result['http']:''),0,60);
         $this->db->transaction(function()use($pdo,$id,$result,$analysis,$cost,$basis){
             $s=$pdo->prepare('SELECT * FROM seo_ai_calls WHERE id=? FOR UPDATE');$s->execute([$id]);$call=$s->fetch(PDO::FETCH_ASSOC);if(!$call)throw new RuntimeException('GEO claim missing');
             if ($analysis!==null && !empty($result['available'])) {
