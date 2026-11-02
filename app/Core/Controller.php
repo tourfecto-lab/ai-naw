@@ -830,6 +830,7 @@ abstract class Controller
                 ['/international-seo', $L('اللغات والفهرسة', 'Languages and indexing'), 'seo_expert'],
             ]],
             'ai' => ['✨', $L('الظهور في الذكاء الاصطناعي', 'AI visibility'), [
+                ['/visibility', $L('لوحة الظهور (SEO/AEO/GEO)', 'Visibility dashboard (SEO/AEO/GEO)'), 'seo_expert'],
                 ['/ai-visibility', $L('ظهورك في الإجابات', 'Your visibility in answers'), 'ai_visibility'],
                 ['/ai-insights', $L('المصادر والانطباع', 'Sources and sentiment'), 'ai_insights'],
             ]],

@@ -2059,6 +2059,7 @@ $router->get('/api/admin/seo-data/markets','SeoDataController','adminMarkets',['
 $router->post('/api/admin/seo-data/markets','SeoDataController','adminAddMarket',['AuthMiddleware','AdminMiddleware']);
 
 // Approved, tenant-scoped GEO measurements.
+$router->get('/api/visibility/overview','VisibilityController','overview',['AuthMiddleware']);
 $router->get('/api/ai-visibility/data','AiVisibilityController','data',['AuthMiddleware']);
 $router->get('/api/ai-visibility/overview','AiVisibilityController','data',['AuthMiddleware']);
 $router->post('/api/ai-visibility/question','AiVisibilityController','question',['AuthMiddleware']);

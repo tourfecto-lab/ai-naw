@@ -1027,4 +1027,6 @@ return [
     'FreeSocialCheckService' => dirname(__DIR__,2).'/app/Services/Marketing/FreeSocialCheckService.php',
     'VoiceSupervisorService' => dirname(__DIR__,2).'/app/Services/VoiceAgent/VoiceSupervisorService.php',
     'VoiceAnalyticsController' => dirname(__DIR__,2).'/app/Controllers/VoiceAnalyticsController.php',
+    'VisibilityScoreService' => dirname(__DIR__,2).'/app/Services/Visibility/VisibilityScoreService.php',
+    'VisibilityController' => dirname(__DIR__,2).'/app/Controllers/VisibilityController.php',
 ];
