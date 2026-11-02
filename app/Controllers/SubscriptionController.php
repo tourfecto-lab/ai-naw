@@ -239,6 +239,7 @@ class SubscriptionController extends Controller
                 return $this->error('Unauthorized', 401);
             }
             if ($e = $this->ownerOnly()) return $e;
+            if ($e = $this->verifyCsrf()) return $e;
 
             $result = $this->db->query(
                 "SELECT * FROM subscriptions WHERE user_id = ? AND status IN ('active','trialing','past_due') ORDER BY id DESC LIMIT 1",
@@ -254,7 +255,9 @@ class SubscriptionController extends Controller
 
             // ✅ إلغاء في آخر الفترة: العميل دفع الفترة دي، فالخدمة تفضل شغّالة لحد ما تخلص
             //    ومفيش تجديد بعدها (SubscriptionLifecycleService بيقفله لوحده في ميعاده).
-            if ($row['status'] === 'active' && $endTs > time()) {
+            // إلغاء فوري بطلب صريح (immediate=1): المزايا بتقفل دلوقتي ومفيش استرداد، وبعدها العميل يقدر يشترك في باقة جديدة.
+            $immediate = in_array((string) $this->get('immediate', ''), ['1', 'true'], true);
+            if (!$immediate && $row['status'] === 'active' && $endTs > time()) {
                 $this->db->exec(
                     'UPDATE subscriptions SET cancel_at_period_end = 1, cancelled_at = NOW(), cancellation_reason = ?, current_period_end = COALESCE(current_period_end, ?) WHERE id = ?',
                     [$reason ?: null, date('Y-m-d H:i:s', $endTs), (int) $row['id']]
@@ -274,6 +277,17 @@ class SubscriptionController extends Controller
                 return $this->error('تعذر إلغاء الاشتراك', 500);
             }
             $this->db->exec('UPDATE subscriptions SET cancelled_at = NOW(), cancellation_reason = ? WHERE id = ?', [$reason ?: null, (int) $row['id']]);
+            if ($immediate) {
+                // مفيش تجديد ولا تخفيض مجدول على اشتراك ملغي
+                try {
+                    $this->db->exec('UPDATE subscriptions SET cancel_at_period_end = 0 WHERE id = ?', [(int) $row['id']]);
+                    if (WalletService::ensureScheduledColumn()) {
+                        $this->db->exec('UPDATE subscriptions SET scheduled_plan_code = NULL WHERE id = ?', [(int) $row['id']]);
+                    }
+                } catch (Throwable $e) {
+                    Logger::warning('immediate cancel cleanup failed', ['message' => $e->getMessage()]);
+                }
+            }
             $subscription->setKeyValue((int) $row['id']);
 
             $this->log('Subscription Cancelled', [
@@ -286,7 +300,7 @@ class SubscriptionController extends Controller
                 'subject_id' => (int) $subscription->getAttribute('id'),
             ]);
 
-            return $this->success(['cancel_at_period_end' => false], 'تم إلغاء الاشتراك');
+            return $this->success(['cancel_at_period_end' => false], $immediate ? 'اتلغى الاشتراك فورًا. تقدر تشترك في باقة جديدة دلوقتي.' : 'تم إلغاء الاشتراك');
 
         } catch (Exception $e) {
             Logger::error('Cancel Subscription Error', [
@@ -809,22 +823,27 @@ HTML;
             const p = document.createElement('p'); p.textContent = ar ? 'اشتراكك هيفضل شغّال لحد آخر فترة دفعتها ومش هيتجدد بعدها. تقدر ترجع في قرارك قبل الميعاد ده.' : 'Your subscription stays active until the end of the period you paid for and will not renew. You can change your mind before then.';
             const ta = document.createElement('textarea'); ta.className = 'p-input'; ta.maxLength = 500; ta.rows = 3; ta.style.cssText = 'width:100%;margin:10px 0';
             ta.placeholder = ar ? 'ممكن تقولنا السبب؟ (اختياري)' : 'Reason (optional)';
+            const lab = document.createElement('label'); lab.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin:0 0 12px;font-size:13px';
+            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.style.marginTop = '3px';
+            const lt = document.createElement('span'); lt.textContent = ar ? 'إلغاء نهائي فورًا (المزايا بتقفل دلوقتي ومفيش استرداد للفترة المدفوعة) وأشترك في باقة جديدة' : 'Cancel permanently now (features stop immediately, no refund for the paid period) so I can subscribe to a new plan';
+            lab.append(cb, lt);
             const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
             const keep = document.createElement('button'); keep.type = 'button'; keep.className = 'p-btn'; keep.textContent = ar ? 'لأ، خليني' : 'Keep my plan';
             const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'p-btn danger'; ok.textContent = ar ? 'أيوه، ألغي' : 'Yes, cancel';
             const done = function (v) { document.removeEventListener('keydown', onKey); wrap.remove(); resolve(v); };
             const onKey = function (e) { if (e.key === 'Escape') done(null); };
             keep.onclick = function () { done(null); };
-            ok.onclick = function () { done(ta.value.trim()); };
+            ok.onclick = function () { done({ reason: ta.value.trim(), immediate: cb.checked }); };
             document.addEventListener('keydown', onKey);
-            row.append(keep, ok); box.append(h, p, ta, row); wrap.append(box); document.body.append(wrap); keep.focus();
+            row.append(keep, ok); box.append(h, p, ta, lab, row); wrap.append(box); document.body.append(wrap); keep.focus();
         });
     }
 
     window.cancelSub = async function () {
-        const reason = await askCancel();
-        if (reason === null) return;
-        const res = await fetchJSON('/api/subscription/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+        const ans = await askCancel();
+        if (ans === null) return;
+        const reason = ans.reason;
+        const res = await fetchJSON('/api/subscription/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason, immediate: ans.immediate ? 1 : 0 }) });
         if (res.success) { toast(res.message || I18N['common.deleted'], 'success'); setTimeout(function () { window.location.reload(); }, 1200); }
         else { document.getElementById('subAlert').textContent = res.error || I18N['subscription.cancel_failed']; document.getElementById('subAlert').style.display = 'block'; }
     };
