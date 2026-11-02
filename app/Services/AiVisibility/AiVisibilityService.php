@@ -151,11 +151,22 @@ class AiVisibilityService
             try{$id=$ledger->reserve($set,$provider->name(),$question,$week,$cap);}catch(RuntimeException $e){return compact('checked','skipped','failed')+['state'=>'blocked','reason'=>$e->getMessage()];}
             if($id===null){$skipped++;continue;}
             $attempted++;$result=$provider->ask($question,$c['market']);$analysis=null;
-            if(!empty($result['available'])){
-                [$urls,$complete]=$evidence->resolveCitations($result['cited_urls']);$analysis=AiVisibilityDetector::analyze($result['answer'],$urls,$c['brand'],$competitors);
-                if((!$complete || ($result['citation_complete']??true)===false) && !$analysis['cited_domain'])$analysis['cited_domain']=null;
+            // أي استثناء بعد الحجز كان بيسيب الفحص "unknown" بلا سبب ويحجز الميزانية؛ دلوقتي بنقفله بسبب واضح وبنكمّل.
+            try{
+                if(!empty($result['available'])){
+                    [$urls,$complete]=$evidence->resolveCitations($result['cited_urls']);$analysis=AiVisibilityDetector::analyze($result['answer'],$urls,$c['brand'],$competitors);
+                    if((!$complete || ($result['citation_complete']??true)===false) && !$analysis['cited_domain'])$analysis['cited_domain']=null;
+                }
+                $ledger->finish($id,$result,$analysis,$cap);
+            }catch(Throwable $e){
+                error_log('GEO post-processing failed ('.$provider->name().'): '.get_class($e).': '.$e->getMessage());
+                $analysis=null;$result['available']=false;$result['reason']='post_processing_failed';
+                try{
+                    // لو finish اتكتب فعلًا وفشل بعده (تنبيه الميزانية مثلًا) منرجّعش الفحص لحالة فاشل.
+                    if($this->q("SELECT status FROM seo_ai_calls WHERE id=?",[$id])->fetchColumn()==='pending')$ledger->finish($id,$result,null,$cap);
+                    else $analysis=['recorded'=>true];
+                }catch(Throwable $e2){error_log('GEO finish failed: '.$e2->getMessage());}
             }
-            $ledger->finish($id,$result,$analysis,$cap);
             if($analysis!==null)$checked++;else{$failed++;$errors[]=$provider->name().':'.($result['reason']??'unavailable');}
             // طلب مرفوض (400/401/403/404: مفتاح أو موديل) = مشكلة إعداد؛ التكرار بيحرق الحصة من غير فايدة، فنوقف الدفعة ومفيش continuation.
             if($analysis===null && in_array((int)($result['http']??0),[400,401,403,404],true))return compact('checked','skipped','failed','errors')+['state'=>'stopped','reason'=>'provider_auth_failed:'.$provider->name()];
