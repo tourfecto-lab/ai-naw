@@ -77,6 +77,60 @@ final class ArticleGeneratorGuardsTest extends TestCase
         $this->assertSame('Morning.', $r['data']['faqs'][0]['answer']);
     }
 
+    private static function longBody(int $words): string
+    {
+        return "## Intro\n\n" . trim(str_repeat('Practical travel detail for readers. ', (int) ceil($words / 5)));
+    }
+
+    public function testThinArticlesAreDetected(): void
+    {
+        $faq = static fn (int $n) => array_map(static fn ($i) => ['question' => "Question $i?", 'answer' => "Answer $i."], range(1, $n));
+        $this->assertNull(ArticleGenerator::thinReason(['content' => self::longBody(800), 'faqs' => $faq(3)]));
+        $this->assertStringContainsString('only', (string) ArticleGenerator::thinReason(['content' => self::longBody(300), 'faqs' => $faq(3)]));
+        $short = (string) ArticleGenerator::thinReason(['content' => self::longBody(800), 'faqs' => $faq(1)]);
+        $this->assertStringContainsString('1 FAQ', $short);
+        $both = (string) ArticleGenerator::thinReason(['content' => self::longBody(200), 'faqs' => []]);
+        $this->assertStringContainsString('words', $both);
+        $this->assertStringContainsString('FAQ', $both);
+    }
+
+    public function testThinFirstAnswerGetsOneRetryAndTheBetterArticleWins(): void
+    {
+        $client = new class(self::longBody(300), self::longBody(820)) {
+            public int $calls = 0;
+            public function __construct(private string $thin, private string $good) {}
+            public function generateContent(string $prompt, array $opts = []): array
+            {
+                $this->calls++;
+                $first = $this->calls === 1;
+                $faqs = $first ? [['question' => 'Only one?', 'answer' => 'Yes.']] : [['question' => 'Q1?', 'answer' => 'A1.'], ['question' => 'Q2?', 'answer' => 'A2.'], ['question' => 'Q3?', 'answer' => 'A3.']];
+                return ['success' => true, 'data' => json_encode(['title' => 'Sohail', 'meta_description' => 'Guide', 'content' => $first ? $this->thin : $this->good, 'suggested_keywords' => [], 'faqs' => $faqs, 'internal_link_suggestions' => []]), 'tokens_used' => 100, 'cost' => 0.01];
+            }
+        };
+        $r = (new ArticleGenerator($client))->generate('Sohail Island', 'en');
+        $this->assertTrue($r['success']);
+        $this->assertSame(2, $client->calls, 'exactly one retry');
+        $this->assertGreaterThan(700, $r['data']['word_count']);
+        $this->assertCount(3, $r['data']['faqs']);
+        $this->assertSame(200, $r['tokens_used']);
+        $this->assertEqualsWithDelta(0.02, $r['cost'], 0.0001);
+    }
+
+    public function testAGoodFirstAnswerIsNotRetried(): void
+    {
+        $client = new class(self::longBody(820)) {
+            public int $calls = 0;
+            public function __construct(private string $good) {}
+            public function generateContent(string $prompt, array $opts = []): array
+            {
+                $this->calls++;
+                return ['success' => true, 'data' => json_encode(['title' => 'Sohail', 'meta_description' => 'Guide', 'content' => $this->good, 'suggested_keywords' => [], 'faqs' => [['question' => 'Q1?', 'answer' => 'A1.'], ['question' => 'Q2?', 'answer' => 'A2.'], ['question' => 'Q3?', 'answer' => 'A3.']], 'internal_link_suggestions' => []]), 'tokens_used' => 100, 'cost' => 0.01];
+            }
+        };
+        (new ArticleGenerator($client))->generate('Sohail Island', 'en');
+        $this->assertSame(1, $client->calls);
+    }
+
     public function testGenerationRefusesAMixedLanguageArticleAndAcceptsAClean(): void
     {
         $mk = static function (string $content) {

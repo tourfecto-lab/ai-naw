@@ -85,6 +85,24 @@ class ArticleGenerator
             ];
         }
 
+        // مقال قصير أو بأقل من 3 أسئلة: محاولة تانية واحدة بتعليمات محددة، ونأخد الأحسن (مش بنكرر أكتر من مرة عشان التكلفة)
+        $thin = self::thinReason($parsed);
+        if ($thin !== null) {
+            $retry = $this->geminiClient->generateContent($prompt . "\n\nQUALITY FIX REQUIRED (your previous answer was rejected): " . $thin, [
+                'task' => 'article_generation', 'output_language' => $language,
+                'maxOutputTokens' => 16384,
+                'responseMimeType' => 'application/json',
+            ]);
+            if (!empty($retry['success'])) {
+                $second = $this->extractJson((string) ($retry['data'] ?? ''));
+                if ($second && !empty($second['content']) && self::qualityScore($second) > self::qualityScore($parsed)) {
+                    $parsed = $second;
+                }
+                $apiResponse['tokens_used'] = (int) ($apiResponse['tokens_used'] ?? 0) + (int) ($retry['tokens_used'] ?? 0);
+                $apiResponse['cost'] = (float) ($apiResponse['cost'] ?? 0) + (float) ($retry['cost'] ?? 0);
+            }
+        }
+
         [$content, $embedded] = self::stripEmbeddedFaqJson((string) $parsed['content']);
         $faqs = $this->sanitizeFaqs($parsed['faqs'] ?? []);
         if (!$faqs && $embedded) {
@@ -326,6 +344,8 @@ class ArticleGenerator
             $rules[] = "5. CRITICAL LANGUAGE RULE: write every word of the title, meta description, headings, bullet labels, body and FAQs in {$languageName} only. Never use Arabic words or Arabic script (a label such as the Arabic word for 'timing' is a mistake).";
         }
         $rules[] = ($arabicScript ? '5' : '6') . ". CRITICAL ACCURACY RULE: never state that a specific museum, restaurant, cafe, shop, hotel, price, opening time or service exists at or near the destination unless it is named in the brief or is a famous, well-established landmark you are certain belongs exactly there. Keep every other piece of advice generic and hedged. If you are unsure whether something is on the island, in the village or in the nearby city, omit it. Do not write a FAQ section inside the content (the faqs field is displayed separately), and never put JSON of any kind inside the content.";
+        $n = count($rules) + 5;
+        $rules[] = "{$n}. STYLE RULE: write for a traveller deciding what to book. Avoid empty marketing adjectives (breathtaking, unforgettable, enchanting, crystal-clear, postcard-perfect, majestic, vibrant, hidden gem). Every section must give at least one concrete, practical detail the reader can use (what to do, when, how long, what to bring, what to expect), and the article must contain at least " . self::MIN_FAQS . ' FAQ entries with specific answers.';
         return implode("\n", $rules);
     }
 
@@ -358,6 +378,49 @@ class ArticleGenerator
             $cut = $nl === false ? 0 : $nl;
         }
         return [rtrim(substr($content, 0, $cut)), $found];
+    }
+
+    public const MIN_WORDS = 650;
+    public const MIN_FAQS = 3;
+
+    public static function wordCount(string $text): int
+    {
+        $plain = trim((string) preg_replace('/[#*_>`]+/u', ' ', strip_tags($text)));
+        return count(preg_split('/\s+/u', $plain, -1, PREG_SPLIT_NO_EMPTY));
+    }
+
+    /** عدد الأسئلة الصالحة في رد النموذج (من الحقل المنفصل أو من JSON ساب نفسه في النص) */
+    private static function faqCount(array $parsed): int
+    {
+        $n = 0;
+        foreach ((array) ($parsed['faqs'] ?? []) as $f) {
+            if (is_array($f) && !empty($f['question']) && !empty($f['answer'])) {
+                $n++;
+            }
+        }
+        return $n ?: count(self::stripEmbeddedFaqJson((string) ($parsed['content'] ?? ''))[1]);
+    }
+
+    /** سبب رفض الرد كمقال ضعيف (للمحاولة التانية)، أو null لو مقبول */
+    public static function thinReason(array $parsed): ?string
+    {
+        [$body] = self::stripEmbeddedFaqJson((string) ($parsed['content'] ?? ''));
+        $words = self::wordCount($body);
+        $faqs = self::faqCount($parsed);
+        $why = [];
+        if ($words < self::MIN_WORDS) {
+            $why[] = "the article had only {$words} words; write at least 800 words with concrete, practical sections (no filler)";
+        }
+        if ($faqs < self::MIN_FAQS) {
+            $why[] = "it had only {$faqs} FAQ entries; return at least " . self::MIN_FAQS . ' specific questions with useful answers in the faqs field';
+        }
+        return $why ? ucfirst(implode('; ', $why)) . '.' : null;
+    }
+
+    private static function qualityScore(array $parsed): int
+    {
+        [$body] = self::stripEmbeddedFaqJson((string) ($parsed['content'] ?? ''));
+        return min(self::wordCount($body), 900) + 120 * min(self::faqCount($parsed), self::MIN_FAQS);
     }
 
     /** نص عربي في مقال بلغة تانية = خلط لغات؛ بنرفض التوليد بدل ما ننشر نص مشوّه */
