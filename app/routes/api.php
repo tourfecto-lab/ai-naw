@@ -2062,6 +2062,7 @@ $router->post('/api/admin/seo-data/markets','SeoDataController','adminAddMarket'
 $router->post('/api/seo/schema/validate','SeoSchemaController','check',['AuthMiddleware']);
 $router->post('/api/seo/schema/preview','SeoSchemaController','preview',['AuthMiddleware']);
 $router->post('/api/aeo/draft','AeoController','draft',['AuthMiddleware']);
+$router->post('/api/aeo/scan','AeoController','scan',['AuthMiddleware']);
 $router->post('/api/aeo/build','AeoController','build',['AuthMiddleware']);
 $router->get('/api/visibility/overview','VisibilityController','overview',['AuthMiddleware']);
 $router->get('/api/ai-visibility/data','AiVisibilityController','data',['AuthMiddleware']);

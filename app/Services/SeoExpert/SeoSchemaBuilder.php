@@ -16,6 +16,12 @@ class SeoSchemaBuilder
     private const TOUR_WORDS = '/\b(?:tour|trip|excursion|cruise|safari|package|day trip|full day|half day|itinerary|snorkel(?:l?ing)?|diving|desert)\b|رحلة|جولة|رحلات/iu';
     private const PRICE = '/(?:(US\$|\$|€|£|EGP|USD|EUR|GBP|AED|SAR)\s?(\d{1,5}(?:[.,]\d{1,2})?))|(?:(\d{1,5}(?:[.,]\d{1,2})?)\s?(USD|EUR|GBP|EGP|AED|SAR|\$|€|£|جنيه|ج\.م))/u';
 
+    /** مسار يشبه رحلة (من الرابط فقط، من غير قراءة الصفحة) */
+    public static function isTourPath(string $path): bool
+    {
+        return preg_match(self::TOUR_URL, $path) === 1;
+    }
+
     /** صفحة رحلة (منتج يتباع) مش صفحة قسم أو مقال */
     public static function isTourPage(array $page): bool
     {

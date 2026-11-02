@@ -58,7 +58,7 @@ final class VisibilityScoreService
             'website_id' => $wid,
             'generated_at' => $now,
             'seo' => self::pickSeo(self::seo(is_array($seoReport) ? $seoReport : null, $now), self::seoFromRun(is_array($run) ? $run : null, $open, $now)),
-            'aeo' => self::aeo(null),
+            'aeo' => self::aeo(AeoCoverageStore::measurement(AeoCoverageStore::summary($this->db, $uid, $wid), $now)),
             'geo' => self::geo(is_array($geoMetrics) ? $geoMetrics : null, $now),
             'actions' => self::topActions($candidates, 5),
         ];
@@ -106,14 +106,15 @@ final class VisibilityScoreService
         return strcmp((string) $b['as_of'], (string) $a['as_of']) > 0 ? $b : $a;
     }
 
-    /** AEO مش مقيس لحد ما مولّد/قياس الإجابات (مرحلة AEO) يتفعّل؛ نرجّع not_measured صراحة. */
+    /** AEO من تغطية FAQPage على صفحات الرحلات اللي اتفحصت (AeoCoverageStore)؛ لو ما فيش فحص نرجّع not_measured صراحة. */
     public static function aeo(?array $measurement): array
     {
         if ($measurement === null || !isset($measurement['score'])) {
             return ['state' => 'not_measured', 'score' => null, 'source' => null, 'as_of' => null, 'confidence' => null, 'stale' => false];
         }
         return ['state' => 'measured', 'score' => (int) max(0, min(100, $measurement['score'])), 'source' => 'answer_coverage',
-            'as_of' => $measurement['as_of'] ?? null, 'confidence' => $measurement['confidence'] ?? 'low', 'stale' => false];
+            'as_of' => $measurement['as_of'] ?? null, 'confidence' => $measurement['confidence'] ?? 'low', 'stale' => (bool) ($measurement['stale'] ?? false),
+            'basis' => $measurement['basis'] ?? null, 'pages' => $measurement['pages'] ?? null, 'pages_with_faq' => $measurement['pages_with_faq'] ?? null];
     }
 
     /** نسبة الذكر 70% + نسبة الاستشهاد 30%، متوسط المزودين اللي عندهم عينة فعلية. هي عينة API مش ترتيب تطبيقات المستهلك. */

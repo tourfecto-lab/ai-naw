@@ -13,11 +13,15 @@ pre#aeo-code{direction:ltr;text-align:left;overflow:auto;max-height:300px;font-s
 </style>
 <section class="p-card" dir="<?= $ar ? 'rtl' : 'ltr' ?>" id="aeo-root" data-lang="<?= $ar ? 'ar' : 'en' ?>" data-csrf="<?= htmlspecialchars(Csrf::token(), ENT_QUOTES, 'UTF-8') ?>">
 <h2><?= $t('مولّد الإجابات (AEO)', 'Answer generator (AEO)') ?></h2>
-<p class="aeo-muted"><?= $t('بنقرأ صفحة رحلة من موقعك ونطلّع أسئلة وإجابات من الحقائق المكتوبة فيها فعلًا (مدة، سعر، إلغاء، استقبال، مرشد). كل إجابة معاها الدليل من الصفحة، ومفيش حاجة بتتخترع. أنت اللي بتراجع وبتوافق، ومفيش نشر تلقائي. الاستخراج دلوقتي للصفحات الإنجليزية، وبدون تكلفة.', 'We read a trip page on your site and draft questions and answers from facts actually written on it (duration, price, cancellation, pick-up, guide). Each answer shows its evidence from the page; nothing is invented. You review and approve; nothing is published automatically. Extraction currently supports English pages, at no cost.') ?></p>
+<p class="aeo-muted"><?= $t('بنقرأ صفحة رحلة من موقعك ونطلّع أسئلة وإجابات من الحقائق المكتوبة فيها فعلًا (مدة، سعر، إلغاء، استقبال، مرشد). كل إجابة معاها الدليل من الصفحة، ومفيش حاجة بتتخترع. أنت اللي بتراجع وبتوافق، ومفيش نشر تلقائي. الاستخراج للصفحات الإنجليزية والعربية (العربي لسه ما اتجرّب على صفحة حقيقية)، وبدون تكلفة.', 'We read a trip page on your site and draft questions and answers from facts actually written on it (duration, price, cancellation, pick-up, guide). Each answer shows its evidence from the page; nothing is invented. You review and approve; nothing is published automatically. Extraction supports English and Arabic pages (Arabic is not yet validated on a real page), at no cost.') ?></p>
 <div class="aeo-box"><div class="aeo-row"><label class="aeo-muted"><?= $t('الموقع', 'Site') ?><select class="p-select" id="aeo-site" disabled><option><?= $t('جارٍ التحميل…', 'Loading…') ?></option></select></label>
 <label class="aeo-muted"><?= $t('رابط صفحة الرحلة (https ومن نفس الموقع)', 'Trip page URL (https, same site)') ?><input class="p-input" id="aeo-url" type="url" inputmode="url" placeholder="https://"></label>
 <button type="button" class="p-btn" id="aeo-draft"><?= $t('طلّع مسودة', 'Draft answers') ?></button></div>
 <div id="aeo-status" role="status" aria-live="polite" class="aeo-muted"></div></div>
+<div class="aeo-box"><h3><?= $t('تغطية صفحات الرحلات', 'Trip pages coverage') ?></h3>
+<p class="aeo-muted"><?= $t('بنفحص دفعة صغيرة (5 صفحات) من صفحات الرحلات في آخر دورة SEO Expert ونسجّل هل عليها FAQPage. النتيجة بتظهر في لوحة الظهور كدرجة AEO.', 'We scan a small batch (5 pages) of trip pages from your latest SEO Expert cycle and record whether each has FAQPage. The result feeds the AEO score in the visibility dashboard.') ?></p>
+<div class="aeo-row"><button type="button" class="p-btn outline" id="aeo-scan"><?= $t('افحص الدفعة الجاية', 'Scan next batch') ?></button></div>
+<div id="aeo-scan-out" role="status" aria-live="polite" class="aeo-muted"></div></div>
 <div id="aeo-review" hidden><h3><?= $t('راجع وعدّل ووافق', 'Review, edit and approve') ?></h3><div id="aeo-pairs"></div><div id="aeo-missing" class="aeo-muted"></div>
 <div class="aeo-row"><button type="button" class="p-btn" id="aeo-build"><?= $t('ابنِ FAQ Schema من الموافَق عليه', 'Build FAQ schema from approved') ?></button></div>
 <div id="aeo-out" role="status" aria-live="polite"></div></div>
@@ -27,7 +31,7 @@ pre#aeo-code{direction:ltr;text-align:left;overflow:auto;max-height:300px;font-s
 const root=document.getElementById('aeo-root'),ar=root.dataset.lang==='ar',el=id=>document.getElementById(id),L=(a,e)=>ar?a:e,csrf=root.dataset.csrf;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const post=(path,body)=>window.Panel.fetchJSON(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,csrf_token:csrf})});
-const STATE={unsupported_language:L('الصفحة دي مش إنجليزي، والاستخراج حاليًا للإنجليزي بس.','This page is not English; extraction currently supports English only.'),
+const STATE={unsupported_language:L('لغة الصفحة مش مدعومة (الإنجليزي والعربي بس).','Unsupported page language (English and Arabic only).'),
  no_trip_found:L('مش لاقيين رحلة (TouristTrip/Product) في Schema الصفحة دي.','No trip (TouristTrip/Product) found in this page\'s schema.'),
  no_stated_facts:L('مفيش حقائق مكتوبة بوضوح نقدر نطلّع منها إجابات (مدة، سعر، إلغاء…).','No clearly stated facts to draft answers from (duration, price, cancellation…).')};
 const status=(t,cls)=>{const s=el('aeo-status');s.className='aeo-muted '+(cls||'');s.textContent=t||'';};
@@ -49,6 +53,9 @@ el('aeo-build').onclick=e=>guard(e.currentTarget,async()=>{const pairs=[...docum
  const r=await post('/api/aeo/build',{pairs});if(!r.success)throw Error(r.error||r.message);const d=r.data,v=d.validation||{};
  el('aeo-out').innerHTML='<p>'+(v.valid?'<strong class="aeo-ok">'+L('صالح','Valid')+'</strong>':'<strong class="aeo-err">'+L('فيه أخطاء','Has errors')+'</strong>')+' · '+d.count+' '+L('سؤال','questions')+'</p>'+
   '<p class="aeo-muted">'+L('انسخ الكود وضيفه في صفحتك، وانشر نفس الأسئلة والإجابات ظاهرة في نص الصفحة. النشر الفعلي بزر صريح لسه مش متاح من هنا، والنسخ يدوي بعد مراجعتك.','Copy the code into your page and publish the same questions and answers visibly in the page text. One-click publishing is not available here yet; copying is manual after your review.')+'</p>'+((d.rejected||[]).length?'<p class="aeo-err">'+L('اترفض بعض الأسئلة (رقم مش موجود في الدليل أو رابط أو فاضي): ','Some items were rejected (number not in the evidence, link, or empty): ')+d.rejected.map(r=>'#'+(r.index+1)+' '+esc(r.reason)+(r.numbers?' ['+esc(r.numbers.join(', '))+']':'')).join('; ')+'</p>':'')+'<pre id="aeo-code">'+esc(d.script)+'</pre><p class="aeo-muted">'+esc(d.note)+'</p>';});
+el('aeo-scan').onclick=e=>guard(e.currentTarget,async()=>{const w=el('aeo-site').value;if(!w)throw Error(L('اختار الموقع.','Choose a site.'));el('aeo-scan-out').textContent=L('جارٍ الفحص… ممكن ياخد لحد دقيقة.','Scanning… may take up to a minute.');
+ const r=await post('/api/aeo/scan',{website_id:Number(w)});if(!r.success)throw Error(r.error||r.message);const d=r.data,m=d.measurement;
+ el('aeo-scan-out').textContent=L('اتفحص ','Scanned ')+d.scanned_now+L(' صفحة دلوقتي. ',' page(s) now. ')+(m?L('تغطية FAQ: ','FAQ coverage: ')+m.score+'% ('+m.pages_with_faq+'/'+m.pages+L(' صفحة مفحوصة من ',' scanned pages of ')+d.trip_pages_total+L(' رحلة)، ثقة ',' trips), confidence ')+m.confidence+'.':'');});
 const start=async()=>{try{const r=await window.Panel.fetchJSON('/api/websites');const list=(r.data&&r.data.websites)||[],sel=el('aeo-site');
  sel.innerHTML=list.length?list.map(w=>'<option value="'+esc(w.id)+'">'+esc(w.company_name||w.brand_name||w.main_url||w.id)+'</option>').join(''):'<option value="">'+L('مفيش مواقع','No sites')+'</option>';sel.disabled=!list.length;}
  catch(e){el('aeo-site').innerHTML='<option value="">'+L('تعذر التحميل','Could not load')+'</option>';}};

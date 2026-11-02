@@ -56,7 +56,7 @@ final class AeoAnswerBuilderTest extends TestCase
 
     public function testNonEnglishAndNoTripPagesAreRefused(): void
     {
-        $this->assertSame('unsupported_language', AeoAnswerBuilder::draft($this->page(self::TEXT, '60.00', 'ar'))['state']);
+        $this->assertSame('unsupported_language', AeoAnswerBuilder::draft($this->page(self::TEXT, '60.00', 'fr'))['state']);
         $this->assertSame('no_trip_found', AeoAnswerBuilder::draft(['url' => 'https://x.com/', 'lang' => 'en', 'text' => 'hi', 'schema' => []])['state']);
     }
 
@@ -91,5 +91,44 @@ final class AeoAnswerBuilderTest extends TestCase
         $this->assertFalse(SeoSameSiteUrl::allowed('https://x.com', 'https://evil.com/a'));
         $this->assertFalse(SeoSameSiteUrl::allowed('https://x.com', 'https://u:p@x.com/a'));
         $this->assertFalse(SeoSameSiteUrl::allowed('https://x.com', 'https://x.com.evil.com/a'));
+    }
+
+    public function testArabicPageDraftsLiteralAnswersAndReportsMissingInArabic(): void
+    {
+        $text = 'رحلة النوبة المدة: ٤ ساعات الإلغاء: مجاني حتى 24 ساعة الاستقبال: من الفندق المرشد: معتمد مصري للشخص';
+        $page = ['url' => 'https://x.com/ar/tour/nubian', 'lang' => 'ar', 'text' => $text, 'schema' => [['@type' => 'TouristTrip', 'name' => 'رحلة النوبة', 'offers' => ['@type' => 'Offer', 'price' => '60.00', 'priceCurrency' => 'USD']]]];
+        $d = AeoAnswerBuilder::draft($page);
+        $by = array_column($d['pairs'], null, 'kind');
+        $this->assertSame('كم مدة رحلة النوبة؟', $by['duration']['question']);
+        $this->assertSame('المدة: ٤ ساعات.', $by['duration']['answer']);
+        $this->assertSame('الإلغاء: مجاني حتى 24 ساعة.', $by['cancellation']['answer']);
+        $this->assertSame('يبدأ من USD 60.00 للشخص.', $by['price']['answer']);
+        $this->assertSame('الاستقبال: من الفندق.', $by['pickup']['answer']);
+        foreach ($d['pairs'] as $pair) {
+            $this->assertSame([], AeoAnswerBuilder::foreignNumbers($pair['answer'], $pair['evidence'] . ' ' . $pair['question']), $pair['kind']);
+        }
+        $noOffer = [['@type' => 'TouristTrip', 'name' => 'رحلة النوبة']];
+        $none = AeoAnswerBuilder::draft(['url' => 'u', 'lang' => 'ar', 'text' => 'رحلة جميلة', 'schema' => $noOffer]);
+        $this->assertSame('no_stated_facts', $none['state']);
+        $this->assertStringStartsWith('بيانات ناقصة: أضف', $none['missing'][0]['add_ar']);
+        $this->assertSame('unsupported_language', AeoAnswerBuilder::draft(['lang' => 'fr'] + $page)['state']);
+    }
+
+    public function testArabicIndicDigitsAreCheckedAgainstEvidence(): void
+    {
+        $this->assertSame([], AeoAnswerBuilder::foreignNumbers('المدة: ٤ ساعات', 'المدة: ٤ ساعات'));
+        $this->assertSame(['٥'], AeoAnswerBuilder::foreignNumbers('المدة: ٥ ساعات', 'المدة: ٤ ساعات'));
+    }
+
+    public function testCoverageMeasurementIsHonestAboutSampleSizeAndAge(): void
+    {
+        $m = AeoCoverageStore::measurement(['total' => 4, 'with_faq' => 1, 'with_howto' => 0, 'last_checked' => '2026-10-01 00:00:00'], '2026-11-02 00:00:00');
+        $this->assertSame(25, $m['score']);
+        $this->assertSame('low', $m['confidence']);
+        $this->assertTrue($m['stale']);
+        $this->assertNull(AeoCoverageStore::measurement(['total' => 0, 'with_faq' => 0, 'with_howto' => 0, 'last_checked' => null], 'x'));
+        $this->assertNull(AeoCoverageStore::measurement(null, 'x'));
+        $this->assertTrue(SeoSchemaBuilder::isTourPath('/tour/nile-day-trip'));
+        $this->assertFalse(SeoSchemaBuilder::isTourPath('/about'));
     }
 }

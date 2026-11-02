@@ -1034,4 +1034,5 @@ return [
     'SeoSameSiteUrl' => dirname(__DIR__,2).'/app/Services/SeoExpert/SeoSameSiteUrl.php',
     'AeoAnswerBuilder' => dirname(__DIR__,2).'/app/Services/SeoExpert/AeoAnswerBuilder.php',
     'AeoController' => dirname(__DIR__,2).'/app/Controllers/AeoController.php',
+    'AeoCoverageStore' => dirname(__DIR__,2).'/app/Services/SeoExpert/AeoCoverageStore.php',
 ];

@@ -141,6 +141,35 @@ final class VisibilityScoreServiceTest extends TestCase
         }
     }
 
+    public function testAeoCoverageFeedsTheDashboardAndIsTenantScoped(): void
+    {
+        $db = $this->db();
+        if (!$db) $this->markTestSkipped('DB غير متاحة');
+        $pdo = $db->getConnection();
+        if (!$pdo->query("SHOW TABLES LIKE 'seo_aeo_pages'")->fetchAll()) $this->markTestSkipped('seo_aeo_pages غير موجود');
+        $u = self::OWNER;
+        $pdo->exec("DELETE FROM seo_aeo_pages WHERE user_id IN ($u," . self::OTHER . ")");
+        $pdo->exec("DELETE FROM websites WHERE user_id=$u");
+        $pdo->exec("INSERT INTO users (id,email,password,company_name,created_at) VALUES ($u,'vis-$u@tourfecto.test','x','V',NOW()) ON DUPLICATE KEY UPDATE email=email");
+        $pdo->exec("INSERT INTO websites (user_id,main_url,company_name,brand_name) VALUES ($u,'https://vis3.example.com','V','V')");
+        $wid = (int) $pdo->lastInsertId();
+        try {
+            $this->assertSame('not_measured', (new VisibilityScoreService($db))->overview($u, $wid)['aeo']['state']);
+            $this->assertTrue(AeoCoverageStore::record($db, $u, $wid, 'https://vis3.example.com/tour/a', ['has_faq_schema' => true], 3));
+            $this->assertTrue(AeoCoverageStore::record($db, $u, $wid, 'https://vis3.example.com/tour/b', ['has_faq_schema' => false], 0));
+            $this->assertTrue(AeoCoverageStore::record($db, $u, $wid, 'https://vis3.example.com/tour/b', ['has_faq_schema' => false], 1)); // upsert, not duplicate
+            $aeo = (new VisibilityScoreService($db))->overview($u, $wid)['aeo'];
+            $this->assertSame(50, $aeo['score']);
+            $this->assertSame(2, $aeo['pages']);
+            $this->assertSame('low', $aeo['confidence']);
+            $this->assertSame(0, AeoCoverageStore::summary($db, self::OTHER, $wid)['total']);
+            $this->assertSame(['https://vis3.example.com/tour/a'], array_slice(AeoCoverageStore::nextUrls($db, $u, $wid, ['https://vis3.example.com/tour/a', 'https://vis3.example.com/tour/new'], 5), 1));
+        } finally {
+            $pdo->exec("DELETE FROM seo_aeo_pages WHERE website_id=$wid");
+            $pdo->exec("DELETE FROM websites WHERE id=$wid");
+        }
+    }
+
     public function testOverviewIsTenantIsolated(): void
     {
         $db = $this->db();
