@@ -794,9 +794,36 @@ HTML;
     const P = window.Panel;
     const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast, formatDate = P.formatDate;
 
+    // نافذة داخل الصفحة بدل confirm()/prompt(): المتصفحات المدمجة وبعض الإضافات بتلغيهم من غير ما تعرض حاجة فالزر كان "ميّت"
+    function askCancel() {
+        const ar = document.documentElement.lang.startsWith('ar');
+        return new Promise(function (resolve) {
+            const wrap = document.createElement('div');
+            wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true');
+            wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+            const box = document.createElement('div');
+            box.className = 'p-card';
+            box.style.cssText = 'max-width:440px;width:100%;padding:20px';
+            box.dir = ar ? 'rtl' : 'ltr';
+            const h = document.createElement('h3'); h.textContent = ar ? 'إلغاء الاشتراك؟' : 'Cancel subscription?';
+            const p = document.createElement('p'); p.textContent = ar ? 'اشتراكك هيفضل شغّال لحد آخر فترة دفعتها ومش هيتجدد بعدها. تقدر ترجع في قرارك قبل الميعاد ده.' : 'Your subscription stays active until the end of the period you paid for and will not renew. You can change your mind before then.';
+            const ta = document.createElement('textarea'); ta.className = 'p-input'; ta.maxLength = 500; ta.rows = 3; ta.style.cssText = 'width:100%;margin:10px 0';
+            ta.placeholder = ar ? 'ممكن تقولنا السبب؟ (اختياري)' : 'Reason (optional)';
+            const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
+            const keep = document.createElement('button'); keep.type = 'button'; keep.className = 'p-btn'; keep.textContent = ar ? 'لأ، خليني' : 'Keep my plan';
+            const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'p-btn danger'; ok.textContent = ar ? 'أيوه، ألغي' : 'Yes, cancel';
+            const done = function (v) { document.removeEventListener('keydown', onKey); wrap.remove(); resolve(v); };
+            const onKey = function (e) { if (e.key === 'Escape') done(null); };
+            keep.onclick = function () { done(null); };
+            ok.onclick = function () { done(ta.value.trim()); };
+            document.addEventListener('keydown', onKey);
+            row.append(keep, ok); box.append(h, p, ta, row); wrap.append(box); document.body.append(wrap); keep.focus();
+        });
+    }
+
     window.cancelSub = async function () {
-        if (!confirm(I18N['subscription.cancel_confirm'])) return;
-        const reason = prompt('ممكن تقولنا السبب؟ (اختياري - بيساعدنا نتحسن)') || '';
+        const reason = await askCancel();
+        if (reason === null) return;
         const res = await fetchJSON('/api/subscription/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
         if (res.success) { toast(res.message || I18N['common.deleted'], 'success'); setTimeout(function () { window.location.reload(); }, 1200); }
         else { document.getElementById('subAlert').textContent = res.error || I18N['subscription.cancel_failed']; document.getElementById('subAlert').style.display = 'block'; }
