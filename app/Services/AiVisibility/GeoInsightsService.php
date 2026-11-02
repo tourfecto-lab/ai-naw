@@ -42,8 +42,25 @@ final class GeoInsightsService
         $out = self::compose((array) $rows, (array) $known, $host, $now ?? gmdate('Y-m-d H:i:s')) + ['website_id' => $wid, 'market_id' => $marketId];
         if ($out['state'] === 'not_measured') {
             $out['diagnosis'] = $this->diagnose($uid, $wid);
+            $out['progress'] = $this->progress($uid, $wid);
         }
         return $out;
+    }
+
+    /**
+     * تقدّم القياس: فحوص الأسبوع الحالي حسب الحالة، ووظايف الطابور الخاصة بالموقع ده (قراءة فقط، من غير حجز ولا صرف).
+     * @return array{calls:array,jobs:array}
+     */
+    public function progress(int $uid, int $wid): array
+    {
+        $week = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->modify('monday this week')->format('Y-m-d');
+        $calls = $this->safe(fn () => $this->db->query('SELECT provider, status, COUNT(*) AS n FROM seo_ai_calls WHERE website_id = ? AND user_id = ? AND week_start = ? GROUP BY provider, status ORDER BY provider, status', [$wid, $uid, $week])) ?? [];
+        $jobs = $this->safe(fn () => $this->db->query(
+            "SELECT status, COUNT(*) AS n, MIN(available_at) AS next_at FROM jobs WHERE job_class = 'AiVisibilityCheckJob' AND payload LIKE ? AND payload LIKE ? GROUP BY status",
+            ['%"website_id":' . $wid . ',%', '%"user_id":' . $uid . ',%']
+        )) ?? [];
+        return ['week' => $week, 'calls' => array_map(static fn ($r) => ['provider' => (string) $r['provider'], 'status' => (string) $r['status'], 'n' => (int) $r['n']], (array) $calls),
+            'jobs' => array_map(static fn ($r) => ['status' => (string) $r['status'], 'n' => (int) $r['n'], 'next_at' => $r['next_at']], (array) $jobs)];
     }
 
     /**
