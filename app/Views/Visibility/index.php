@@ -38,9 +38,10 @@ let epoch=0;
 async function load(wid){const my=++epoch;msg(L('جارٍ التحميل…','Loading…'));el('vis-cards').hidden=true;
  try{const r=await window.Panel.fetchJSON('/api/visibility/overview?website_id='+encodeURIComponent(wid));if(my!==epoch)return;if(!r.success)throw Error(r.error||r.message);msg('');render(r.data);}
  catch(e){if(my!==epoch)return;msg((e&&e.message)||L('تعذر التحميل. جرّب تاني.','Could not load. Try again.'),true);}}
-(async()=>{try{const r=await window.Panel.fetchJSON('/api/websites');const list=(r.data&&r.data.websites)||r.data||r.websites||[],sel=el('vis-site');
+const start=async()=>{try{const r=await window.Panel.fetchJSON('/api/websites');const list=(r.data&&r.data.websites)||r.data||r.websites||[],sel=el('vis-site');
  if(!Array.isArray(list)||!list.length){sel.innerHTML='<option>'+L('مفيش مواقع','No sites')+'</option>';msg(L('ضيف موقع الأول من صفحة المواقع.','Add a site first from the Websites page.'));return;}
  sel.innerHTML=list.map(w=>'<option value="'+esc(w.id)+'">'+esc(w.company_name||w.brand_name||w.main_url||w.id)+'</option>').join('');sel.disabled=false;sel.onchange=()=>load(sel.value);load(sel.value);}
- catch(e){msg(L('تعذر تحميل المواقع.','Could not load sites.'),true);}})();
+ catch(e){msg(L('تعذر تحميل المواقع.','Could not load sites.'),true);}};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 </script>
