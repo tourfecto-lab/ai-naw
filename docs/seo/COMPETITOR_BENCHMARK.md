@@ -16,6 +16,7 @@ Similarweb publishes no prices (sales-led), so it is listed without numbers.
 | Ahrefs | Enterprise | $1,499 | annual commitment |
 | Ahrefs | Brand Radar (AI visibility add-on) | from $199 | prompt packages $50 (2,500 checks) / $100 (7,000) / $250 (25,000) |
 | Similarweb | Strategic SEO Suite, Gen AI Intel Suite | not published | sales-led |
+| SeoVision (seovision.io) | All in One (single plan) | $149 (yearly toggle shows -20%, no amount stated) | $1 for a 3-day trial, then $149/mo; 30 articles/mo, 70 prompts tracked across 7 AI platforms, 2 seats; done-for-you audit, fixes applied after approval, auto-publishing, backlink exchange; WordPress, Shopify, WooCommerce, Wix, Webflow, custom via API. Checked 2026-11-02 on seovision.io and app.seovision.io/pricing; customer counts on the site are self-reported |
 
 ## Tourfecto SEO plans (live prices after 2026-10-31; set in the admin, change log under /admin/plans)
 
