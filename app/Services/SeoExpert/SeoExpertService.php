@@ -103,6 +103,16 @@ class SeoExpertService
         }
         foreach($contexts as $ctx){$probe=($ctx['title']??'').' '.($ctx['site_name']??'').' '.($ctx['text']??'');if(preg_match('/travelerwp@gmail\.com|coming soon|something is happening|\(000\)\s*999/i',$probe))throw new InvalidArgumentException($ar?'الموقع يحتوي على بيانات ثيم تجريبية أو صفحة انتظار. اكتب بيانات شركتك المؤكدة في مركز الشركة بدل استيرادها.':'Demo theme or coming-soon content detected. Enter confirmed company facts in Business Hub instead of importing placeholders.');}
         $brief=SeoBusinessBriefBuilder::build($contexts,(string)($site['company_name']??''),$ar);
+        // حقائق كل رحلة (المدة والسعر والإلغاء) من صفحات الرحلات نفسها: لحد 8 رحلات، ومهلة 15 ثانية إضافية
+        $tourFacts=[];$tourUrls=[];$tourHost=(string)parse_url($site['main_url'],PHP_URL_HOST);
+        foreach($contexts as $ctx)foreach(($ctx['links']??[]) as $link){$u=is_string($link)?$link:(string)($link['url']??'');if($u==='')continue;
+            if(!WordPressConnector::hostsEqual((string)parse_url($u,PHP_URL_HOST),$tourHost))continue;$p=(string)parse_url($u,PHP_URL_PATH);
+            if(preg_match('#^/tours?/[^/]+/?$#i',$p)&&stripos($p,'/tour/')===0)$tourUrls[strtolower(rtrim($p,'/'))]=$u;}
+        $tourDeadline=microtime(true)+15;
+        foreach(array_slice(array_values($tourUrls),0,8) as $url){if(microtime(true)>$tourDeadline)break;
+            try{$tc=$reader->fresh($url);}catch(Throwable $e){continue;}
+            if(!empty($tc['ok'])&&empty($tc['coming_soon'])&&($fact=SeoBusinessBriefBuilder::tourFact($tc))!==null){$tourFacts[$fact]=true;$contexts[]=$tc;}}
+        if($tourFacts)$brief['offers']=mb_substr(implode("\n",array_keys($tourFacts)),0,1500);
         return $brief+['sources'=>array_map(static fn($c)=>$c['final_url'],$contexts),'needs_review'=>true];
     }
     private static function canRefreshBreadcrumbs(array $t): bool {

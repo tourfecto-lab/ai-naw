@@ -312,6 +312,64 @@ class SeoBusinessBriefBuilder
             && !preg_match('/\?|why|how|what|reviews?|testimonials?|contact|newsletter|faq|لماذا|إزاي|آراء/iu', $text);
     }
 
+    /**
+     * سطر حقائق لرحلة واحدة من صفحتها: الاسم والمدة والسعر والإلغاء، بس لو الصفحة قايلاها صراحةً (من الـSchema أو من النص).
+     * بنرجّع null لو مفيش اسم أو مفيش ولا حقيقة؛ ومش بنستنتج حاجة (الإلغاء المجاني مثلًا لازم يكون مكتوب بالنص).
+     * العميل بيراجعها ويأكدها قبل ما أي مقال يستخدمها.
+     */
+    public static function tourFact(array $ctx): ?string
+    {
+        $name = '';
+        $price = null;
+        $cur = '';
+        $stack = [$ctx['schema'] ?? []];
+        while ($stack) {
+            $node = array_pop($stack);
+            if (!is_array($node)) {
+                continue;
+            }
+            $types = array_map('strval', (array) ($node['@type'] ?? []));
+            if (isset($node['name']) && is_string($node['name']) && trim($node['name']) !== '' && array_intersect($types, ['TouristTrip', 'Product', 'Trip'])) {
+                if ($name === '' || strcasecmp($name, trim($node['name'])) === 0) {
+                    $name = trim($node['name']);
+                    $offer = $node['offers'] ?? null;
+                    if (is_array($offer) && isset($offer[0]) && is_array($offer[0])) {
+                        $offer = $offer[0];
+                    }
+                    $p = is_array($offer) ? ($offer['price'] ?? ($offer['lowPrice'] ?? null)) : null;
+                    if ($price === null && is_scalar($p) && is_numeric($p) && (float) $p > 0) {
+                        $price = (float) $p;
+                        $cur = is_array($offer) && is_string($offer['priceCurrency'] ?? null) ? $offer['priceCurrency'] : '';
+                    }
+                }
+            }
+            foreach ($node as $v) {
+                if (is_array($v)) {
+                    $stack[] = $v;
+                }
+            }
+        }
+        if ($name === '') {
+            return null;
+        }
+        $text = preg_replace('/\s+/u', ' ', (string) ($ctx['text'] ?? ''));
+        $facts = [];
+        if (preg_match('/\b(?:lasts?|duration)\s*:?\s*(\d+(?:\.\d+)?(?:\s*[-\x{2013}]\s*\d+(?:\.\d+)?)?\s*(?:hours?|days?|nights?|minutes?))\b/iu', $text, $m)) {
+            $facts[] = mb_strtolower(trim($m[1]));
+        }
+        if ($price !== null) {
+            $perPerson = preg_match('/per\s+(?:person|traveller|traveler|adult)/i', $text) === 1;
+            $facts[] = 'from ' . trim($cur . ' ' . rtrim(rtrim(number_format($price, 2, '.', ''), '0'), '.')) . ($perPerson ? ' per person' : '');
+        }
+        if (preg_match('/cancell?ation\s*:?\s*free\s+up\s+to\s+(\d+)\s*(?:h\b|hours?)/i', $text, $m)) {
+            $facts[] = 'free cancellation up to ' . (int) $m[1] . ' hours';
+        }
+        if (!$facts) {
+            return null;
+        }
+        return mb_substr($name, 0, 120) . ' — ' . implode('; ', $facts);
+    }
+
     private static function walkSchema($node, ?array &$org, array &$offers, array &$places, array &$faqs, array &$prices): void
     {
         if (!is_array($node)) {
