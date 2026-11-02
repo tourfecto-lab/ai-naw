@@ -37,6 +37,31 @@ class SeoPlanQualityGate
         return mb_strlen($first) >= 4 && mb_stripos($title, $first) !== false;
     }
 
+    /**
+     * عنوان فيه الاسم مرتين في آخره بعد الفواصل («Page | Tourfecto | Tourfecto Travel»): كلمة (5 حروف أو أكتر) متكررة
+     * في جزئين مختلفين بعد أول جزء. أول جزء (عنوان الصفحة نفسه) مالوش علاقة، فـ«Luxor Tours | Cairo Tours» مش بتتعد.
+     */
+    public static function repeatedBrandSegments(string $title): bool
+    {
+        $parts = array_values(array_filter(array_map('trim', preg_split('/\s[|\x{2013}\x{2014}-]\s|\|/u', $title)), static fn ($p) => $p !== ''));
+        if (count($parts) < 3) {
+            return false;
+        }
+        $seen = [];
+        foreach (array_slice($parts, 1) as $seg) {
+            $words = array_unique(array_filter(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($seg)), static fn ($w) => mb_strlen($w) >= 5));
+            foreach ($words as $w) {
+                if (isset($seen[$w])) {
+                    return true;
+                }
+            }
+            foreach ($words as $w) {
+                $seen[$w] = true;
+            }
+        }
+        return false;
+    }
+
     public static function issue(string $field, string $current, array $sameFieldOnOtherPages = []): ?string
     {
         if (!isset(self::LIMITS[$field])) {
@@ -56,6 +81,9 @@ class SeoPlanQualityGate
         }
         if (preg_match('/\b(\p{L}{3,})\s+\1\b/iu', $v)) {
             return 'repeated_word';
+        }
+        if ($field === 'title' && self::repeatedBrandSegments($v)) {
+            return 'repeated_brand';
         }
         if (preg_match('/^(home|untitled|index|new page|page)$/i', $v)) {
             return 'generic';
@@ -127,7 +155,7 @@ class SeoPlanQualityGate
                     $value = $withBrand;
                 }
                 // التعديل نفسه لازم ميبقاش فيه نفس المشكلة
-                if (in_array(self::issue($field, $value), ['missing', 'too_short', 'too_long', 'repeated_word', 'generic'], true)) {
+                if (in_array(self::issue($field, $value), ['missing', 'too_short', 'too_long', 'repeated_word', 'repeated_brand', 'generic'], true)) {
                     continue;
                 }
             }

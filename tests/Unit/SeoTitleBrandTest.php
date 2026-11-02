@@ -33,4 +33,19 @@ final class SeoTitleBrandTest extends TestCase
         $this->assertFalse(SeoPlanQualityGate::mentionsBrand('Luxor Tours and Temples', 'Tourfecto Travel'));
         $this->assertFalse(SeoPlanQualityGate::mentionsBrand('Luxor Tours in Egypt', 'AB Travel'), 'a first word under 4 letters is not enough evidence');
     }
+
+    public function testExistingDuplicatedBrandTitleIsFlaggedSoThePlanRepairsIt(): void
+    {
+        $this->assertSame('repeated_brand', SeoPlanQualityGate::issue('title', 'Day Tours in Egypt: Private Excursions | Tourfecto | Tourfecto Travel'));
+        $this->assertNull(SeoPlanQualityGate::issue('title', 'Hurghada Tours and Excursions | Tourfecto Travel'));
+        $this->assertNull(SeoPlanQualityGate::issue('title', 'Luxor Tours | Cairo Tours | Egypt Travel Guide'), 'only words repeated after the first part count');
+    }
+
+    public function testProposalThatRepairsTheDuplicateIsKeptAndOneThatRepeatsItIsDropped(): void
+    {
+        $now = 'Day Tours in Egypt: Private Excursions | Tourfecto | Tourfecto Travel';
+        $kept = $this->run1($now, 'Private Day Tours in Egypt from Cairo and Luxor | Tourfecto Travel', 'Tourfecto Travel');
+        $this->assertCount(1, $kept);
+        $this->assertSame([], $this->run1($now, 'Egypt Day Tours | Tourfecto | Tourfecto Travel', 'Tourfecto Travel'));
+    }
 }
