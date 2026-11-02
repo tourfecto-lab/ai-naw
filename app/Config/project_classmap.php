@@ -446,6 +446,7 @@ return [
     'DocumentationController' => dirname(__DIR__,2).'/app/Controllers/DocumentationController.php',
     'EdgeFixController' => dirname(__DIR__,2).'/app/Controllers/EdgeFixController.php',
     'EdgeRules' => dirname(__DIR__,2).'/app/Services/AutoFix/EdgeRules.php',
+    'EdgeConnectionWatch' => dirname(__DIR__,2).'/app/Services/AutoFix/EdgeConnectionWatch.php',
     'EmailAbTest' => dirname(__DIR__,2).'/app/Models/EmailAbTest.php',
     'EmailAutomation' => dirname(__DIR__,2).'/app/Models/EmailAutomation.php',
     'EmailAutomationEntry' => dirname(__DIR__,2).'/app/Models/EmailAutomationEntry.php',

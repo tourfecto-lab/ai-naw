@@ -124,6 +124,10 @@ return [
         'file' => 'seo_traffic_alerts.php', 'when' => '20 7 * * *', 'group' => 'seo',
         'title' => 'تنبيه لو زيارات جوجل لموقع العميل وقعت (Search Console)', 'enabled' => true, 'max_minutes' => 20,
     ],
+    'edge_connection_watch' => [
+        'file' => 'edge_connection_watch.php', 'when' => '15 */2 * * *', 'group' => 'seo',
+        'title' => 'تنبيه لو موصّل موقع العميل وقف عن سحب قواعد السيو', 'enabled' => true, 'max_minutes' => 5,
+    ],
     'fx_refresh' => [
         'file' => 'fx_refresh.php', 'when' => '*/5 * * * *', 'group' => 'core',
         'title' => 'سعر الصرف مربوط بالبنك المركزي (حسب الميعاد اللي في الأدمن)', 'enabled' => true, 'max_minutes' => 3,
