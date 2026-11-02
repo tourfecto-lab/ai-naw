@@ -1038,4 +1038,6 @@ return [
     'GeoInsightsService' => dirname(__DIR__,2).'/app/Services/AiVisibility/GeoInsightsService.php',
     'GeoInsightsController' => dirname(__DIR__,2).'/app/Controllers/GeoInsightsController.php',
     'SeoImpactSummary' => dirname(__DIR__,2).'/app/Services/SeoImpact/SeoImpactSummary.php',
+    'SeoReportShareService' => dirname(__DIR__,2).'/app/Services/Visibility/SeoReportShareService.php',
+    'SeoReportShareController' => dirname(__DIR__,2).'/app/Controllers/SeoReportShareController.php',
 ];

@@ -16,6 +16,7 @@ $router->get('/sitemap.xml', 'HomeController', 'sitemap');
 // Phase 21 (Auto SEO): سكربت الحقن العام - بيتحمّل من متصفح زوار موقع العميل
 // فمينفعش يتحط عليه AuthMiddleware. التحقق بيتم عبر embed_token نفسه.
 $router->get('/embed.js', 'AutoSeoController', 'embedScript');
+$router->get('/r/{token}', 'SeoReportShareController', 'show');
 // ويدجت التقييمات على موقع العميل (عام - التحقق بتوكن HMAC لكل موقع)
 $router->get('/widget/reviews', 'ReviewWidgetController', 'script');
 // فقاعة شات الموقع (عامة - التحقق بتوكن HMAC لكل موقع)
