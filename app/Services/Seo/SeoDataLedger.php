@@ -43,6 +43,7 @@ class SeoDataLedger
                 $this->alert();
                 throw new RuntimeException('seo_monthly_budget_reached');
             }
+            $this->assertDailyBudget($pdo,$ceiling);
             $site=$pdo->prepare('SELECT user_id FROM websites WHERE id=?'); $site->execute([$websiteId]);
             $owner=$site->fetchColumn();
             if (!$owner) throw new RuntimeException('website_not_found');
@@ -101,6 +102,15 @@ class SeoDataLedger
             $st->execute([$endpoint,$ceiling]);
             return (int)$pdo->lastInsertId();
         } finally { $pdo->query("SELECT RELEASE_LOCK('tourfecto:dataforseo:budget')"); }
+    }
+
+    /** سقف يومي اختياري (serp_daily_budget_usd) على كل صرف اليوم: بيمنع يوم واحد ياكل ميزانية الشهر. 0 أو فاضي = مفيش سقف. */
+    private function assertDailyBudget(PDO $pdo,float $ceiling): void
+    {
+        try { $daily=(float)(new SystemSettingsService())->get('serp_daily_budget_usd',''); } catch (Throwable $e) { return; }
+        if (!is_finite($daily) || $daily<=0) return;
+        $today=(float)$pdo->query("SELECT COALESCE(SUM(GREATEST(cost,reserved_cost)),0) FROM dataforseo_calls WHERE created_at >= UTC_DATE()")->fetchColumn();
+        if (round($today+$ceiling,6)>round($daily,6)) throw new RuntimeException('seo_daily_budget_reached');
     }
 
     public function settle(int $id, ?float $cost, string $status): void

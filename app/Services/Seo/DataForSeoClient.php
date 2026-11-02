@@ -80,7 +80,7 @@ class DataForSeoClient
                 try { $ledger->settle($id,null,'unknown'); }
                 catch (Throwable $ignored) { /* The durable reservation remains in place. */ }
             }
-            $known=['seo_budget_busy','seo_monthly_budget_reached','seo_quota_and_wallet_exhausted','website_not_found','seo_wallet_limit_reached','seo_wallet_price_unavailable','seo_auto_wallet_limit_reached'];
+            $known=['seo_budget_busy','seo_monthly_budget_reached','seo_daily_budget_reached','seo_quota_and_wallet_exhausted','website_not_found','seo_wallet_limit_reached','seo_wallet_price_unavailable','seo_auto_wallet_limit_reached'];
             return ['available'=>false,'reason'=>in_array($e->getMessage(),$known,true)?$e->getMessage():'dataforseo_request_failed'];
         }
     }

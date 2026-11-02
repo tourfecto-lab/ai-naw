@@ -49,6 +49,8 @@ class SystemSettingsService
         'geo_perplexity_reserve_usd_per_check'=>['category'=>'geo','label'=>'perplexity أقصى احتياطي للسؤال USD (الحد الأدنى 0.10)','is_secret'=>false,'constant'=>''],
 
         'serp_monthly_budget_usd'=>['category'=>'seo','label'=>'ميزانية DataForSEO الشهرية USD (مطلوبة)','is_secret'=>false,'constant'=>''],
+        'serp_daily_budget_usd'=>['category'=>'seo','label'=>'سقف يومي USD لكل صرف DataForSEO (0 أو فاضي = من غير سقف يومي)','is_secret'=>false,'constant'=>''],
+        'serp_daily_keywords_per_site'=>['category'=>'seo','label'=>'أقصى عدد كلمات بتتفحص يوميًا لكل موقع وسوق (5 إلى 500، الافتراضي 60)','is_secret'=>false,'constant'=>''],
         'serp_signup_daily_usd'=>['category'=>'seo','label'=>'سقف يومي USD لتحليل المنافسين في التسجيل الذكي (افتراضي 1)','is_secret'=>false,'constant'=>''],
         'serp_reserve_per_unit_usd'=>['category'=>'seo','label'=>'احتياطي أقصى تكلفة للكلمة USD (الحد الأدنى 0.10)','is_secret'=>false,'constant'=>''],
         'serp_enabled' => ['category'=>'seo','label'=>'تفعيل تتبع الترتيب المدفوع (1 فقط)','is_secret'=>false,'constant'=>''],
