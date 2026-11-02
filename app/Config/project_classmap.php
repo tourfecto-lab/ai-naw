@@ -1029,4 +1029,6 @@ return [
     'VoiceAnalyticsController' => dirname(__DIR__,2).'/app/Controllers/VoiceAnalyticsController.php',
     'VisibilityScoreService' => dirname(__DIR__,2).'/app/Services/Visibility/VisibilityScoreService.php',
     'VisibilityController' => dirname(__DIR__,2).'/app/Controllers/VisibilityController.php',
+    'SeoSchemaValidator' => dirname(__DIR__,2).'/app/Services/SeoExpert/SeoSchemaValidator.php',
+    'SeoSchemaController' => dirname(__DIR__,2).'/app/Controllers/SeoSchemaController.php',
 ];

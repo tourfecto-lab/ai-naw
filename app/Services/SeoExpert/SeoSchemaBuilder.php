@@ -10,7 +10,7 @@
 class SeoSchemaBuilder
 {
     /** أنواع الـ Schema اللي مسموح تتحقن (EdgeRules بيتحقق منها تاني قبل النشر) */
-    public const TYPES = ['Article', 'Organization', 'LocalBusiness', 'TravelAgency', 'WebSite', 'Person', 'TouristTrip', 'Product', 'Offer', 'AggregateOffer', 'BreadcrumbList', 'ListItem', 'FAQPage', 'Question', 'Answer', 'TouristAttraction', 'TouristDestination', 'Place', 'ItemList', 'AggregateRating', 'ImageObject', 'Trip'];
+    public const TYPES = ['Article', 'Organization', 'LocalBusiness', 'TravelAgency', 'WebSite', 'Person', 'TouristTrip', 'Product', 'Offer', 'AggregateOffer', 'BreadcrumbList', 'ListItem', 'FAQPage', 'Question', 'Answer', 'TouristAttraction', 'TouristDestination', 'Place', 'ItemList', 'AggregateRating', 'ImageObject', 'Trip', 'Hotel', 'LodgingBusiness', 'Review', 'Rating', 'HowTo', 'HowToStep', 'PostalAddress', 'GeoCoordinates', 'Brand', 'ContactPoint'];
 
     private const TOUR_URL = '#/(?:tours?|trips?|excursions?|packages?|holidays?|cruises?|safaris?|activities|activity|day-tours?|tour-packages?|rahalat|رحلات|رحلة)(?:/|-|$)#iu';
     private const TOUR_WORDS = '/\b(?:tour|trip|excursion|cruise|safari|package|day trip|full day|half day|itinerary|snorkel(?:l?ing)?|diving|desert)\b|رحلة|جولة|رحلات/iu';

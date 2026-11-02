@@ -828,6 +828,7 @@ abstract class Controller
             'local' => ['📍', $L('المحلي واللغات', 'Local and languages'), [
                 ['/local-seo', $L('بياناتك والخرائط', 'Listings and maps'), 'seo_expert'],
                 ['/international-seo', $L('اللغات والفهرسة', 'Languages and indexing'), 'seo_expert'],
+                ['/seo-schema', $L('فحص Schema', 'Schema check'), 'seo_expert'],
             ]],
             'ai' => ['✨', $L('الظهور في الذكاء الاصطناعي', 'AI visibility'), [
                 ['/visibility', $L('لوحة الظهور (SEO/AEO/GEO)', 'Visibility dashboard (SEO/AEO/GEO)'), 'seo_expert'],
