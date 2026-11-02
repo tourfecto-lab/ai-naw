@@ -118,11 +118,13 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
 <select id="grFTrack" class="p-select"><option value="">كل المسارات</option>${Object.entries(s.tracks || {}).map(([t, n]) => `<option value="${esc(t)}" ${filters.track === t ? 'selected' : ''}>${esc(trackName(t))} (${n})</option>`).join('')}</select>
 <select id="grFApproval" class="p-select"><option value="">الكل</option><option value="pending" ${filters.approval === 'pending' ? 'selected' : ''}>مستنية موافقتي (${s.awaiting_approval || 0})</option></select>
 <input id="grFQ" class="p-select" placeholder="دوّر باسم الشركة أو الإيميل أو المدينة" value="${esc(filters.q)}"></div><div id="grLeads" class="gr-leads"></div></section>
+<section class="gr-box"><h2>📨 الحملات اللي اتبعتت</h2><div id="grCamp"><p class="gr-muted">بيحمّل…</p></div></section>
 <dialog id="grDlg" class="gr-dlg"><div class="gr-dlg-head"><b id="grDlgTitle"></b><button class="p-btn outline xs" data-close>إغلاق</button></div><div id="grDlgNeeds" class="gr-muted"></div><iframe id="grDlgFrame" class="gr-preview" sandbox title="preview"></iframe><div class="gr-actions" id="grDlgActs"></div></dialog>`;
         // الصفحة كانت 11 ألف بيكسل: كل قسم (المسارات، الدول، قبل ما تشغّل، الاستيراد، الرسايل، الإعدادات، الشركات) بقى تبويب
         if (window.SectionTabs) window.SectionTabs.apply(root, { key: 'growth', selector: 'section.gr-box', label: 'أقسام تسويق المنصة' });
         preview();
         loadLeads();
+        loadCampaigns();
     };
     const f = (k, label, type = 'text') => `<label class="gr-f">${label}<input id="s_${k}" type="${type}" class="p-select" value="${esc(data.settings[k])}" ${['from_email', 'reply_to', 'smtp_host', 'smtp_username', 'signup_url', 'timezone'].includes(k) ? 'dir="ltr"' : ''}></label>`;
 
@@ -211,6 +213,57 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
         if (approvable) v('grDlgActs').innerHTML = `<button class="p-btn" data-approve="${id}">وافق وابعت الرسالة 1 في الدور</button>`;
     };
 
+    // ---- الحملات اللي اتبعتت: ملخص + حملة لكل (دولة × مسار × رسالة) + سجل الرسايل + تفاصيل كل رسالة
+    let mf = { country: '', track: '', step: '', status: '', q: '', page: 1 };
+    const EVENT = { sent: ['✉️', 'اتبعتت'], failed: ['⚠️', 'فشل الإرسال'], opened: ['👁', 'فتح الرسالة'], clicked: ['🖱', 'ضغط على اللينك'], report_viewed: ['📄', 'فتح التقرير المجاني'], whatsapp: ['💬', 'ضغط واتساب'] };
+    const rate = (a, b) => b ? Math.round(a * 100 / b) + '%' : '—';
+
+    const loadCampaigns = async () => {
+        const box = v('grCamp'); if (!box) return;
+        try {
+            const { totals: t, campaigns: cs } = await api('/api/admin/growth/campaigns');
+            const opensOn = data.settings.track_opens === '1';
+            const cards = [['اتبعتت', t.sent], ['شركات وصلها', t.recipients], ['فشل', t.failed], ['ضغطوا على اللينك', `${t.clicked} <small>${rate(t.clicked, t.sent)}</small>`], ['فتحوا التقرير', `${t.report_views} <small>${rate(t.report_views, t.recipients)}</small>`], ['ضغطوا واتساب', t.whatsapp], ['ردّوا / مهتمين', t.interested], ['سجّلوا 🎉', t.signed_up], ['ألغوا الاشتراك', t.unsubscribed], ['إيميل راجع', t.bounced]];
+            const filterTxt = [mf.country && `الدولة: ${flag(mf.country)} ${countryName(mf.country)}`, mf.track !== '' && `المسار: ${trackName(mf.track)}`, mf.step && `الرسالة ${mf.step}`].filter(Boolean).join(' · ');
+            box.innerHTML = `<div class="gr-cards">${cards.map(([l, n]) => `<div class="gr-card"><span>${l}</span><b>${n}</b></div>`).join('')}</div>
+<p class="gr-muted">${opensOn ? '' : 'تتبع فتح الرسالة مقفول (الأفضل لوصول الإيميل للـ Inbox)، فالفتح مابيتحسبش. الضغط على اللينك وفتح التقرير والواتساب بيتحسبوا. '}الأوقات بتوقيت السيرفر.</p>
+<h3>الحملات (كل دولة × مسار × رقم الرسالة)</h3>
+${cs.length ? `<div class="gr-scroll"><table class="gr-table"><thead><tr><th>الحملة</th><th>اتبعتت</th><th>فشل</th><th>ضغطوا</th><th>فتحوا التقرير</th><th>واتساب</th><th>ردّوا</th><th>سجّلوا</th><th>ألغوا</th><th>راجع</th><th>أول إرسال</th><th>آخر إرسال</th><th></th></tr></thead><tbody>${cs.map(c => `<tr class="${mf.country === c.country && mf.track === c.track && String(mf.step) === String(c.step) ? 'gr-sel' : ''}"><td class="gr-nowrap">${flag(c.country)} ${esc(countryName(c.country))} · ${esc(trackName(c.track))} · <b>رسالة ${c.step}</b></td><td>${c.sent}</td><td>${c.failed}</td><td>${c.clicked} <span class="gr-muted">${rate(c.clicked, c.sent)}</span></td><td>${c.report_views}</td><td>${c.whatsapp}</td><td>${c.interested}</td><td><b>${c.signed_up}</b></td><td>${c.unsubscribed}</td><td>${c.bounced}</td><td class="gr-nowrap">${esc(c.first_sent_at)}</td><td class="gr-nowrap">${esc(c.last_sent_at)}</td><td><button class="p-btn outline xs" data-camp-c="${esc(c.country)}" data-camp-t="${esc(c.track)}" data-camp-s="${c.step}">اعرض رسايلها</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="gr-muted">لسه مفيش حملة اتبعتت.</p>'}
+<h3>سجل الرسايل ${filterTxt ? `<span class="gr-muted">(${esc(filterTxt)}) <button class="p-btn outline xs" data-camp-clear>شيل الفلتر</button></span>` : ''}</h3>
+<div class="gr-row"><select id="grMStatus" class="p-select"><option value="">كل الحالات</option><option value="sent" ${mf.status === 'sent' ? 'selected' : ''}>اتبعتت</option><option value="failed" ${mf.status === 'failed' ? 'selected' : ''}>فشلت</option></select><input id="grMQ" class="p-select" placeholder="دوّر باسم الشركة أو الإيميل أو العنوان" value="${esc(mf.q)}"></div>
+<div id="grMsgs" class="gr-leads"><p class="gr-muted">بيحمّل…</p></div>`;
+            loadMessages();
+        } catch (e) { box.innerHTML = `<p class="gr-msg bad">${esc(e.message)}</p>`; }
+    };
+
+    const loadMessages = async () => {
+        const box = v('grMsgs'); if (!box) return;
+        try {
+            const r = await api('/api/admin/growth/messages?' + new URLSearchParams(mf).toString());
+            const state = m => m.status === 'failed' ? `<span class="gr-badge red" title="${esc(m.error)}">فشلت</span>` : '<span class="gr-badge green">اتبعتت</span>';
+            const dot = at => at ? `<span title="${esc(at)}">✔</span>` : '<span class="gr-muted">—</span>';
+            box.innerHTML = r.rows.length ? `<div class="gr-scroll"><table class="gr-table"><thead><tr><th>وقت الإرسال</th><th>الشركة</th><th>المستلم</th><th>الرسالة</th><th>العنوان</th><th>الحالة</th><th>ضغط</th><th>التقرير</th><th>واتساب</th><th>حالة الشركة</th><th></th></tr></thead><tbody>${r.rows.map(m => `<tr><td class="gr-nowrap">${esc(m.sent_at)}</td><td>${flag(m.country || '?')} ${esc(m.company)}</td><td dir="ltr">${esc(m.to_email)}</td><td>${m.step}) ${esc(STEP_NAME[m.step] || '')}<br><span class="gr-muted">${esc(trackName(m.track))}</span></td><td>${esc(m.subject)}</td><td>${state(m)}</td><td>${dot(m.clicked_at)}</td><td>${dot(m.report_viewed_at)}</td><td>${dot(m.whatsapp_at)}</td><td>${esc((STATUS[m.lead_status] || [m.lead_status])[0])}</td><td><button class="p-btn outline xs" data-msg="${m.id}">التفاصيل</button></td></tr>`).join('')}</tbody></table></div>
+<div class="gr-pager"><span class="gr-muted">${r.total} رسالة · صفحة ${r.page} من ${r.pages}</span> ${r.page > 1 ? '<button class="p-btn outline xs" data-mpage="-1">السابق</button>' : ''} ${r.page < r.pages ? '<button class="p-btn outline xs" data-mpage="1">التالي</button>' : ''}</div>` : '<p class="gr-muted">مفيش رسايل بالفلتر ده.</p>';
+        } catch (e) { box.innerHTML = `<p class="gr-msg bad">${esc(e.message)}</p>`; }
+    };
+
+    const showMessage = async id => {
+        const r = await api('/api/admin/growth/messages/' + id);
+        const m = r.message, l = r.lead;
+        const dlg = v('grDlg');
+        if (!dlg.open) { v('grDlgActs').innerHTML = ''; if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
+        v('grDlgTitle').textContent = m.subject;
+        const rows = [['من', esc(m.from_email)], ['إلى', `<span dir="ltr">${esc(m.to_email)}</span> — ${esc(l.company)}`], ['وقت الإرسال', esc(m.sent_at)], ['الرسالة', `${m.step}) ${esc(STEP_NAME[m.step] || '')} · المسار: <b>${esc(trackName(m.track))}</b>`],
+            ['الشركة', `${flag(l.country || '?')} ${esc(countryName(l.country))}${l.city ? ' · ' + esc(l.city) : ''}${l.website ? ` · <a href="${esc(l.website)}" target="_blank" rel="noopener noreferrer">${esc(l.website)}</a>` : ''}`],
+            ['الدرجة الرقمية', l.score != null ? esc(l.score) + '/100' : '—'], ['الحالة دلوقتي', esc((STATUS[l.status] || [l.status])[0])]];
+        const events = r.events.map(e => `<li>${(EVENT[e.type] || ['•', e.type])[0]} ${esc((EVENT[e.type] || ['', e.type])[1])} <span class="gr-muted">${esc(e.at)}${e.note ? ' · ' + esc(e.note) : ''}</span></li>`).join('');
+        const sib = r.siblings.length > 1 ? `<div class="gr-actions" style="margin:8px 0 0">${r.siblings.map(s => `<button class="p-btn xs ${s.id === m.id ? '' : 'outline'}" data-msg="${s.id}">${s.step}) ${esc(STEP_NAME[s.step] || '')}</button>`).join(' ')}</div>` : '';
+        v('grDlgNeeds').innerHTML = `<table class="gr-table"><tbody>${rows.map(([k, val]) => `<tr><th>${k}</th><td>${val}</td></tr>`).join('')}</tbody></table>
+<ul class="gr-timeline">${events}</ul>${sib}
+<p class="gr-muted">${r.html_source === 'stored' ? 'ده نص الرسالة زي ما اتبعتت.' : 'الرسالة دي اتبعتت قبل ما المنصة تحفظ النص، فده نصها متعمل تاني من نفس القالب والبيانات (من غير سطر الذكاء الصناعي الأول، ممكن يختلف شوية عن اللي وصل).'} <a href="${esc(r.report_url)}" target="_blank" rel="noopener noreferrer">افتح التقرير المجاني بتاعهم</a> (فتحه من هنا مابيتحسبش عليهم).</p>`;
+        v('grDlgFrame').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#F2F4F7">' + r.html + '</body>';
+    };
+
     const bind = () => {
         root.addEventListener('click', e => {
             const t = e.target.closest('button'); if (!t) return;
@@ -268,6 +321,10 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
                 const row = t.closest('tr');
                 return run(t, () => previewLead(t.dataset.previewLead, !!row?.querySelector('[data-approve]')));
             }
+            if (t.dataset.msg) return run(t, () => showMessage(t.dataset.msg));
+            if (t.dataset.campC !== undefined) { mf = { ...mf, country: t.dataset.campC, track: t.dataset.campT, step: t.dataset.campS, page: 1 }; loadCampaigns(); return; }
+            if (t.dataset.campClear !== undefined) { mf = { country: '', track: '', step: '', status: mf.status, q: mf.q, page: 1 }; loadCampaigns(); return; }
+            if (t.dataset.mpage) { mf.page += Number(t.dataset.mpage); loadMessages(); return; }
             if (t.dataset.pvStep) return run(t, () => previewLead(t.dataset.pvLead, !!t.dataset.pvApprovable, Number(t.dataset.pvStep)));
             if (t.dataset.close !== undefined) { const dlg = v('grDlg'); if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); return; }
             if (t.dataset.trackFilter) { filters.track = t.dataset.trackFilter; filters.page = 1; v('grFTrack').value = filters.track; loadLeads(); v('grLeads').scrollIntoView({ behavior: 'smooth' }); }
@@ -286,9 +343,11 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
                 run(s, async () => { await api('/api/admin/growth/leads/' + s.dataset.lead + '/status', { status: st }); toast('اتحدّث ✅'); const r = await api('/api/admin/growth'); data = r; loadLeads(); });
             }
             if (s.id === 'grFCountry') { filters.country = s.value; filters.city = ''; filters.page = 1; render(); v('grLeads').scrollIntoView({ block: 'start' }); return; }
+            if (s.id === 'grMStatus') { mf.status = s.value; mf.page = 1; loadMessages(); return; }
             if (s.id === 'grFCity') { filters.city = s.value; filters.page = 1; loadLeads(); return; }
             if (['grFStatus', 'grFTrack', 'grFApproval'].includes(s.id)) { filters.status = v('grFStatus').value; filters.country = v('grFCountry').value; filters.track = v('grFTrack').value; filters.approval = v('grFApproval').value; filters.page = 1; loadLeads(); }
         });
+        let mTimer; root.addEventListener('input', e => { if (e.target.id === 'grMQ') { clearTimeout(mTimer); mTimer = setTimeout(() => { mf.q = e.target.value.trim(); mf.page = 1; loadMessages(); }, 350); } });
         let timer; root.addEventListener('input', e => { if (e.target.id === 'grFQ') { clearTimeout(timer); timer = setTimeout(() => { filters.q = e.target.value.trim(); filters.page = 1; loadLeads(); }, 350); } });
     };
 

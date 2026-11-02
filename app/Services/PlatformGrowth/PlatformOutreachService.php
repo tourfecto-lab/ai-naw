@@ -115,7 +115,8 @@ class PlatformOutreachService
             'whatsapp_at' => 'DATETIME NULL',
             'score' => 'TINYINT NULL',
         ]);
-        $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL']);
+        // to_email وbody_html: نسخة من الرسالة زي ما اتبعتت (للقسم «الحملات»)، والرسايل القديمة بتفضل من غيرهم
+        $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         $done = true;
     }
 
@@ -1483,7 +1484,7 @@ class PlatformOutreachService
             }
             $r = $send((string) $lead['email'], (string) $lead['company'], $msg['subject'], $msg['html'], $headers);
             $ok = !empty($r['success']);
-            $this->q('INSERT INTO platform_lead_messages(lead_id,step,subject,status,error,track) VALUES(?,?,?,?,?,?)', [$lead['id'], $step, mb_substr($msg['subject'], 0, 255), $ok ? 'sent' : 'failed', $ok ? null : mb_substr((string) ($r['error'] ?? ''), 0, 500), $msg['track'] ?? null]);
+            $this->q('INSERT INTO platform_lead_messages(lead_id,step,subject,status,error,track,to_email,body_html) VALUES(?,?,?,?,?,?,?,?)', [$lead['id'], $step, mb_substr($msg['subject'], 0, 255), $ok ? 'sent' : 'failed', $ok ? null : mb_substr((string) ($r['error'] ?? ''), 0, 500), $msg['track'] ?? null, (string) $lead['email'], (string) $msg['html']]);
             if ($ok) {
                 $res['sent']++;
                 $last = self::lastStep($lead);
@@ -1715,6 +1716,131 @@ class PlatformOutreachService
         } catch (Throwable $e) {
             return [];
         }
+    }
+
+    // ------------------------------------------------------------------ الحملات اللي اتبعتت
+
+    /** كل (دولة × مسار × رقم الرسالة) حملة بأرقامها، مع إجمالي كل اللي اتبعت */
+    public function campaigns(): array
+    {
+        $cols = "SUM(m.status='sent') sent, SUM(m.status='failed') failed,
+            COUNT(DISTINCT CASE WHEN m.status='sent' THEN m.lead_id END) recipients,
+            SUM(m.opened_at IS NOT NULL) opened, SUM(m.clicked_at IS NOT NULL) clicked,
+            COUNT(DISTINCT CASE WHEN l.report_viewed_at IS NOT NULL THEN l.id END) report_views,
+            COUNT(DISTINCT CASE WHEN l.whatsapp_at IS NOT NULL THEN l.id END) whatsapp,
+            COUNT(DISTINCT CASE WHEN l.status IN ('replied','interested') THEN l.id END) interested,
+            COUNT(DISTINCT CASE WHEN l.status='signed_up' THEN l.id END) signed_up,
+            COUNT(DISTINCT CASE WHEN l.status='unsubscribed' THEN l.id END) unsubscribed,
+            COUNT(DISTINCT CASE WHEN l.status='bounced' THEN l.id END) bounced,
+            MIN(m.sent_at) first_sent_at, MAX(m.sent_at) last_sent_at";
+        $from = 'FROM platform_lead_messages m JOIN platform_leads l ON l.id=m.lead_id';
+        $int = static function (array $r): array {
+            foreach (['sent', 'failed', 'recipients', 'opened', 'clicked', 'report_views', 'whatsapp', 'interested', 'signed_up', 'unsubscribed', 'bounced'] as $k) {
+                $r[$k] = (int) ($r[$k] ?? 0);
+            }
+            return $r;
+        };
+        try {
+            $totals = $int($this->q("SELECT {$cols} {$from}")->fetch(PDO::FETCH_ASSOC) ?: []);
+            $rows = $this->q("SELECT COALESCE(l.country,'?') country, COALESCE(m.track,'') track, m.step, {$cols} {$from}
+                GROUP BY COALESCE(l.country,'?'), COALESCE(m.track,''), m.step ORDER BY MAX(m.sent_at) DESC LIMIT 200")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            return ['totals' => $int([]), 'campaigns' => []];
+        }
+        return ['totals' => $totals, 'campaigns' => array_map(static fn ($r) => ['step' => (int) $r['step']] + $int($r), $rows)];
+    }
+
+    /** سجل الرسايل اللي اتبعتت (50 في الصفحة): فلاتر الدولة والمسار ورقم الرسالة والحالة والبحث */
+    public function sentMessages(array $f): array
+    {
+        $where = ['1=1'];
+        $args = [];
+        if (($f['country'] ?? '') === '?') {
+            $where[] = 'l.country IS NULL';
+        } elseif (!empty($f['country']) && preg_match('/^[A-Z]{2}$/', (string) $f['country'])) {
+            $where[] = 'l.country=?';
+            $args[] = $f['country'];
+        }
+        if (isset($f['track']) && $f['track'] !== '') {
+            $where[] = 'COALESCE(m.track,\'\')=?';
+            $args[] = mb_substr((string) $f['track'], 0, 30);
+        }
+        if (!empty($f['step'])) {
+            $where[] = 'm.step=?';
+            $args[] = (int) $f['step'];
+        }
+        if (in_array($f['status'] ?? '', ['sent', 'failed'], true)) {
+            $where[] = 'm.status=?';
+            $args[] = $f['status'];
+        }
+        if (!empty($f['q'])) {
+            $where[] = '(l.company LIKE ? OR l.email LIKE ? OR m.to_email LIKE ? OR m.subject LIKE ?)';
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
+            array_push($args, $like, $like, $like, $like);
+        }
+        $page = max(1, (int) ($f['page'] ?? 1));
+        $from = ' FROM platform_lead_messages m JOIN platform_leads l ON l.id=m.lead_id WHERE ' . implode(' AND ', $where);
+        $total = (int) $this->q('SELECT COUNT(*)' . $from, $args)->fetchColumn();
+        $rows = $this->q('SELECT m.id, m.lead_id, l.company, COALESCE(m.to_email,l.email) to_email, l.country, l.city, m.step, m.track, m.subject, m.status, m.error, m.sent_at, m.opened_at, m.clicked_at,
+                l.report_viewed_at, l.whatsapp_at, l.status lead_status, l.score, (m.body_html IS NOT NULL) has_body' . $from . ' ORDER BY m.sent_at DESC, m.id DESC LIMIT 50 OFFSET ' . (($page - 1) * 50), $args)->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as &$r) {
+            $r['company'] = OutreachAudit::cleanName((string) $r['company']);
+            $r['has_body'] = (bool) $r['has_body'];
+        }
+        unset($r);
+        return ['rows' => $rows, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / 50)];
+    }
+
+    /**
+     * تفاصيل رسالة واحدة: المستلم، الأحداث (فتح، ضغط، تقرير، واتساب)، ونص الرسالة.
+     * النص بيتخزّن وقت الإرسال؛ الرسايل اللي اتبعتت قبل كده بيتعمل نصها تاني من نفس القالب والبيانات (من غير سطر الذكاء الصناعي).
+     */
+    public function messageDetail(int $id): ?array
+    {
+        $m = $this->q('SELECT * FROM platform_lead_messages WHERE id=?', [$id])->fetch(PDO::FETCH_ASSOC);
+        if (!$m) {
+            return null;
+        }
+        $lead = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [(int) $m['lead_id']])->fetch(PDO::FETCH_ASSOC) ?: null);
+        if (!$lead) {
+            return null;
+        }
+        $html = (string) ($m['body_html'] ?? '');
+        $source = 'stored';
+        if ($html === '') {
+            $set = $this->getSettings();
+            $set['ai_opener'] = '0';
+            $html = (string) $this->compose($lead, max(1, (int) $m['step']), $set, static fn () => null)['html'];
+            $source = 'rendered_again';
+        }
+        $events = [['at' => $m['sent_at'], 'type' => $m['status'] === 'sent' ? 'sent' : 'failed', 'note' => (string) ($m['error'] ?? '')]];
+        foreach (['opened_at' => 'opened', 'clicked_at' => 'clicked'] as $col => $type) {
+            if (!empty($m[$col])) {
+                $events[] = ['at' => $m[$col], 'type' => $type, 'note' => ''];
+            }
+        }
+        foreach (['report_viewed_at' => 'report_viewed', 'whatsapp_at' => 'whatsapp'] as $col => $type) {
+            if (!empty($lead[$col])) {
+                $events[] = ['at' => $lead[$col], 'type' => $type, 'note' => ''];
+            }
+        }
+        usort($events, static fn ($a, $b) => strcmp((string) $a['at'], (string) $b['at']));
+        $siblings = $this->q('SELECT id, step, subject, status, sent_at FROM platform_lead_messages WHERE lead_id=? ORDER BY step, id', [(int) $m['lead_id']])->fetchAll(PDO::FETCH_ASSOC);
+        $data = json_decode((string) ($lead['data_json'] ?? ''), true) ?: [];
+        $base = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+        return [
+            'message' => ['id' => (int) $m['id'], 'step' => (int) $m['step'], 'track' => $m['track'], 'subject' => $m['subject'], 'status' => $m['status'], 'error' => $m['error'],
+                'sent_at' => $m['sent_at'], 'to_email' => $m['to_email'] ?: $lead['email'], 'from_email' => $this->getSettings()['from_email']],
+            'lead' => ['id' => (int) $lead['id'], 'company' => $lead['company'], 'website' => $lead['website'], 'city' => $lead['city'], 'country' => $lead['country'], 'status' => $lead['status'],
+                'rating' => $lead['rating'], 'reviews' => $lead['reviews'], 'phone' => $lead['phone'], 'score' => $data['audit']['score']['total'] ?? $lead['score'] ?? null,
+                'needs' => json_decode((string) ($lead['needs_json'] ?? ''), true) ?: []],
+            'html' => $html,
+            'html_source' => $source,
+            // pv- : الأدمن وهو بيفتح التقرير مابيتحسبش فتحة على الشركة
+            'report_url' => $base . '/p/r/pv-' . $lead['token'],
+            'events' => $events,
+            'siblings' => $siblings,
+        ];
     }
 
     public function signupLinkFor(array $lead, int $step): string

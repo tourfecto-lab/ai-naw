@@ -79,6 +79,37 @@ class PlatformOutreachController extends Controller
         return $this->success($this->service()->leads(['status' => $this->get('status', ''), 'country' => $this->get('country', ''), 'city' => $this->get('city', ''), 'track' => $this->get('track', ''), 'approval' => $this->get('approval', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)]));
     }
 
+    /** GET /api/admin/growth/campaigns - الحملات اللي اتبعتت بأرقامها */
+    public function campaigns(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        return $this->success($this->service()->campaigns());
+    }
+
+    /** GET /api/admin/growth/messages - سجل الرسايل اللي اتبعتت */
+    public function sentMessages(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        return $this->success($this->service()->sentMessages(['country' => $this->get('country', ''), 'track' => $this->get('track', ''), 'step' => $this->get('step', ''), 'status' => $this->get('status', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)]));
+    }
+
+    /** GET /api/admin/growth/messages/{id} - تفاصيل رسالة واحدة (المستلم، الأحداث، النص) */
+    public function messageDetail(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        $d = $this->service()->messageDetail((int) ($params['id'] ?? 0));
+        return $d ? $this->success($d) : $this->error('الرسالة مش موجودة', 404);
+    }
+
     /** POST /api/admin/growth/scan - افحص مواقع الشركات الجديدة وحدد احتياجها */
     public function scan(array $params = []): array
     {
