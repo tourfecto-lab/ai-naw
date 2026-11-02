@@ -124,14 +124,32 @@ class OutreachController extends Controller
             return $this->error('الموقع غير موجود', 404);
         }
 
+        $normalized = self::normalizeDomain($domain);
+        if ($normalized === null) {
+            return $this->error('اكتب دومين صحيح، مثلًا example.com', 422);
+        }
+        $domain = $normalized;
+        $contactEmail = trim((string) $this->get('contact_email', ''));
+        if ($contactEmail !== '' && filter_var($contactEmail, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->error('الإيميل مش صحيح', 422);
+        }
+        $relevantPage = trim((string) $this->get('relevant_page', ''));
+        if ($relevantPage !== '' && !self::isHttpUrl($relevantPage)) {
+            return $this->error('الصفحة المناسبة لازم تكون رابط كامل يبدأ بـ http أو https', 422);
+        }
+        $dup = $this->db->query('SELECT id FROM outreach_prospects WHERE user_id = ? AND website_id = ? AND domain = ? LIMIT 1', [(int) $this->user['id'], $websiteId, $domain]);
+        if ($dup) {
+            return $this->error('الدومين ده مضاف قبل كده كمرشّح', 409);
+        }
+
         $prospect = new OutreachProspect([
             'user_id' => (int) $this->user['id'],
             'website_id' => $websiteId,
             'domain' => $domain,
             'contact_name' => $this->get('contact_name') ?: null,
-            'contact_email' => $this->get('contact_email') ?: null,
+            'contact_email' => $contactEmail !== '' ? $contactEmail : null,
             'business_type' => $this->get('business_type') ?: null,
-            'relevant_page' => $this->get('relevant_page') ?: null,
+            'relevant_page' => $relevantPage !== '' ? $relevantPage : null,
             'collaboration_idea' => $this->get('collaboration_idea') ?: null,
             'notes' => $this->get('notes') ?: null,
             'status' => 'prospect',
@@ -162,9 +180,13 @@ class OutreachController extends Controller
             return $this->error('المرشّح غير موجود', 404);
         }
 
+        $linkUrl = trim((string) $this->get('link_url', ''));
+        if ($status === 'link_acquired' && $linkUrl !== '' && !self::isHttpUrl($linkUrl)) {
+            return $this->error('رابط الصفحة اللي فيها رابطك لازم يكون رابط كامل يبدأ بـ http أو https', 422);
+        }
         $prospect->setAttribute('status', $status);
-        if ($status === 'link_acquired' && $this->get('link_url')) {
-            $prospect->setAttribute('link_url', $this->get('link_url'));
+        if ($status === 'link_acquired' && $linkUrl !== '') {
+            $prospect->setAttribute('link_url', $linkUrl);
         }
         $prospect->save();
 
@@ -187,7 +209,7 @@ class OutreachController extends Controller
             }
         }
 
-        return $this->success(['prospect' => $prospect->toArray()], 'تم تحديث الStatus');
+        return $this->success(['prospect' => $prospect->toArray()], 'تم تحديث الحالة');
     }
 
     /** GET /api/outreach/backlinks?website_id=X - حالة الباك لينكس المسجّلة للمراقبة */
@@ -428,6 +450,9 @@ class OutreachController extends Controller
         if (!$prospect || (int) $prospect->getAttribute('user_id') !== (int) $this->user['id']) {
             return $this->error('المرشّح غير موجود', 404);
         }
+        if ($prospect->getAttribute('status') === 'declined') {
+            return $this->error('المرشّح ده رفض أو اتعلّم «مرفوض»، فمش هتتبعتله رسالة', 422);
+        }
         $toEmail = $prospect->getAttribute('contact_email');
         if (!$toEmail) {
             return $this->error('مفيش إيميل تواصل مسجّل للمرشّح ده - أضفه الأول', 422);
@@ -442,7 +467,11 @@ class OutreachController extends Controller
         }
 
         $toName = $prospect->getAttribute('contact_name') ?: $prospect->getAttribute('domain');
-        $htmlBody = nl2br(htmlspecialchars((string) $email->getAttribute('body'), ENT_QUOTES, 'UTF-8'));
+        $own = (new Website())->find((int) $prospect->getAttribute('website_id'));
+        $siteUrl = $own ? (string) $own->getAttribute('main_url') : '';
+        $bodyText = (string) $email->getAttribute('body');
+        $footer = self::emailFooter($own ? (string) ($own->getAttribute('company_name') ?? '') : '', $siteUrl, preg_match('/\p{Arabic}/u', $bodyText) === 1);
+        $htmlBody = nl2br(htmlspecialchars($bodyText . $footer, ENT_QUOTES, 'UTF-8'));
         try{
             $result=ExternalExecution::run('outreach-email:'.(int)$this->user['id'].':'.$emailId,(int)$this->user['id'],function()use($mailer,$toEmail,$toName,$email,$htmlBody){
                 $r=$mailer->send($toEmail,$toName,(string)$email->getAttribute('subject'),$htmlBody);
@@ -469,6 +498,34 @@ class OutreachController extends Controller
 
         $this->log('Outreach Email Sent', ['prospect_id' => $prospect->getAttribute('id'), 'email_id' => $emailId]);
         return $this->success(['email' => $email->toArray()], 'تم إرسال الرسالة');
+    }
+
+    /** دومين نضيف (من غير http ولا مسار ولا www) أو null لو شكله مش دومين حقيقي */
+    public static function normalizeDomain(string $raw): ?string
+    {
+        $d = strtolower(trim($raw));
+        $d = (string) preg_replace('~^[a-z][a-z0-9+.-]*://~', '', $d);
+        $d = (string) preg_replace('~[/?#].*$~', '', $d);
+        $d = (string) preg_replace('~^www\.~', '', $d);
+        $d = rtrim($d, '.');
+        if ($d === '' || strlen($d) > 253 || !preg_match('~^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$~', $d)) {
+            return null;
+        }
+        return $d;
+    }
+
+    public static function isHttpUrl(string $url): bool
+    {
+        return strlen($url) <= 500 && (bool) preg_match('~^https?://[^\s<>"\']+$~i', $url) && filter_var($url, FILTER_VALIDATE_URL) !== false;
+    }
+
+    /** تذييل إلزامي في كل رسالة خارجة: مين بيبعت ولأي شركة، وإزاي يطلب الوقف */
+    public static function emailFooter(string $company, string $siteUrl, bool $arabic): string
+    {
+        $company = trim($company) !== '' ? trim($company) : $siteUrl;
+        return $arabic
+            ? "\n\n--\n" . $company . ' · ' . $siteUrl . "\nلو مش حابب توصلك رسايل منا تاني، رد على الرسالة بكلمة «إلغاء» ومش هنتواصل معاك تاني."
+            : "\n\n--\n" . $company . ' · ' . $siteUrl . "\nIf you would rather not hear from us again, reply with \"unsubscribe\" and we will not contact you again.";
     }
 
     private function ownsWebsite(int $websiteId): bool
