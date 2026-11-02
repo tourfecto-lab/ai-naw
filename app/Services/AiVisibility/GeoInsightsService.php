@@ -54,7 +54,7 @@ final class GeoInsightsService
     public function progress(int $uid, int $wid): array
     {
         $week = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->modify('monday this week')->format('Y-m-d');
-        $calls = $this->safe(fn () => $this->db->query('SELECT provider, status, MAX(cost_basis) AS basis, COUNT(*) AS n FROM seo_ai_calls WHERE website_id = ? AND user_id = ? AND week_start = ? GROUP BY provider, status ORDER BY provider, status', [$wid, $uid, $week])) ?? [];
+        $calls = $this->safe(fn () => $this->db->query('SELECT provider, status, MAX(IF(cost_basis LIKE \'fail:%\', cost_basis, NULL)) AS basis, COUNT(*) AS n FROM seo_ai_calls WHERE website_id = ? AND user_id = ? AND week_start = ? GROUP BY provider, status ORDER BY provider, status', [$wid, $uid, $week])) ?? [];
         $jobs = $this->safe(fn () => $this->db->query(
             "SELECT status, COUNT(*) AS n, MIN(available_at) AS next_at FROM jobs WHERE job_class = 'AiVisibilityCheckJob' AND payload LIKE ? AND payload LIKE ? GROUP BY status",
             ['%"website_id":' . $wid . ',%', '%"user_id":' . $uid . ',%']
