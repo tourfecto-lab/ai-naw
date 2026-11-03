@@ -2065,15 +2065,19 @@ class PlatformOutreachService
     /** الشركات اللي اتفحصت قبل علامة «ضعيفة»: بتتحسب مرة واحدة من المشاكل المخزّنة (من غير فحص جديد) */
     private function ensureWeak(): void
     {
-        if ($this->settings->get('outreach_weak_v1', '') !== '') {
+        if ($this->settings->get('outreach_weak_v2', '') !== '') {
             return;
         }
-        $rows = $this->q('SELECT id, data_json FROM platform_leads WHERE desk_weak IS NULL AND scanned_at IS NOT NULL LIMIT 20000')->fetchAll(PDO::FETCH_ASSOC);
+        // كل شركة عندها نتيجة فحص مخزّنة (حتى لو في طابور إعادة الفحص دلوقتي): من مشاكلها المخزّنة
+        $rows = $this->q("SELECT id, data_json FROM platform_leads WHERE desk_weak IS NULL AND data_json LIKE '%\"gaps\"%' LIMIT 20000")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as $r) {
-            $gaps = (array) ((json_decode((string) ($r['data_json'] ?? ''), true) ?: [])['audit']['gaps'] ?? []);
-            $this->q('UPDATE platform_leads SET desk_weak=? WHERE id=?', [OutreachAudit::isWeak($gaps) ? 1 : 0, $r['id']]);
+            $audit = (json_decode((string) ($r['data_json'] ?? ''), true) ?: [])['audit'] ?? null;
+            if (!is_array($audit) || !isset($audit['gaps']) || !is_array($audit['gaps'])) {
+                continue;
+            }
+            $this->q('UPDATE platform_leads SET desk_weak=? WHERE id=?', [OutreachAudit::isWeak($audit['gaps']) ? 1 : 0, $r['id']]);
         }
-        $this->settings->set('outreach_weak_v1', date('Y-m-d H:i:s'));
+        $this->settings->set('outreach_weak_v2', date('Y-m-d H:i:s'));
     }
 
     public function deskLeads(array $f, array $staff = []): array
