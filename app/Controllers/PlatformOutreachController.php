@@ -102,6 +102,21 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** GET /api/admin/outreach-desk/funnel?country= : نتايج التواصل (واتساب وإيميل) وأداء الموظفات آخر 7 أيام */
+    public function deskFunnel(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success($this->service()->deskFunnel(strtoupper((string) $this->get('country', ''))));
+        } catch (Throwable $e) {
+            Logger::error('Outreach desk funnel failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل النتايج', 503);
+        }
+    }
+
     /** POST /api/admin/outreach-desk/leads/{id}/social - {network: facebook|instagram, state: active|stale|empty|notfound|''} */
     public function deskSocial(array $params = []): array
     {

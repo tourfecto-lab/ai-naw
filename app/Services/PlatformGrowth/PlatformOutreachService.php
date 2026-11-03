@@ -2183,6 +2183,51 @@ class PlatformOutreachService
     }
 
     /**
+     * قمع النتايج لدولة: واتساب (اتبعتلهم · ردّوا · جرّبوا · اشتركوا · نسبة الرد) وإيميل (اتبعتلهم · فتحوا التقرير · سجّلوا)،
+     * وأداء كل موظفة آخر 7 أيام. «ردّوا/جرّبوا/اشتركوا» من سجل الإجراءات (مش بتتمسح)، و«اتبعتلهم» من الحالة الحالية (التراجع بيمسحها)
+     */
+    public function deskFunnel(string $country): array
+    {
+        $cc = "status<>'invalid'"; // كل شركات الدولة (للإيميل)
+        $ca = [];
+        if ($country === '?') {
+            $cc .= ' AND country IS NULL';
+        } elseif (preg_match('/^[A-Z]{2}$/', $country)) {
+            $cc .= ' AND country=?';
+            $ca[] = $country;
+        }
+        $cw = "phone IS NOT NULL AND phone<>'' AND " . $cc; // اللي ليها رقم (للواتساب)
+        $wa = $this->q("SELECT COUNT(*) total,
+                SUM(desk_action IS NOT NULL AND desk_action<>'wrong_number') reached,
+                SUM(desk_action IS NOT NULL AND desk_action<>'wrong_number' AND DATE(desk_at)=CURDATE()) today
+            FROM platform_leads WHERE {$cw}", $ca)->fetch(PDO::FETCH_ASSOC) ?: [];
+        $ever = static fn (array $actions): string => "COUNT(DISTINCT CASE WHEN a.action IN ('" . implode("','", $actions) . "') THEN a.lead_id END)";
+        $log = $this->q('SELECT ' . $ever(['replied', 'interested', 'trial', 'subscribed']) . ' replied, ' . $ever(['trial', 'subscribed']) . ' trial, ' . $ever(['subscribed']) . " subscribed
+            FROM platform_desk_actions a JOIN platform_leads l ON l.id=a.lead_id WHERE {$cw}", $ca)->fetch(PDO::FETCH_ASSOC) ?: [];
+        $staff = $this->q("SELECT a.user_name name,
+                COUNT(DISTINCT CASE WHEN a.action='contacted' THEN a.lead_id END) sent,
+                COUNT(DISTINCT CASE WHEN a.action IN ('replied','interested','trial','subscribed') THEN a.lead_id END) replied
+            FROM platform_desk_actions a JOIN platform_leads l ON l.id=a.lead_id
+            WHERE {$cw} AND a.created_at >= NOW() - INTERVAL 7 DAY AND a.user_name<>'' GROUP BY a.user_name ORDER BY sent DESC LIMIT 20", $ca)->fetchAll(PDO::FETCH_ASSOC);
+        $em = $this->q("SELECT SUM(step>0) sent, SUM(step>0 AND report_viewed_at IS NOT NULL) viewed, SUM(status='signed_up') signed_up FROM platform_leads WHERE {$cc}", $ca)->fetch(PDO::FETCH_ASSOC) ?: [];
+        $sent = (int) ($wa['reached'] ?? 0);
+        $replied = (int) ($log['replied'] ?? 0);
+        return [
+            'whatsapp' => [
+                'companies' => (int) ($wa['total'] ?? 0),
+                'sent' => $sent,
+                'sent_today' => (int) ($wa['today'] ?? 0),
+                'replied' => $replied,
+                'trial' => (int) ($log['trial'] ?? 0),
+                'subscribed' => (int) ($log['subscribed'] ?? 0),
+                'reply_rate' => $sent > 0 ? round(min(100, $replied * 100 / $sent), 1) : null,
+            ],
+            'email' => ['sent' => (int) ($em['sent'] ?? 0), 'report_viewed' => (int) ($em['viewed'] ?? 0), 'signed_up' => (int) ($em['signed_up'] ?? 0)],
+            'staff' => array_map(static fn ($r) => ['name' => (string) $r['name'], 'sent' => (int) $r['sent'], 'replied' => (int) $r['replied']], $staff),
+        ];
+    }
+
+    /**
      * الموظفة بتسجّل نتيجة التواصل مع شركة. الرد/الاهتمام/الرفض بيوقّفوا رسايل الإيميل للشركة دي، وإلغاء الاشتراك والتسجيل والراجع مابيتغيروش.
      */
     public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName): array

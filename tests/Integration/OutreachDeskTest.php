@@ -137,6 +137,35 @@ final class OutreachDeskTest extends TestCase
         $this->assertNotContains('Oldfollow Tours', $names, 'after following up the company waits two more days');
     }
 
+    public function testFunnelCountsSendsRepliesTrialsAndSubscriptionsPerCountryAndStaff(): void
+    {
+        $ids = [];
+        foreach (range(1, 5) as $i) {
+            $ids[$i] = $this->lead('Funnel ' . $i . ' Tours', 'ZZ', '+2010000001' . $i);
+        }
+        $this->svc->deskAction($ids[1], 'contacted', '', 5, 'Sara');
+        $this->svc->deskAction($ids[2], 'contacted', '', 5, 'Sara');
+        $this->svc->deskAction($ids[3], 'contacted', '', 6, 'Mona');
+        $this->svc->deskAction($ids[4], 'contacted', '', 6, 'Mona');
+        $this->svc->deskAction($ids[4], 'undo', '', 6, 'Mona');
+        $this->svc->deskAction($ids[2], 'replied', '', 5, 'Sara');
+        $this->svc->deskAction($ids[3], 'trial', '', 6, 'Mona');
+        $this->svc->deskAction($ids[1], 'subscribed', '', 5, 'Sara');
+
+        $f = $this->svc->deskFunnel('ZZ')['whatsapp'];
+        $this->assertSame(5, $f['companies']);
+        $this->assertSame(3, $f['sent'], 'a send that was undone is not a send');
+        $this->assertSame(3, $f['replied'], 'replied + trial + subscribed all count as a reply');
+        $this->assertSame(2, $f['trial'], 'trial and subscribed');
+        $this->assertSame(1, $f['subscribed']);
+        $this->assertSame(100.0, (float) $f['reply_rate']);
+        $staff = array_column($this->svc->deskFunnel('ZZ')['staff'], null, 'name');
+        $this->assertSame(2, $staff['Sara']['sent']);
+        $this->assertSame(2, $staff['Mona']['sent'], 'the staff list comes from the action log, so it still shows a send she later undid');
+        $this->assertSame(2, $staff['Sara']['replied'], 'one reply and one subscription');
+        $this->assertSame(0, $this->svc->deskFunnel('QQ')['whatsapp']['sent']);
+    }
+
     public function testTrialAndSubscribedAreWinsAndStopTheEmailSequence(): void
     {
         $a = $this->lead('Trialwin Tours', 'EG', '+201000000021');

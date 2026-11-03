@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1;
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null;
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -101,6 +101,23 @@
         return `<article class="dk-card" data-id="${r.id}">${head}<div class="dk-body">${details}${msg}</div>${acts}</article>`;
     };
 
+    // نتايج التواصل للدولة المختارة: واتساب (اتبعتلهم ← ردّوا ← جرّبوا ← اشتركوا) وإيميل، وأداء كل موظفة آخر 7 أيام
+    const funnelHtml = () => {
+        if (!funnel) return '';
+        const w = funnel.whatsapp || {}, e = funnel.email || {};
+        const step = (n, l, hint) => `<div class="dk-fn"><b>${num(n)}</b><span>${l}</span>${hint ? `<small>${hint}</small>` : ''}</div>`;
+        const staff = (funnel.staff || []).map(s => `<span class="dk-b">${esc(s.name)}: بعتت <b>${num(s.sent)}</b> · ردّوا <b>${num(s.replied)}</b></span>`).join(' ');
+        return `<div class="dk-funnel"><div class="dk-fn-row"><span class="dk-label">واتساب</span>${step(w.sent, 'اتبعتلهم', w.sent_today ? 'النهارده ' + num(w.sent_today) : '')}${step(w.replied, 'ردّوا', w.reply_rate !== null && w.reply_rate !== undefined ? w.reply_rate + '% من اللي اتبعتلهم' : '')}${step(w.trial, 'جرّبوا المنصة')}${step(w.subscribed, 'اشتركوا')}</div>
+            <div class="dk-fn-row"><span class="dk-label">إيميل</span>${step(e.sent, 'اتبعتلهم')}${step(e.report_viewed, 'فتحوا التقرير')}${step(e.signed_up, 'سجّلوا في المنصة')}</div>
+            ${staff ? `<div class="dk-fn-row"><span class="dk-label">آخر 7 أيام</span>${staff}</div>` : ''}</div>`;
+    };
+    const loadFunnel = async () => {
+        if (funnelFor === state.country) return;
+        funnelFor = state.country;
+        try { funnel = (await api('/api/admin/outreach-desk/funnel?country=' + encodeURIComponent(state.country))) || null; } catch (e) { funnel = null; }
+        const el = root.querySelector('.dk-funnel-slot'); if (el) el.innerHTML = funnelHtml();
+    };
+
     const render = () => {
         const c = cur();
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
@@ -108,6 +125,7 @@
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>
             <section class="dk-top"><div class="dk-tip">اختاري الدولة، وانسخي الرقم والرسالة وابعتيها على واتساب، وبعدها سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
+            <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             <div class="dk-prio"><span class="dk-label">ابدئي بالأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="دوّري باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
             <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
@@ -120,6 +138,7 @@
         csrf = r.csrf_token || csrf; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
+        loadFunnel();
         if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -133,6 +152,7 @@
         if (el) { el.outerHTML = card(row); }
         const tabs = root.querySelector('.dk-tabs'); if (tabs) tabs.innerHTML = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l} <b>${key ? (c[key] || 0) : (c.total || 0)}</b></button>`).join('');
         toast(action === 'undo' ? 'اتمسح تسجيل الإرسال ✅' : 'اتسجّل: ' + (ACTION_LABEL[action] || action) + ' ✅');
+        funnelFor = null; loadFunnel();
     };
 
     // دوست «افتح واتساب»: بنسجّل إنها بعتت باسمها (إلا لو الشركة عليها نتيجة أحسن زي «ردّوا»)، واللينك بيفتح الشات بالرسالة جاهزة
