@@ -9,6 +9,7 @@ final class AeoController extends Controller
     {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if ($err = $this->verifyCsrf()) return $err;
+        if ($err = $this->rateLimitGuard('user', 'aeo_draft', self::DRAFTS_PER_HOUR, 3600)) return $err;
         $wid = (int) $this->get('website_id');
         $url = trim((string) $this->get('url', ''));
         $rows = $wid > 0 ? $this->db->query('SELECT main_url FROM websites WHERE id = ? AND user_id = ?', [$wid, (int) $this->user['id']]) : [];
@@ -32,6 +33,7 @@ final class AeoController extends Controller
     {
         if (!$this->isAuthenticated()) return $this->error('Unauthorized', 401);
         if ($err = $this->verifyCsrf()) return $err;
+        if ($err = $this->rateLimitGuard('user', 'aeo_scan', 6, 3600)) return $err;
         $uid = (int) $this->user['id'];
         $wid = (int) $this->get('website_id');
         $rows = $wid > 0 ? $this->db->query('SELECT main_url FROM websites WHERE id = ? AND user_id = ?', [$wid, $uid]) : [];
