@@ -119,7 +119,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -2019,6 +2019,8 @@ class PlatformOutreachService
                 $needs[] = OutreachNeeds::trackLabel((string) ($n['track'] ?? ''), 'ar');
             }
             $sc = OutreachAudit::scorecard($l, $data);
+            $seoState = OutreachAudit::seoAssessment($data);
+            $message2 = '';
             // نفس القيمة المخزّنة اللي القايمة مترتّبة ومتفلترة بيها (الحساب الحي بس لو لسه مااتخزّنتش)
             $prioScore = isset($r['priority']) && $r['priority'] !== null ? (int) $r['priority'] : OutreachAudit::priority($l, $data)['score'];
             $message = '';
@@ -2026,15 +2028,14 @@ class PlatformOutreachService
                 try {
                     $auditGaps = (array) ($data['audit']['gaps'] ?? []);
                     if (!empty($data['audit']['score'])) {
-                        // الشركة اتفحصت: رسالة واتساب احترافية بالأرقام (جوجل ماب، TripAdvisor، فيسبوك، إنستجرام، الموقع) ولينك التقرير الكامل
+                        // الشركة اتفحصت: رسالة قصيرة من الحقيقي بس (الموقع، السيو، جوجل ماب، السوشيال)، ولينك التقرير الكامل
                         $lang = in_array($l['language'], OutreachNeeds::LANGS, true) ? $l['language'] : 'en';
                         $trial[$lang] ??= self::trialOffer($lang);
-                        $message = OutreachNeeds::deskMessage([
-                            'lang' => $lang, 'company' => OutreachAudit::cleanName((string) $l['company']), 'name' => (string) $set['sender_name'], 'title' => (string) $set['sender_title'],
-                            'score' => $data['audit']['score']['total'] ?? null, 'scorecard' => $sc,
-                            'gap' => $auditGaps ? OutreachAudit::gapText($auditGaps[0], $l, $lang) : '', 'track' => (string) ($auditGaps[0]['track'] ?? $l['track'] ?? 'seo'),
-                            'report_url' => $base . '/p/r/' . $l['token'] . '?s=1', 'trial' => $trial[$lang],
-                        ]);
+                        $ctx = ['lang' => $lang, 'company' => OutreachAudit::cleanName((string) $l['company']), 'name' => (string) $set['sender_name'], 'title' => (string) $set['sender_title'],
+                            'scorecard' => $sc, 'seo' => $seoState, 'gaps' => $auditGaps, 'report_url' => $base . '/p/r/' . $l['token'] . '?s=1', 'trial' => $trial[$lang],
+                            'signup_url' => $base . '/p/c/' . $l['token'] . '/1'];
+                        $message = OutreachNeeds::deskMessage($ctx);
+                        $message2 = OutreachNeeds::deskServicesMessage($ctx);
                     } else {
                         $message = (string) $this->compose($l, 1, $set, static fn () => null)['text'];
                     }
@@ -2052,13 +2053,18 @@ class PlatformOutreachService
                     $waText = true;
                 }
             }
+            // الرسالة التانية (الخدمات) بنفس الشات: بتتبعت بعد ما يردّوا
+            $waUrl2 = '';
+            if ($waUrl !== '' && $message2 !== '' && $digits !== '' && strlen('https://wa.me/' . $digits . '?text=' . rawurlencode($message2)) <= 6000) {
+                $waUrl2 = 'https://wa.me/' . $digits . '?text=' . rawurlencode($message2);
+            }
             $out[] = [
                 'id' => (int) $l['id'], 'company' => OutreachAudit::cleanName((string) $l['company']), 'category' => $l['category'], 'city' => $l['city'], 'country' => $l['country'],
                 'website' => $l['website'], 'email' => $l['email'], 'rating' => $l['rating'], 'reviews' => $l['reviews'], 'language' => $l['language'], 'status' => $l['status'],
                 'score' => $data['audit']['score']['total'] ?? $l['score'], 'needs' => $needs, 'gaps' => $gaps, 'has_report' => !empty($data['audit']['score']),
                 'scorecard' => $sc, 'priority' => $prioScore, 'tier' => $prioScore >= $thr['high'] ? 'high' : ($prioScore >= $thr['medium'] ? 'medium' : 'low'),
                 'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
-                'blocked' => $blocked, 'message' => $message,
+                'blocked' => $blocked, 'message' => $message, 'message2' => $message2, 'wa_url2' => $waUrl2, 'seo' => $seoState,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
@@ -2101,6 +2107,30 @@ class PlatformOutreachService
             $this->setLeadStatus($leadId, $map[$action], 'مكتب التواصل: ' . $action . ($note !== '' ? ' - ' . $note : ''));
         }
         return ['action' => $action, 'note' => $note !== '' ? $note : null, 'at' => date('Y-m-d H:i:s'), 'by' => $by];
+    }
+
+    /**
+     * الموظفة فتحت صفحة فيسبوك أو إنستجرام بتاعة الشركة وسجّلت اللي شافته (نشيطة · آخر منشور قديم · مفيهاش منشورات · مش موجودة).
+     * ده اللي بيدخل الرسالة؛ المنصات نفسها مابتسمحش بقراءة المنشورات آليًا. $state '' = امسح اللي سجّلته.
+     */
+    public function deskSetSocial(int $leadId, string $network, string $state): array
+    {
+        if (!in_array($network, ['facebook', 'instagram'], true) || ($state !== '' && !in_array($state, OutreachAudit::SOCIAL_SEEN, true))) {
+            throw new InvalidArgumentException('اختيار غير معروف');
+        }
+        $l = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [$leadId])->fetch(PDO::FETCH_ASSOC) ?: null);
+        if (!$l) {
+            throw new InvalidArgumentException('الشركة مش موجودة');
+        }
+        $seen = json_decode((string) ($l['desk_social'] ?? ''), true);
+        $seen = is_array($seen) ? $seen : [];
+        if ($state === '') {
+            unset($seen[$network]);
+        } else {
+            $seen[$network] = $state;
+        }
+        $this->q('UPDATE platform_leads SET desk_social=? WHERE id=?', [$seen ? json_encode($seen) : null, $leadId]);
+        return $seen;
     }
 
     public function signupLinkFor(array $lead, int $step): string

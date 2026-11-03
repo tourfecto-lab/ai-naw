@@ -31,11 +31,18 @@
         out.push(['✈️', 'تريب أدفايزر', a.status === 'found' && a.rating != null ? `⭐ ${Number(a.rating).toFixed(1)} (${num(a.reviews)} تقييم)${a.ranking ? ' · ' + esc(a.ranking) : ''}${a.award ? ' 🏆' : ''}` : (a.status === 'linked' ? '✅ صفحتهم مربوطة بالموقع (التقييم مش معروف)' : (a.status === 'missing' ? 'مش مربوطة بالموقع' : null)), '', a.url]);
         [['facebook', '📘', 'فيسبوك'], ['instagram', '📸', 'إنستجرام']].forEach(([k, icon, name]) => {
             const s = sc[k] || {};
-            out.push([icon, name, s.status === 'linked' ? '✅ مربوط بالموقع' : (s.status === 'missing' ? '❌ مش مربوط بالموقع' : (s.status === 'placeholder' ? '⚠️ الرابط على موقعهم افتراضي (مش صفحتهم)' : null)), s.status === 'missing' || s.status === 'placeholder' ? 'bad' : '', s.url]);
+            out.push([icon, name, s.status === 'linked' ? '✅ مربوط بالموقع' : (s.status === 'missing' ? '❌ مش مربوط بالموقع' : (s.status === 'placeholder' ? '⚠️ الرابط على موقعهم افتراضي (مش صفحتهم)' : null)), s.status === 'missing' || s.status === 'placeholder' ? 'bad' : '', s.url, k, s.activity]);
         });
         const webTxt = w.status === 'ok' ? `شغّال${w.score != null ? ' · الدرجة ' + w.score + '/100' : ''}${w.https === false ? ' · من غير HTTPS' : ''}${w.mobile === false ? ' · مش متوافق مع الموبايل' : ''}` : (w.status === 'down' ? '❌ مش بيفتح' : (w.status === 'none' ? '❌ مفيش موقع' : null));
         out.push(['🌐', 'الموقع', webTxt, w.status === 'down' || w.status === 'none' ? 'bad' : '']);
-        return `<div class="dk-sc">${out.map(([icon, name, txt, cls, url]) => `<div class="dk-sc-row ${cls || ''}"><span>${icon} <b>${name}</b></span><span>${txt == null ? '<i class="dk-muted">لسه ماتفحصش</i>' : txt}${url && /^https?:\/\//i.test(url) ? ` <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">افتح ↗</a>` : ''}</span></div>`).join('')}</div>`;
+        // السيو: «ناقص» بس لو الفحص أثبت إنه ناقص (مش بنقول مفيش سيو لموقع عليه سيو)
+        const seo = r.seo || {}, parts = { title: 'عنوان الصفحة', description: 'وصف جوجل', h1: 'H1', schema: 'Schema', sitemap: 'خريطة الموقع', blog: 'مدونة', alt: 'وصف الصور' };
+        const seoTxt = seo.state === 'good' ? '✅ الأساسيات موجودة' : (seo.state === 'partial' ? `⚠️ أساسيات موجودة، ناقص: ${(seo.fails || []).map(k => parts[k] || k).join('، ')}` : (seo.state === 'missing' ? `❌ شبه معدوم، ناقص: ${(seo.fails || []).map(k => parts[k] || k).join('، ')}` : null));
+        out.splice(4, 0, ['🔎', 'السيو', seoTxt, seo.state === 'missing' ? 'bad' : '']);
+        // نشاط فيسبوك وإنستجرام مش بيتقري آليًا: الموظفة بتفتح الصفحة وتسجّل اللي شافته، وده اللي بيدخل الرسالة
+        const SEEN = [['active', 'نشيطة'], ['stale', 'آخر منشور قديم'], ['empty', 'مفيهاش منشورات'], ['notfound', 'مش موجودة']];
+        const controls = (net, cur) => `<div class="dk-seen"><span class="dk-muted">شفتي إيه على الصفحة؟</span>${SEEN.map(([v, l]) => `<button class="dk-btn xs ${cur === v ? 'on' : ''}" data-seen="${net}:${v}">${l}</button>`).join('')}${cur ? `<button class="dk-btn xs" data-seen="${net}:">مسح</button>` : ''}</div>`;
+        return `<div class="dk-sc">${out.map(([icon, name, txt, cls, url, net, cur]) => `<div class="dk-sc-row ${cls || ''}"><span>${icon} <b>${name}</b></span><span>${txt == null ? '<i class="dk-muted">لسه ماتفحصش</i>' : txt}${cur ? ` · <b>${esc((SEEN.find(x => x[0] === cur) || [0, cur])[1])}</b>` : ''}${url && /^https?:\/\//i.test(url) ? ` <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">افتح ↗</a>` : ''}</span>${net ? controls(net, cur) : ''}</div>`).join('')}</div>`;
     };
 
     const store = {
@@ -86,7 +93,8 @@
             <div class="dk-muted">${emailInfo}</div></div>`;
         const msg = `<div class="dk-col"><div class="dk-label">💬 الرسالة (تقرير مبدئي + لينك التقرير الكامل)${r.has_report ? '' : ' <span class="dk-warn">الشركة لسه ماتفحصتش: الرسالة عامة</span>'}</div>
             <textarea class="dk-msgbox" readonly rows="10" dir="${dir}">${esc(r.message)}</textarea>
-            <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div></div>`;
+            <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
+            ${r.message2 ? `<details class="dk-msg2"><summary>📨 رسالة 2 (بعد ما يردّوا): خدمات المنصة ولينك التسجيل</summary><textarea class="dk-msgbox" readonly rows="9" dir="${dir}">${esc(r.message2)}</textarea><div class="dk-actions"><button class="dk-btn primary" data-copy-msg2>📋 نسخ رسالة الخدمات</button>${r.wa_url2 ? `<a class="dk-btn green" href="${esc(r.wa_url2)}" target="_blank" rel="noopener noreferrer">💬 افتح واتساب بالرسالة 2</a>` : ''}</div></details>` : ''}</div>`;
         const acts = `<div class="dk-result"><div class="dk-actions">${ACTIONS.map(([k, l]) => `<button class="dk-btn ${d.action === k ? 'on' : ''}" data-act="${k}">${l}</button>`).join('')}</div>
             <input class="dk-note" placeholder="ملاحظة (اختياري): مين ردّ، هنكلمه إمتى..." maxlength="500" value="${esc(d.note || '')}">${last}</div>`;
         return `<article class="dk-card" data-id="${r.id}">${head}<div class="dk-body">${details}${msg}</div>${acts}</article>`;
@@ -143,6 +151,14 @@
             const t = e.target.closest('button'); if (!t) return;
             const cardEl = t.closest('.dk-card');
             try {
+                if (t.dataset.seen !== undefined) {
+                    const [net, state] = t.dataset.seen.split(':');
+                    t.disabled = true;
+                    await api('/api/admin/outreach-desk/leads/' + cardEl.dataset.id + '/social', { network: net, state });
+                    const y = window.scrollY; await load(true); window.scrollTo(0, y); // الرسالة بتتغيّر على حسب اللي شافته
+                    toast('اتسجّل، والرسالة اتحدّثت ✅'); return;
+                }
+                if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }
                 if (t.dataset.country) { state.country = t.dataset.country; state.view = 'todo'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); }
                 if (t.dataset.view) { state.view = t.dataset.view; state.page = 1; return await load(); }

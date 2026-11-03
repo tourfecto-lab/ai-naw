@@ -177,38 +177,112 @@ class OutreachNeeds
         return $t + self::BODIES[$lang];
     }
 
-    /** نصوص رسالة واتساب (مكتب التواصل): كل لغة بصيغتها الطبيعية، {x} بتتبدّل */
+    /**
+     * رسايل واتساب (مكتب التواصل). القاعدة: ماتتكتبش جملة إلا لو مبنية على حاجة اتفحصت فعلًا.
+     * الخدمات المذكورة هي اللي شغّالة فعلًا (المقالات الأسبوعية وقياس الكلمات وصفحات Meta مش موعودة هنا).
+     */
     private const DESK = [
         'ar' => [
-            'greet' => 'السلام عليكم يا فريق {company} 👋', 'intro' => 'أنا {name} من Tourfecto، منصة ذكاء اصطناعي لشركات السياحة.',
-            'check' => 'عملنا فحص مجاني لحضوركم على الإنترنت، ونتيجته *{score}/100*. ده ملخص سريع:', 'check_plain' => 'عملنا فحص مجاني لحضوركم على الإنترنت. ده ملخص سريع:',
-            'google' => '🗺️ *جوجل ماب:*', 'ta' => '✈️ *تريب أدفايزر:*', 'fb' => '📘 *فيسبوك:*', 'ig' => '📸 *إنستجرام:*', 'web' => '🌐 *الموقع:*',
-            'reviews' => 'تقييم', 'g_missing' => 'مالقيناش ملف لشركتكم، وده أول مكان المسافر بيدوّر فيه', 'g_hours' => 'مواعيد العمل مش مكتوبة', 'g_below' => 'أقل من متوسط منافسينكم ({median})',
-            'linked' => '✅ مربوط بموقعكم', 'not_linked' => '❌ مش مربوط بموقعكم', 'ph' => '⚠️ الرابط على موقعكم مش بيودّي لصفحتكم', 'web_ok' => 'شغّال', 'web_http' => 'من غير HTTPS', 'web_mobile' => 'مش متوافق مع الموبايل', 'web_down' => 'مش بيفتح', 'web_none' => 'مفيش موقع',
-            'top' => '⚠️ *أهم حاجة لاحظناها:* {gap}', 'report' => '📄 *التقرير الكامل*: كل نقطة بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا عليا هنا وأخلّيكم تبدأوا في دقيقتين 🙌', 'cta_plain' => 'ردّوا عليا هنا لو حابين نبدأ 🙌',
+            'greet' => 'السلام عليكم يا فريق {company} 👋',
+            'intro' => 'أنا {name} من Tourfecto. بصّيت على موقعكم وصفحاتكم على جوجل والسوشيال، وده اللي لقيته فعلًا:',
+            'intro_ok' => 'أنا {name} من Tourfecto. بصّيت على حضوركم الرقمي، وده الملخص:',
+            'all_ok' => '✅ حضوركم قوي في كل اللي فحصناه',
+            'web' => '🌐 *الموقع:*', 'seo' => '🔎 *السيو:*', 'google' => '🗺️ *جوجل ماب:*', 'social' => '📱 *السوشيال:*',
+            'fb' => 'فيسبوك', 'ig' => 'إنستجرام',
+            'seo_partial' => 'عندكم أساسيات، بس ناقص {list}', 'seo_missing' => 'شبه معدوم، ناقص {list}',
+            'parts' => ['title' => 'عنوان صفحة واضح', 'description' => 'وصف جوجل', 'h1' => 'العنوان الرئيسي (H1)', 'schema' => 'بيانات منظّمة (Schema)', 'sitemap' => 'خريطة الموقع', 'blog' => 'مدونة ومقالات', 'alt' => 'وصف للصور'],
+            'web_issue' => ['site_down' => 'مش بيفتح', 'no_https' => 'من غير HTTPS', 'no_mobile' => 'مش متوافق مع الموبايل', 'slow' => 'بطيء ({load} ثانية)', 'heavy' => 'تقيل في التحميل',
+                'no_booking' => 'مفيهوش حجز ودفع أونلاين', 'no_chat' => 'مفيهوش واتساب ولا شات للرد الفوري', 'one_language' => 'بلغة واحدة بس'],
+            'ta' => '✈️ *تريب أدفايزر:*', 'ta_photos' => 'صور قليلة ({n})', 'ta_neg' => 'تقييمات سلبية محتاجة رد', 'g_missing' => 'مالقيناش ملف لشركتكم', 'g_hours' => 'مواعيد العمل مش مكتوبة', 'g_below' => 'تقييماتكم أقل من المنافسين', 'g_low' => 'التقييم محتاج تحسين',
+            'g_ta' => 'تقييمات جوجل ({g}) أقل بكتير من تريب أدفايزر ({t})', 'g_ok' => 'ملف قوي ✅', 'reviews' => 'تقييم',
+            'linked' => 'مربوطة بموقعكم', 'not_linked' => 'مش مربوطة بموقعكم', 'ph' => 'اللينك على موقعكم مش بيودّي لصفحتكم',
+            'act' => ['active' => 'نشيطة 👍', 'stale' => 'آخر منشور قديم', 'empty' => 'مفيهاش منشورات', 'notfound' => 'مش لاقيين صفحتكم'],
+            'why' => ['seo' => 'السيو هو اللي بيخلّي المسافر يلاقيكم على جوجل قبل المنافسين، ومن غيره الحجز بيروح لغيركم.',
+                'google' => 'ملف جوجل ماب هو أول حاجة بيشوفها المسافر قبل ما يكلّمكم.',
+                'social' => 'المسافر بيدخل صفحاتكم يتأكد إنكم شغّالين قبل ما يحجز.',
+                'booking' => 'المسافر اللي مش لاقي يحجز على موقعكم بيروح لغيركم.',
+                'chat' => 'المسافر اللي مابيلاقيش رد بسرعة بيحجز مع أول حد يرد عليه.'],
+            'solve' => 'وفي Tourfecto بنحلّها:',
+            'serv' => ['seo' => '• السيو: بيفحص الموقع ويجهّز إصلاح كل نقطة ناقصة وخطة تحسين', 'google' => '• جوجل: ردود احترافية على التقييمات ومراجعة ملفكم', 'social' => '• السوشيال: بوستات وصور وفيديوهات لشهر كامل بلوجو شركتكم',
+                'booking' => '• محرّك حجز على موقعكم بدفع أونلاين من غير عمولة', 'chat' => '• شات ذكي بيرد على زباينكم 24 ساعة'],
+            'grow' => 'وللنمو: *العقل الاستراتيجي* بيقترح لكم قرارات من بيانات شغلكم.',
+            'report' => '📄 *التقرير الكامل* بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا عليا هنا وأوريكم 🙌', 'cta_plain' => 'ردّوا عليا هنا وأوريكم 🙌',
+            's2_intro' => '{name} من Tourfecto تاني 🙌 دي نبذة سريعة عن اللي بنقدّمه لشركات السياحة في منصة واحدة:',
+            's2' => ["🧠 *العقل الاستراتيجي:* بيقرا بيانات شركتكم (حجوزات، عملاء، تقييمات) ويقترح قرارات بأدلة: عملاء محتاجين متابعة، أسواق بتجيب طلب، وأسعاركم قدام المنافسين. إنتم اللي بتوافقوا وهو يجهّز التنفيذ.",
+                '🔎 *السيو والظهور في جوجل* وفي إجابات الذكاء الاصطناعي', '⭐ *السمعة:* مسودات ردود على التقييمات بموافقتكم', '📣 *السوشيال:* خطة محتوى واستوديو تصميم',
+                '📅 *الحجز والدفع* على موقعكم من غير عمولة', '👁️ *مراقبة المنافسين* وتغيّر أسعارهم', '🌍 *ذكاء السوق:* تحذيرات السفر وأسعار العملات', '📊 *لوحة تنفيذية:* إيراداتكم وسمعتكم وإنفاق إعلاناتكم في شاشة واحدة',
+                '🧩 وكمان: منشئ مواقع، CRM، وتسويق بالبريد'],
+            's2_cta' => '{trial}، وتبدأوا من هنا:', 's2_start' => 'وتبدأوا من هنا:',
         ],
         'en' => [
-            'greet' => 'Hello {company} team 👋', 'intro' => "I'm {name} from Tourfecto, an AI platform for tour and travel companies.",
-            'check' => 'We ran a free check of your online presence. Score: *{score}/100*. Quick summary:', 'check_plain' => 'We ran a free check of your online presence. Quick summary:',
-            'google' => '🗺️ *Google Maps:*', 'ta' => '✈️ *Tripadvisor:*', 'fb' => '📘 *Facebook:*', 'ig' => '📸 *Instagram:*', 'web' => '🌐 *Website:*',
-            'reviews' => 'reviews', 'g_missing' => "we couldn't find your business profile, and it's the first place travellers look", 'g_hours' => 'opening hours are missing', 'g_below' => 'below the median for similar companies ({median})',
-            'linked' => '✅ linked from your website', 'not_linked' => '❌ not linked from your website', 'ph' => '⚠️ the link on your website does not lead to your own page', 'web_ok' => 'online', 'web_http' => 'no HTTPS', 'web_mobile' => 'not mobile-friendly', 'web_down' => 'not loading', 'web_none' => 'no website',
-            'top' => '⚠️ *The main thing we noticed:* {gap}', 'report' => '📄 *Full report*: every point in detail and how to fix it (free):', 'cta' => '{trial}. Reply here and I will get you started in two minutes 🙌', 'cta_plain' => 'Reply here if you would like to get started 🙌',
+            'greet' => 'Hello {company} team 👋',
+            'intro' => "I'm {name} from Tourfecto. I looked at your website and your Google and social pages. Here is what I actually found:",
+            'intro_ok' => "I'm {name} from Tourfecto. I looked at your online presence. Summary:",
+            'all_ok' => '✅ You are strong on everything we checked',
+            'web' => '🌐 *Website:*', 'seo' => '🔎 *SEO:*', 'google' => '🗺️ *Google Maps:*', 'social' => '📱 *Social:*',
+            'fb' => 'Facebook', 'ig' => 'Instagram',
+            'seo_partial' => 'you have the basics, but missing {list}', 'seo_missing' => 'almost absent, missing {list}',
+            'parts' => ['title' => 'a clear page title', 'description' => 'a Google description', 'h1' => 'a main heading (H1)', 'schema' => 'structured data (Schema)', 'sitemap' => 'a sitemap', 'blog' => 'a blog / articles', 'alt' => 'image descriptions'],
+            'web_issue' => ['site_down' => 'not loading', 'no_https' => 'no HTTPS', 'no_mobile' => 'not mobile-friendly', 'slow' => 'slow ({load}s)', 'heavy' => 'heavy to load',
+                'no_booking' => 'no online booking and payment', 'no_chat' => 'no WhatsApp or chat for instant replies', 'one_language' => 'one language only'],
+            'ta' => '✈️ *Tripadvisor:*', 'ta_photos' => 'few photos ({n})', 'ta_neg' => 'negative reviews need a reply', 'g_missing' => "we couldn't find your profile", 'g_hours' => 'opening hours are missing', 'g_below' => 'fewer reviews than your competitors', 'g_low' => 'the rating needs work',
+            'g_ta' => 'Google reviews ({g}) are far fewer than Tripadvisor ({t})', 'g_ok' => 'strong profile ✅', 'reviews' => 'reviews',
+            'linked' => 'linked from your website', 'not_linked' => 'not linked from your website', 'ph' => 'the link on your website does not lead to your page',
+            'act' => ['active' => 'active 👍', 'stale' => 'last post is old', 'empty' => 'no posts', 'notfound' => "we couldn't find your page"],
+            'why' => ['seo' => 'SEO is what makes travellers find you on Google before your competitors; without it the booking goes elsewhere.',
+                'google' => 'Your Google Maps profile is the first thing a traveller sees before contacting you.',
+                'social' => 'Travellers visit your pages to check you are active before booking.',
+                'booking' => 'A traveller who cannot book on your website goes to someone else.',
+                'chat' => 'A traveller who gets no quick reply books with the first company that answers.'],
+            'solve' => 'At Tourfecto we fix it:',
+            'serv' => ['seo' => '• SEO: audits your site and prepares a fix for every missing point, plus an improvement plan', 'google' => '• Google: professional replies to reviews and a review of your profile', 'social' => '• Social: a month of posts, images and short videos with your logo',
+                'booking' => '• A booking engine on your site with online payment and no commission', 'chat' => '• A smart chat that answers your customers 24/7'],
+            'grow' => 'And to grow: the *Strategic Brain* suggests decisions from your own business data.',
+            'report' => '📄 *Full report* with every point and how to fix it (free):', 'cta' => '{trial}. Reply here and I will walk you through it 🙌', 'cta_plain' => 'Reply here and I will walk you through it 🙌',
+            's2_intro' => "{name} from Tourfecto again 🙌 a quick overview of what we offer tour companies in one platform:",
+            's2' => ['🧠 *Strategic Brain:* reads your business data (bookings, customers, reviews) and proposes evidence-based decisions: customers to follow up, markets that bring demand, your prices against competitors. You approve, it prepares the execution.',
+                '🔎 *SEO and visibility* on Google and in AI answers', '⭐ *Reputation:* draft replies to reviews, with your approval', '📣 *Social:* a content plan and a design studio',
+                '📅 *Booking and payment* on your website, no commission', '👁️ *Competitor monitoring* and their price changes', '🌍 *Market intelligence:* travel advisories and exchange rates', '📊 *Executive dashboard:* revenue, reputation and ad spend on one screen',
+                '🧩 Also: website builder, CRM and email marketing'],
+            's2_cta' => '{trial}, start here:', 's2_start' => 'Start here:',
         ],
         'tr' => [
-            'greet' => 'Merhaba {company} ekibi 👋', 'intro' => "Ben Tourfecto'dan {name}, turizm şirketleri için bir yapay zekâ platformuyuz.",
-            'check' => 'Online varlığınız için ücretsiz bir analiz yaptık. Puan: *{score}/100*. Kısa özet:', 'check_plain' => 'Online varlığınız için ücretsiz bir analiz yaptık. Kısa özet:',
-            'google' => '🗺️ *Google Haritalar:*', 'ta' => '✈️ *Tripadvisor:*', 'fb' => '📘 *Facebook:*', 'ig' => '📸 *Instagram:*', 'web' => '🌐 *Web sitesi:*',
-            'reviews' => 'yorum', 'g_missing' => 'işletme profilinizi bulamadık; gezginlerin ilk baktığı yer burası', 'g_hours' => 'çalışma saatleri eksik', 'g_below' => 'benzer şirketlerin medyanının altında ({median})',
-            'linked' => '✅ web sitenizde bağlı', 'not_linked' => '❌ web sitenizde bağlı değil', 'ph' => '⚠️ web sitenizdeki bağlantı sayfanıza gitmiyor', 'web_ok' => 'açık', 'web_http' => 'HTTPS yok', 'web_mobile' => 'mobil uyumlu değil', 'web_down' => 'açılmıyor', 'web_none' => 'web siteniz yok',
-            'top' => '⚠️ *Fark ettiğimiz en önemli nokta:* {gap}', 'report' => '📄 *Tam rapor*: her nokta ayrıntılı ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. Buradan yazın, iki dakikada başlatalım 🙌', 'cta_plain' => 'Başlamak isterseniz buradan yazın 🙌',
+            'greet' => 'Merhaba {company} ekibi 👋',
+            'intro' => 'Ben Tourfecto’dan {name}. Web sitenize ve Google ile sosyal medya sayfalarınıza baktım, gerçekten bulduklarım şunlar:',
+            'intro_ok' => 'Ben Tourfecto’dan {name}. Dijital varlığınıza baktım, özet:',
+            'all_ok' => '✅ Baktığımız her konuda güçlüsünüz',
+            'web' => '🌐 *Web sitesi:*', 'seo' => '🔎 *SEO:*', 'google' => '🗺️ *Google Haritalar:*', 'social' => '📱 *Sosyal medya:*',
+            'fb' => 'Facebook', 'ig' => 'Instagram',
+            'seo_partial' => 'temeller var ama eksik: {list}', 'seo_missing' => 'neredeyse yok, eksik: {list}',
+            'parts' => ['title' => 'net bir sayfa başlığı', 'description' => 'Google açıklaması', 'h1' => 'ana başlık (H1)', 'schema' => 'yapılandırılmış veri (Schema)', 'sitemap' => 'site haritası', 'blog' => 'blog ve makaleler', 'alt' => 'görsel açıklamaları'],
+            'web_issue' => ['site_down' => 'açılmıyor', 'no_https' => 'HTTPS yok', 'no_mobile' => 'mobil uyumlu değil', 'slow' => 'yavaş ({load} sn)', 'heavy' => 'yüklemesi ağır',
+                'no_booking' => 'online rezervasyon ve ödeme yok', 'no_chat' => 'anında yanıt için WhatsApp veya sohbet yok', 'one_language' => 'tek dilli'],
+            'ta' => '✈️ *Tripadvisor:*', 'ta_photos' => 'az fotoğraf ({n})', 'ta_neg' => 'olumsuz yorumların yanıtlanması gerekiyor', 'g_missing' => 'profilinizi bulamadık', 'g_hours' => 'çalışma saatleri eksik', 'g_below' => 'rakiplerden daha az yorum', 'g_low' => 'puanın iyileştirilmesi gerekiyor',
+            'g_ta' => 'Google yorumları ({g}) Tripadvisor’dan ({t}) çok az', 'g_ok' => 'güçlü profil ✅', 'reviews' => 'yorum',
+            'linked' => 'web sitenizde bağlı', 'not_linked' => 'web sitenizde bağlı değil', 'ph' => 'web sitenizdeki bağlantı sayfanıza gitmiyor',
+            'act' => ['active' => 'aktif 👍', 'stale' => 'son gönderi eski', 'empty' => 'gönderi yok', 'notfound' => 'sayfanızı bulamadık'],
+            'why' => ['seo' => 'SEO, gezginin sizi rakiplerden önce Google’da bulmasını sağlar; olmadan rezervasyon başkasına gider.',
+                'google' => 'Google Haritalar profiliniz, gezginin size yazmadan önce gördüğü ilk şeydir.',
+                'social' => 'Gezginler rezervasyondan önce aktif olduğunuzu görmek için sayfalarınıza bakar.',
+                'booking' => 'Web sitenizden rezervasyon yapamayan gezgin başkasına gider.',
+                'chat' => 'Hızlı yanıt bulamayan gezgin, ilk yanıt veren şirketle rezervasyon yapar.'],
+            'solve' => 'Tourfecto’da bunu çözüyoruz:',
+            'serv' => ['seo' => '• SEO: sitenizi tarar, eksik her nokta için düzeltme ve iyileştirme planı hazırlar', 'google' => '• Google: yorumlara profesyonel yanıtlar ve profil kontrolü', 'social' => '• Sosyal medya: logonuzla bir aylık gönderi, görsel ve kısa video',
+                'booking' => '• Sitenize komisyonsuz, online ödemeli rezervasyon motoru', 'chat' => '• Müşterilerinize 7/24 yanıt veren akıllı sohbet'],
+            'grow' => 'Büyümek için: *Stratejik Beyin* kendi işletme verilerinizden kararlar önerir.',
+            'report' => '📄 *Tam rapor*: her nokta ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. Buradan yazın, birlikte bakalım 🙌', 'cta_plain' => 'Buradan yazın, birlikte bakalım 🙌',
+            's2_intro' => '{name}, Tourfecto’dan tekrar 🙌 turizm şirketlerine tek platformda sunduklarımızın kısa özeti:',
+            's2' => ['🧠 *Stratejik Beyin:* işletme verilerinizi (rezervasyon, müşteri, yorum) okur ve kanıtlı kararlar önerir: takip edilecek müşteriler, talep getiren pazarlar, fiyatlarınız ve rakipler. Siz onaylarsınız, o uygulamayı hazırlar.',
+                '🔎 *SEO ve görünürlük:* Google’da ve yapay zekâ yanıtlarında', '⭐ *İtibar:* yorumlara onayınızla taslak yanıtlar', '📣 *Sosyal medya:* içerik planı ve tasarım stüdyosu',
+                '📅 *Rezervasyon ve ödeme* web sitenizde, komisyonsuz', '👁️ *Rakip takibi* ve fiyat değişiklikleri', '🌍 *Pazar istihbaratı:* seyahat uyarıları ve döviz kurları', '📊 *Yönetici paneli:* gelir, itibar ve reklam harcaması tek ekranda',
+                '🧩 Ayrıca: web sitesi oluşturucu, CRM ve e-posta pazarlama'],
+            's2_cta' => '{trial}, buradan başlayın:', 's2_start' => 'Buradan başlayın:',
         ],
     ];
 
     /**
-     * رسالة واتساب جاهزة للإرسال: فحص سريع بالأرقام (جوجل ماب، TripAdvisor، فيسبوك، إنستجرام، الموقع)، أهم نقطة ناقصة، الحل،
-     * لينك التقرير الكامل، وعرض التجربة. أي سطر معلومته مش مؤكدة بيتشال بدل ما يتكتب تخمين.
-     * @param array $c lang, company, name, title, score, scorecard, gap, track, report_url, trial
+     * رسالة الفحص (الأولى): قصيرة، من الحقيقي بس، وبتنتهي بلينك التقرير الكامل.
+     * @param array $c lang, company, name, title, scorecard, seo (seoAssessment), gaps (نواقص الفحص الخام), report_url, trial
      */
     public static function deskMessage(array $c): string
     {
@@ -217,55 +291,127 @@ class OutreachNeeds
         $fill = static fn (string $s, array $v): string => strtr($s, $v);
         $num = static fn ($n): string => number_format((float) $n, 1, '.', '');
         $sc = (array) ($c['scorecard'] ?? []);
-        $lines = [$fill($t['greet'], ['{company}' => $c['company']]), $fill($t['intro'], ['{name}' => $c['name']]), ''];
-        $lines[] = isset($c['score']) && $c['score'] !== null ? $fill($t['check'], ['{score}' => (string) (int) $c['score']]) : $t['check_plain'];
-        $lines[] = '';
-
-        $g = (array) ($sc['google'] ?? []);
-        if (($g['status'] ?? '') === 'found' && ($g['rating'] ?? null) !== null) {
-            $x = $t['google'] . ' ⭐ ' . $num($g['rating']) . ' (' . number_format((int) ($g['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')';
-            if (($g['hours'] ?? null) === false) {
-                $x .= ' · ' . $t['g_hours'];
-            }
-            if (!empty($g['median']) && (int) ($g['reviews'] ?? 0) < (int) $g['median'] * 0.5) {
-                $x .= ' · ' . $fill($t['g_below'], ['{median}' => number_format((int) $g['median'])]);
-            }
-            $lines[] = $x;
-        } elseif (($g['status'] ?? '') === 'missing') {
-            $lines[] = $t['google'] . ' ' . $t['g_missing'];
+        $gaps = (array) ($c['gaps'] ?? []);
+        $byId = [];
+        foreach ($gaps as $g) {
+            $byId[$g['id'] ?? ''] ??= (array) ($g['vars'] ?? []);
         }
+        $body = [];
+        $svc = [];
+
+        // الموقع: مشاكل تقنية وتحويل حقيقية من الفحص
+        $web = [];
+        foreach ($t['web_issue'] as $id => $phrase) {
+            if (isset($byId[$id]) && count($web) < 3) {
+                $web[] = $fill($phrase, ['{load}' => (string) ($byId[$id]['load'] ?? '')]);
+                if ($id === 'no_booking') {
+                    $svc['booking'] = true;
+                } elseif ($id === 'no_chat') {
+                    $svc['chat'] = true;
+                }
+            }
+        }
+        if ($web) {
+            $body[] = $t['web'] . ' ' . implode('، ', $web);
+        }
+
+        // السيو: بس لو الفحص أثبت إنه ناقص، وبالتفصيل اللي ناقص فعلًا
+        $seo = (array) ($c['seo'] ?? []);
+        if (in_array($seo['state'] ?? '', ['partial', 'missing'], true)) {
+            $list = implode('، ', array_map(static fn ($k) => $t['parts'][$k] ?? $k, array_slice((array) $seo['fails'], 0, 3)));
+            $body[] = $t['seo'] . ' ' . $fill($t[$seo['state'] === 'missing' ? 'seo_missing' : 'seo_partial'], ['{list}' => $list]);
+            $svc['seo'] = true;
+        }
+
+        // تريب أدفايزر: التقييم وعدد المراجعات والترتيب من بيانات الاستيراد، ومشاكلها الفعلية (صور قليلة، تقييمات سلبية كتير)
         $a = (array) ($sc['tripadvisor'] ?? []);
         if (($a['status'] ?? '') === 'found' && ($a['rating'] ?? null) !== null) {
-            $x = $t['ta'] . ' ⭐ ' . $num($a['rating']) . ' (' . number_format((int) ($a['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')';
-            if (!empty($a['ranking'])) {
-                $x .= ' · ' . $a['ranking'];
+            $x = $t['ta'] . ' ⭐ ' . $num($a['rating']) . ' (' . number_format((int) ($a['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . (!empty($a['ranking']) ? ' · ' . $a['ranking'] : '') . (!empty($a['award']) ? ' 🏆' : '');
+            $taIssues = [];
+            if (($a['photos'] ?? null) !== null && (int) $a['photos'] < 20) {
+                $taIssues[] = $fill($t['ta_photos'], ['{n}' => (string) (int) $a['photos']]);
+                $svc['social'] = true;
             }
-            $lines[] = $x . (!empty($a['award']) ? ' 🏆' : '');
-        } elseif (($a['status'] ?? '') === 'linked') {
-            $lines[] = $t['ta'] . ' ' . $t['linked']; // مفيش تقييم نعرفه، بس صفحتهم مربوطة بموقعهم
-        }
-        foreach ([['facebook', 'fb'], ['instagram', 'ig']] as [$k, $label]) {
-            $s = (string) ($sc[$k]['status'] ?? 'unknown');
-            if ($s !== 'unknown') {
-                $lines[] = $t[$label] . ' ' . ($s === 'linked' ? $t['linked'] : ($s === 'placeholder' ? $t['ph'] : $t['not_linked']));
+            if ((int) ($a['reviews'] ?? 0) > 0 && (int) ($a['negative'] ?? 0) / (int) $a['reviews'] >= 0.05) {
+                $taIssues[] = $t['ta_neg'];
+                $svc['google'] = true;
             }
-        }
-        $w = (array) ($sc['website'] ?? []);
-        $ws = (string) ($w['status'] ?? 'unknown');
-        if ($ws === 'ok') {
-            $notes = array_filter([($w['https'] ?? true) === false ? $t['web_http'] : null, ($w['mobile'] ?? true) === false ? $t['web_mobile'] : null]);
-            $lines[] = $t['web'] . ' ' . $t['web_ok'] . ($notes ? ' (' . implode('، ', $notes) . ')' : '');
-        } elseif (in_array($ws, ['down', 'none'], true)) {
-            $lines[] = $t['web'] . ' ' . ($ws === 'down' ? $t['web_down'] : $t['web_none']);
+            $body[] = $x . ($taIssues ? ' · ' . implode('، ', $taIssues) : '');
         }
 
-        if (!empty($c['gap'])) {
-            $lines[] = '';
-            $lines[] = $fill($t['top'], ['{gap}' => $c['gap']]);
-            $solution = self::texts((string) ($c['track'] ?? 'seo'), $lang)['solution'] ?? '';
-            if ($solution !== '') {
-                $lines[] = '💡 ' . $solution;
+        // جوجل ماب
+        $g = (array) ($sc['google'] ?? []);
+        if (($g['status'] ?? '') === 'found' && ($g['rating'] ?? null) !== null) {
+            $issues = [];
+            if (($g['hours'] ?? null) === false) {
+                $issues[] = $t['g_hours'];
             }
+            if (!empty($g['median']) && (int) ($g['reviews'] ?? 0) < (int) $g['median'] * 0.5) {
+                $issues[] = $t['g_below'];
+            }
+            if ((float) $g['rating'] < 4.3) {
+                $issues[] = $t['g_low'];
+            }
+            if (isset($byId['google_few_reviews'])) {
+                $issues[] = $fill($t['g_ta'], ['{g}' => (string) ($byId['google_few_reviews']['g_reviews'] ?? ''), '{t}' => (string) ($byId['google_few_reviews']['ta_reviews'] ?? '')]);
+            }
+            $body[] = $t['google'] . ' ⭐ ' . $num($g['rating']) . ' (' . number_format((int) ($g['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . ' · ' . ($issues ? implode('، ', $issues) : $t['g_ok']);
+            if ($issues) {
+                $svc['google'] = true;
+            }
+        } elseif (($g['status'] ?? '') === 'missing') {
+            $body[] = $t['google'] . ' ' . $t['g_missing'];
+            $svc['google'] = true;
+        }
+
+        // السوشيال: اللي الموظفة شافته على الصفحة لو سجّلته، وإلا مربوطة/مش مربوطة من الموقع (من غير ادّعاء عن النشاط)
+        $pieces = [];
+        $flag = false;
+        foreach ([['facebook', 'fb'], ['instagram', 'ig']] as [$k, $label]) {
+            $n = (array) ($sc[$k] ?? []);
+            $act = $n['activity'] ?? null;
+            $s = (string) ($n['status'] ?? 'unknown');
+            if ($act !== null) {
+                $pieces[] = $t[$label] . ' ' . $t['act'][$act];
+                $flag = $flag || $act !== 'active';
+            } elseif ($s === 'linked') {
+                $pieces[] = $t[$label] . ' ' . $t['linked'];
+            } elseif ($s === 'placeholder') {
+                $pieces[] = $t[$label] . ' ' . $t['ph'];
+                $flag = true;
+            } elseif ($s === 'missing') {
+                $pieces[] = $t[$label] . ' ' . $t['not_linked'];
+                $flag = true;
+            }
+        }
+        if ($pieces) {
+            $body[] = $t['social'] . ' ' . implode(' · ', $pieces);
+            if ($flag) {
+                $svc['social'] = true;
+            }
+        }
+
+        $lines = [$fill($t['greet'], ['{company}' => $c['company']]), $fill($svc || $body ? $t['intro'] : $t['intro_ok'], ['{name}' => $c['name']]), ''];
+        $lines = array_merge($lines, $body ?: [$t['all_ok']]);
+        if ($svc) {
+            // جملة «ليه مهم» واحدة، للأهم: سيو ثم جوجل ثم سوشيال ثم حجز ثم شات
+            foreach (['seo', 'google', 'social', 'booking', 'chat'] as $k) {
+                if (isset($svc[$k])) {
+                    $lines[] = '';
+                    $lines[] = '💡 ' . $t['why'][$k];
+                    break;
+                }
+            }
+            $lines[] = $t['solve'];
+            $shown = 0;
+            foreach (['seo', 'google', 'social', 'booking', 'chat'] as $k) {
+                if (isset($svc[$k]) && $shown++ < 3) {
+                    $lines[] = $t['serv'][$k];
+                }
+            }
+        } else {
+            $lines[] = '';
+            $lines[] = '💡 ' . $t['grow'];
         }
         $lines[] = '';
         $lines[] = $t['report'];
@@ -275,6 +421,22 @@ class OutreachNeeds
         $lines[] = '';
         $lines[] = (string) $c['name'] . (trim((string) ($c['title'] ?? '')) !== '' ? "\n" . $c['title'] : '');
         return implode("\n", $lines);
+    }
+
+    /** الرسالة التانية (بعد ما يردّوا): خدمات المنصة، قصيرة، وآخرها لينك التسجيل بتاعهم */
+    public static function deskServicesMessage(array $c): string
+    {
+        $lang = in_array($c['lang'] ?? '', self::LANGS, true) ? $c['lang'] : 'en';
+        $t = self::DESK[$lang];
+        $lines = [strtr($t['s2_intro'], ['{name}' => $c['name']]), ''];
+        foreach ($t['s2'] as $x) {
+            $lines[] = $x;
+        }
+        $lines[] = '';
+        $trial = trim((string) ($c['trial'] ?? ''));
+        $lines[] = $trial !== '' ? strtr($t['s2_cta'], ['{trial}' => rtrim($trial, '.')]) : $t['s2_start'];
+        $lines[] = (string) $c['signup_url'];
+        return rtrim(implode("\n", $lines));
     }
 
     public static function trackLabel(string $track, string $lang = 'ar'): string

@@ -102,6 +102,19 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** POST /api/admin/outreach-desk/leads/{id}/social - {network: facebook|instagram, state: active|stale|empty|notfound|''} */
+    public function deskSocial(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        try {
+            return $this->success(['seen' => $this->service()->deskSetSocial((int) ($params['id'] ?? 0), (string) $this->get('network', ''), (string) $this->get('state', ''))]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
     /** POST /api/admin/outreach-desk/leads/{id}/action - {action, note} */
     public function deskAction(array $params = []): array
     {

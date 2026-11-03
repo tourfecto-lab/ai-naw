@@ -19,6 +19,9 @@ class OutreachAudit
 
     // ------------------------------------------------------------------ الموقع
 
+    /** اللي الموظفة بتشوفه لما تفتح صفحة الشركة: نشيطة · آخر منشور قديم · مفيهاش منشورات · الصفحة مش موجودة */
+    public const SOCIAL_SEEN = ['active', 'stale', 'empty', 'notfound'];
+
     /** هل ده رابط صفحة الشركة فعلًا؟ مش رابط افتراضي من قالب الموقع (facebook.com/facebook وinstagram.com/instagram...) ولا صفحة مشاركة */
     public static function socialHandleOk(string $net, string $handle): bool
     {
@@ -445,6 +448,7 @@ class OutreachAudit
 
         if ($fromTa && ($rating !== null || $ta !== [])) {
             $tripadvisor = ['status' => 'found', 'rating' => $rating, 'reviews' => $reviews, 'ranking' => (string) ($ta['ranking'] ?? ''), 'award' => !empty($ta['award']), 'negative' => (int) ($ta['negative'] ?? 0),
+                'photos' => array_key_exists('photos', $ta) ? (int) $ta['photos'] : null,
                 'url' => (string) ($ta['url'] ?? '') !== '' ? (string) $ta['url'] : ($mapsUrl !== '' ? $mapsUrl : '')];
         } else {
             // مفيش تقييم من الاستيراد: أقصى ما نعرفه إن موقعهم رابط صفحتهم على TripAdvisor ولا لأ (من فحص بعد ما الفحص بقى يدوّر عليه)
@@ -463,7 +467,47 @@ class OutreachAudit
         }
         $website['score'] = isset($audit['score']['total']) ? (int) $audit['score']['total'] : null;
 
-        return ['google' => $google, 'tripadvisor' => $tripadvisor, 'facebook' => $net('facebook', 'https://www.facebook.com/'), 'instagram' => $net('instagram', 'https://www.instagram.com/'), 'website' => $website];
+        // نشاط الصفحة (منشورات) مش بيتقري آليًا: فيسبوك بيرفض القراءة وإنستجرام بيطلب تسجيل دخول. الموظفة بتفتح الصفحة وتسجّل اللي شافته.
+        $seen = json_decode((string) ($lead['desk_social'] ?? ''), true);
+        $seen = is_array($seen) ? $seen : [];
+        $activity = static fn (string $k): ?string => in_array($seen[$k] ?? null, self::SOCIAL_SEEN, true) ? (string) $seen[$k] : null;
+
+        return ['google' => $google, 'tripadvisor' => $tripadvisor, 'facebook' => $net('facebook', 'https://www.facebook.com/') + ['activity' => $activity('facebook')],
+            'instagram' => $net('instagram', 'https://www.instagram.com/') + ['activity' => $activity('instagram')], 'website' => $website];
+    }
+
+    /**
+     * هل السيو شغّال فعلًا على الموقع؟ من اللي اتفحص بس، ومن غير ما نقول «مفيش سيو» لموقع عليه سيو.
+     * - state: unknown (الموقع ماتفحصش) · good (فاشل 0-1) · partial (2-4) · missing (5+ من 7)
+     * - fails/passes: العناصر الأساسية: title, description, h1, schema, sitemap, blog, alt
+     * عنصر مش معروف (ماتقاسش) مابيتحسبش لا نجاح ولا فشل.
+     */
+    public static function seoAssessment(array $data): array
+    {
+        $site = $data['site'] ?? null;
+        if (!is_array($site) || empty($site['ok'])) {
+            return ['state' => 'unknown', 'fails' => [], 'passes' => [], 'known' => 0];
+        }
+        $checks = [];
+        $checks['title'] = mb_strlen(trim((string) ($site['title'] ?? ''))) >= 10;
+        $checks['description'] = !empty($site['meta_description']);
+        $checks['h1'] = !empty($site['h1']);
+        $checks['schema'] = (bool) array_intersect((array) ($site['schema'] ?? []), ['LocalBusiness', 'TravelAgency', 'TouristTrip', 'Product', 'Organization', 'TouristAttraction', 'Event']);
+        if (array_key_exists('sitemap', $site) && $site['sitemap'] !== null) {
+            $checks['sitemap'] = (bool) $site['sitemap'];
+        }
+        $checks['blog'] = !empty($site['blog']);
+        $imgs = (int) ($site['images'] ?? 0);
+        if ($imgs >= 5) {
+            $checks['alt'] = ((int) ($site['images_no_alt'] ?? 0)) <= $imgs * 0.3;
+        }
+        $fails = array_keys(array_filter($checks, static fn ($ok) => !$ok));
+        $passes = array_keys(array_filter($checks));
+        $n = count($fails);
+        $known = count($checks);
+        // «شبه معدوم» بس لما أغلب العناصر المعروفة فاشلة؛ غير كده بنقول «عندكم أساسيات وناقص كذا»
+        $state = $n <= 1 ? 'good' : ($n >= 5 && $n >= (int) ceil($known * 0.7) ? 'missing' : 'partial');
+        return ['state' => $state, 'fails' => $fails, 'passes' => $passes, 'known' => $known];
     }
 
     /**

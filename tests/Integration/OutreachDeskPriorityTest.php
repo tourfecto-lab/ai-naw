@@ -40,8 +40,9 @@ final class OutreachDeskPriorityTest extends TestCase
     private function lead(string $name, int $reviews, array $gapSev, ?int $priority = null, array $extra = []): int
     {
         $gaps = array_map(static fn ($s) => ['id' => 'no_booking', 'pillar' => 'booking', 'track' => 'direct_booking', 'sev' => $s, 'vars' => []], $gapSev);
-        $data = json_encode(['audit' => ['gaps' => $gaps, 'score' => ['total' => 70, 'pillars' => []], 'google' => ['checked' => true, 'found' => true, 'rating' => 4.6, 'reviews' => 90, 'hours' => true]],
-            'site' => ['ok' => true, 'https' => true, 'viewport' => true, 'social' => ['facebook' => 'page']], 'ta' => ['ranking' => '#3 in Cairo']] + $extra, JSON_UNESCAPED_UNICODE);
+        $data = json_encode(array_replace(['audit' => ['gaps' => $gaps, 'score' => ['total' => 70, 'pillars' => []], 'google' => ['checked' => true, 'found' => true, 'rating' => 4.6, 'reviews' => 90, 'hours' => true]],
+            'site' => ['ok' => true, 'https' => true, 'viewport' => true, 'social' => ['facebook' => 'page'], 'title' => 'Nile Dream Tours in Cairo', 'meta_description' => true, 'h1' => true, 'schema' => ['TravelAgency'], 'sitemap' => true, 'blog' => true],
+            'ta' => ['ranking' => '#3 in Cairo']], $extra), JSON_UNESCAPED_UNICODE);
         $slug = strtolower(str_replace(' ', '', $name));
         $this->db->query("INSERT INTO platform_leads (source, company, email, domain, website, phone, country, city, category, language, status, step, track, score, reviews, rating, token, data_json, scanned_at, priority)
             VALUES ('phpunit-prio', ?, ?, ?, ?, '+201000000009', 'EG', 'Cairo', 'Tour agency', 'ar', 'new', 0, 'direct_booking', 70, ?, 4.8, ?, ?, NOW(), ?)",
@@ -115,9 +116,46 @@ final class OutreachDeskPriorityTest extends TestCase
         $this->assertSame('missing', $row['scorecard']['instagram']['status']);
         $this->assertStringContainsString('جوجل ماب', $row['message']);
         $this->assertStringContainsString('4.6', $row['message']);
-        $this->assertStringContainsString('إنستجرام:* ❌', $row['message']);
+        $this->assertStringContainsString('إنستجرام مش مربوطة بموقعكم', $row['message']);
         $this->assertStringContainsString('/p/r/', $row['message']);
         $this->assertStringContainsString('Sara', $row['message']);
         $this->assertTrue($row['wa_has_text']);
+        $this->assertSame('good', $row['seo']['state'], 'the test site has the SEO basics: no SEO problem is reported');
+        $this->assertStringNotContainsString('السيو:*', $row['message']);
+        // الرسالة التانية: الخدمات + لينك التسجيل بتاعهم (بيعدّي على التتبع)
+        $this->assertStringContainsString('العقل الاستراتيجي', $row['message2']);
+        $this->assertStringContainsString('/p/c/', $row['message2']);
+        $this->assertNotSame('', $row['wa_url2']);
+    }
+
+    public function testStaffCheckOfThePostsChangesTheMessageAndCanBeCleared(): void
+    {
+        $id = $this->lead('Social Check', 100, [7], 80);
+        $before = $this->svc->deskLeads(['country' => 'EG', 'q' => 'socialcheck'], ['name' => 'Sara'])['rows'][0];
+        $this->assertStringContainsString('فيسبوك مربوطة بموقعكم', $before['message']);
+        $this->assertStringNotContainsString('آخر منشور', $before['message']);
+
+        $this->assertSame(['facebook' => 'stale'], $this->svc->deskSetSocial($id, 'facebook', 'stale'));
+        $after = $this->svc->deskLeads(['country' => 'EG', 'q' => 'socialcheck'], ['name' => 'Sara'])['rows'][0];
+        $this->assertSame('stale', $after['scorecard']['facebook']['activity']);
+        $this->assertStringContainsString('فيسبوك آخر منشور قديم', $after['message']);
+        $this->assertStringContainsString('السوشيال: بوستات', $after['message']);
+
+        $this->assertSame([], $this->svc->deskSetSocial($id, 'facebook', ''), 'cleared');
+        $this->assertNull($this->db->query('SELECT desk_social FROM platform_leads WHERE id = ?', [$id])[0]['desk_social']);
+    }
+
+    public function testSocialCheckRejectsUnknownValues(): void
+    {
+        $id = $this->lead('Social Bad', 100, [7], 80);
+        $this->expectException(InvalidArgumentException::class);
+        $this->svc->deskSetSocial($id, 'facebook', 'very-active');
+    }
+
+    public function testSocialCheckRejectsUnknownNetworks(): void
+    {
+        $id = $this->lead('Social Net', 100, [7], 80);
+        $this->expectException(InvalidArgumentException::class);
+        $this->svc->deskSetSocial($id, 'tiktok', 'active');
     }
 }
