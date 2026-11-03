@@ -68,4 +68,29 @@ final class SystemSettingsGeoKeysTest extends TestCase
         $this->assertStringNotContainsString('sk-legacy-plain', $row['setting_value']);
         $this->assertSame('sk-legacy-plain', $s->get('geo_openai_api_key'), 'still readable after the upgrade');
     }
+
+    /** The admin form pre-fills every field from this listing; a missing key leaves the default 0 and the next save zeroes the cap. */
+    public function testMonthlyBudgetIsListedForTheAdminFormWithItsStoredValue(): void
+    {
+        $saved = $this->pdo->query("SELECT setting_value, is_secret, category FROM system_settings WHERE setting_key = 'geo_monthly_budget_usd'")->fetch(PDO::FETCH_ASSOC);
+        try {
+            $s = new SystemSettingsService();
+            $s->set('geo_monthly_budget_usd', '5');
+            $found = null;
+            foreach ($s->getAllForAdmin() as $items) {
+                foreach ($items as $item) {
+                    if ($item['key'] === 'geo_monthly_budget_usd') {
+                        $found = $item;
+                    }
+                }
+            }
+            $this->assertNotNull($found, 'geo_monthly_budget_usd must be in the admin listing');
+            $this->assertSame('5', $found['value']);
+        } finally {
+            $this->pdo->exec("DELETE FROM system_settings WHERE setting_key = 'geo_monthly_budget_usd'");
+            if ($saved) {
+                $this->pdo->prepare('INSERT INTO system_settings (setting_key, setting_value, is_secret, category) VALUES (?,?,?,?)')->execute(['geo_monthly_budget_usd', $saved['setting_value'], $saved['is_secret'], $saved['category']]);
+            }
+        }
+    }
 }

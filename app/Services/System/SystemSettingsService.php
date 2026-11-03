@@ -17,6 +17,7 @@ class SystemSettingsService
     /** @var array السجل الكامل لكل إعدادات النظام المعروفة */
     private static array $registry = [
         'geo_enabled'=>['category'=>'geo','label'=>'تفعيل قياس ظهور AI (1 فقط)','is_secret'=>false,'constant'=>''],
+        'geo_monthly_budget_usd'=>['category'=>'geo','label'=>'ميزانية قياس AI الشهرية USD (0 يوقف الطلبات)','is_secret'=>false,'constant'=>''],
         'geo_openai_enabled'=>['category'=>'geo','label'=>'openai تفعيل','is_secret'=>false,'constant'=>''],
         'geo_openai_key'=>['category'=>'geo','label'=>'openai API Key','is_secret'=>true,'constant'=>''],
         // الاسم اللي بيقراه قياس الظهور وبتحفظه شاشة الإعدادات فعلًا؛ من غير تسجيله هنا كان بيتحفظ كنص صريح غير مشفّر
