@@ -19,6 +19,20 @@ class OutreachAudit
 
     // ------------------------------------------------------------------ الموقع
 
+    /**
+     * تصنيف الشركة للعرض على العميل. «attraction» ده تصنيف داخلي من ملف TripAdvisor مش كلام يتعرض (كان بيظهر «متوسط شركات attraction»):
+     * بنرجّع أول تصنيف حقيقي، أو '' لو التصنيف داخلي/فاضي.
+     */
+    public static function publicCategory(?string $category): string
+    {
+        $first = trim((string) explode(',', (string) $category)[0]);
+        $first = trim((string) preg_replace('/[\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', $first));
+        return in_array(strtolower($first), ['', 'attraction', 'attractions', 'activity', 'other', 'unknown'], true) ? '' : $first;
+    }
+
+    /** اسم عام للمقارنة لما التصنيف الحقيقي مش معروف: «متوسط شركات الجولات السياحية في القاهرة» */
+    public const GENERIC_CATEGORY = ['ar' => 'الجولات السياحية', 'en' => 'tour', 'tr' => 'tur'];
+
     /** اللي الموظفة بتشوفه لما تفتح صفحة الشركة: نشيطة · آخر منشور قديم · مفيهاش منشورات · الصفحة مش موجودة */
     public const SOCIAL_SEEN = ['active', 'stale', 'empty', 'notfound'];
 
@@ -352,7 +366,8 @@ class OutreachAudit
         }
 
         // صور قليلة على TripAdvisor
-        if (($ta['photos'] ?? 99) > 0 && ($ta['photos'] ?? 99) < 20) {
+        // صفر صور حقيقي (الملف بيقول photoCount 0) مش «ماعرفناش»: مفتاح الصور موجود يعني اتقاس
+        if (array_key_exists('photos', $ta) && (int) $ta['photos'] < 20) {
             $add('few_photos', 'social', 'social', 3, ['photos' => (int) $ta['photos']]);
         }
         // زباين كتير من غير متابعة
@@ -600,9 +615,9 @@ class OutreachAudit
             'negative_reviews' => 'عندكم {negative} تقييم بنجمة أو نجمتين من {reviews} على TripAdvisor، والمسافر الجديد بيقرا دول الأول.',
             'few_reviews' => 'عندكم {reviews} تقييم بس، ومتوسط شركات {category} في مدينتكم {median} تقييم.',
             'rating_below' => 'تقييمكم {rating} ومتوسط المنافسين في مدينتكم {avg}.',
-            'no_website' => 'مالقيتش موقع لـ {company}، فالحجز كله بيعدّي على منصات تانية بعمولة.',
+            'no_website' => 'مالقيناش موقع لـ {company}، فالحجز غالبًا بيعدّي على منصات تانية بعمولة.',
             'site_down' => 'موقع {domain} مابيفتحش دلوقتي، وأي مسافر بيدوّر عليكم بيقف هنا.',
-            'no_mobile' => '{domain} مش متظبط للموبايل، وأغلب المسافرين بيحجزوا من الموبايل.',
+            'no_mobile' => '{domain} مش متظبط للموبايل، وكتير من المسافرين بيحجزوا من الموبايل.',
             'slow' => '{domain} بياخد حوالي {load} ثانية عشان يفتح، والصفحة البطيئة بتخسر زوار وترتيب جوجل.',
             'heavy' => 'الصفحة الرئيسية لـ {domain} حجمها {mb} ميجا، وده بيبطّأها جدًا على الموبايل.',
             'no_https' => '{domain} مش آمن (من غير HTTPS)، والمتصفح بيحذّر الزوار قبل ما يدخلوا.',
@@ -610,15 +625,15 @@ class OutreachAudit
             'no_schema' => '{domain} مافيهوش بيانات منظّمة (Schema)، فجوجل مابيعرضش جولاتكم بالأسعار والتقييمات.',
             'one_language' => '{domain} بلغة واحدة بس، والمسافرين جايين من دول كتير.',
             'outdated' => 'آخر تحديث ظاهر على {domain} سنة {year}، وده بيقلّل ثقة الزوار.',
-            'no_blog' => '{domain} مافيهوش مدونة ولا أدلة سياحية، ودي أكتر طريقة شركات الجولات بتظهر بيها في جوجل.',
+            'no_blog' => '{domain} مافيهوش مدونة ولا أدلة سياحية، والمحتوى بيساعد الموقع يظهر في جوجل.',
             'no_booking' => '{domain} مافيهوش حجز ودفع أونلاين، فالزبون لازم يراسلكم أو يحجز من منصة بعمولة.',
             'viator' => 'جولاتكم على TripAdvisor بتتباع عن طريق Viator، يعني عمولة على كل حجز.',
             'no_chat' => '{domain} مافيهوش زرار واتساب ولا شات، والمسافر بيحجز مع أول حد يرد عليه.',
-            'no_social' => 'مالقيتش أي حسابات سوشيال ميديا على {domain}.',
-            'missing_social' => 'موقعكم فيه {have}، بس مالقيتش {missing}، ودي أكتر أماكن المسافرين بيختاروا منها الجولات.',
+            'no_social' => 'مالقيناش روابط لأي حساب سوشيال ميديا على {domain}.',
+            'missing_social' => 'موقعكم فيه {have}، بس مالقيناش رابط لـ {missing}.',
             'no_tracking' => '{domain} مافيهوش Meta Pixel ولا Google Analytics، فمستحيل تعرفوا أي إعلان أو قناة بتجيب حجوزات.',
             'no_pixel' => '{domain} فيه Google Analytics بس مافيهوش Meta Pixel، فإعلانات فيسبوك وإنستجرام مش هتتقاس.',
-            'no_google' => 'مالقيتش ملف لـ {company} على Google Maps، وده أول مكان المسافر بيدوّر فيه.',
+            'no_google' => 'مالقيناش ملف لـ {company} على Google Maps بالاسم ده، وده من أول الأماكن اللي المسافر بيدوّر فيها.',
             'google_few_reviews' => 'على Google Maps عندكم {g_reviews} تقييم بس، مقابل {ta_reviews} على TripAdvisor.',
             'google_no_hours' => 'ملفكم على Google Maps مافيهوش مواعيد العمل.',
             'few_photos' => 'عندكم {photos} صورة بس على TripAdvisor، والصور أول حاجة المسافر بيشوفها.',
@@ -630,7 +645,7 @@ class OutreachAudit
             'rating_below' => 'Your rating is {rating}, while competitors in your city average {avg}.',
             'no_website' => "I couldn't find a website for {company}, so every booking goes through other platforms with commission.",
             'site_down' => "{domain} isn't loading right now, and every traveller looking for you stops there.",
-            'no_mobile' => "{domain} isn't set up for mobile, and most travellers book on their phones.",
+            'no_mobile' => "{domain} isn't set up for mobile, and many travellers book on their phones.",
             'slow' => '{domain} takes about {load} seconds to open, and slow pages lose visitors and Google ranking.',
             'heavy' => "{domain}'s homepage weighs {mb} MB, which makes it very slow on mobile.",
             'no_https' => "{domain} isn't secure (no HTTPS), so browsers warn visitors before they enter.",
@@ -638,15 +653,15 @@ class OutreachAudit
             'no_schema' => "{domain} has no structured data (Schema), so Google can't show your tours with prices and ratings.",
             'one_language' => '{domain} is in one language only, while your travellers come from many countries.',
             'outdated' => 'The latest year shown on {domain} is {year}, which lowers visitor trust.',
-            'no_blog' => '{domain} has no blog or travel guides, which is how most tour companies get found on Google.',
+            'no_blog' => '{domain} has no blog or travel guides, and content helps a site get found on Google.',
             'no_booking' => "{domain} doesn't take bookings or payments online, so guests have to message you or book on a platform with commission.",
             'viator' => 'Your tours on TripAdvisor are sold through Viator, which means a commission on every booking.',
             'no_chat' => '{domain} has no WhatsApp button or live chat, and travellers book with whoever answers first.',
-            'no_social' => "I couldn't find any social media accounts on {domain}.",
-            'missing_social' => 'Your site links to {have}, but I couldn’t find {missing}, where many travellers choose their tours.',
+            'no_social' => "I couldn't find links to any social media accounts on {domain}.",
+            'missing_social' => 'Your site links to {have}, but I couldn’t find a link to {missing}.',
             'no_tracking' => "{domain} has no Meta Pixel or Google Analytics, so you can't tell which ad or channel brings bookings.",
             'no_pixel' => "{domain} has Google Analytics but no Meta Pixel, so Facebook and Instagram ads can't be measured.",
-            'no_google' => "I couldn't find a Google Maps profile for {company}, the first place travellers search.",
+            'no_google' => "I couldn't find a Google Maps profile for {company} under this name, one of the first places travellers search.",
             'google_few_reviews' => 'On Google Maps you have only {g_reviews} reviews, versus {ta_reviews} on TripAdvisor.',
             'google_no_hours' => 'Your Google Maps profile has no opening hours.',
             'few_photos' => 'You have only {photos} photos on TripAdvisor, and photos are the first thing travellers look at.',
@@ -658,7 +673,7 @@ class OutreachAudit
             'rating_below' => 'Puanınız {rating}, şehrinizdeki rakiplerin ortalaması {avg}.',
             'no_website' => '{company} için bir web sitesi bulamadım; bu yüzden tüm rezervasyonlar komisyonlu platformlardan geçiyor.',
             'site_down' => '{domain} şu anda açılmıyor ve sizi arayan her gezgin burada takılıyor.',
-            'no_mobile' => '{domain} mobil uyumlu değil, oysa gezginlerin çoğu telefondan rezervasyon yapıyor.',
+            'no_mobile' => '{domain} mobil uyumlu değil, oysa birçok gezgin telefondan rezervasyon yapıyor.',
             'slow' => "{domain} açılması yaklaşık {load} saniye sürüyor; yavaş sayfalar ziyaretçi ve Google sıralaması kaybettirir.",
             'heavy' => '{domain} ana sayfası {mb} MB; bu da mobilde çok yavaş açılmasına neden oluyor.',
             'no_https' => '{domain} güvenli değil (HTTPS yok), tarayıcılar ziyaretçileri girmeden önce uyarıyor.',
@@ -666,15 +681,15 @@ class OutreachAudit
             'no_schema' => "{domain} üzerinde yapılandırılmış veri (Schema) yok; Google turlarınızı fiyat ve puanla gösteremiyor.",
             'one_language' => '{domain} yalnızca tek dilde, oysa misafirleriniz birçok ülkeden geliyor.',
             'outdated' => "{domain} üzerinde görünen son yıl {year}; bu, ziyaretçi güvenini azaltıyor.",
-            'no_blog' => "{domain} üzerinde blog ya da gezi rehberi yok; tur şirketlerinin çoğu Google'da bu sayede bulunuyor.",
+            'no_blog' => "{domain} üzerinde blog ya da gezi rehberi yok; içerik, sitenin Google'da bulunmasına yardımcı olur.",
             'no_booking' => '{domain} online rezervasyon ve ödeme almıyor; misafirler size yazmak ya da komisyonlu bir platformdan almak zorunda.',
             'viator' => "TripAdvisor'daki turlarınız Viator üzerinden satılıyor, yani her rezervasyonda komisyon ödüyorsunuz.",
             'no_chat' => '{domain} üzerinde WhatsApp butonu ya da canlı sohbet yok; gezginler ilk yanıt verenle rezervasyon yapıyor.',
-            'no_social' => '{domain} üzerinde hiçbir sosyal medya hesabı bulamadım.',
-            'missing_social' => "Sitenizde {have} var ama {missing} bulamadım; gezginler turlarını en çok buralarda seçiyor.",
+            'no_social' => '{domain} üzerinde hiçbir sosyal medya hesabına bağlantı bulamadım.',
+            'missing_social' => "Sitenizde {have} var ama {missing} bağlantısı bulamadım.",
             'no_tracking' => '{domain} üzerinde Meta Pixel ya da Google Analytics yok; hangi reklamın veya kanalın rezervasyon getirdiğini bilemezsiniz.',
             'no_pixel' => "{domain} üzerinde Google Analytics var ama Meta Pixel yok; Facebook ve Instagram reklamları ölçülemiyor.",
-            'no_google' => "{company} için Google Haritalar profili bulamadım; gezginlerin ilk baktığı yer orası.",
+            'no_google' => "{company} için Google Haritalar profili bu isimle bulamadım; gezginlerin ilk baktığı yerlerden biri.",
             'google_few_reviews' => "Google Haritalar'da yalnızca {g_reviews} yorumunuz var, TripAdvisor'da ise {ta_reviews}.",
             'google_no_hours' => 'Google Haritalar profilinizde çalışma saatleri yok.',
             'few_photos' => "TripAdvisor'da yalnızca {photos} fotoğrafınız var ve gezginin ilk baktığı şey fotoğraflar.",

@@ -1699,7 +1699,7 @@ class PlatformOutreachService
                 'google' => $a['google'] ?? [],
                 'social' => array_keys((array) ($data['site']['social'] ?? [])),
                 'scorecard' => OutreachAudit::scorecard($l, $data),
-                'category' => $cat,
+                'category' => $cat, 'category_label' => OutreachAudit::publicCategory($cat) ?: (OutreachAudit::GENERIC_CATEGORY[$lang] ?? 'tour'),
             ];
         }
         return ['lead' => $l, 'lang' => $lang, 'items' => $items, 'audit' => $audit, 'has_whatsapp' => (string) $set['whatsapp_number'] !== ''];
