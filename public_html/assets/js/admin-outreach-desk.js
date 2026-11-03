@@ -9,13 +9,14 @@
     const flag = c => /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1E6 + x.charCodeAt(0) - 65)) : '🌐';
     const countryName = c => c === '?' || !c ? 'دولة مش معروفة' : (COUNTRY[c] || c);
     const LANG = { ar: 'عربي', en: 'English', tr: 'Türkçe' };
-    const VIEWS = [['todo', 'لسه ماتواصلتش', 'todo'], ['contacted', 'اتواصلت', 'contacted'], ['hot', 'ردّوا / مهتمين', 'hot'], ['closed', 'اتقفلت', 'closed'], ['all', 'الكل', null]];
+    const VIEWS = [['todo', 'لسه ماتواصلتش', 'todo'], ['followup', '⏰ محتاجة متابعة', 'followup'], ['contacted', 'اتواصلت', 'contacted'], ['hot', 'ردّوا / مهتمين', 'hot'], ['won', '🎉 جرّبوا / اشتركوا', 'won'], ['closed', 'اتقفلت', 'closed'], ['all', 'الكل', null]];
     const ACTIONS = [
         ['contacted', '✅ بعتّ على واتساب', 'تم الإرسال على واتساب'], ['replied', '💬 ردّوا', 'ردّوا'], ['interested', '🔥 مهتمين', 'مهتمين'],
+        ['trial', '🧪 جرّبوا المنصة', 'جرّبوا المنصة'], ['subscribed', '🎉 اشتركوا', 'اشتركوا'],
         ['call_back', '⏰ أكلمهم تاني', 'هكلمهم تاني'], ['not_interested', '🚫 مش مهتمين', 'مش مهتمين'], ['wrong_number', '📵 الرقم غلط', 'الرقم غلط'],
     ];
     const ACTION_LABEL = Object.fromEntries(ACTIONS.map(([k, , l]) => [k, l]));
-    const BUCKET = { contacted: 'contacted', call_back: 'contacted', replied: 'hot', interested: 'hot', not_interested: 'closed', wrong_number: 'closed' };
+    const BUCKET = { contacted: 'contacted', call_back: 'contacted', replied: 'hot', interested: 'hot', trial: 'hot', subscribed: 'hot', not_interested: 'closed', wrong_number: 'closed' };
     const STATUS = { new: 'جديدة', no_email: 'من غير إيميل', contacted: 'اتبعتلها إيميل', finished: 'خلصت رسايل الإيميل', replied: 'ردّت', interested: 'مهتمة', signed_up: 'سجّلت في المنصة 🎉', unsubscribed: 'ألغت الاشتراك', bounced: 'الإيميل راجع', paused: 'متوقفة' };
 
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
@@ -64,12 +65,12 @@
         const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
         let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); return ok;
     };
-    const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, contacted: 0, hot: 0, closed: 0 };
+    const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, contacted: 0, followup: 0, hot: 0, won: 0, closed: 0 };
 
     const card = r => {
         const dir = r.language === 'ar' ? 'rtl' : 'ltr';
         const d = r.desk || {};
-        const last = d.action ? `<div class="dk-last">آخر نتيجة: <b>${esc(ACTION_LABEL[d.action] || d.action)}</b> · ${esc(d.at || '')} · ${esc(d.by || '')}${d.note ? ' · ' + esc(d.note) : ''}</div>` : '';
+        const last = d.action ? `<div class="dk-last">آخر نتيجة: <b>${esc(ACTION_LABEL[d.action] || d.action)}</b> · ${esc(d.at || '')} · ${esc(d.by || '')}${d.note ? ' · ' + esc(d.note) : ''}${state.view === 'followup' ? ' · 💡 تابعي بالرسالة التانية (الخدمات)' : ''}</div>` : '';
         const emailInfo = r.email_step > 0 ? `اتبعتلها إيميل ${r.email_step} (${esc(r.email_sent_at || '')})${r.email_clicked ? ' · ضغطت على اللينك' : ''}${r.report_viewed ? ' · فتحت التقرير' : ''}` : 'ماتبعتلهاش إيميل لسه';
         const meta = [r.city, r.category && String(r.category).split(',')[0]].filter(Boolean).map(esc).join(' · ');
         const rating = r.rating ? `⭐ ${Number(r.rating).toFixed(1)}${r.reviews ? ' (' + Number(r.reviews).toLocaleString('en') + ')' : ''}` : '';
@@ -137,7 +138,9 @@
     // دوست «افتح واتساب»: بنسجّل إنها بعتت باسمها (إلا لو الشركة عليها نتيجة أحسن زي «ردّوا»)، واللينك بيفتح الشات بالرسالة جاهزة
     const autoLogSend = async el => {
         const id = Number(el.dataset.id), row = rows.find(x => x.id === id);
-        if (!row || ['contacted', 'replied', 'interested', 'not_interested', 'wrong_number'].includes(row.desk?.action)) return;
+        // في «محتاجة متابعة» فتح واتساب تاني = متابعة جديدة: بنسجّلها عشان المهلة تبدأ من جديد
+        const skip = ['replied', 'interested', 'trial', 'subscribed', 'not_interested', 'wrong_number'].concat(state.view === 'followup' ? [] : ['contacted']);
+        if (!row || skip.includes(row.desk?.action)) return;
         try {
             await mark(id, 'contacted', el.querySelector('.dk-note')?.value || 'فتحت واتساب بالرسالة');
             toast('اتسجّل إنك بعتّي على واتساب ✅ لو ماضغطتيش إرسال اضغطي «تراجع»');

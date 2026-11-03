@@ -113,6 +113,45 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame(1, (int) $this->db->query('SELECT COUNT(*) AS n FROM platform_desk_actions WHERE lead_id = ?', [$a])[0]['n']);
     }
 
+    public function testFollowUpListHoldsSendsOlderThanTwoDaysOldestFirstAndFollowingUpRestartsTheClock(): void
+    {
+        $old = $this->lead('Oldfollow Tours', 'EG', '+201000000011');
+        $fresh = $this->lead('Freshfollow Tours', 'EG', '+201000000012');
+        $older = $this->lead('Olderfollow Tours', 'EG', '+201000000013');
+        $back = $this->lead('Backfollow Tours', 'EG', '+201000000014');
+        foreach ([$old, $fresh, $older] as $id) {
+            $this->svc->deskAction($id, 'contacted', '', 5, 'Sara');
+        }
+        $this->svc->deskAction($back, 'call_back', '', 5, 'Sara');
+        $this->db->query('UPDATE platform_leads SET desk_at = NOW() - INTERVAL 3 DAY WHERE id = ?', [$old]);
+        $this->db->query('UPDATE platform_leads SET desk_at = NOW() - INTERVAL 9 DAY WHERE id = ?', [$older]);
+
+        $f = $this->svc->deskLeads(['country' => 'EG', 'view' => 'followup', 'q' => 'follow']);
+        $names = array_column($f['rows'], 'company');
+        $this->assertSame(['Olderfollow Tours', 'Oldfollow Tours', 'Backfollow Tours'], $names, 'oldest wait first; a fresh send is not due; "call back" is always due');
+        $eg = array_values(array_filter($f['counts'], fn ($c) => $c['country'] === 'EG'))[0];
+        $this->assertGreaterThanOrEqual(3, (int) $eg['followup']);
+
+        $this->svc->deskAction($old, 'contacted', 'follow-up sent', 5, 'Sara');
+        $names = array_column($this->svc->deskLeads(['country' => 'EG', 'view' => 'followup', 'q' => 'follow'])['rows'], 'company');
+        $this->assertNotContains('Oldfollow Tours', $names, 'after following up the company waits two more days');
+    }
+
+    public function testTrialAndSubscribedAreWinsAndStopTheEmailSequence(): void
+    {
+        $a = $this->lead('Trialwin Tours', 'EG', '+201000000021');
+        $b = $this->lead('Subwin Tours', 'EG', '+201000000022');
+        $this->svc->deskAction($a, 'trial', 'started the trial', 5, 'Sara');
+        $this->svc->deskAction($b, 'subscribed', '', 5, 'Sara');
+        $st = fn (int $id) => $this->db->query('SELECT status FROM platform_leads WHERE id = ?', [$id])[0]['status'];
+        $this->assertSame('interested', $st($a));
+        $this->assertSame('signed_up', $st($b));
+        $won = array_column($this->svc->deskLeads(['country' => 'EG', 'view' => 'won', 'q' => 'win'])['rows'], 'company');
+        sort($won);
+        $this->assertSame(['Subwin Tours', 'Trialwin Tours'], $won);
+        $this->assertNotContains('Trialwin Tours', array_column($this->svc->deskLeads(['country' => 'EG', 'view' => 'followup', 'q' => 'win'])['rows'], 'company'));
+    }
+
     public function testUndoClearsASendButNeverAReplyAndIsLogged(): void
     {
         $a = $this->lead('Alpha Tours', 'EG', '+201000000001');

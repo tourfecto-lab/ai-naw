@@ -1956,7 +1956,16 @@ class PlatformOutreachService
     // ------------------------------------------------------------------ مكتب التواصل: موظفة بتبعت على واتساب يدويًا
 
     /** نتايج التواصل اللي الموظفة بتسجّلها */
-    public const DESK_ACTIONS = ['contacted', 'replied', 'interested', 'not_interested', 'wrong_number', 'call_back'];
+    public const DESK_ACTIONS = ['contacted', 'replied', 'interested', 'not_interested', 'wrong_number', 'call_back', 'trial', 'subscribed'];
+
+    /** بعد كام يوم من آخر رسالة واتساب بدون رد الشركة تظهر في «محتاجة متابعة» */
+    public const FOLLOWUP_AFTER_DAYS = 2;
+
+    /** «محتاجة متابعة»: اتبعتلها واتساب من يومين أو أكتر ومفيش نتيجة بعدها، أو الموظفة قالت «أكلمهم تاني» */
+    private static function followupSql(): string
+    {
+        return "(desk_action='call_back' OR (desk_action='contacted' AND desk_at <= NOW() - INTERVAL " . (int) self::FOLLOWUP_AFTER_DAYS . ' DAY))';
+    }
 
     /** رقم الواتساب بالصيغة الدولية (أرقام بس) من الرقم المتخزّن: +20 / 0020 / أو محلي بيبدأ بصفر. '' لو مش واضح */
     public static function deskPhone(?string $phone, ?string $country): string
@@ -1989,7 +1998,9 @@ class PlatformOutreachService
         $rows = $this->q("SELECT COALESCE(country,'?') country, COUNT(*) total,
                 SUM(desk_action IS NULL AND status<>'unsubscribed') todo,
                 SUM(desk_action IN ('contacted','call_back')) contacted,
+                SUM(" . self::followupSql() . ") followup,
                 SUM(desk_action IN ('replied','interested')) hot,
+                SUM(desk_action IN ('trial','subscribed')) won,
                 SUM(desk_action IN ('not_interested','wrong_number')) closed
             FROM platform_leads WHERE phone IS NOT NULL AND phone<>'' AND status<>'invalid'
             GROUP BY COALESCE(country,'?') ORDER BY total DESC")->fetchAll(PDO::FETCH_ASSOC);
@@ -2064,7 +2075,9 @@ class PlatformOutreachService
         $views = [
             'todo' => "desk_action IS NULL AND status<>'unsubscribed'",
             'contacted' => "desk_action IN ('contacted','call_back')",
+            'followup' => self::followupSql(),
             'hot' => "desk_action IN ('replied','interested')",
+            'won' => "desk_action IN ('trial','subscribed')",
             'closed' => "desk_action IN ('not_interested','wrong_number')",
         ];
         if (isset($views[$view])) {
@@ -2087,7 +2100,9 @@ class PlatformOutreachService
         $per = 25;
         $w = implode(' AND ', $where);
         $total = (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
-        $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY (desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
+        // المتابعة: الأقدم أولًا (اللي استنّت أكتر)
+        $order = $view === 'followup' ? 'desk_at ASC, id' : '(desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC';
+        $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY {$order} LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
 
         $set = $this->getSettings();
         $set['ai_opener'] = '0'; // الرسالة بتتعمل لكل شركة في القايمة: من غير مكالمة ذكاء صناعي لكل واحدة
@@ -2196,7 +2211,10 @@ class PlatformOutreachService
         $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $leadId]);
         $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, $action, $note !== '' ? $note : null]);
         // اللي ردّ أو اهتم أو رفض مايفضلش يوصله إيميل تلقائي
-        $map = ['replied' => 'replied', 'interested' => 'interested', 'not_interested' => 'paused'];
+        $map = ['replied' => 'replied', 'interested' => 'interested', 'not_interested' => 'paused', 'trial' => 'interested'];
+        if ($action === 'subscribed') {
+            $map['subscribed'] = 'signed_up';
+        }
         if (isset($map[$action]) && in_array($l['status'], ['new', 'no_email', 'contacted', 'finished', 'interested', 'replied', 'paused'], true)) {
             $this->setLeadStatus($leadId, $map[$action], 'مكتب التواصل: ' . $action . ($note !== '' ? ' - ' . $note : ''));
         }
