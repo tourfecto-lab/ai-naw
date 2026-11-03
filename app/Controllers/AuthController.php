@@ -1764,6 +1764,15 @@ HTML;
                 . '<script defer src="' . htmlspecialchars(asset_v('/assets/js/onboarding-smart.js'), ENT_QUOTES, 'UTF-8') . '"></script>';
         }
 
+        $authSeoHead = '';
+        if ($isRegister) {
+            $authBase = class_exists('PublicLayout') ? PublicLayout::baseUrl() : 'https://tourfecto.pro';
+            $authDesc = $lang === 'ar'
+                ? 'سجّل في Tourfecto مجانًا: حجوزات وتقييمات وسيو وتسويق لشركات الرحلات في منصة واحدة.'
+                : 'Sign up for Tourfecto: bookings, reviews, SEO and marketing for tour companies in one platform.';
+            $authSeoHead = '<meta name="description" content="' . htmlspecialchars($authDesc, ENT_QUOTES, 'UTF-8') . '">'
+                . '<link rel="canonical" href="' . htmlspecialchars($authBase . '/register', ENT_QUOTES, 'UTF-8') . '">';
+        }
         return <<<HTML
 <!DOCTYPE html>
 <html lang="{$lang}" dir="{$dir}">
@@ -1771,6 +1780,7 @@ HTML;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{$title} | {$appName}</title>
+    {$authSeoHead}
     {$faviconHtml}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

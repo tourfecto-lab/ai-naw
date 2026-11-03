@@ -18,6 +18,12 @@ class DocumentationController extends Controller
         $brandHtml = site_brand_html();
         $lang = function_exists('current_lang') ? current_lang() : 'ar';
         $dir = function_exists('current_dir') ? current_dir() : 'rtl';
+        $base = class_exists('PublicLayout') ? PublicLayout::baseUrl() : 'https://tourfecto.pro';
+        $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/docs'), PHP_URL_PATH);
+        $canonical = htmlspecialchars($base . ($path !== '' ? $path : '/docs'), ENT_QUOTES, 'UTF-8');
+        $metaDesc = htmlspecialchars($lang === 'ar'
+            ? "{$title} - توثيق {$appName} لشركات الرحلات: دليل الاستخدام وواجهة API وخطوات الربط."
+            : "{$title} - {$appName} documentation for tour companies: user guide, API reference and integration steps.", ENT_QUOTES, 'UTF-8');
 
         return <<<HTML
 <!DOCTYPE html>
@@ -31,6 +37,8 @@ class DocumentationController extends Controller
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <title>{$title} | {$appName}</title>
+    <meta name="description" content="{$metaDesc}">
+    <link rel="canonical" href="{$canonical}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <script src="/assets/js/tf-theme.js?v=20261016"></script>

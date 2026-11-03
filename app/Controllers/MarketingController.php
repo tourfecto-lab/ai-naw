@@ -144,8 +144,8 @@ class MarketingController extends Controller
         $v2 = $this->homeV2($faq, $this->fromPrice());
         if ($v2 !== '') {
             $this->out(PublicLayout::render([
-                'title' => $this->t(['منصة شركات الرحلات: حجوزات، تقييمات، سيو وتسويق بالذكاء الاصطناعي', 'The platform for tour companies: bookings, reviews, SEO and marketing with AI']),
-                'description' => $this->t(['Tourfecto لشركات الرحلات والسياحة: ردود على التقييمات بلغة كل سائح، مركز سيو بيفحص صفحات رحلاتك، موقع حجز ودفع، شات واتساب 24 ساعة، وتسويق - من منصة واحدة.', 'Tourfecto for tour and travel companies: review replies in every traveller’s language, an SEO hub that audits your tour pages, a booking site with payments, 24/7 WhatsApp chat and marketing - in one platform.']),
+                'title' => $this->t(['حجوزات وتقييمات وسيو لشركات الرحلات', 'Bookings, reviews and SEO for tour companies']),
+                'description' => $this->t(['منصة واحدة لشركات الرحلات: ردود على التقييمات بكل اللغات، فحص سيو لصفحات رحلاتك، موقع حجز ودفع، وشات واتساب 24 ساعة.', 'One platform for tour companies: review replies in every language, SEO audits of your tour pages, a booking site with payments and 24/7 WhatsApp chat.']),
                 'path' => '/',
                 'head' => '<link rel="stylesheet" href="' . $this->e(function_exists('asset_v') ? asset_v('/assets/css/home-v2.css') : '/assets/css/home-v2.css') . '">',
                 'ogImage' => PublicLayout::baseUrl() . '/assets/brand/og-image.png',
