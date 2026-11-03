@@ -200,12 +200,47 @@ class OutreachAudit
         return trim((string) preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $name));
     }
 
-    public static function googleFacts(?array $placesResponse): array
+    /** كلمات عامة في أسماء شركات السياحة: مش بتميّز شركة عن التانية */
+    private const NAME_GENERIC = ['tour', 'tours', 'travel', 'travels', 'trip', 'trips', 'agency', 'egypt', 'egyptian', 'cairo', 'the', 'and', 'for', 'company', 'co', 'group', 'holidays', 'vacations', 'safari', 'excursions', 'سياحة', 'للسياحة', 'مصر', 'رحلات', 'للرحلات', 'شركة'];
+
+    /** اسم النتيجة من Places هو نفس اسم الشركة؟ (Find Place بيرجّع أقرب نتيجة حتى لو نشاط تاني) */
+    public static function placeNameMatches(string $company, string $placeName): bool
+    {
+        $tokens = static function (string $s): array {
+            $s = mb_strtolower(self::cleanName($s));
+            return array_values(array_filter(preg_split('/[^\p{L}\p{N}]+/u', $s) ?: [], static fn ($t) => $t !== ''));
+        };
+        $want = $tokens($company);
+        $have = $tokens($placeName);
+        $key = array_values(array_diff($want, self::NAME_GENERIC));
+        if (!$key) {
+            $key = $want;
+        }
+        if (!$key || !$have) {
+            return false;
+        }
+        // كل الكلمات المميّزة في اسم الشركة لازم تكون في اسم النتيجة، واسم النتيجة مايزيدش عنها بكلمة مميّزة تانية كتير
+        if (array_diff($key, $have)) {
+            return false;
+        }
+        $extra = array_diff($have, $want, self::NAME_GENERIC);
+        return count($extra) <= 1;
+    }
+
+    public static function googleFacts(?array $placesResponse, string $company = ''): array
     {
         if ($placesResponse === null) {
             return ['checked' => false];
         }
         $c = $placesResponse['candidates'][0] ?? null;
+        if ($c && $company !== '') {
+            $types = array_map('strval', (array) ($c['types'] ?? []));
+            $retail = $types && !in_array('travel_agency', $types, true)
+                && array_filter($types, static fn ($t) => (bool) preg_match('/_store$|^store$|restaurant|cafe|school|bank|hospital|gym|clothing/', $t));
+            if (!self::placeNameMatches($company, (string) ($c['name'] ?? '')) || $retail) {
+                $c = null; // نشاط تاني بنفس الاسم تقريبًا: ماننسبلوش تقييمه
+            }
+        }
         if (!$c) {
             return ['checked' => true, 'found' => false];
         }

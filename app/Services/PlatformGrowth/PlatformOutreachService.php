@@ -781,7 +781,7 @@ class PlatformOutreachService
             }
         }
         $city = trim((string) ($l['city'] ?? ''));
-        $google = OutreachAudit::googleFacts(($this->places)(OutreachAudit::cleanName((string) $l['company']), $city));
+        $google = OutreachAudit::googleFacts(($this->places)(OutreachAudit::cleanName((string) $l['company']), $city), (string) $l['company']);
         // البحث بالاسم من غير مدينة ضعيف: «مالقيناش ملف» هنا مش دليل إن الشركة مالهاش ملف، فمنقولهاش في الرسالة ولا التقرير
         if ($city === '' && empty($google['found'])) {
             $google = ['checked' => false];
@@ -835,7 +835,7 @@ class PlatformOutreachService
         if ($key === '' || trim($company) === '' || !function_exists('curl_init')) {
             return null;
         }
-        $url = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?inputtype=textquery&fields=' . rawurlencode('place_id,name,rating,user_ratings_total,opening_hours,business_status')
+        $url = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json?inputtype=textquery&fields=' . rawurlencode('place_id,name,types,rating,user_ratings_total,opening_hours,business_status')
             . '&input=' . rawurlencode(trim($company . ' ' . $city)) . '&key=' . rawurlencode($key);
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_SSL_VERIFYPEER => true]);
