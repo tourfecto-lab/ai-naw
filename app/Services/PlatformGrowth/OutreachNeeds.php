@@ -363,7 +363,7 @@ class OutreachNeeds
                 $issues[] = $t['g_low'];
             }
             if (isset($byId['google_few_reviews'])) {
-                $issues[] = $fill($t['g_ta'], ['{g}' => (string) ($byId['google_few_reviews']['g_reviews'] ?? ''), '{t}' => (string) ($byId['google_few_reviews']['ta_reviews'] ?? '')]);
+                $issues[] = $fill($t['g_ta'], ['{g}' => number_format((int) ($byId['google_few_reviews']['g_reviews'] ?? 0)), '{t}' => number_format((int) ($byId['google_few_reviews']['ta_reviews'] ?? 0))]);
             }
             $body[] = $t['google'] . ' ⭐ ' . $num($g['rating']) . ' (' . number_format((int) ($g['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . ' · ' . ($issues ? implode('، ', $issues) : $t['g_ok']);
             if ($issues) {
