@@ -19,6 +19,15 @@ class OutreachAudit
 
     // ------------------------------------------------------------------ الموقع
 
+    /** هل ده رابط صفحة الشركة فعلًا؟ مش رابط افتراضي من قالب الموقع (facebook.com/facebook وinstagram.com/instagram...) ولا صفحة مشاركة */
+    public static function socialHandleOk(string $net, string $handle): bool
+    {
+        $first = strtolower(explode('/', trim($handle, '/'))[0] ?? '');
+        $generic = ['', 'facebook', 'fb', 'meta', 'facebookapp', 'instagram', 'insta', 'sharer', 'sharer.php', 'share', 'dialog', 'plugins', 'tr', 'login', 'home.php', 'policies', 'help', 'business', 'explore', 'accounts', 'about',
+            'yourpage', 'yourusername', 'yourprofile', 'yourbusiness', 'username', 'pagename', 'example'];
+        return !in_array($first, $generic, true);
+    }
+
     /**
      * فحص صفحة HTML واحدة (بيانات من الشبكة: بتتقري بس)
      */
@@ -34,10 +43,18 @@ class OutreachAudit
             'youtube' => '#href=["\']https?://(?:www\.)?youtube\.com/(?:@|c/|channel/|user/)([A-Za-z0-9._\-]+)#i',
             'linkedin' => '#href=["\']https?://(?:[a-z]{2,3}\.)?linkedin\.com/(?:company|in)/([A-Za-z0-9._\-]+)#i',
             'x' => '#href=["\']https?://(?:www\.)?(?:twitter|x)\.com/(?!intent|share|home)([A-Za-z0-9_]+)#i',
+            // صفحة الشركة على TripAdvisor (لينك أو ودجت): الرابط نفسه، مش التقييم (TripAdvisor بيحجب القراءة الآلية)
+            'tripadvisor' => '#href=["\']https?://(?:[a-z]{2,3}\.)?tripadvisor\.[a-z.]+/((?:Attraction_Review|AttractionProductReview|Hotel_Review|Restaurant_Review|ShowUserReviews|Profile|Tourism)[A-Za-z0-9._\-/%]*)#i',
         ];
         foreach ($patterns as $net => $re) {
-            if (preg_match($re, $h, $m)) {
-                $social[$net] = trim($m[1], '/');
+            if (preg_match_all($re, $h, $m)) {
+                // أول رابط حقيقي: قوالب المواقع بتحط روابط افتراضية (facebook.com/facebook) قبل رابط الشركة
+                foreach ($m[1] as $cand) {
+                    if ($net === 'tripadvisor' || self::socialHandleOk($net, $cand)) {
+                        $social[$net] = trim($cand, '/');
+                        break;
+                    }
+                }
             }
         }
         preg_match_all('/hreflang=["\']([a-z]{2})/i', $h, $hl);
@@ -72,6 +89,7 @@ class OutreachAudit
         $title = trim(html_entity_decode($tm[1] ?? '', ENT_QUOTES, 'UTF-8'));
         return [
             'social' => $social,
+            'social_v' => 2, // 2 = فحصنا TripAdvisor كمان: غيابه معناه «مش مربوط»، مش «ماعرفناش»
             'whatsapp' => $has('#(?:wa\.me/|api\.whatsapp\.com/send|whatsapp://send|web\.whatsapp\.com/send)#i'),
             'chat_widget' => $has('#(?:embed\.tawk\.to|client\.crisp\.chat|widget\.intercom\.io|livechatinc\.com|static\.zdassets\.com|code\.tidio\.co|respond\.io|getbutton\.io|elfsight\.com|jivosite\.com|smartsupp\.com|zopim)#i'),
             'booking_engine' => $has('#(?:fareharbor\.com|bokun\.io|widgets\.bokun|rezdy\.com|peek\.com|checkfront\.com|trekksoft\.com|xola\.com|ventrata\.com|bookingkit\.(?:net|de)|regiondo\.|tourcms\.com|orioly\.com|palisis|bookeo\.com|simplybook\.|turitop\.com|rezgo\.com|zaui\.|getyourguide\.com/[^"\']*widget|viator\.com/[^"\']*widget|woocommerce|wc-cart|/checkout/?["\']|/cart/?["\']|add-to-cart|shopify|book-now-form|booking-form)#i'),
@@ -290,7 +308,7 @@ class OutreachAudit
                 $add('no_chat', 'communication', 'chat', 7, ['domain' => $domain]);
             }
             // السوشيال: كل منصة لوحدها
-            $have = array_keys((array) $site['social']);
+            $have = array_values(array_diff(array_keys((array) $site['social']), ['tripadvisor'])); // TripAdvisor مش سوشيال ميديا
             if (!$have) {
                 $add('no_social', 'social', 'social', 7, ['domain' => $domain]);
             } else {
@@ -405,19 +423,29 @@ class OutreachAudit
         }
         $google['median'] = isset($audit['bench']['median_reviews']) ? (int) $audit['bench']['median_reviews'] : null;
 
-        $tripadvisor = $fromTa && ($rating !== null || $ta !== [])
-            ? ['status' => 'found', 'rating' => $rating, 'reviews' => $reviews, 'ranking' => (string) ($ta['ranking'] ?? ''), 'award' => !empty($ta['award']), 'negative' => (int) ($ta['negative'] ?? 0),
-                'url' => (string) ($ta['url'] ?? '') !== '' ? (string) $ta['url'] : ($fromTa && $mapsUrl !== '' ? $mapsUrl : '')]
-            : ['status' => 'unknown', 'rating' => null, 'reviews' => null, 'ranking' => '', 'award' => false, 'negative' => 0, 'url' => ''];
-
         // الموقع اتفحص فعلًا (ok) = نعرف روابط السوشيال اللي فيه؛ غير كده مانعرفش
         $social = is_array($site) && !empty($site['ok']) && array_key_exists('social', $site) ? (array) $site['social'] : null;
         $net = static function (string $key, string $base) use ($social): array {
             if ($social === null) {
                 return ['status' => 'unknown', 'url' => ''];
             }
-            return isset($social[$key]) ? ['status' => 'linked', 'url' => $base . ltrim((string) $social[$key], '/')] : ['status' => 'missing', 'url' => ''];
+            if (!isset($social[$key])) {
+                return ['status' => 'missing', 'url' => ''];
+            }
+            // رابط افتراضي من قالب الموقع (facebook.com/facebook): مش صفحة الشركة
+            return self::socialHandleOk($key, (string) $social[$key]) ? ['status' => 'linked', 'url' => $base . ltrim((string) $social[$key], '/')] : ['status' => 'placeholder', 'url' => ''];
         };
+
+        if ($fromTa && ($rating !== null || $ta !== [])) {
+            $tripadvisor = ['status' => 'found', 'rating' => $rating, 'reviews' => $reviews, 'ranking' => (string) ($ta['ranking'] ?? ''), 'award' => !empty($ta['award']), 'negative' => (int) ($ta['negative'] ?? 0),
+                'url' => (string) ($ta['url'] ?? '') !== '' ? (string) $ta['url'] : ($mapsUrl !== '' ? $mapsUrl : '')];
+        } else {
+            // مفيش تقييم من الاستيراد: أقصى ما نعرفه إن موقعهم رابط صفحتهم على TripAdvisor ولا لأ (من فحص بعد ما الفحص بقى يدوّر عليه)
+            $link = $net('tripadvisor', 'https://www.tripadvisor.com/');
+            $checked = is_array($site) && (int) ($site['social_v'] ?? 0) >= 2;
+            $status = $link['status'] === 'linked' ? 'linked' : ($checked && $social !== null ? 'missing' : 'unknown');
+            $tripadvisor = ['status' => $status, 'rating' => null, 'reviews' => null, 'ranking' => '', 'award' => false, 'negative' => 0, 'url' => $status === 'linked' ? $link['url'] : ''];
+        }
 
         if (empty($lead['website'])) {
             $website = ['status' => 'none'];

@@ -42,6 +42,69 @@ final class OutreachScorecardTest extends TestCase
         $this->assertSame(78, $sc['website']['score']);
     }
 
+    public function testTemplatePlaceholderSocialLinksAreNotTheCompanyPage(): void
+    {
+        $d = $this->data();
+        $d['site']['social'] = ['facebook' => 'facebook', 'instagram' => 'instagram'];
+        $sc = OutreachAudit::scorecard($this->taLead(), $d);
+        $this->assertSame('placeholder', $sc['facebook']['status'], 'facebook.com/facebook is the template default, not their page');
+        $this->assertSame('placeholder', $sc['instagram']['status']);
+        $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $sc]));
+        $this->assertStringNotContainsString('مربوط بموقعكم', $m, 'never claims a real link that is a placeholder');
+        $this->assertStringContainsString('مش بيودّي لصفحتكم', $m);
+        foreach (['facebook', 'fb', 'sharer', 'share', 'instagram', 'explore', 'yourpage'] as $generic) {
+            $this->assertFalse(OutreachAudit::socialHandleOk('facebook', $generic), $generic);
+        }
+        $this->assertTrue(OutreachAudit::socialHandleOk('facebook', 'NileDreamTours'));
+        $this->assertTrue(OutreachAudit::socialHandleOk('facebook', 'pages/Nile-Tours/123456'));
+    }
+
+    public function testParserSkipsPlaceholderLinksAndFindsTheRealOnesAndTripadvisor(): void
+    {
+        $html = '<html><body><a href="https://www.facebook.com/facebook">f</a><a href="https://www.facebook.com/NileTours">real</a>'
+            . '<a href="https://www.instagram.com/instagram">i</a><a href="https://www.instagram.com/nile.tours/">real</a>'
+            . '<a href="https://www.tripadvisor.com/Attraction_Review-g294201-d123-Reviews-Nile_Tours-Cairo.html">ta</a></body></html>';
+        $p = OutreachAudit::parsePage($html, 'https://nile.test/');
+        $this->assertSame('NileTours', $p['social']['facebook']);
+        $this->assertSame('nile.tours', $p['social']['instagram']);
+        $this->assertStringStartsWith('Attraction_Review-g294201', $p['social']['tripadvisor']);
+        $this->assertSame(2, $p['social_v']);
+
+        $only = OutreachAudit::parsePage('<a href="https://www.facebook.com/facebook">x</a>', 'https://nile.test/');
+        $this->assertArrayNotHasKey('facebook', $only['social'], 'only a placeholder: no real page');
+    }
+
+    public function testTripadvisorLinkFromTheWebsiteWhenThereIsNoImportedRating(): void
+    {
+        $lead = ['rating' => null, 'reviews' => null, 'website' => 'https://nile.test', 'maps_url' => ''];
+        $site = fn (array $social, int $v) => ['site' => ['ok' => true, 'social' => $social, 'social_v' => $v], 'audit' => ['gaps' => []]];
+        $linked = OutreachAudit::scorecard($lead, $site(['tripadvisor' => 'Attraction_Review-g1-d2-Reviews-X.html'], 2));
+        $this->assertSame('linked', $linked['tripadvisor']['status']);
+        $this->assertStringStartsWith('https://www.tripadvisor.com/Attraction_Review', $linked['tripadvisor']['url']);
+        $this->assertSame('missing', OutreachAudit::scorecard($lead, $site([], 2))['tripadvisor']['status'], 'scanned with the Tripadvisor check and no link');
+        $this->assertSame('unknown', OutreachAudit::scorecard($lead, $site([], 0))['tripadvisor']['status'], 'old scan never looked for it: unknown, not missing');
+        $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $linked]));
+        $this->assertStringContainsString('تريب أدفايزر:* ✅ مربوط بموقعكم', $m);
+        $this->assertStringNotContainsString('⭐ 4.9', $m, 'no rating is invented for a linked-only page');
+    }
+
+    public function testStaffNameIsARealNameNeverTheEmailPrefix(): void
+    {
+        $ctl = (new ReflectionClass(PlatformOutreachController::class))->newInstanceWithoutConstructor();
+        $prop = new ReflectionProperty(PlatformOutreachController::class, 'user');
+        $prop->setAccessible(true);
+        $name = new ReflectionMethod(PlatformOutreachController::class, 'staffName');
+        $label = new ReflectionMethod(PlatformOutreachController::class, 'staffLabel');
+        $name->setAccessible(true);
+        $label->setAccessible(true);
+
+        $prop->setValue($ctl, ['first_name' => 'Sara Ali', 'email' => 'sara@x.test']);
+        $this->assertSame('Sara', $name->invoke($ctl));
+        $prop->setValue($ctl, ['email' => 'tourfectonet@gmail.com']);
+        $this->assertSame('', $name->invoke($ctl), 'no name: the message falls back to the configured sender name');
+        $this->assertSame('tourfectonet', $label->invoke($ctl), 'the contact log still identifies who did it');
+    }
+
     public function testUnknownIsNotReportedAsMissing(): void
     {
         $d = $this->data();

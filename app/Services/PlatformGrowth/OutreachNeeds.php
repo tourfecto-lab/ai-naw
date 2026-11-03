@@ -184,7 +184,7 @@ class OutreachNeeds
             'check' => 'عملنا فحص مجاني لحضوركم على الإنترنت، ونتيجته *{score}/100*. ده ملخص سريع:', 'check_plain' => 'عملنا فحص مجاني لحضوركم على الإنترنت. ده ملخص سريع:',
             'google' => '🗺️ *جوجل ماب:*', 'ta' => '✈️ *تريب أدفايزر:*', 'fb' => '📘 *فيسبوك:*', 'ig' => '📸 *إنستجرام:*', 'web' => '🌐 *الموقع:*',
             'reviews' => 'تقييم', 'g_missing' => 'مالقيناش ملف لشركتكم، وده أول مكان المسافر بيدوّر فيه', 'g_hours' => 'مواعيد العمل مش مكتوبة', 'g_below' => 'أقل من متوسط منافسينكم ({median})',
-            'linked' => '✅ مربوط بموقعكم', 'not_linked' => '❌ مش مربوط بموقعكم', 'web_ok' => 'شغّال', 'web_http' => 'من غير HTTPS', 'web_mobile' => 'مش متوافق مع الموبايل', 'web_down' => 'مش بيفتح', 'web_none' => 'مفيش موقع',
+            'linked' => '✅ مربوط بموقعكم', 'not_linked' => '❌ مش مربوط بموقعكم', 'ph' => '⚠️ الرابط على موقعكم مش بيودّي لصفحتكم', 'web_ok' => 'شغّال', 'web_http' => 'من غير HTTPS', 'web_mobile' => 'مش متوافق مع الموبايل', 'web_down' => 'مش بيفتح', 'web_none' => 'مفيش موقع',
             'top' => '⚠️ *أهم حاجة لاحظناها:* {gap}', 'report' => '📄 *التقرير الكامل*: كل نقطة بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا عليا هنا وأخلّيكم تبدأوا في دقيقتين 🙌', 'cta_plain' => 'ردّوا عليا هنا لو حابين نبدأ 🙌',
         ],
         'en' => [
@@ -192,7 +192,7 @@ class OutreachNeeds
             'check' => 'We ran a free check of your online presence. Score: *{score}/100*. Quick summary:', 'check_plain' => 'We ran a free check of your online presence. Quick summary:',
             'google' => '🗺️ *Google Maps:*', 'ta' => '✈️ *Tripadvisor:*', 'fb' => '📘 *Facebook:*', 'ig' => '📸 *Instagram:*', 'web' => '🌐 *Website:*',
             'reviews' => 'reviews', 'g_missing' => "we couldn't find your business profile, and it's the first place travellers look", 'g_hours' => 'opening hours are missing', 'g_below' => 'below the median for similar companies ({median})',
-            'linked' => '✅ linked from your website', 'not_linked' => '❌ not linked from your website', 'web_ok' => 'online', 'web_http' => 'no HTTPS', 'web_mobile' => 'not mobile-friendly', 'web_down' => 'not loading', 'web_none' => 'no website',
+            'linked' => '✅ linked from your website', 'not_linked' => '❌ not linked from your website', 'ph' => '⚠️ the link on your website does not lead to your own page', 'web_ok' => 'online', 'web_http' => 'no HTTPS', 'web_mobile' => 'not mobile-friendly', 'web_down' => 'not loading', 'web_none' => 'no website',
             'top' => '⚠️ *The main thing we noticed:* {gap}', 'report' => '📄 *Full report*: every point in detail and how to fix it (free):', 'cta' => '{trial}. Reply here and I will get you started in two minutes 🙌', 'cta_plain' => 'Reply here if you would like to get started 🙌',
         ],
         'tr' => [
@@ -200,7 +200,7 @@ class OutreachNeeds
             'check' => 'Online varlığınız için ücretsiz bir analiz yaptık. Puan: *{score}/100*. Kısa özet:', 'check_plain' => 'Online varlığınız için ücretsiz bir analiz yaptık. Kısa özet:',
             'google' => '🗺️ *Google Haritalar:*', 'ta' => '✈️ *Tripadvisor:*', 'fb' => '📘 *Facebook:*', 'ig' => '📸 *Instagram:*', 'web' => '🌐 *Web sitesi:*',
             'reviews' => 'yorum', 'g_missing' => 'işletme profilinizi bulamadık; gezginlerin ilk baktığı yer burası', 'g_hours' => 'çalışma saatleri eksik', 'g_below' => 'benzer şirketlerin medyanının altında ({median})',
-            'linked' => '✅ web sitenizde bağlı', 'not_linked' => '❌ web sitenizde bağlı değil', 'web_ok' => 'açık', 'web_http' => 'HTTPS yok', 'web_mobile' => 'mobil uyumlu değil', 'web_down' => 'açılmıyor', 'web_none' => 'web siteniz yok',
+            'linked' => '✅ web sitenizde bağlı', 'not_linked' => '❌ web sitenizde bağlı değil', 'ph' => '⚠️ web sitenizdeki bağlantı sayfanıza gitmiyor', 'web_ok' => 'açık', 'web_http' => 'HTTPS yok', 'web_mobile' => 'mobil uyumlu değil', 'web_down' => 'açılmıyor', 'web_none' => 'web siteniz yok',
             'top' => '⚠️ *Fark ettiğimiz en önemli nokta:* {gap}', 'report' => '📄 *Tam rapor*: her nokta ayrıntılı ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. Buradan yazın, iki dakikada başlatalım 🙌', 'cta_plain' => 'Başlamak isterseniz buradan yazın 🙌',
         ],
     ];
@@ -241,11 +241,13 @@ class OutreachNeeds
                 $x .= ' · ' . $a['ranking'];
             }
             $lines[] = $x . (!empty($a['award']) ? ' 🏆' : '');
+        } elseif (($a['status'] ?? '') === 'linked') {
+            $lines[] = $t['ta'] . ' ' . $t['linked']; // مفيش تقييم نعرفه، بس صفحتهم مربوطة بموقعهم
         }
         foreach ([['facebook', 'fb'], ['instagram', 'ig']] as [$k, $label]) {
             $s = (string) ($sc[$k]['status'] ?? 'unknown');
             if ($s !== 'unknown') {
-                $lines[] = $t[$label] . ' ' . ($s === 'linked' ? $t['linked'] : $t['not_linked']);
+                $lines[] = $t[$label] . ' ' . ($s === 'linked' ? $t['linked'] : ($s === 'placeholder' ? $t['ph'] : $t['not_linked']));
             }
         }
         $w = (array) ($sc['website'] ?? []);

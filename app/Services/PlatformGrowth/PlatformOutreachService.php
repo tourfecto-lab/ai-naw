@@ -1906,8 +1906,8 @@ class PlatformOutreachService
      * شركات دولة معيّنة للموظفة: بياناتها ورقمها والرسالة جاهزة للنسخ (نفس رسالة الإيميل: تقرير مبدئي + لينك التقرير الكامل).
      * $f: country, view (todo|contacted|hot|closed|all), q, page. $staff: ['name' => اسم الموظفة بيتحط في توقيع الرسالة]
      */
-    /** عدد الشركات اللي لسه ماتواصلناش معاها في الدولة حسب الأولوية */
-    public function deskTiers(string $country): array
+    /** الشركات اللي لسه ماتواصلناش معاها في الدولة (اللي ليها رقم): نفس المجموعة اللي بتتقسّم عليها المستويات */
+    private function deskTodoWhere(string $country): array
     {
         $w = ["phone IS NOT NULL", "phone<>''", "status NOT IN ('invalid','unsubscribed')", 'desk_action IS NULL'];
         $a = [];
@@ -1917,7 +1917,28 @@ class PlatformOutreachService
             $w[] = 'country=?';
             $a[] = $country;
         }
-        $r = $this->q('SELECT SUM(COALESCE(priority,0)>=70) high, SUM(COALESCE(priority,0)>=45 AND COALESCE(priority,0)<70) medium, SUM(COALESCE(priority,0)<45) low FROM platform_leads WHERE ' . implode(' AND ', $w), $a)->fetch(PDO::FETCH_ASSOC) ?: [];
+        return [implode(' AND ', $w), $a];
+    }
+
+    /** حدود المستويات: أعلى 30% عالية، و35% بعدهم متوسطة. أولوية صفر مش بتبقى عالية أو متوسطة أبدًا */
+    public function deskThresholds(string $country): array
+    {
+        [$w, $a] = $this->deskTodoWhere($country);
+        $vals = array_map('intval', $this->q("SELECT COALESCE(priority,0) p FROM platform_leads WHERE {$w} ORDER BY p DESC", $a)->fetchAll(PDO::FETCH_COLUMN));
+        $n = count($vals);
+        if ($n === 0) {
+            return ['high' => 70, 'medium' => 45];
+        }
+        $at = static fn (float $share): int => $vals[max(0, min($n - 1, (int) ceil($n * $share) - 1))];
+        return ['high' => max(1, $at(0.30)), 'medium' => max(1, $at(0.65))];
+    }
+
+    /** عدد الشركات اللي لسه ماتواصلناش معاها في الدولة حسب الأولوية */
+    public function deskTiers(string $country): array
+    {
+        [$w, $a] = $this->deskTodoWhere($country);
+        $t = $this->deskThresholds($country);
+        $r = $this->q("SELECT SUM(COALESCE(priority,0)>={$t['high']}) high, SUM(COALESCE(priority,0)>={$t['medium']} AND COALESCE(priority,0)<{$t['high']}) medium, SUM(COALESCE(priority,0)<{$t['medium']}) low FROM platform_leads WHERE {$w}", $a)->fetch(PDO::FETCH_ASSOC) ?: [];
         return ['high' => (int) ($r['high'] ?? 0), 'medium' => (int) ($r['medium'] ?? 0), 'low' => (int) ($r['low'] ?? 0)];
     }
 
@@ -1956,7 +1977,9 @@ class PlatformOutreachService
             $where[] = $views[$view];
         }
         // أولوية الإرسال: high = محتاجة فعلًا وشغّالة، medium، low = قليلة الاحتياج (مش لازم نتعب فيها الأول)
-        $tierSql = ['high' => 'COALESCE(priority,0)>=70', 'medium' => 'COALESCE(priority,0)>=45 AND COALESCE(priority,0)<70', 'low' => 'COALESCE(priority,0)<45'];
+        // المستويات نسبية جوّه الدولة (أعلى 30% = عالية، اللي بعدهم 35% = متوسطة): عشان التدريج يفرّق مهما كانت الأرقام
+        $thr = $this->deskThresholds((string) ($f['country'] ?? ''));
+        $tierSql = ['high' => 'COALESCE(priority,0)>=' . $thr['high'], 'medium' => 'COALESCE(priority,0)>=' . $thr['medium'] . ' AND COALESCE(priority,0)<' . $thr['high'], 'low' => 'COALESCE(priority,0)<' . $thr['medium']];
         $tier = (string) ($f['tier'] ?? '');
         if (isset($tierSql[$tier])) {
             $where[] = $tierSql[$tier];
@@ -2033,7 +2056,7 @@ class PlatformOutreachService
                 'id' => (int) $l['id'], 'company' => OutreachAudit::cleanName((string) $l['company']), 'category' => $l['category'], 'city' => $l['city'], 'country' => $l['country'],
                 'website' => $l['website'], 'email' => $l['email'], 'rating' => $l['rating'], 'reviews' => $l['reviews'], 'language' => $l['language'], 'status' => $l['status'],
                 'score' => $data['audit']['score']['total'] ?? $l['score'], 'needs' => $needs, 'gaps' => $gaps, 'has_report' => !empty($data['audit']['score']),
-                'scorecard' => $sc, 'priority' => $prioScore, 'tier' => OutreachAudit::tier($prioScore),
+                'scorecard' => $sc, 'priority' => $prioScore, 'tier' => $prioScore >= $thr['high'] ? 'high' : ($prioScore >= $thr['medium'] ? 'medium' : 'low'),
                 'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
                 'blocked' => $blocked, 'message' => $message,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],

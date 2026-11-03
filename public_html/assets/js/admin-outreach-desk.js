@@ -28,10 +28,10 @@
         const sc = r.scorecard || {}, out = [];
         const g = sc.google || {}, a = sc.tripadvisor || {}, w = sc.website || {};
         out.push(['🗺️', 'جوجل ماب', g.status === 'found' && g.rating != null ? `⭐ ${Number(g.rating).toFixed(1)} (${num(g.reviews)} تقييم)${g.hours === false ? ' · مواعيد العمل مش مكتوبة' : ''}` : (g.status === 'missing' ? '❌ مالقيناش ملف للشركة' : null), g.status === 'missing' ? 'bad' : '']);
-        out.push(['✈️', 'تريب أدفايزر', a.status === 'found' && a.rating != null ? `⭐ ${Number(a.rating).toFixed(1)} (${num(a.reviews)} تقييم)${a.ranking ? ' · ' + esc(a.ranking) : ''}${a.award ? ' 🏆' : ''}` : null, '', a.url]);
+        out.push(['✈️', 'تريب أدفايزر', a.status === 'found' && a.rating != null ? `⭐ ${Number(a.rating).toFixed(1)} (${num(a.reviews)} تقييم)${a.ranking ? ' · ' + esc(a.ranking) : ''}${a.award ? ' 🏆' : ''}` : (a.status === 'linked' ? '✅ صفحتهم مربوطة بالموقع (التقييم مش معروف)' : (a.status === 'missing' ? 'مش مربوطة بالموقع' : null)), '', a.url]);
         [['facebook', '📘', 'فيسبوك'], ['instagram', '📸', 'إنستجرام']].forEach(([k, icon, name]) => {
             const s = sc[k] || {};
-            out.push([icon, name, s.status === 'linked' ? '✅ مربوط بالموقع' : (s.status === 'missing' ? '❌ مش مربوط بالموقع' : null), s.status === 'missing' ? 'bad' : '', s.url]);
+            out.push([icon, name, s.status === 'linked' ? '✅ مربوط بالموقع' : (s.status === 'missing' ? '❌ مش مربوط بالموقع' : (s.status === 'placeholder' ? '⚠️ الرابط على موقعهم افتراضي (مش صفحتهم)' : null)), s.status === 'missing' || s.status === 'placeholder' ? 'bad' : '', s.url]);
         });
         const webTxt = w.status === 'ok' ? `شغّال${w.score != null ? ' · الدرجة ' + w.score + '/100' : ''}${w.https === false ? ' · من غير HTTPS' : ''}${w.mobile === false ? ' · مش متوافق مع الموبايل' : ''}` : (w.status === 'down' ? '❌ مش بيفتح' : (w.status === 'none' ? '❌ مفيش موقع' : null));
         out.push(['🌐', 'الموقع', webTxt, w.status === 'down' || w.status === 'none' ? 'bad' : '']);

@@ -57,11 +57,20 @@ class PlatformOutreachController extends Controller
     /** اسم الموظفة في توقيع الرسالة: أول كلمة من اسمها (أو اسم الإيميل) */
     private function staffName(): string
     {
-        $n = trim((string) ($this->user['name'] ?? ''));
-        if ($n === '') {
-            $n = (string) strstr((string) ($this->user['email'] ?? ''), '@', true);
+        // اسم حقيقي بس: لو الحساب من غير اسم، الرسالة بتتوقّع باسم المرسل المظبوط في إعدادات تسويق المنصة (مش جزء من الإيميل)
+        foreach (['first_name', 'name'] as $k) {
+            $n = trim((string) ($this->user[$k] ?? ''));
+            if ($n !== '') {
+                return trim((string) (preg_split('/\s+/u', $n)[0] ?? ''));
+            }
         }
-        return trim((string) (preg_split('/\s+/u', $n)[0] ?? ''));
+        return '';
+    }
+
+    /** اسم الموظفة في سجل التواصل: الاسم لو موجود، وإلا بداية إيميلها (للتعريف بس، مش في الرسالة) */
+    private function staffLabel(): string
+    {
+        return $this->staffName() ?: ((string) strstr((string) ($this->user['email'] ?? ''), '@', true) ?: 'staff');
     }
 
     /** GET /admin/outreach-desk - مكتب التواصل: موظفة المبيعات بتبعت على واتساب من رسايل جاهزة */
@@ -100,7 +109,7 @@ class PlatformOutreachController extends Controller
             return $e;
         }
         try {
-            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffName() ?: 'staff');
+            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffLabel());
             return $this->success($r);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
@@ -494,9 +503,9 @@ class PlatformOutreachController extends Controller
             return '';
         }
         $T = [
-            'ar' => ['title' => 'حضوركم على المنصات', 'reviews' => 'تقييم', 'g_missing' => 'مالقيناش ملف للشركة على Google Maps', 'hours' => 'مواعيد العمل مش مكتوبة', 'linked' => 'مربوط بموقعكم', 'not_linked' => 'مش مربوط بموقعكم', 'ok' => 'شغّال', 'http' => 'من غير HTTPS', 'mobile' => 'مش متوافق مع الموبايل', 'down' => 'مش بيفتح', 'none' => 'مفيش موقع', 'web' => 'الموقع', 'score' => 'الدرجة'],
-            'en' => ['title' => 'Your presence on the platforms', 'reviews' => 'reviews', 'g_missing' => "We couldn't find a Google Maps profile for the company", 'hours' => 'opening hours are missing', 'linked' => 'linked from your website', 'not_linked' => 'not linked from your website', 'ok' => 'online', 'http' => 'no HTTPS', 'mobile' => 'not mobile-friendly', 'down' => 'not loading', 'none' => 'no website', 'web' => 'Website', 'score' => 'Score'],
-            'tr' => ['title' => 'Platformlardaki varlığınız', 'reviews' => 'yorum', 'g_missing' => 'Şirket için Google Haritalar profili bulamadık', 'hours' => 'çalışma saatleri eksik', 'linked' => 'web sitenizde bağlı', 'not_linked' => 'web sitenizde bağlı değil', 'ok' => 'açık', 'http' => 'HTTPS yok', 'mobile' => 'mobil uyumlu değil', 'down' => 'açılmıyor', 'none' => 'web siteniz yok', 'web' => 'Web sitesi', 'score' => 'Puan'],
+            'ar' => ['title' => 'حضوركم على المنصات', 'reviews' => 'تقييم', 'g_missing' => 'مالقيناش ملف للشركة على Google Maps', 'hours' => 'مواعيد العمل مش مكتوبة', 'linked' => 'مربوط بموقعكم', 'not_linked' => 'مش مربوط بموقعكم', 'ph' => 'الرابط على موقعكم مش بيودّي لصفحتكم', 'ok' => 'شغّال', 'http' => 'من غير HTTPS', 'mobile' => 'مش متوافق مع الموبايل', 'down' => 'مش بيفتح', 'none' => 'مفيش موقع', 'web' => 'الموقع', 'score' => 'الدرجة'],
+            'en' => ['title' => 'Your presence on the platforms', 'reviews' => 'reviews', 'g_missing' => "We couldn't find a Google Maps profile for the company", 'hours' => 'opening hours are missing', 'linked' => 'linked from your website', 'not_linked' => 'not linked from your website', 'ph' => 'the link on your website does not lead to your own page', 'ok' => 'online', 'http' => 'no HTTPS', 'mobile' => 'not mobile-friendly', 'down' => 'not loading', 'none' => 'no website', 'web' => 'Website', 'score' => 'Score'],
+            'tr' => ['title' => 'Platformlardaki varlığınız', 'reviews' => 'yorum', 'g_missing' => 'Şirket için Google Haritalar profili bulamadık', 'hours' => 'çalışma saatleri eksik', 'linked' => 'web sitenizde bağlı', 'not_linked' => 'web sitenizde bağlı değil', 'ph' => 'web sitenizdeki bağlantı sayfanıza gitmiyor', 'ok' => 'açık', 'http' => 'HTTPS yok', 'mobile' => 'mobil uyumlu değil', 'down' => 'açılmıyor', 'none' => 'web siteniz yok', 'web' => 'Web sitesi', 'score' => 'Puan'],
         ][$lang] ?? [];
         if (!$T) {
             return '';
@@ -513,6 +522,9 @@ class PlatformOutreachController extends Controller
         $a = (array) ($sc['tripadvisor'] ?? []);
         if (($a['status'] ?? '') === 'found' && ($a['rating'] ?? null) !== null) {
             $rows[] = ['✈️', 'Tripadvisor', sprintf($stars($a['rating'], $a['reviews'] ?? 0), $T['reviews']) . (!empty($a['ranking']) ? ' · ' . $a['ranking'] : '') . (!empty($a['award']) ? ' 🏆' : '')];
+        } elseif (($a['status'] ?? '') === 'linked') {
+            $u = (string) ($a['url'] ?? '');
+            $rows[] = ['✈️', 'Tripadvisor', '✅ ' . $T['linked'], preg_match('#^https://www\.tripadvisor\.com/#', $u) ? $u : ''];
         }
         foreach ([['facebook', '📘', 'Facebook'], ['instagram', '📸', 'Instagram']] as [$k, $icon, $name]) {
             $s = (string) ($sc[$k]['status'] ?? 'unknown');
@@ -521,7 +533,7 @@ class PlatformOutreachController extends Controller
             }
             $url = (string) ($sc[$k]['url'] ?? '');
             $ok = $s === 'linked';
-            $rows[] = [$icon, $name, ($ok ? '✅ ' : '❌ ') . ($ok ? $T['linked'] : $T['not_linked']), $ok && preg_match('#^https://www\.(facebook|instagram)\.com/#', $url) ? $url : ''];
+            $rows[] = [$icon, $name, $s === 'placeholder' ? '⚠️ ' . $T['ph'] : (($ok ? '✅ ' : '❌ ') . ($ok ? $T['linked'] : $T['not_linked'])), $ok && preg_match('#^https://www\.(facebook|instagram)\.com/#', $url) ? $url : ''];
         }
         $w = (array) ($sc['website'] ?? []);
         $ws = (string) ($w['status'] ?? 'unknown');

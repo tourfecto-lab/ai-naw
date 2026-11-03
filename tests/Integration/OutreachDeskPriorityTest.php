@@ -75,6 +75,26 @@ final class OutreachDeskPriorityTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $t['low']);
     }
 
+    public function testTiersAreRelativeToTheCountryNotFixedNumbers(): void
+    {
+        foreach ([90, 80, 70, 60, 50, 40, 30, 20, 10, 5] as $i => $p) {
+            $this->lead('Lead Number' . $i, 10, [5], $p);
+        }
+        $t = $this->svc->deskTiers('EG');
+        $this->assertSame(['high' => 3, 'medium' => 4, 'low' => 3], $t, 'top 30% / next 35% / the rest, whatever the numbers are');
+        $this->assertSame(['high' => 70, 'medium' => 30], $this->svc->deskThresholds('EG'));
+        $this->assertSame(3, $this->svc->deskLeads(['country' => 'EG', 'tier' => 'high', 'q' => 'prio.test'])['total']);
+    }
+
+    public function testNoNeedIsNeverHighOrMediumEvenWhenEveryoneIsAtZero(): void
+    {
+        foreach ([0, 0, 0] as $i => $p) {
+            $this->lead('Zero Number' . $i, 10, [], $p);
+        }
+        $t = $this->svc->deskTiers('EG');
+        $this->assertSame(['high' => 0, 'medium' => 0, 'low' => 3], $t);
+    }
+
     public function testPriorityIsComputedOnceForLeadsScannedBeforeTheFeature(): void
     {
         $id = $this->lead('Old Scan', 800, [8, 7, 6], null);
