@@ -24,6 +24,7 @@ final class OutreachDeskPriorityTest extends TestCase
             $this->markTestSkipped('DB غير متاحة: ' . $e->getMessage());
         }
         $this->clean();
+        $this->svc->deskLeads(['country' => 'ZZ']); // the one-time priority/weak backfills must run before this test's own leads exist
     }
 
     protected function tearDown(): void
