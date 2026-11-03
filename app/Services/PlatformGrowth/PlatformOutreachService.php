@@ -730,9 +730,10 @@ class PlatformOutreachService
             $this->backfillCountries();
             $this->settings->set('outreach_country_v1', date('Y-m-d H:i:s'));
         }
-        if ($this->settings->get('outreach_audit_v4', '') === '') {
+        if ($this->settings->get('outreach_audit_v5', '') === '') {
+            // v5: Google Maps rating is kept only when the matched place name is the company's (placeNameMatches)
             $this->q("UPDATE platform_leads SET scanned_at=NULL WHERE step=0 AND status IN ('new','no_email')");
-            $this->settings->set('outreach_audit_v4', date('Y-m-d H:i:s'));
+            $this->settings->set('outreach_audit_v5', date('Y-m-d H:i:s'));
         }
         $start = time();
         $done = 0;
