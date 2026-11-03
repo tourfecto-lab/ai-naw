@@ -52,9 +52,14 @@
             <div class="dk-badges"><span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}</div></div>`;
         if (r.blocked) return `<article class="dk-card blocked" data-id="${r.id}">${head}<div class="dk-block">🚫 الشركة دي ألغت الاشتراك: ممنوع التواصل معاها بأي وسيلة.</div></article>`;
         const phone = r.phone_intl || r.phone;
+        // «اتبعتت على واتساب» + اسم الموظفة والوقت، جنب الزرار؛ وتراجع لو فتحت واتساب وماضغطتش إرسال
+        const sentLabel = d.action === 'contacted' ? 'اتبعتت على واتساب' : (ACTION_LABEL[d.action] || '');
+        const sent = d.action ? `<span class="dk-sent ${BUCKET[d.action] === 'hot' ? 'hot' : ''}">${d.action === 'contacted' ? '✅' : '•'} ${esc(sentLabel)} · <b>${esc(d.by || '')}</b> · ${esc(d.at || '')}</span>${d.action === 'contacted' || d.action === 'call_back' ? '<button class="dk-btn xs" data-undo title="لو فتحتي واتساب وماضغطتيش إرسال">↩ تراجع</button>' : ''}` : '';
         const details = `<div class="dk-col">
             <div class="dk-phone"><span class="dk-label">📞 الرقم</span><b dir="ltr">${esc(phone)}</b>
-                <button class="dk-btn" data-copy-phone="${esc(phone)}">📋 نسخ الرقم</button>${r.wa_url ? `<a class="dk-btn green" href="${esc(r.wa_url)}" target="_blank" rel="noopener noreferrer">فتح واتساب</a>` : '<span class="dk-muted">(الرقم مش بصيغة دولية: انسخيه وافتحي واتساب بنفسك)</span>'}</div>
+                <button class="dk-btn" data-copy-phone="${esc(phone)}">📋 نسخ الرقم</button>${r.wa_url ? `<a class="dk-btn green" data-wa href="${esc(r.wa_url)}" target="_blank" rel="noopener noreferrer">${r.wa_has_text ? '💬 افتح واتساب بالرسالة' : '💬 افتح واتساب'}</a>` : '<span class="dk-muted">(الرقم مش بصيغة دولية: انسخيه وافتحي واتساب بنفسك)</span>'}
+                ${sent}</div>
+            ${r.wa_url && !r.wa_has_text ? '<div class="dk-muted">الرسالة طويلة: هيفتح الشات فاضي، انسخي الرسالة من تحت والصقيها.</div>' : ''}
             <div class="dk-line"><span class="dk-label">✉️ الإيميل</span><span dir="ltr">${esc(r.email || '—')}</span>${r.email ? `<button class="dk-btn xs" data-copy-phone="${esc(r.email)}">نسخ</button>` : ''}</div>
             <div class="dk-line"><span class="dk-label">🌐 الموقع</span>${r.website ? `<a href="${esc(r.website)}" target="_blank" rel="noopener noreferrer" dir="ltr">${esc(r.website)}</a>` : '—'}</div>
             <div class="dk-line"><span class="dk-label">📊 الدرجة الرقمية</span><b>${r.score != null ? esc(r.score) + '/100' : '—'}</b></div>
@@ -92,20 +97,33 @@
     const mark = async (id, action, note) => {
         const row = rows.find(x => x.id === id); if (!row) return;
         const r = await api('/api/admin/outreach-desk/leads/' + id + '/action', { action, note });
-        const c = cur(), prev = row.desk?.action ? BUCKET[row.desk.action] : 'todo', next = BUCKET[action];
+        const c = cur(), prev = row.desk?.action ? BUCKET[row.desk.action] : 'todo', next = action === 'undo' ? 'todo' : BUCKET[action];
         if (prev !== next) { c[prev] = Math.max(0, (c[prev] || 0) - 1); c[next] = (c[next] || 0) + 1; }
         row.desk = r;
         const el = root.querySelector(`.dk-card[data-id="${id}"]`);
         if (el) { el.outerHTML = card(row); }
         const tabs = root.querySelector('.dk-tabs'); if (tabs) tabs.innerHTML = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l} <b>${key ? (c[key] || 0) : (c.total || 0)}</b></button>`).join('');
-        toast('اتسجّل: ' + (ACTION_LABEL[action] || action) + ' ✅');
+        toast(action === 'undo' ? 'اتمسح تسجيل الإرسال ✅' : 'اتسجّل: ' + (ACTION_LABEL[action] || action) + ' ✅');
+    };
+
+    // دوست «افتح واتساب»: بنسجّل إنها بعتت باسمها (إلا لو الشركة عليها نتيجة أحسن زي «ردّوا»)، واللينك بيفتح الشات بالرسالة جاهزة
+    const autoLogSend = async el => {
+        const id = Number(el.dataset.id), row = rows.find(x => x.id === id);
+        if (!row || ['contacted', 'replied', 'interested', 'not_interested', 'wrong_number'].includes(row.desk?.action)) return;
+        try {
+            await mark(id, 'contacted', el.querySelector('.dk-note')?.value || 'فتحت واتساب بالرسالة');
+            toast('اتسجّل إنك بعتّي على واتساب ✅ لو ماضغطتيش إرسال اضغطي «تراجع»');
+        } catch (err) { toast(err.message, true); }
     };
 
     const bind = () => {
         root.addEventListener('click', async e => {
+            const wa = e.target.closest('a[data-wa]');
+            if (wa) { autoLogSend(wa.closest('.dk-card')); return; } // اللينك نفسه بيفتح واتساب (من غير preventDefault)
             const t = e.target.closest('button'); if (!t) return;
             const cardEl = t.closest('.dk-card');
             try {
+                if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }
                 if (t.dataset.country) { state.country = t.dataset.country; state.view = 'todo'; state.page = 1; store.set('dk-country', state.country); return await load(); }
                 if (t.dataset.view) { state.view = t.dataset.view; state.page = 1; return await load(); }
                 if (t.dataset.page) { state.page += Number(t.dataset.page); return await load(); }

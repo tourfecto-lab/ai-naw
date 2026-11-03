@@ -1964,11 +1964,21 @@ class PlatformOutreachService
                     Logger::warning('Outreach desk message failed', ['lead' => $l['id'], 'error' => $e->getMessage()]);
                 }
             }
+            // لينك واتساب بالرسالة جاهزة جوّه الشات؛ لو طويلة قوي نفتح الشات من غيرها والموظفة بتلصقها (متصفحات كتير بتقطع اللينكات الطويلة)
+            $waUrl = $digits !== '' && !$blocked ? 'https://wa.me/' . $digits : '';
+            $waText = false;
+            if ($waUrl !== '' && $message !== '') {
+                $withText = $waUrl . '?text=' . rawurlencode($message);
+                if (strlen($withText) <= 6000) {
+                    $waUrl = $withText;
+                    $waText = true;
+                }
+            }
             $out[] = [
                 'id' => (int) $l['id'], 'company' => OutreachAudit::cleanName((string) $l['company']), 'category' => $l['category'], 'city' => $l['city'], 'country' => $l['country'],
                 'website' => $l['website'], 'email' => $l['email'], 'rating' => $l['rating'], 'reviews' => $l['reviews'], 'language' => $l['language'], 'status' => $l['status'],
                 'score' => $data['audit']['score']['total'] ?? $l['score'], 'needs' => $needs, 'gaps' => $gaps, 'has_report' => !empty($data['audit']['score']),
-                'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $digits !== '' && !$blocked ? 'https://wa.me/' . $digits : '',
+                'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
                 'blocked' => $blocked, 'message' => $message,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
@@ -1983,7 +1993,7 @@ class PlatformOutreachService
      */
     public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName): array
     {
-        if (!in_array($action, self::DESK_ACTIONS, true)) {
+        if ($action !== 'undo' && !in_array($action, self::DESK_ACTIONS, true)) {
             throw new InvalidArgumentException('نتيجة غير معروفة');
         }
         $l = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [$leadId])->fetch(PDO::FETCH_ASSOC) ?: null);
@@ -1995,6 +2005,15 @@ class PlatformOutreachService
         }
         $note = mb_substr(trim($note), 0, 500);
         $by = mb_substr($userName, 0, 120);
+        if ($action === 'undo') {
+            // فتحت واتساب وماضغطتش إرسال: التراجع بيمسح "اتبعتت" بس، ومابيلمسش الرد أو الاهتمام
+            if (!in_array((string) ($l['desk_action'] ?? ''), ['contacted', 'call_back'], true)) {
+                throw new InvalidArgumentException('مفيش إرسال تتراجعي عنه');
+            }
+            $this->q('UPDATE platform_leads SET desk_action=NULL, desk_note=NULL, desk_at=NULL, desk_by=NULL WHERE id=?', [$leadId]);
+            $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, 'undo', null]);
+            return ['action' => null, 'note' => null, 'at' => null, 'by' => null];
+        }
         $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $leadId]);
         $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, $action, $note !== '' ? $note : null]);
         // اللي ردّ أو اهتم أو رفض مايفضلش يوصله إيميل تلقائي

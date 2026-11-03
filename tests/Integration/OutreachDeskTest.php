@@ -67,7 +67,10 @@ final class OutreachDeskTest extends TestCase
         $row = array_values(array_filter($r['rows'], static fn ($x) => $x['id'] === $id))[0] ?? null;
         $this->assertNotNull($row);
         $this->assertSame('+201015602770', $row['phone_intl']);
-        $this->assertSame('https://wa.me/201015602770', $row['wa_url']);
+        $this->assertStringStartsWith('https://wa.me/201015602770?text=', $row['wa_url'], 'opening WhatsApp puts the message in the chat, ready to send');
+        $this->assertTrue($row['wa_has_text']);
+        parse_str((string) parse_url($row['wa_url'], PHP_URL_QUERY), $q);
+        $this->assertSame($row['message'], $q['text'], 'the link carries exactly the message shown for copying');
         $this->assertStringContainsString('Alpha Tours', $row['message']);
         $this->assertStringContainsString('/p/r/' . $token, $row['message'], 'the message carries the same full-report link as the email');
         $this->assertStringContainsString('Sara', $row['message'], 'signed with the staff member name');
@@ -108,6 +111,32 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame('paused', $st($c));
         $this->assertSame('contacted', $st($d), 'a wrong number says nothing about the company');
         $this->assertSame(1, (int) $this->db->query('SELECT COUNT(*) AS n FROM platform_desk_actions WHERE lead_id = ?', [$a])[0]['n']);
+    }
+
+    public function testUndoClearsASendButNeverAReplyAndIsLogged(): void
+    {
+        $a = $this->lead('Alpha Tours', 'EG', '+201000000001');
+        $r = $this->lead('Beta Tours', 'EG', '+201000000002');
+        $this->svc->deskAction($a, 'contacted', 'opened whatsapp', 5, 'Sara');
+        $row = $this->svc->deskLeads(['country' => 'EG', 'view' => 'contacted', 'q' => 'alphatours'])['rows'][0];
+        $this->assertSame(['action' => 'contacted', 'note' => 'opened whatsapp'], ['action' => $row['desk']['action'], 'note' => $row['desk']['note']]);
+        $this->assertSame('Sara', $row['desk']['by']);
+
+        $this->svc->deskAction($a, 'undo', '', 5, 'Sara');
+        $after = $this->svc->deskLeads(['country' => 'EG', 'view' => 'todo', 'q' => 'alphatours'])['rows'][0];
+        $this->assertNull($after['desk']['action'], 'back to the to-do list');
+        $this->assertSame(2, (int) $this->db->query('SELECT COUNT(*) AS n FROM platform_desk_actions WHERE lead_id = ?', [$a])[0]['n'], 'the send and the undo are both in the log');
+
+        $this->svc->deskAction($r, 'replied', '', 5, 'Sara');
+        $this->expectException(InvalidArgumentException::class);
+        $this->svc->deskAction($r, 'undo', '', 5, 'Sara');
+    }
+
+    public function testUndoWithNothingToUndoIsRejected(): void
+    {
+        $a = $this->lead('Alpha Tours', 'EG', '+201000000001');
+        $this->expectException(InvalidArgumentException::class);
+        $this->svc->deskAction($a, 'undo', '', 5, 'Sara');
     }
 
     public function testUnsubscribedCompaniesAreBlockedAndCannotBeLogged(): void

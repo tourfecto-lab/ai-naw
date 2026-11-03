@@ -29,3 +29,4 @@
 .dk-empty{padding:30px;text-align:center;color:var(--panel-text-muted)}
 .dk-pager{display:flex;gap:8px;align-items:center}
 @media(max-width:820px){.dk-body{grid-template-columns:1fr}}
+.dk-sent{display:inline-flex;gap:5px;align-items:center;padding:4px 10px;border-radius:999px;font-size:12px;background:rgba(47,158,106,.18);border:1px solid rgba(47,158,106,.4)}.dk-sent.hot{background:rgba(212,165,55,.2);border-color:rgba(212,165,55,.5)}
