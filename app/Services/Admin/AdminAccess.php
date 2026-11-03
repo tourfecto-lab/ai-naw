@@ -407,6 +407,11 @@ class AdminAccess
 
         $isApi = strpos($path, '/api/') === 0 || strtoupper($method) !== 'GET';
         if (!$isApi && stripos((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json') === false) {
+            // موظف دوره مش فيه صلاحية الصفحة الرئيسية (مبيعات مثلًا): نوديه لأول صفحة مسموحة له بدل رسالة الرفض
+            if (($land = self::landingPage($user, $path)) !== null) {
+                header('Location: ' . $land, true, 302);
+                exit;
+            }
             http_response_code(403);
             header('Content-Type: text/html; charset=utf-8');
             echo self::forbiddenPage($required);
@@ -419,6 +424,20 @@ class AdminAccess
             'code' => 403,
             'required_permission' => $required,
         ];
+    }
+
+    /** أول صفحة مسموحة للموظف لما يفتح /admin الرئيسية وهي مش مسموحة له؛ null = مفيش تحويل */
+    public static function landingPage(array $user, string $path): ?string
+    {
+        if (!preg_match('#^/admin/?$#', $path)) {
+            return null;
+        }
+        foreach (['outreach.desk' => '/admin/outreach-desk', 'users.view' => '/admin/users', 'messages.view' => '/admin/contact-messages', 'subscriptions.view' => '/admin/subscriptions'] as $perm => $page) {
+            if (self::can($user, $perm)) {
+                return $page;
+            }
+        }
+        return null;
     }
 
     // ---------------------------------------------------------------- أمان الأدمن

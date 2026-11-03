@@ -29,6 +29,22 @@ final class OutreachDeskAccessTest extends TestCase
         }
     }
 
+    public function testSalesStaffOpeningTheAdminHomeIsSentToTheDeskNotToARefusal(): void
+    {
+        $cache = new ReflectionProperty(AdminAccess::class, 'cache');
+        $cache->setAccessible(true);
+        $cache->setValue(null, [987001 => ['role' => 'sales', 'extra' => []]]);
+        try {
+            $sales = ['id' => 987001, 'role' => 'admin'];
+            $this->assertSame('/admin/outreach-desk', AdminAccess::landingPage($sales, '/admin'));
+            $this->assertSame('/admin/outreach-desk', AdminAccess::landingPage($sales, '/admin/'));
+            $this->assertNull(AdminAccess::landingPage($sales, '/admin/growth'), 'only the admin home redirects');
+            $this->assertNull(AdminAccess::landingPage(['id' => 987002, 'role' => 'user'], '/admin'), 'a non-admin user gets no landing page');
+        } finally {
+            AdminAccess::resetCache();
+        }
+    }
+
     public function testOwnerAndAdminRolesGetTheDeskToo(): void
     {
         $this->assertContains('outreach.desk', AdminAccess::rolePermissions('owner'));
