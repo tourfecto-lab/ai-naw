@@ -157,7 +157,7 @@ class OutreachNeeds
     public static function evidence(string $track, array $facts, array $lead, string $lang): string
     {
         $v = [
-            '{{company}}' => (string) ($lead['company'] ?? ''),
+            '{{company}}' => OutreachAudit::shortName((string) ($lead['company'] ?? '')),
             '{{reviews}}' => number_format((int) ($lead['reviews'] ?? 0)),
             '{{negative}}' => (string) (int) ($facts['negative'] ?? 0),
             '{{photos}}' => (string) (int) ($facts['photos'] ?? 0),
@@ -401,7 +401,7 @@ class OutreachNeeds
             }
         }
 
-        $lines = [$fill($t['greet'], ['{company}' => $c['company']]), $fill($svc || $body ? $t['intro'] : $t['intro_ok'], ['{name}' => $c['name']]), ''];
+        $lines = [$fill($t['greet'], ['{company}' => OutreachAudit::shortName((string) $c['company'])]), $fill($svc || $body ? $t['intro'] : $t['intro_ok'], ['{name}' => $c['name']]), ''];
         $lines = array_merge($lines, $body ?: [$t['all_ok']]);
         if ($svc) {
             // جملة «ليه مهم» واحدة، للأهم: سيو ثم جوجل ثم سوشيال ثم حجز ثم شات
@@ -535,7 +535,7 @@ class OutreachNeeds
             'social_photos' => 'عند {{company}} {{photos}} صورة بس على TripAdvisor، والصور هي أول حاجة المسافر بيشوفها.',
             'ads' => '{{domain}} مافيهوش Meta Pixel ولا كود جوجل، فلو بتعملوا إعلانات مش هتعرفوا أنهي إعلان بيجيب حجوزات.',
             'chat' => '{{domain}} مافيهوش زرار واتساب ولا شات، والمسافر غالبًا بيحجز مع أول حد يرد عليه.',
-            'crm' => 'بـ {{reviews}} تقييم، {{company}} خدمت آلاف الزباين، وأغلبهم مابيسمعوش منكم تاني بعد الرحلة.',
+            'crm' => 'بـ {{reviews}} تقييم، {{company}} عندها عملاء سابقين كتير، والتواصل معاهم بعد الرحلة بيفتح فرصة لحجوزات تانية.',
         ],
         'en' => [
             'reputation' => 'I noticed {{company}} has {{negative}} reviews of 1–2 stars among {{reviews}} on TripAdvisor. New travellers read those first, and a calm, quick reply often matters more than the review itself.',
@@ -550,7 +550,7 @@ class OutreachNeeds
             'social_photos' => '{{company}} has only {{photos}} photos on TripAdvisor, and photos are the first thing travellers look at.',
             'ads' => "{{domain}} has no Meta Pixel or Google tag, so if you run ads you can't see which ones bring bookings.",
             'chat' => '{{domain}} has no WhatsApp button or live chat, and travellers often book with whoever answers first.',
-            'crm' => 'With {{reviews}} reviews, {{company}} has served thousands of guests, and most of them never hear from you again after the trip.',
+            'crm' => 'With {{reviews}} reviews, {{company}} has many past guests, and staying in touch after the trip opens the door to repeat bookings.',
         ],
         'tr' => [
             'reputation' => "{{company}} için TripAdvisor'daki {{reviews}} yorumun {{negative}} tanesinin 1–2 yıldızlı olduğunu fark ettim. Yeni gezginler önce bunları okuyor ve sakin, hızlı bir yanıt çoğu zaman yorumun kendisinden daha önemli.",
@@ -565,7 +565,7 @@ class OutreachNeeds
             'social_photos' => "{{company}} için TripAdvisor'da yalnızca {{photos}} fotoğraf var ve gezginin ilk gördüğü şey fotoğraflar.",
             'ads' => '{{domain}} üzerinde Meta Pixel ya da Google etiketi yok; reklam verirseniz hangisinin rezervasyon getirdiğini göremezsiniz.',
             'chat' => '{{domain}} üzerinde WhatsApp butonu ya da canlı sohbet yok; gezginler çoğu zaman ilk yanıt verenle rezervasyon yapıyor.',
-            'crm' => '{{reviews}} yorumla {{company}} binlerce misafiri ağırlamış ve çoğu turdan sonra sizden bir daha haber almıyor.',
+            'crm' => '{{reviews}} yorumla {{company}} çok sayıda geçmiş misafire sahip; turdan sonra iletişimde kalmak tekrar rezervasyon fırsatı sunar.',
         ],
     ];
 

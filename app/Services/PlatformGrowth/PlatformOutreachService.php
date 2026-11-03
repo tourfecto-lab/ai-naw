@@ -430,6 +430,15 @@ class PlatformOutreachService
                     $existing = null; // نفس الشركة بإيميل تاني: نضيفه (بنقفل الرسايل لو حد منهم ردّ)
                 }
             }
+            // شركة من غير إيميل ولا موقع (بتتعرف بتليفونها أو اسمها ومدينتها): غير كده كل رفع للملف بيكرّرها
+            if (!$existing && !$lead['email'] && !$lead['domain']) {
+                if ($lead['phone']) {
+                    $existing = $this->q('SELECT id,status,email,step,data_json FROM platform_leads WHERE phone=? AND status<>\'invalid\' ORDER BY id LIMIT 1', [$lead['phone']])->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+                if (!$existing && $lead['company'] !== '' && $lead['city']) {
+                    $existing = $this->q('SELECT id,status,email,step,data_json FROM platform_leads WHERE company=? AND city=? AND email IS NULL AND domain IS NULL AND status<>\'invalid\' ORDER BY id LIMIT 1', [$lead['company'], $lead['city']])->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+            }
             if ($existing) {
                 // بنكمّل البيانات الناقصة بس، من غير ما نلمس الحالة
                 $this->q('UPDATE platform_leads SET email=COALESCE(email,?),phone=COALESCE(phone,?),website=COALESCE(website,?),domain=COALESCE(domain,?),city=COALESCE(city,?),country=COALESCE(country,?),category=COALESCE(category,?),rating=COALESCE(rating,?),reviews=COALESCE(reviews,?),maps_url=COALESCE(maps_url,?),status=IF(status=\'no_email\' AND ? IS NOT NULL,\'new\',status) WHERE id=?', [
@@ -730,10 +739,14 @@ class PlatformOutreachService
             $this->backfillCountries();
             $this->settings->set('outreach_country_v1', date('Y-m-d H:i:s'));
         }
-        if ($this->settings->get('outreach_audit_v6', '') === '') {
-            // v6: JS booking apps are detected (no false 'no online booking'); v5: Google rating kept only for a name-matched place
+        if ($this->settings->get('outreach_audit_v7', '') === '') {
+            // v7: a site is 'down' only when sure (DNS/refused/5xx). v6: JS booking apps are detected (no false 'no online booking'); v5: Google rating kept only for a name-matched place
             $this->q("UPDATE platform_leads SET scanned_at=NULL WHERE step=0 AND status IN ('new','no_email')");
-            $this->settings->set('outreach_audit_v6', date('Y-m-d H:i:s'));
+            $this->settings->set('outreach_audit_v7', date('Y-m-d H:i:s'));
+        }
+        if ($this->settings->get('outreach_dedupe_v1', '') === '') {
+            $this->mergeDuplicateLeads();
+            $this->settings->set('outreach_dedupe_v1', date('Y-m-d H:i:s'));
         }
         $start = time();
         $done = 0;
@@ -818,6 +831,34 @@ class PlatformOutreachService
             return [];
         }
         return $cache[$city] ??= $this->q("SELECT company,reviews,rating,category,city FROM platform_leads WHERE city=? AND status<>'invalid' LIMIT 3000", [$city])->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * شركات من غير إيميل ولا موقع اتكررت مع كل رفع للملف (نفس التليفون أو نفس الاسم والمدينة): نخلّي صف واحد
+     * (اللي عليه إجراء موظف، وبعده الأبعد في التواصل، وبعده الأقدم) ونعلّم الباقي invalid
+     * @return int عدد الصفوف المكرّرة اللي اتشالت
+     */
+    public function mergeDuplicateLeads(): int
+    {
+        $rows = $this->q("SELECT id,company,city,phone,step,desk_action FROM platform_leads WHERE email IS NULL AND domain IS NULL AND status<>'invalid'")->fetchAll(PDO::FETCH_ASSOC);
+        $groups = [];
+        foreach ($rows as $r) {
+            $key = $r['phone'] ? 'p:' . $r['phone'] : 'n:' . mb_strtolower(trim((string) $r['company'])) . '|' . mb_strtolower(trim((string) $r['city']));
+            $groups[$key][] = $r;
+        }
+        $removed = 0;
+        foreach ($groups as $g) {
+            if (count($g) < 2) {
+                continue;
+            }
+            usort($g, static fn ($a, $b) => [$b['desk_action'] !== null && $b['desk_action'] !== '' ? 1 : 0, (int) $b['step'], (int) $a['id']] <=> [$a['desk_action'] !== null && $a['desk_action'] !== '' ? 1 : 0, (int) $a['step'], (int) $b['id']]);
+            array_shift($g); // الصف اللي بنحتفظ بيه
+            foreach ($g as $dup) {
+                $this->q("UPDATE platform_leads SET status='invalid',approved=0,notes=CONCAT(COALESCE(notes,''),' [duplicate]') WHERE id=?", [$dup['id']]);
+                $removed++;
+            }
+        }
+        return $removed;
     }
 
     /** Google Places "Find Place": الشركة موجودة على Google Maps؟ تقييمها وعدد تقييماتها ومواعيدها */
@@ -2351,12 +2392,13 @@ class PlatformOutreachService
 
     public static function classifyStatus(int $code, string $error): string
     {
-        if ($code >= 500 || in_array($code, [404, 410], true)) {
+        // مانقولش "الموقع واقع" للشركة غير لو متأكدين: الدومين مش موجود أو السيرفر رافض الاتصال أو بيرجّع خطأ سيرفر.
+        // 404 على الصفحة الرئيسية وتايم أوت وأخطاء SSL ممكن تكون مؤقتة أو من جهتنا، فمانحكمش بيها
+        if ($code >= 500 || $code === 410) {
             return 'down';
         }
         if ($code === 0) {
-            // الدومين مابيردش (DNS) أو السيرفر مش بيقبل اتصال = واقع؛ "عنوان داخلي" وغيره = مانعرفش
-            return preg_match('/DNS|resolve|Connection refused|Failed to connect|timed out|SSL/i', $error) ? 'down' : 'error';
+            return preg_match('/DNS|resolve|Connection refused/i', $error) ? 'down' : 'error';
         }
         return $code >= 400 ? 'blocked' : 'error';
     }

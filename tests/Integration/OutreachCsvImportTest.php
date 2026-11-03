@@ -33,7 +33,36 @@ final class OutreachCsvImportTest extends TestCase
 
     private function clean(): void
     {
-        $this->db->query("DELETE FROM platform_leads WHERE domain LIKE '%.csvtest.example'");
+        $this->db->query("DELETE FROM platform_leads WHERE domain LIKE '%.csvtest.example' OR phone LIKE '+20 199 000 %'");
+    }
+
+    private function noWebsiteCsv(): string
+    {
+        $head = '"name","category","rating","numberOfReviews","webUrl","website","phone","addressObj/city","addressObj/country","subcategories/0"';
+        $row = '"Guide Test Dup","attraction","5","71","https://ar.tripadvisor.com/Attraction_Review-g294201-d9-Reviews-Guide_Test_Dup.html","","+20 199 000 0001","القاهرة","مصر","رحلات خاصة"';
+        return $head . "\n" . $row . "\n";
+    }
+
+    public function testReImportingACompanyWithoutWebsiteOrEmailDoesNotDuplicateIt(): void
+    {
+        $this->svc->importText($this->noWebsiteCsv());
+        $this->svc->importText($this->noWebsiteCsv());
+        $this->svc->importText($this->noWebsiteCsv());
+        $n = (int) $this->db->query("SELECT COUNT(*) AS c FROM platform_leads WHERE phone='+20 199 000 0001'")[0]['c'];
+        $this->assertSame(1, $n);
+    }
+
+    public function testMergeKeepsOneRowPerCompanyAndPrefersTheOneStaffActedOn(): void
+    {
+        foreach ([1, 2, 3] as $i) {
+            $this->db->query("INSERT INTO platform_leads(source,company,phone,city,status,token) VALUES('t','Dup Merge Co','+20 199 000 0002','القاهرة','no_email',?)", [bin2hex(random_bytes(8)) . $i]);
+        }
+        $ids = array_column($this->db->query("SELECT id FROM platform_leads WHERE phone='+20 199 000 0002' ORDER BY id"), 'id');
+        $this->db->query('UPDATE platform_leads SET desk_action=? WHERE id=?', ['whatsapp', $ids[1]]);
+        $this->assertSame(2, $this->svc->mergeDuplicateLeads());
+        $alive = $this->db->query("SELECT id FROM platform_leads WHERE phone='+20 199 000 0002' AND status<>'invalid'");
+        $this->assertCount(1, $alive);
+        $this->assertSame((int) $ids[1], (int) $alive[0]['id']);
     }
 
     private function csv(): string

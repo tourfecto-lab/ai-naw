@@ -594,6 +594,18 @@ class OutreachAudit
 
     // ------------------------------------------------------------------ النصوص
 
+    /** أسماء من Google/TripAdvisor ساعات بتبقى وصف كامل (130 حرف): في الرسالة نقتصر على الاسم المختصر */
+    public static function shortName(string $name): string
+    {
+        $name = self::cleanName($name);
+        if (mb_strlen($name) <= 45) {
+            return $name;
+        }
+        $first = trim((string) preg_split('/\s[-–—|]\s|[,،|]/u', $name)[0]);
+        $first = $first !== '' ? $first : $name;
+        return mb_strlen($first) > 45 ? rtrim(mb_substr($first, 0, 42)) . '…' : $first;
+    }
+
     public static function gapText(array $gap, array $lead, string $lang): string
     {
         $lang = isset(self::TEXT[$lang]) ? $lang : 'en';
@@ -603,6 +615,11 @@ class OutreachAudit
         $list = static fn (array $xs) => implode($lang === 'ar' ? ' و' : ($lang === 'tr' ? ', ' : ', '), array_map(static fn ($x) => $net[$x] ?? $x, $xs));
         $rep = [];
         foreach ($v as $k => $val) {
+            if ($k === 'category') {
+                $val = self::publicCategory((string) $val) ?: self::GENERIC_CATEGORY[$lang];
+            } elseif ($k === 'company') {
+                $val = self::shortName((string) $val);
+            }
             if ($k === 'missing' && $gap['id'] === 'seo_basics') {
                 $val = $list(array_map(static fn ($x) => self::SEO_PARTS[$lang][$x] ?? $x, (array) $val));
             } elseif (is_array($val)) {
@@ -666,13 +683,13 @@ class OutreachAudit
             'no_chat' => '{domain} مافيهوش زرار واتساب ولا شات، والمسافر بيحجز مع أول حد يرد عليه.',
             'no_social' => 'مالقيناش روابط لأي حساب سوشيال ميديا على {domain}.',
             'missing_social' => 'موقعكم فيه {have}، بس مالقيناش رابط لـ {missing}.',
-            'no_tracking' => '{domain} مافيهوش Meta Pixel ولا Google Analytics، فمستحيل تعرفوا أي إعلان أو قناة بتجيب حجوزات.',
+            'no_tracking' => '{domain} مافيهوش Meta Pixel ولا Google Analytics، فصعب تعرفوا أي إعلان أو قناة بتجيب حجوزات.',
             'no_pixel' => '{domain} فيه Google Analytics بس مافيهوش Meta Pixel، فإعلانات فيسبوك وإنستجرام مش هتتقاس.',
             'no_google' => 'مالقيناش ملف لـ {company} على Google Maps بالاسم ده، وده من أول الأماكن اللي المسافر بيدوّر فيها.',
             'google_few_reviews' => 'على Google Maps عندكم {g_reviews} تقييم بس، مقابل {ta_reviews} على TripAdvisor.',
             'google_no_hours' => 'ملفكم على Google Maps مافيهوش مواعيد العمل.',
             'few_photos' => 'عندكم {photos} صورة بس على TripAdvisor، والصور أول حاجة المسافر بيشوفها.',
-            'many_guests' => 'بـ {reviews} تقييم، خدمتم آلاف الزباين، وأغلبهم مابيسمعوش منكم تاني بعد الرحلة.',
+            'many_guests' => 'عندكم {reviews} تقييم على تريب أدفايزر، يعني عملاء سابقين كتير، والتواصل معاهم بعد الرحلة بيفتح فرصة لحجوزات تانية وتقييمات أكتر.',
         ],
         'en' => [
             'negative_reviews' => 'You have {negative} reviews of 1–2 stars among {reviews} on TripAdvisor, and new travellers read those first.',
@@ -694,13 +711,13 @@ class OutreachAudit
             'no_chat' => '{domain} has no WhatsApp button or live chat, and travellers book with whoever answers first.',
             'no_social' => "I couldn't find links to any social media accounts on {domain}.",
             'missing_social' => 'Your site links to {have}, but I couldn’t find a link to {missing}.',
-            'no_tracking' => "{domain} has no Meta Pixel or Google Analytics, so you can't tell which ad or channel brings bookings.",
+            'no_tracking' => "{domain} has no Meta Pixel or Google Analytics, so it is hard to tell which ad or channel brings bookings.",
             'no_pixel' => "{domain} has Google Analytics but no Meta Pixel, so Facebook and Instagram ads can't be measured.",
             'no_google' => "I couldn't find a Google Maps profile for {company} under this name, one of the first places travellers search.",
             'google_few_reviews' => 'On Google Maps you have only {g_reviews} reviews, versus {ta_reviews} on TripAdvisor.',
             'google_no_hours' => 'Your Google Maps profile has no opening hours.',
             'few_photos' => 'You have only {photos} photos on TripAdvisor, and photos are the first thing travellers look at.',
-            'many_guests' => 'With {reviews} reviews you have served thousands of guests, and most never hear from you again after the trip.',
+            'many_guests' => 'With {reviews} reviews on Tripadvisor you have many past guests, and staying in touch after the trip opens the door to repeat bookings and more reviews.',
         ],
         'tr' => [
             'negative_reviews' => "TripAdvisor'daki {reviews} yorumunuzun {negative} tanesi 1–2 yıldızlı ve yeni gezginler önce bunları okuyor.",
@@ -722,13 +739,13 @@ class OutreachAudit
             'no_chat' => '{domain} üzerinde WhatsApp butonu ya da canlı sohbet yok; gezginler ilk yanıt verenle rezervasyon yapıyor.',
             'no_social' => '{domain} üzerinde hiçbir sosyal medya hesabına bağlantı bulamadım.',
             'missing_social' => "Sitenizde {have} var ama {missing} bağlantısı bulamadım.",
-            'no_tracking' => '{domain} üzerinde Meta Pixel ya da Google Analytics yok; hangi reklamın veya kanalın rezervasyon getirdiğini bilemezsiniz.',
+            'no_tracking' => '{domain} üzerinde Meta Pixel ya da Google Analytics yok; hangi reklamın veya kanalın rezervasyon getirdiğini bilmek zor.',
             'no_pixel' => "{domain} üzerinde Google Analytics var ama Meta Pixel yok; Facebook ve Instagram reklamları ölçülemiyor.",
             'no_google' => "{company} için Google Haritalar profili bu isimle bulamadım; gezginlerin ilk baktığı yerlerden biri.",
             'google_few_reviews' => "Google Haritalar'da yalnızca {g_reviews} yorumunuz var, TripAdvisor'da ise {ta_reviews}.",
             'google_no_hours' => 'Google Haritalar profilinizde çalışma saatleri yok.',
             'few_photos' => "TripAdvisor'da yalnızca {photos} fotoğrafınız var ve gezginin ilk baktığı şey fotoğraflar.",
-            'many_guests' => '{reviews} yorumla binlerce misafir ağırladınız ve çoğu turdan sonra sizden bir daha haber almıyor.',
+            'many_guests' => 'Tripadvisor\'da {reviews} yorumunuz var; yani çok sayıda geçmiş misafiriniz var ve turdan sonra iletişimde kalmak tekrar rezervasyon ve daha fazla yorum fırsatı sunar.',
         ],
     ];
 }

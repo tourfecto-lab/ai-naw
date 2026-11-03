@@ -75,6 +75,34 @@ final class OutreachReportContentTest extends TestCase
         $this->assertNotContains('few_photos', $gapIds([]), 'no photo count at all: unknown, not a gap');
     }
 
+    public function testBenchmarkTextNeverShowsTheInternalCategoryAndLongNamesAreShortened(): void
+    {
+        $lead = ['company' => 'Nile Tours', 'domain' => 'nile.test'];
+        $text = OutreachAudit::gapText(['id' => 'few_reviews', 'vars' => ['reviews' => 78, 'median' => 453, 'category' => 'attraction']], $lead, 'ar');
+        $this->assertStringNotContainsString('attraction', $text);
+        $this->assertStringContainsString('الجولات السياحية', $text);
+
+        $long = 'Amazing Cairo local guide - licensed Egyptologist specializing in tours, excursions and sightseeing around Cairo and surrounding areas';
+        $this->assertSame('Amazing Cairo local guide', OutreachAudit::shortName($long));
+        $this->assertSame('Nile Tours', OutreachAudit::shortName('Nile Tours'));
+    }
+
+    public function testGuestFollowUpTextDoesNotClaimThousandsOfGuestsFromAFewHundredReviews(): void
+    {
+        $text = OutreachAudit::gapText(['id' => 'many_guests', 'vars' => ['reviews' => 305]], ['company' => 'X'], 'ar');
+        $this->assertStringNotContainsString('آلاف', $text);
+        $this->assertStringNotContainsString('أغلبهم', $text);
+    }
+
+    public function testASiteIsOnlyCalledDownWhenWeAreSureOfIt(): void
+    {
+        $this->assertSame('down', PlatformOutreachService::classifyStatus(0, 'Could not resolve host: x.test'));
+        $this->assertSame('down', PlatformOutreachService::classifyStatus(503, ''));
+        $this->assertNotSame('down', PlatformOutreachService::classifyStatus(404, ''), 'a 404 home page is not a dead site');
+        $this->assertNotSame('down', PlatformOutreachService::classifyStatus(0, 'Operation timed out after 25000 ms'));
+        $this->assertNotSame('down', PlatformOutreachService::classifyStatus(0, 'schannel: SEC_E_ILLEGAL_MESSAGE'));
+    }
+
     public function testGoogleMissingIsWordedAsOurSearchNotAsAFactAboutThem(): void
     {
         $text = OutreachAudit::gapText(['id' => 'no_google', 'vars' => []], ['company' => 'Nile Tours', 'domain' => 'nile.test'], 'ar');
