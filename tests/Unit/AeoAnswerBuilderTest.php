@@ -81,6 +81,20 @@ final class AeoAnswerBuilderTest extends TestCase
         $this->assertStringNotContainsString('<b>', json_encode($out['jsonld']));
     }
 
+    public function testBuildReturnsVisibleHtmlWithTheSameApprovedPairsEscaped(): void
+    {
+        $out = AeoAnswerBuilder::build([
+            ['question' => 'How long <is> it?', 'answer' => 'Duration: 4 hours & "free" pickup.', 'evidence' => 'Duration 4 hours & "free" pickup'],
+            ['question' => 'Bad link?', 'answer' => 'See https://x.com now', 'evidence' => 'x'],
+        ]);
+        $this->assertSame(1, $out['count']);
+        $this->assertStringContainsString('<h3>How long it?</h3>', $out['html']);
+        $this->assertStringNotContainsString('<is>', $out['html']);
+        $this->assertStringContainsString('4 hours &amp; &quot;free&quot; pickup', $out['html']);
+        $this->assertStringNotContainsString('https://x.com', $out['html']);
+        $this->assertNull(AeoAnswerBuilder::build([['question' => '', 'answer' => '', 'evidence' => '']])['html']);
+    }
+
     public function testReadinessDetectsExistingFaqAndSameSiteGuard(): void
     {
         $page = $this->page();

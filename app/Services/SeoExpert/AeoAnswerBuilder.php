@@ -122,7 +122,7 @@ final class AeoAnswerBuilder
 
     /**
      * FAQPage من الأزواج اللي المستخدم راجعها. بيرفض: روابط، وأي رقم في الإجابة مش موجود حرفيًا في الدليل (evidence) أو السؤال.
-     * @return array{count:int,jsonld:?array,validation:?array,script:?string,rejected:array,note:string}
+     * @return array{count:int,jsonld:?array,validation:?array,script:?string,html:?string,rejected:array,note:string}
      */
     public static function build(array $approved): array
     {
@@ -151,7 +151,19 @@ final class AeoAnswerBuilder
         $graph = ['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => $entities];
         return ['count' => count($entities), 'jsonld' => $entities ? $graph : null,
             'validation' => $entities ? SeoSchemaValidator::validate($graph) : null,
-            'script' => $entities ? SeoSchemaBuilder::scriptTag($graph) : null, 'rejected' => $rejected, 'note' => self::NOTE];
+            'script' => $entities ? SeoSchemaBuilder::scriptTag($graph) : null, 'html' => $entities ? self::visibleHtml($entities) : null,
+            'rejected' => $rejected, 'note' => self::NOTE];
+    }
+
+    /** نفس الأسئلة والإجابات المعتمدة كنص ظاهر؛ جوجل بيطلب إن محتوى الـSchema يكون ظاهر في الصفحة. مفيش style ولا روابط، فيتوافق مع أي منصة. */
+    private static function visibleHtml(array $entities): string
+    {
+        $esc = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+        $out = "<div class=\"tourfecto-faq\">\n";
+        foreach ($entities as $e) {
+            $out .= '  <h3>' . $esc($e['name']) . "</h3>\n  <p>" . $esc($e['acceptedAnswer']['text']) . "</p>\n";
+        }
+        return $out . '</div>';
     }
 
     /** أرقام الإجابة اللي مش موجودة حرفيًا في الدليل. */
