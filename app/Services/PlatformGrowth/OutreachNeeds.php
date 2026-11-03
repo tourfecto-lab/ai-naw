@@ -73,7 +73,17 @@ class OutreachNeeds
     {
         $subs = $ta['subcategories'] ?? [];
         if ($subs) {
-            return (bool) array_intersect($subs, self::SELLERS);
+            if (array_intersect($subs, self::SELLERS)) {
+                return true;
+            }
+            // TripAdvisor بالعربي أو التركي بيسمّي التصنيفات بلغته («رحلات خاصة»، «جولات…»، «Tekne Turları»): من غير ده كل الشركات بتتحسب معالم وتتخطّى
+            foreach ($subs as $s) {
+                $s = (string) preg_replace('/[\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/u', '', (string) $s);
+                if (preg_match('/جولات|رحلات|سفاري|تأجير|إيجار|سيارات أجرة|حافلات|غوص|قفز|تجديف|ركوب|ورش|دروس|منتجع|حياة ليلية|ألعاب|طعام|مشروبات|\bTur(lar)?\b|Turları|Safari|Tekne|Transfer|Dalış|Kiralama|Aktivite|Yemek|Spa\b/iu', $s)) {
+                    return true;
+                }
+            }
+            return false;
         }
         return !preg_match('/museum|mosque|church|park|landmark|monument|متحف|جامع|مسجد/i', (string) $category);
     }

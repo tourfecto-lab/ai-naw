@@ -188,8 +188,19 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
             }
             return total;
         }
-        // CSV: نفس العناوين مع كل دفعة
-        const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+        // CSV: نفس العناوين مع كل دفعة. التقسيم بيحترم علامات الاقتباس: وصف الشركة ممكن يبقى على كذا سطر وماينفعش يتقطّع
+        const splitCsvRecords = t => {
+            const out = []; let cur = '', quoted = false;
+            for (let i = 0; i < t.length; i++) {
+                const ch = t[i];
+                if (ch === '"') { quoted = !quoted; cur += ch; }
+                else if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && t[i + 1] === '\n') i++; out.push(cur); cur = ''; }
+                else cur += ch;
+            }
+            if (cur !== '') out.push(cur);
+            return out;
+        };
+        const lines = splitCsvRecords(text).filter(l => l.trim() !== '');
         const head = lines.shift();
         for (let i = 0; i < lines.length; i += 400) {
             toast(`بنستورد… ${Math.min(i + 400, lines.length)} من ${lines.length}`);

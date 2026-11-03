@@ -320,21 +320,73 @@ class PlatformOutreachService
     /** JSON أو CSV متلزق */
     public function importText(string $text): array
     {
-        $text = trim($text);
+        $text = trim((string) preg_replace('/^\xEF\xBB\xBF/', '', $text));
         $rows = json_decode($text, true);
         if (!is_array($rows)) {
-            $lines = preg_split('/\r?\n/', $text);
-            $head = str_getcsv(array_shift($lines));
-            $rows = [];
-            foreach ($lines as $line) {
-                if (trim($line) === '') {
-                    continue;
-                }
-                $vals = str_getcsv($line);
-                $rows[] = array_combine(array_map('strtolower', array_map('trim', $head)), array_pad(array_slice($vals, 0, count($head)), count($head), ''));
-            }
+            $rows = self::parseCsvRows($text);
         }
         return $this->importRows(array_values($rows), 'import');
+    }
+
+    /**
+     * CSV بتاع Apify: وصف بأسطر متعددة جوّه علامات اقتباس (fgetcsv بيقراه صح، قراءة سطر سطر كانت بتقطّعه)،
+     * وأعمدة متداخلة بـ«/» (ratingHistogram/count1 · addressObj/city · subcategories/0) بتتفك لمصفوفات زي ما JSON بيجي،
+     * وأسماء الأعمدة بتفضل بحروفها (numberOfReviews, webUrl) مع نسخة بحروف صغيرة للملفات القديمة.
+     * @return array<int, array<string, mixed>>
+     */
+    public static function parseCsvRows(string $text): array
+    {
+        $h = fopen('php://temp', 'r+');
+        // علامة BOM قدام عنوان بين علامات اقتباس بتخلّي fgetcsv يقرا العنوان الأول بالعلامات ("address")
+        fwrite($h, (string) preg_replace('/^\xEF\xBB\xBF/', '', $text));
+        rewind($h);
+        $head = fgetcsv($h, null, ',', '"', '');
+        if (!is_array($head) || $head === [null]) {
+            fclose($h);
+            return [];
+        }
+        $head = array_map(static fn ($x) => trim((string) preg_replace('/^\xEF\xBB\xBF/', '', (string) $x)), $head);
+        $rows = [];
+        while (($vals = fgetcsv($h, null, ',', '"', '')) !== false) {
+            if (count($vals) === 1 && trim((string) $vals[0]) === '') {
+                continue;
+            }
+            $row = [];
+            foreach ($head as $i => $key) {
+                $v = (string) ($vals[$i] ?? '');
+                if ($key === '') {
+                    continue;
+                }
+                if (str_contains($key, '/')) {
+                    if ($v !== '') { // خلايا فاضية في subcategories/5.. ماتبقاش عناصر
+                        self::setNested($row, explode('/', $key), $v);
+                    }
+                    continue;
+                }
+                $row[$key] = $v;
+                $lower = strtolower($key);
+                if ($lower !== $key && !array_key_exists($lower, $row)) {
+                    $row[$lower] = $v;
+                }
+            }
+            $rows[] = $row;
+        }
+        fclose($h);
+        return $rows;
+    }
+
+    /** a/b/0 => ['a' => ['b' => [0 => v]]] */
+    private static function setNested(array &$arr, array $path, string $value): void
+    {
+        $key = array_shift($path);
+        if ($path === []) {
+            $arr[$key] = $value;
+            return;
+        }
+        if (!isset($arr[$key]) || !is_array($arr[$key])) {
+            $arr[$key] = [];
+        }
+        self::setNested($arr[$key], $path, $value);
     }
 
     public function importRows(array $rows, string $source): array
