@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * مكتب التواصل: القايمة مترتّبة بأولوية الإرسال (مين محتاج فعلًا)، وفلتر الأولوية، وحساب الأولوية للشركات اللي اتفحصت قبل كده،
+ * والرسالة بتطلع من نتيجة الفحص.
+ */
+
+use PHPUnit\Framework\TestCase;
+
+final class OutreachDeskPriorityTest extends TestCase
+{
+    private ?Database $db = null;
+    private PlatformOutreachService $svc;
+
+    protected function setUp(): void
+    {
+        try {
+            $app = dirname(__DIR__, 2) . '/app';
+            if (!defined('APP_ENV')) foreach (['app.php', 'database.php', 'encryption.php'] as $cfg) if (file_exists($app . '/Config/' . $cfg)) require_once $app . '/Config/' . $cfg;
+            if (!class_exists('Database')) require_once $app . '/Core/Database.php';
+            $this->db = Database::getInstance();
+            $this->svc = new PlatformOutreachService();
+        } catch (Throwable $e) {
+            $this->markTestSkipped('DB غير متاحة: ' . $e->getMessage());
+        }
+        $this->clean();
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->db) $this->clean();
+    }
+
+    private function clean(): void
+    {
+        $this->db->query("DELETE FROM platform_leads WHERE source = 'phpunit-prio'");
+        $this->db->query("DELETE FROM system_settings WHERE setting_key = 'outreach_priority_v1'");
+    }
+
+    private function lead(string $name, int $reviews, array $gapSev, ?int $priority = null, array $extra = []): int
+    {
+        $gaps = array_map(static fn ($s) => ['id' => 'no_booking', 'pillar' => 'booking', 'track' => 'direct_booking', 'sev' => $s, 'vars' => []], $gapSev);
+        $data = json_encode(['audit' => ['gaps' => $gaps, 'score' => ['total' => 70, 'pillars' => []], 'google' => ['checked' => true, 'found' => true, 'rating' => 4.6, 'reviews' => 90, 'hours' => true]],
+            'site' => ['ok' => true, 'https' => true, 'viewport' => true, 'social' => ['facebook' => 'page']], 'ta' => ['ranking' => '#3 in Cairo']] + $extra, JSON_UNESCAPED_UNICODE);
+        $slug = strtolower(str_replace(' ', '', $name));
+        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, website, phone, country, city, category, language, status, step, track, score, reviews, rating, token, data_json, scanned_at, priority)
+            VALUES ('phpunit-prio', ?, ?, ?, ?, '+201000000009', 'EG', 'Cairo', 'Tour agency', 'ar', 'new', 0, 'direct_booking', 70, ?, 4.8, ?, ?, NOW(), ?)",
+            [$name, $slug . '@prio.test', $slug . '.test', 'https://' . $slug . '.test', $reviews, bin2hex(random_bytes(16)), $data, $priority]);
+        return (int) ($this->db->query("SELECT MAX(id) AS id FROM platform_leads WHERE source = 'phpunit-prio'")[0]['id'] ?? 0);
+    }
+
+    public function testListIsOrderedByPriorityBeforeReviewCount(): void
+    {
+        $famousButFine = $this->lead('Famous Fine', 5000, [], 10);
+        $needy = $this->lead('Needy Small', 40, [8, 7], 90);
+        $mid = $this->lead('Mid Tours', 300, [5], 50);
+        $ids = array_column($this->svc->deskLeads(['country' => 'EG', 'q' => 'prio.test'])['rows'], 'id');
+        $this->assertSame([$needy, $mid, $famousButFine], $ids, 'who needs us most comes first, even with fewer reviews');
+    }
+
+    public function testTierFilterAndCounts(): void
+    {
+        $this->lead('Needy One', 100, [8], 90);
+        $this->lead('Needy Two', 100, [8], 75);
+        $this->lead('Mid Tours', 100, [5], 50);
+        $this->lead('Low Tours', 100, [], 5);
+        $high = $this->svc->deskLeads(['country' => 'EG', 'tier' => 'high', 'q' => 'prio.test']);
+        $this->assertSame(2, $high['total']);
+        $this->assertSame(['high'], array_values(array_unique(array_column($high['rows'], 'tier'))));
+        $this->assertSame(1, $this->svc->deskLeads(['country' => 'EG', 'tier' => 'medium', 'q' => 'prio.test'])['total']);
+        $this->assertSame(1, $this->svc->deskLeads(['country' => 'EG', 'tier' => 'low', 'q' => 'prio.test'])['total']);
+        $t = $high['tiers'];
+        $this->assertGreaterThanOrEqual(2, $t['high']);
+        $this->assertGreaterThanOrEqual(1, $t['medium']);
+        $this->assertGreaterThanOrEqual(1, $t['low']);
+    }
+
+    public function testPriorityIsComputedOnceForLeadsScannedBeforeTheFeature(): void
+    {
+        $id = $this->lead('Old Scan', 800, [8, 7, 6], null);
+        $row = $this->svc->deskLeads(['country' => 'EG', 'q' => 'oldscan'])['rows'][0];
+        $this->assertSame($id, $row['id']);
+        $this->assertGreaterThan(0, $row['priority'], 'backfilled from the stored audit without a new scan');
+        $this->assertSame('high', $row['tier']);
+        $stored = (int) $this->db->query('SELECT priority FROM platform_leads WHERE id = ?', [$id])[0]['priority'];
+        $this->assertSame($row['priority'], $stored);
+    }
+
+    public function testRowCarriesTheScorecardAndAMessageBuiltFromIt(): void
+    {
+        $this->lead('Nile Dream', 120, [7], 80);
+        $row = $this->svc->deskLeads(['country' => 'EG', 'q' => 'niledream'], ['name' => 'Sara'])['rows'][0];
+        $this->assertSame('found', $row['scorecard']['google']['status']);
+        $this->assertSame('linked', $row['scorecard']['facebook']['status']);
+        $this->assertSame('missing', $row['scorecard']['instagram']['status']);
+        $this->assertStringContainsString('جوجل ماب', $row['message']);
+        $this->assertStringContainsString('4.6', $row['message']);
+        $this->assertStringContainsString('إنستجرام:* ❌', $row['message']);
+        $this->assertStringContainsString('/p/r/', $row['message']);
+        $this->assertStringContainsString('Sara', $row['message']);
+        $this->assertTrue($row['wa_has_text']);
+    }
+}

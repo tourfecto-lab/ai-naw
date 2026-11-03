@@ -18,7 +18,25 @@
     const BUCKET = { contacted: 'contacted', call_back: 'contacted', replied: 'hot', interested: 'hot', not_interested: 'closed', wrong_number: 'closed' };
     const STATUS = { new: 'جديدة', no_email: 'من غير إيميل', contacted: 'اتبعتلها إيميل', finished: 'خلصت رسايل الإيميل', replied: 'ردّت', interested: 'مهتمة', signed_up: 'سجّلت في المنصة 🎉', unsubscribed: 'ألغت الاشتراك', bounced: 'الإيميل راجع', paused: 'متوقفة' };
 
-    let P, root, csrf = '', state = { country: '', view: 'todo', q: '', page: 1 }, counts = [], rows = [], total = 0, pages = 1;
+    const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
+    const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
+    const num = n => Number(n || 0).toLocaleString('en');
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1;
+
+    // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
+    const scorecard = r => {
+        const sc = r.scorecard || {}, out = [];
+        const g = sc.google || {}, a = sc.tripadvisor || {}, w = sc.website || {};
+        out.push(['🗺️', 'جوجل ماب', g.status === 'found' && g.rating != null ? `⭐ ${Number(g.rating).toFixed(1)} (${num(g.reviews)} تقييم)${g.hours === false ? ' · مواعيد العمل مش مكتوبة' : ''}` : (g.status === 'missing' ? '❌ مالقيناش ملف للشركة' : null), g.status === 'missing' ? 'bad' : '']);
+        out.push(['✈️', 'تريب أدفايزر', a.status === 'found' && a.rating != null ? `⭐ ${Number(a.rating).toFixed(1)} (${num(a.reviews)} تقييم)${a.ranking ? ' · ' + esc(a.ranking) : ''}${a.award ? ' 🏆' : ''}` : null, '', a.url]);
+        [['facebook', '📘', 'فيسبوك'], ['instagram', '📸', 'إنستجرام']].forEach(([k, icon, name]) => {
+            const s = sc[k] || {};
+            out.push([icon, name, s.status === 'linked' ? '✅ مربوط بالموقع' : (s.status === 'missing' ? '❌ مش مربوط بالموقع' : null), s.status === 'missing' ? 'bad' : '', s.url]);
+        });
+        const webTxt = w.status === 'ok' ? `شغّال${w.score != null ? ' · الدرجة ' + w.score + '/100' : ''}${w.https === false ? ' · من غير HTTPS' : ''}${w.mobile === false ? ' · مش متوافق مع الموبايل' : ''}` : (w.status === 'down' ? '❌ مش بيفتح' : (w.status === 'none' ? '❌ مفيش موقع' : null));
+        out.push(['🌐', 'الموقع', webTxt, w.status === 'down' || w.status === 'none' ? 'bad' : '']);
+        return `<div class="dk-sc">${out.map(([icon, name, txt, cls, url]) => `<div class="dk-sc-row ${cls || ''}"><span>${icon} <b>${name}</b></span><span>${txt == null ? '<i class="dk-muted">لسه ماتفحصش</i>' : txt}${url && /^https?:\/\//i.test(url) ? ` <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">افتح ↗</a>` : ''}</span></div>`).join('')}</div>`;
+    };
 
     const store = {
         get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -49,7 +67,7 @@
         const meta = [r.city, r.category && String(r.category).split(',')[0]].filter(Boolean).map(esc).join(' · ');
         const rating = r.rating ? `⭐ ${Number(r.rating).toFixed(1)}${r.reviews ? ' (' + Number(r.reviews).toLocaleString('en') + ')' : ''}` : '';
         const head = `<div class="dk-head"><div><h3>${esc(r.company)}</h3><div class="dk-sub">${meta}${rating ? ' · ' + rating : ''}</div></div>
-            <div class="dk-badges"><span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}</div></div>`;
+            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}</div></div>`;
         if (r.blocked) return `<article class="dk-card blocked" data-id="${r.id}">${head}<div class="dk-block">🚫 الشركة دي ألغت الاشتراك: ممنوع التواصل معاها بأي وسيلة.</div></article>`;
         const phone = r.phone_intl || r.phone;
         // «اتبعتت على واتساب» + اسم الموظفة والوقت، جنب الزرار؛ وتراجع لو فتحت واتساب وماضغطتش إرسال
@@ -63,6 +81,7 @@
             <div class="dk-line"><span class="dk-label">✉️ الإيميل</span><span dir="ltr">${esc(r.email || '—')}</span>${r.email ? `<button class="dk-btn xs" data-copy-phone="${esc(r.email)}">نسخ</button>` : ''}</div>
             <div class="dk-line"><span class="dk-label">🌐 الموقع</span>${r.website ? `<a href="${esc(r.website)}" target="_blank" rel="noopener noreferrer" dir="ltr">${esc(r.website)}</a>` : '—'}</div>
             <div class="dk-line"><span class="dk-label">📊 الدرجة الرقمية</span><b>${r.score != null ? esc(r.score) + '/100' : '—'}</b></div>
+            ${scorecard(r)}
             ${r.gaps.length ? `<div class="dk-gaps"><span class="dk-label">اللي لقيناه عندهم</span><ul>${r.gaps.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>` : (r.needs.length ? `<div class="dk-line"><span class="dk-label">احتياجهم</span>${r.needs.map(n => `<span class="dk-b">${esc(n)}</span>`).join(' ')}</div>` : '')}
             <div class="dk-muted">${emailInfo}</div></div>`;
         const msg = `<div class="dk-col"><div class="dk-label">💬 الرسالة (تقرير مبدئي + لينك التقرير الكامل)${r.has_report ? '' : ' <span class="dk-warn">الشركة لسه ماتفحصتش: الرسالة عامة</span>'}</div>
@@ -80,15 +99,16 @@
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>
             <section class="dk-top"><div class="dk-tip">اختاري الدولة، وانسخي الرقم والرسالة وابعتيها على واتساب، وبعدها سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
+            <div class="dk-prio"><span class="dk-label">ابدئي بالأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="دوّري باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
             <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
             <div class="dk-pager"><span class="dk-muted">${total} شركة · صفحة ${state.page} من ${pages || 1}</span>${state.page > 1 ? '<button class="dk-btn" data-page="-1">السابق</button>' : ''}${state.page < pages ? '<button class="dk-btn" data-page="1">التالي</button>' : ''}</div>`;
     };
 
     const load = async (keepScroll) => {
-        const q = new URLSearchParams({ country: state.country, view: state.view, q: state.q, page: state.page });
+        const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; counts = r.counts || []; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
+        csrf = r.csrf_token || csrf; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -124,8 +144,9 @@
             const cardEl = t.closest('.dk-card');
             try {
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }
-                if (t.dataset.country) { state.country = t.dataset.country; state.view = 'todo'; state.page = 1; store.set('dk-country', state.country); return await load(); }
+                if (t.dataset.country) { state.country = t.dataset.country; state.view = 'todo'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); }
                 if (t.dataset.view) { state.view = t.dataset.view; state.page = 1; return await load(); }
+                if (t.dataset.tier !== undefined) { state.tier = t.dataset.tier; state.page = 1; return await load(); }
                 if (t.dataset.page) { state.page += Number(t.dataset.page); return await load(); }
                 if (t.dataset.copyPhone !== undefined) { toast(await copy(t.dataset.copyPhone) ? 'اتنسخ ✅' : 'مقدرتش أنسخ: ظلّلي النص وانسخي بإيدك', false); return; }
                 if (t.dataset.copyLink !== undefined) { toast(await copy(t.dataset.copyLink) ? 'اتنسخ لينك التقرير ✅' : 'مقدرتش أنسخ', false); return; }

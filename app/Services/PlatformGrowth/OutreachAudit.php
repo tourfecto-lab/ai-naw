@@ -374,6 +374,95 @@ class OutreachAudit
         return array_values($by);
     }
 
+    // ------------------------------------------------------------------ بطاقة الحضور الرقمي والأولوية
+
+    /**
+     * بطاقة الشركة على المنصات: جوجل ماب، TripAdvisor، فيسبوك، إنستجرام، والموقع.
+     * من اللي اتخزّن وقت الاستيراد والفحص بس (من غير طلبات جديدة). أي حاجة مش معروفة بترجع 'unknown' ومابتتكتبش في الرسالة،
+     * عشان مانقولش للشركة معلومة مش متأكدين منها. فيسبوك وإنستجرام: «مربوط/مش مربوط بالموقع» (عدد المتابعين محتاج Meta API).
+     */
+    public static function scorecard(array $lead, array $data): array
+    {
+        $ta = (array) ($data['ta'] ?? []);
+        $audit = (array) ($data['audit'] ?? []);
+        $site = $data['site'] ?? null;
+        $mapsUrl = (string) ($lead['maps_url'] ?? '');
+        $rating = isset($lead['rating']) && $lead['rating'] !== '' && $lead['rating'] !== null ? (float) $lead['rating'] : null;
+        $reviews = isset($lead['reviews']) && $lead['reviews'] !== '' && $lead['reviews'] !== null ? (int) $lead['reviews'] : null;
+        // تقييم وعدد مراجعات الشركة في الاستيراد بيجوا من مصدر الملف: TripAdvisor أو Google Maps
+        $fromTa = $ta !== [] || preg_match('#tripadvisor\.#i', $mapsUrl) === 1;
+        $fromGoogle = !$fromTa && preg_match('#google\.[a-z.]+/maps|goo\.gl/maps|maps\.app\.goo\.gl#i', $mapsUrl) === 1;
+
+        $g = (array) ($audit['google'] ?? []);
+        if (!empty($g['checked'])) {
+            $google = empty($g['found'])
+                ? ['status' => 'missing', 'rating' => null, 'reviews' => null, 'hours' => null]
+                : ['status' => 'found', 'rating' => isset($g['rating']) ? (float) $g['rating'] : null, 'reviews' => (int) ($g['reviews'] ?? 0), 'hours' => !empty($g['hours'])];
+        } elseif ($fromGoogle && $rating !== null) {
+            $google = ['status' => 'found', 'rating' => $rating, 'reviews' => $reviews ?? 0, 'hours' => null];
+        } else {
+            $google = ['status' => 'unknown', 'rating' => null, 'reviews' => null, 'hours' => null];
+        }
+        $google['median'] = isset($audit['bench']['median_reviews']) ? (int) $audit['bench']['median_reviews'] : null;
+
+        $tripadvisor = $fromTa && ($rating !== null || $ta !== [])
+            ? ['status' => 'found', 'rating' => $rating, 'reviews' => $reviews, 'ranking' => (string) ($ta['ranking'] ?? ''), 'award' => !empty($ta['award']), 'negative' => (int) ($ta['negative'] ?? 0),
+                'url' => (string) ($ta['url'] ?? '') !== '' ? (string) $ta['url'] : ($fromTa && $mapsUrl !== '' ? $mapsUrl : '')]
+            : ['status' => 'unknown', 'rating' => null, 'reviews' => null, 'ranking' => '', 'award' => false, 'negative' => 0, 'url' => ''];
+
+        // الموقع اتفحص فعلًا (ok) = نعرف روابط السوشيال اللي فيه؛ غير كده مانعرفش
+        $social = is_array($site) && !empty($site['ok']) && array_key_exists('social', $site) ? (array) $site['social'] : null;
+        $net = static function (string $key, string $base) use ($social): array {
+            if ($social === null) {
+                return ['status' => 'unknown', 'url' => ''];
+            }
+            return isset($social[$key]) ? ['status' => 'linked', 'url' => $base . ltrim((string) $social[$key], '/')] : ['status' => 'missing', 'url' => ''];
+        };
+
+        if (empty($lead['website'])) {
+            $website = ['status' => 'none'];
+        } elseif (is_array($site) && array_key_exists('ok', $site)) {
+            $website = ['status' => !empty($site['ok']) ? 'ok' : 'down', 'https' => isset($site['https']) ? (bool) $site['https'] : null, 'mobile' => isset($site['viewport']) ? (bool) $site['viewport'] : null, 'load_ms' => isset($site['load_ms']) ? (int) $site['load_ms'] : null];
+        } else {
+            $website = ['status' => 'unknown'];
+        }
+        $website['score'] = isset($audit['score']['total']) ? (int) $audit['score']['total'] : null;
+
+        return ['google' => $google, 'tripadvisor' => $tripadvisor, 'facebook' => $net('facebook', 'https://www.facebook.com/'), 'instagram' => $net('instagram', 'https://www.instagram.com/'), 'website' => $website];
+    }
+
+    /**
+     * أولوية الإرسال 0-100: مين محتاج فعلًا + مين شغّال فعلًا (تقييمات حقيقية) فيستاهل وقتنا.
+     * - الاحتياج: مجموع خطورة النواقص الفعلية (سقف 60): شركة من غير نواقص مالهاش داعي نكلّمها.
+     * - الشغل الفعلي: عدد التقييمات (سقف 25) وجودة التقييم (سقف 8).
+     * tier: high (70+) · medium (45+) · low.
+     */
+    public static function priority(array $lead, array $data): array
+    {
+        $gaps = (array) ($data['audit']['gaps'] ?? []);
+        $sev = 0;
+        foreach ($gaps as $g) {
+            $sev += max(0, (int) ($g['sev'] ?? 0));
+        }
+        if (!$gaps) {
+            foreach ((array) (json_decode((string) ($lead['needs_json'] ?? ''), true) ?: []) as $n) {
+                $sev += (int) round(((int) ($n['score'] ?? 0)) / 10);
+            }
+        }
+        $need = min(60, (int) round($sev * 2.5));
+        $reviews = max(0, (int) ($lead['reviews'] ?? 0));
+        $traction = min(25, (int) round(log10($reviews + 1) * 9));
+        $rating = isset($lead['rating']) && $lead['rating'] !== '' ? (float) $lead['rating'] : 0.0;
+        $quality = $rating >= 4.5 ? 8 : ($rating >= 4.0 ? 5 : 0);
+        $score = $need === 0 ? 0 : min(100, $need + $traction + $quality); // من غير احتياج مفيش أولوية مهما كانت شهرتها
+        return ['score' => $score, 'tier' => self::tier($score), 'need' => $need, 'traction' => $traction];
+    }
+
+    public static function tier(int $score): string
+    {
+        return $score >= 70 ? 'high' : ($score >= 45 ? 'medium' : 'low');
+    }
+
     // ------------------------------------------------------------------ النصوص
 
     public static function gapText(array $gap, array $lead, string $lang): string

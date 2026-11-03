@@ -177,6 +177,104 @@ class OutreachNeeds
         return $t + self::BODIES[$lang];
     }
 
+    /** نصوص رسالة واتساب (مكتب التواصل): كل لغة بصيغتها الطبيعية، {x} بتتبدّل */
+    private const DESK = [
+        'ar' => [
+            'greet' => 'السلام عليكم يا فريق {company} 👋', 'intro' => 'أنا {name} من Tourfecto، منصة ذكاء اصطناعي لشركات السياحة.',
+            'check' => 'عملنا فحص مجاني لحضوركم على الإنترنت، ونتيجته *{score}/100*. ده ملخص سريع:', 'check_plain' => 'عملنا فحص مجاني لحضوركم على الإنترنت. ده ملخص سريع:',
+            'google' => '🗺️ *جوجل ماب:*', 'ta' => '✈️ *تريب أدفايزر:*', 'fb' => '📘 *فيسبوك:*', 'ig' => '📸 *إنستجرام:*', 'web' => '🌐 *الموقع:*',
+            'reviews' => 'تقييم', 'g_missing' => 'مالقيناش ملف لشركتكم، وده أول مكان المسافر بيدوّر فيه', 'g_hours' => 'مواعيد العمل مش مكتوبة', 'g_below' => 'أقل من متوسط منافسينكم ({median})',
+            'linked' => '✅ مربوط بموقعكم', 'not_linked' => '❌ مش مربوط بموقعكم', 'web_ok' => 'شغّال', 'web_http' => 'من غير HTTPS', 'web_mobile' => 'مش متوافق مع الموبايل', 'web_down' => 'مش بيفتح', 'web_none' => 'مفيش موقع',
+            'top' => '⚠️ *أهم حاجة لاحظناها:* {gap}', 'report' => '📄 *التقرير الكامل*: كل نقطة بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا عليا هنا وأخلّيكم تبدأوا في دقيقتين 🙌', 'cta_plain' => 'ردّوا عليا هنا لو حابين نبدأ 🙌',
+        ],
+        'en' => [
+            'greet' => 'Hello {company} team 👋', 'intro' => "I'm {name} from Tourfecto, an AI platform for tour and travel companies.",
+            'check' => 'We ran a free check of your online presence. Score: *{score}/100*. Quick summary:', 'check_plain' => 'We ran a free check of your online presence. Quick summary:',
+            'google' => '🗺️ *Google Maps:*', 'ta' => '✈️ *Tripadvisor:*', 'fb' => '📘 *Facebook:*', 'ig' => '📸 *Instagram:*', 'web' => '🌐 *Website:*',
+            'reviews' => 'reviews', 'g_missing' => "we couldn't find your business profile, and it's the first place travellers look", 'g_hours' => 'opening hours are missing', 'g_below' => 'below the median for similar companies ({median})',
+            'linked' => '✅ linked from your website', 'not_linked' => '❌ not linked from your website', 'web_ok' => 'online', 'web_http' => 'no HTTPS', 'web_mobile' => 'not mobile-friendly', 'web_down' => 'not loading', 'web_none' => 'no website',
+            'top' => '⚠️ *The main thing we noticed:* {gap}', 'report' => '📄 *Full report*: every point in detail and how to fix it (free):', 'cta' => '{trial}. Reply here and I will get you started in two minutes 🙌', 'cta_plain' => 'Reply here if you would like to get started 🙌',
+        ],
+        'tr' => [
+            'greet' => 'Merhaba {company} ekibi 👋', 'intro' => "Ben Tourfecto'dan {name}, turizm şirketleri için bir yapay zekâ platformuyuz.",
+            'check' => 'Online varlığınız için ücretsiz bir analiz yaptık. Puan: *{score}/100*. Kısa özet:', 'check_plain' => 'Online varlığınız için ücretsiz bir analiz yaptık. Kısa özet:',
+            'google' => '🗺️ *Google Haritalar:*', 'ta' => '✈️ *Tripadvisor:*', 'fb' => '📘 *Facebook:*', 'ig' => '📸 *Instagram:*', 'web' => '🌐 *Web sitesi:*',
+            'reviews' => 'yorum', 'g_missing' => 'işletme profilinizi bulamadık; gezginlerin ilk baktığı yer burası', 'g_hours' => 'çalışma saatleri eksik', 'g_below' => 'benzer şirketlerin medyanının altında ({median})',
+            'linked' => '✅ web sitenizde bağlı', 'not_linked' => '❌ web sitenizde bağlı değil', 'web_ok' => 'açık', 'web_http' => 'HTTPS yok', 'web_mobile' => 'mobil uyumlu değil', 'web_down' => 'açılmıyor', 'web_none' => 'web siteniz yok',
+            'top' => '⚠️ *Fark ettiğimiz en önemli nokta:* {gap}', 'report' => '📄 *Tam rapor*: her nokta ayrıntılı ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. Buradan yazın, iki dakikada başlatalım 🙌', 'cta_plain' => 'Başlamak isterseniz buradan yazın 🙌',
+        ],
+    ];
+
+    /**
+     * رسالة واتساب جاهزة للإرسال: فحص سريع بالأرقام (جوجل ماب، TripAdvisor، فيسبوك، إنستجرام، الموقع)، أهم نقطة ناقصة، الحل،
+     * لينك التقرير الكامل، وعرض التجربة. أي سطر معلومته مش مؤكدة بيتشال بدل ما يتكتب تخمين.
+     * @param array $c lang, company, name, title, score, scorecard, gap, track, report_url, trial
+     */
+    public static function deskMessage(array $c): string
+    {
+        $lang = in_array($c['lang'] ?? '', self::LANGS, true) ? $c['lang'] : 'en';
+        $t = self::DESK[$lang];
+        $fill = static fn (string $s, array $v): string => strtr($s, $v);
+        $num = static fn ($n): string => number_format((float) $n, 1, '.', '');
+        $sc = (array) ($c['scorecard'] ?? []);
+        $lines = [$fill($t['greet'], ['{company}' => $c['company']]), $fill($t['intro'], ['{name}' => $c['name']]), ''];
+        $lines[] = isset($c['score']) && $c['score'] !== null ? $fill($t['check'], ['{score}' => (string) (int) $c['score']]) : $t['check_plain'];
+        $lines[] = '';
+
+        $g = (array) ($sc['google'] ?? []);
+        if (($g['status'] ?? '') === 'found' && ($g['rating'] ?? null) !== null) {
+            $x = $t['google'] . ' ⭐ ' . $num($g['rating']) . ' (' . number_format((int) ($g['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')';
+            if (($g['hours'] ?? null) === false) {
+                $x .= ' · ' . $t['g_hours'];
+            }
+            if (!empty($g['median']) && (int) ($g['reviews'] ?? 0) < (int) $g['median'] * 0.5) {
+                $x .= ' · ' . $fill($t['g_below'], ['{median}' => number_format((int) $g['median'])]);
+            }
+            $lines[] = $x;
+        } elseif (($g['status'] ?? '') === 'missing') {
+            $lines[] = $t['google'] . ' ' . $t['g_missing'];
+        }
+        $a = (array) ($sc['tripadvisor'] ?? []);
+        if (($a['status'] ?? '') === 'found' && ($a['rating'] ?? null) !== null) {
+            $x = $t['ta'] . ' ⭐ ' . $num($a['rating']) . ' (' . number_format((int) ($a['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')';
+            if (!empty($a['ranking'])) {
+                $x .= ' · ' . $a['ranking'];
+            }
+            $lines[] = $x . (!empty($a['award']) ? ' 🏆' : '');
+        }
+        foreach ([['facebook', 'fb'], ['instagram', 'ig']] as [$k, $label]) {
+            $s = (string) ($sc[$k]['status'] ?? 'unknown');
+            if ($s !== 'unknown') {
+                $lines[] = $t[$label] . ' ' . ($s === 'linked' ? $t['linked'] : $t['not_linked']);
+            }
+        }
+        $w = (array) ($sc['website'] ?? []);
+        $ws = (string) ($w['status'] ?? 'unknown');
+        if ($ws === 'ok') {
+            $notes = array_filter([($w['https'] ?? true) === false ? $t['web_http'] : null, ($w['mobile'] ?? true) === false ? $t['web_mobile'] : null]);
+            $lines[] = $t['web'] . ' ' . $t['web_ok'] . ($notes ? ' (' . implode('، ', $notes) . ')' : '');
+        } elseif (in_array($ws, ['down', 'none'], true)) {
+            $lines[] = $t['web'] . ' ' . ($ws === 'down' ? $t['web_down'] : $t['web_none']);
+        }
+
+        if (!empty($c['gap'])) {
+            $lines[] = '';
+            $lines[] = $fill($t['top'], ['{gap}' => $c['gap']]);
+            $solution = self::texts((string) ($c['track'] ?? 'seo'), $lang)['solution'] ?? '';
+            if ($solution !== '') {
+                $lines[] = '💡 ' . $solution;
+            }
+        }
+        $lines[] = '';
+        $lines[] = $t['report'];
+        $lines[] = (string) $c['report_url'];
+        $lines[] = '';
+        $lines[] = trim((string) ($c['trial'] ?? '')) !== '' ? $fill($t['cta'], ['{trial}' => rtrim((string) $c['trial'], '.')]) : $t['cta_plain'];
+        $lines[] = '';
+        $lines[] = (string) $c['name'] . (trim((string) ($c['title'] ?? '')) !== '' ? "\n" . $c['title'] : '');
+        return implode("\n", $lines);
+    }
+
     public static function trackLabel(string $track, string $lang = 'ar'): string
     {
         return self::LABELS[$track][$lang] ?? self::LABELS[$track]['en'] ?? $track;

@@ -85,7 +85,7 @@ class PlatformOutreachController extends Controller
         }
         header('Cache-Control: private, no-store');
         try {
-            $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName()]);
+            $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'tier' => $this->get('tier', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName()]);
             return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName()]);
         } catch (Throwable $e) {
             Logger::error('Outreach desk failed', ['error' => $e->getMessage()]);
@@ -425,6 +425,7 @@ class PlatformOutreachController extends Controller
             . '.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.chip{padding:5px 12px;border-radius:99px;font-size:13px;font-weight:bold}.chip.on{background:#e3f6ec;color:#1d7a4a}.chip.off{background:#fdecec;color:#b42318;text-decoration:line-through}'
             . 'table.cmp{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px #0000000d;font-size:14px}table.cmp th,table.cmp td{padding:10px 12px;border-bottom:1px solid #f0f2f5;text-align:start}table.cmp tr.me{background:#fff7e6;font-weight:bold}h2.sec{font-size:17px;margin:26px 0 6px}'
             . '@media(max-width:560px){.pill{grid-template-columns:100px 1fr 34px}.score{flex-direction:column;text-align:center}}'
+            . '.plats{display:grid;gap:8px;margin:8px 0}.plat{display:flex;gap:12px;align-items:flex-start;background:#fff;border-radius:14px;padding:12px 16px;box-shadow:0 2px 10px #0000000d}.plat .pi{font-size:22px;line-height:1.4}.plat b{display:block}.plat .pt{display:block;color:#555;font-size:14px}.plat a{font-size:12px;color:#0E4D64}'
             . '.cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-block;background:#0E4D64;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:bold}.btn.ghost{background:#25D366}'
             . 'footer{font-size:12px;color:#777;margin-top:26px}footer a{color:#777}</style></head><body><div class="wrap">'
             . '<header><h1>' . $e($T['title'] . ' ' . $l['company']) . '</h1><p>' . $e($T['intro']) . '</p>' . ($meta ? '<div class="meta">' . $e(implode(' · ', $meta)) . '</div>' : '') . '</header>'
@@ -455,6 +456,7 @@ class PlatformOutreachController extends Controller
             $html .= '<div class="pill"><span>' . $e($p['label']) . '</span><div class="bar"><i style="width:' . $v . '%;background:' . $color($v) . '"></i></div><b style="color:' . $color($v) . '">' . $v . '</b></div>';
         }
         $html .= '</section>';
+        $html .= $this->platformCard((array) ($a['scorecard'] ?? []), $lang, $e);
         if ($a['gaps']) {
             $html .= '<h2 class="sec">' . $e($L['gaps']) . '</h2>';
             foreach ($a['gaps'] as $g) {
@@ -483,6 +485,61 @@ class PlatformOutreachController extends Controller
             $html .= '<h2 class="sec">' . $e(strtr($L['cmp'], ['{cat}' => (string) ($b['category'] ?? ''), '{city}' => (string) ($l['city'] ?? '')])) . '</h2><table class="cmp"><tr><th>' . $e($L['company']) . '</th><th>' . $e($L['reviews']) . '</th><th>' . $e($L['rating']) . '</th></tr>' . $rows . '</table>';
         }
         return $html;
+    }
+
+    /** حضورهم على المنصات: جوجل ماب، TripAdvisor، فيسبوك، إنستجرام، الموقع. السطر اللي مش معروف بيتشال (مانخمّنش) */
+    private function platformCard(array $sc, string $lang, callable $e): string
+    {
+        if (!$sc) {
+            return '';
+        }
+        $T = [
+            'ar' => ['title' => 'حضوركم على المنصات', 'reviews' => 'تقييم', 'g_missing' => 'مالقيناش ملف للشركة على Google Maps', 'hours' => 'مواعيد العمل مش مكتوبة', 'linked' => 'مربوط بموقعكم', 'not_linked' => 'مش مربوط بموقعكم', 'ok' => 'شغّال', 'http' => 'من غير HTTPS', 'mobile' => 'مش متوافق مع الموبايل', 'down' => 'مش بيفتح', 'none' => 'مفيش موقع', 'web' => 'الموقع', 'score' => 'الدرجة'],
+            'en' => ['title' => 'Your presence on the platforms', 'reviews' => 'reviews', 'g_missing' => "We couldn't find a Google Maps profile for the company", 'hours' => 'opening hours are missing', 'linked' => 'linked from your website', 'not_linked' => 'not linked from your website', 'ok' => 'online', 'http' => 'no HTTPS', 'mobile' => 'not mobile-friendly', 'down' => 'not loading', 'none' => 'no website', 'web' => 'Website', 'score' => 'Score'],
+            'tr' => ['title' => 'Platformlardaki varlığınız', 'reviews' => 'yorum', 'g_missing' => 'Şirket için Google Haritalar profili bulamadık', 'hours' => 'çalışma saatleri eksik', 'linked' => 'web sitenizde bağlı', 'not_linked' => 'web sitenizde bağlı değil', 'ok' => 'açık', 'http' => 'HTTPS yok', 'mobile' => 'mobil uyumlu değil', 'down' => 'açılmıyor', 'none' => 'web siteniz yok', 'web' => 'Web sitesi', 'score' => 'Puan'],
+        ][$lang] ?? [];
+        if (!$T) {
+            return '';
+        }
+        $stars = static fn ($r, $n) => '⭐ ' . number_format((float) $r, 1) . ' · ' . number_format((int) $n) . ' ' . '%s';
+        $rows = [];
+        $g = (array) ($sc['google'] ?? []);
+        if (($g['status'] ?? '') === 'found' && ($g['rating'] ?? null) !== null) {
+            $t = sprintf($stars($g['rating'], $g['reviews'] ?? 0), $T['reviews']) . (($g['hours'] ?? null) === false ? ' · ' . $T['hours'] : '');
+            $rows[] = ['🗺️', 'Google Maps', $t];
+        } elseif (($g['status'] ?? '') === 'missing') {
+            $rows[] = ['🗺️', 'Google Maps', $T['g_missing']];
+        }
+        $a = (array) ($sc['tripadvisor'] ?? []);
+        if (($a['status'] ?? '') === 'found' && ($a['rating'] ?? null) !== null) {
+            $rows[] = ['✈️', 'Tripadvisor', sprintf($stars($a['rating'], $a['reviews'] ?? 0), $T['reviews']) . (!empty($a['ranking']) ? ' · ' . $a['ranking'] : '') . (!empty($a['award']) ? ' 🏆' : '')];
+        }
+        foreach ([['facebook', '📘', 'Facebook'], ['instagram', '📸', 'Instagram']] as [$k, $icon, $name]) {
+            $s = (string) ($sc[$k]['status'] ?? 'unknown');
+            if ($s === 'unknown') {
+                continue;
+            }
+            $url = (string) ($sc[$k]['url'] ?? '');
+            $ok = $s === 'linked';
+            $rows[] = [$icon, $name, ($ok ? '✅ ' : '❌ ') . ($ok ? $T['linked'] : $T['not_linked']), $ok && preg_match('#^https://www\.(facebook|instagram)\.com/#', $url) ? $url : ''];
+        }
+        $w = (array) ($sc['website'] ?? []);
+        $ws = (string) ($w['status'] ?? 'unknown');
+        if ($ws === 'ok') {
+            $notes = array_filter([($w['https'] ?? true) === false ? $T['http'] : null, ($w['mobile'] ?? true) === false ? $T['mobile'] : null]);
+            $rows[] = ['🌐', $T['web'], $T['ok'] . ($w['score'] !== null ? ' · ' . $T['score'] . ' ' . (int) $w['score'] . '/100' : '') . ($notes ? ' (' . implode('، ', $notes) . ')' : '')];
+        } elseif ($ws === 'down' || $ws === 'none') {
+            $rows[] = ['🌐', $T['web'], $T[$ws]];
+        }
+        if (!$rows) {
+            return '';
+        }
+        $html = '<h2 class="sec">' . $e($T['title']) . '</h2><div class="plats">';
+        foreach ($rows as $r) {
+            $html .= '<div class="plat"><span class="pi">' . $r[0] . '</span><div><b>' . $e($r[1]) . '</b><span class="pt">' . $e($r[2]) . '</span>'
+                . (!empty($r[3]) ? '<a href="' . $e($r[3]) . '" target="_blank" rel="noopener noreferrer nofollow">' . $e(preg_replace('#^https://www\.#', '', rtrim($r[3], '/'))) . '</a>' : '') . '</div></div>';
+        }
+        return $html . '</div>';
     }
 
     /** GET /p/o/{token}/{step} - فتح الرسالة (لو التتبع مفعّل) */

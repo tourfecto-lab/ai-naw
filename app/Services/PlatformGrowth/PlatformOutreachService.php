@@ -118,7 +118,8 @@ class PlatformOutreachService
         // to_email وbody_html: نسخة من الرسالة زي ما اتبعتت (للقسم «الحملات»)، والرسايل القديمة بتفضل من غيرهم
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL']);
+        // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -744,12 +745,13 @@ class PlatformOutreachService
             // مفيش نقص واضح: الرد على الزباين والظهور في جوجل بيفيدوا أي شركة سياحة
             $needs = [['track' => !empty($l['website']) ? 'seo' : 'website', 'score' => 10, 'facts' => ['gaps' => []]]];
         }
-        $this->q('UPDATE platform_leads SET data_json=?,needs_json=?,track=?,track2=?,score=?,scanned_at=NOW() WHERE id=?', [
+        $this->q('UPDATE platform_leads SET data_json=?,needs_json=?,track=?,track2=?,score=?,priority=?,scanned_at=NOW() WHERE id=?', [
             json_encode($data, JSON_UNESCAPED_UNICODE),
             json_encode(array_slice($needs, 0, 4), JSON_UNESCAPED_UNICODE),
             $needs[0]['track'] ?? null,
             $needs[1]['track'] ?? null,
             $score['total'],
+            OutreachAudit::priority($l, $data)['score'],
             $l['id'],
         ]);
         return $data['audit'];
@@ -1644,6 +1646,7 @@ class PlatformOutreachService
                 'bench' => $a['bench'] ?? [],
                 'google' => $a['google'] ?? [],
                 'social' => array_keys((array) ($data['site']['social'] ?? [])),
+                'scorecard' => OutreachAudit::scorecard($l, $data),
                 'category' => $cat,
             ];
         }
@@ -1903,8 +1906,37 @@ class PlatformOutreachService
      * شركات دولة معيّنة للموظفة: بياناتها ورقمها والرسالة جاهزة للنسخ (نفس رسالة الإيميل: تقرير مبدئي + لينك التقرير الكامل).
      * $f: country, view (todo|contacted|hot|closed|all), q, page. $staff: ['name' => اسم الموظفة بيتحط في توقيع الرسالة]
      */
+    /** عدد الشركات اللي لسه ماتواصلناش معاها في الدولة حسب الأولوية */
+    public function deskTiers(string $country): array
+    {
+        $w = ["phone IS NOT NULL", "phone<>''", "status NOT IN ('invalid','unsubscribed')", 'desk_action IS NULL'];
+        $a = [];
+        if ($country === '?') {
+            $w[] = 'country IS NULL';
+        } elseif (preg_match('/^[A-Z]{2}$/', $country)) {
+            $w[] = 'country=?';
+            $a[] = $country;
+        }
+        $r = $this->q('SELECT SUM(COALESCE(priority,0)>=70) high, SUM(COALESCE(priority,0)>=45 AND COALESCE(priority,0)<70) medium, SUM(COALESCE(priority,0)<45) low FROM platform_leads WHERE ' . implode(' AND ', $w), $a)->fetch(PDO::FETCH_ASSOC) ?: [];
+        return ['high' => (int) ($r['high'] ?? 0), 'medium' => (int) ($r['medium'] ?? 0), 'low' => (int) ($r['low'] ?? 0)];
+    }
+
+    /** الشركات اللي اتفحصت قبل ما الأولوية تتضاف: بتتحسب مرة واحدة من بيانات الفحص المخزّنة (من غير فحص جديد) */
+    private function ensurePriority(): void
+    {
+        if ($this->settings->get('outreach_priority_v1', '') !== '') {
+            return;
+        }
+        $rows = $this->q('SELECT id, rating, reviews, needs_json, data_json FROM platform_leads WHERE priority IS NULL AND scanned_at IS NOT NULL LIMIT 20000')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $r) {
+            $this->q('UPDATE platform_leads SET priority=? WHERE id=?', [OutreachAudit::priority($r, json_decode((string) ($r['data_json'] ?? ''), true) ?: [])['score'], $r['id']]);
+        }
+        $this->settings->set('outreach_priority_v1', date('Y-m-d H:i:s'));
+    }
+
     public function deskLeads(array $f, array $staff = []): array
     {
+        $this->ensurePriority();
         $where = ["phone IS NOT NULL", "phone<>''", "status<>'invalid'"];
         $args = [];
         if (($f['country'] ?? '') === '?') {
@@ -1923,6 +1955,12 @@ class PlatformOutreachService
         if (isset($views[$view])) {
             $where[] = $views[$view];
         }
+        // أولوية الإرسال: high = محتاجة فعلًا وشغّالة، medium، low = قليلة الاحتياج (مش لازم نتعب فيها الأول)
+        $tierSql = ['high' => 'COALESCE(priority,0)>=70', 'medium' => 'COALESCE(priority,0)>=45 AND COALESCE(priority,0)<70', 'low' => 'COALESCE(priority,0)<45'];
+        $tier = (string) ($f['tier'] ?? '');
+        if (isset($tierSql[$tier])) {
+            $where[] = $tierSql[$tier];
+        }
         if (!empty($f['q'])) {
             $where[] = '(company LIKE ? OR email LIKE ? OR phone LIKE ? OR city LIKE ? OR domain LIKE ?)';
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
@@ -1932,7 +1970,7 @@ class PlatformOutreachService
         $per = 25;
         $w = implode(' AND ', $where);
         $total = (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
-        $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY (desk_action IS NULL) DESC, COALESCE(reviews,0) DESC, id DESC LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY (desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
 
         $set = $this->getSettings();
         $set['ai_opener'] = '0'; // الرسالة بتتعمل لكل شركة في القايمة: من غير مكالمة ذكاء صناعي لكل واحدة
@@ -1941,6 +1979,7 @@ class PlatformOutreachService
         }
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
         $out = [];
+        $trial = [];
         foreach ($rows as $r) {
             $l = self::tidy($r);
             $data = json_decode((string) ($l['data_json'] ?? ''), true) ?: [];
@@ -1956,10 +1995,26 @@ class PlatformOutreachService
             foreach (array_slice((array) (json_decode((string) ($l['needs_json'] ?? ''), true) ?: []), 0, 3) as $n) {
                 $needs[] = OutreachNeeds::trackLabel((string) ($n['track'] ?? ''), 'ar');
             }
+            $sc = OutreachAudit::scorecard($l, $data);
+            // نفس القيمة المخزّنة اللي القايمة مترتّبة ومتفلترة بيها (الحساب الحي بس لو لسه مااتخزّنتش)
+            $prioScore = isset($r['priority']) && $r['priority'] !== null ? (int) $r['priority'] : OutreachAudit::priority($l, $data)['score'];
             $message = '';
             if (!$blocked) {
                 try {
-                    $message = (string) $this->compose($l, 1, $set, static fn () => null)['text'];
+                    $auditGaps = (array) ($data['audit']['gaps'] ?? []);
+                    if (!empty($data['audit']['score'])) {
+                        // الشركة اتفحصت: رسالة واتساب احترافية بالأرقام (جوجل ماب، TripAdvisor، فيسبوك، إنستجرام، الموقع) ولينك التقرير الكامل
+                        $lang = in_array($l['language'], OutreachNeeds::LANGS, true) ? $l['language'] : 'en';
+                        $trial[$lang] ??= self::trialOffer($lang);
+                        $message = OutreachNeeds::deskMessage([
+                            'lang' => $lang, 'company' => OutreachAudit::cleanName((string) $l['company']), 'name' => (string) $set['sender_name'], 'title' => (string) $set['sender_title'],
+                            'score' => $data['audit']['score']['total'] ?? null, 'scorecard' => $sc,
+                            'gap' => $auditGaps ? OutreachAudit::gapText($auditGaps[0], $l, $lang) : '', 'track' => (string) ($auditGaps[0]['track'] ?? $l['track'] ?? 'seo'),
+                            'report_url' => $base . '/p/r/' . $l['token'] . '?s=1', 'trial' => $trial[$lang],
+                        ]);
+                    } else {
+                        $message = (string) $this->compose($l, 1, $set, static fn () => null)['text'];
+                    }
                 } catch (Throwable $e) {
                     Logger::warning('Outreach desk message failed', ['lead' => $l['id'], 'error' => $e->getMessage()]);
                 }
@@ -1978,6 +2033,7 @@ class PlatformOutreachService
                 'id' => (int) $l['id'], 'company' => OutreachAudit::cleanName((string) $l['company']), 'category' => $l['category'], 'city' => $l['city'], 'country' => $l['country'],
                 'website' => $l['website'], 'email' => $l['email'], 'rating' => $l['rating'], 'reviews' => $l['reviews'], 'language' => $l['language'], 'status' => $l['status'],
                 'score' => $data['audit']['score']['total'] ?? $l['score'], 'needs' => $needs, 'gaps' => $gaps, 'has_report' => !empty($data['audit']['score']),
+                'scorecard' => $sc, 'priority' => $prioScore, 'tier' => OutreachAudit::tier($prioScore),
                 'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
                 'blocked' => $blocked, 'message' => $message,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
@@ -1985,7 +2041,7 @@ class PlatformOutreachService
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
             ];
         }
-        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries()];
+        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries(), 'tiers' => $this->deskTiers((string) ($f['country'] ?? ''))];
     }
 
     /**
