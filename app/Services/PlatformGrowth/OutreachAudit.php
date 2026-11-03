@@ -200,6 +200,20 @@ class OutreachAudit
         return trim((string) preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $name));
     }
 
+    /** مشاكل بسيطة أو مقارنات (مش عيب حقيقي في الشركة): مش بتكفي لرسالة بتقنع */
+    private const SOFT_GAPS = ['google_few_reviews', 'many_guests'];
+
+    /**
+     * رسالة ضعيفة = أقل من مشكلتين حقيقيتين (من غير المشاكل البسيطة): مش بنطلّعها في قايمة «لسه ماتواصلتش»،
+     * لأن رسالة بمشكلة واحدة ضعيفة بتحرق الشركة. بتفضل في تبويب «ضعيفة» ومش بتتمسح.
+     * @param array $gaps صفوف ['id' => ..., 'vars' => ...]
+     */
+    public static function isWeak(array $gaps): bool
+    {
+        $real = array_filter($gaps, static fn ($g) => is_array($g) && !in_array((string) ($g['id'] ?? ''), self::SOFT_GAPS, true));
+        return count($real) < 2;
+    }
+
     /** كلمات عامة في أسماء شركات السياحة: مش بتميّز شركة عن التانية */
     private const NAME_GENERIC = ['tour', 'tours', 'travel', 'travels', 'trip', 'trips', 'agency', 'egypt', 'egyptian', 'cairo', 'the', 'and', 'for', 'company', 'co', 'group', 'holidays', 'vacations', 'safari', 'excursions', 'سياحة', 'للسياحة', 'مصر', 'رحلات', 'للرحلات', 'شركة'];
 

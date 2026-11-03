@@ -9,7 +9,7 @@
     const flag = c => /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1E6 + x.charCodeAt(0) - 65)) : '🌐';
     const countryName = c => c === '?' || !c ? 'دولة مش معروفة' : (COUNTRY[c] || c);
     const LANG = { ar: 'عربي', en: 'English', tr: 'Türkçe' };
-    const VIEWS = [['todo', 'لسه ماتواصلتش', 'todo'], ['followup', '⏰ محتاجة متابعة', 'followup'], ['contacted', 'اتواصلت', 'contacted'], ['hot', 'ردّوا / مهتمين', 'hot'], ['won', '🎉 جرّبوا / اشتركوا', 'won'], ['closed', 'اتقفلت', 'closed'], ['all', 'الكل', null]];
+    const VIEWS = [['todo', 'لسه ماتواصلتش', 'todo'], ['followup', '⏰ محتاجة متابعة', 'followup'], ['contacted', 'اتواصلت', 'contacted'], ['hot', 'ردّوا / مهتمين', 'hot'], ['won', '🎉 جرّبوا / اشتركوا', 'won'], ['closed', 'اتقفلت', 'closed'], ['weak', 'رسالتها ضعيفة (مخفية)', 'weak'], ['all', 'الكل', null]];
     const ACTIONS = [
         ['contacted', '✅ بعتّ على واتساب', 'تم الإرسال على واتساب'], ['replied', '💬 ردّوا', 'ردّوا'], ['interested', '🔥 مهتمين', 'مهتمين'],
         ['trial', '🧪 جرّبوا المنصة', 'جرّبوا المنصة'], ['subscribed', '🎉 اشتركوا', 'اشتركوا'],
@@ -65,7 +65,7 @@
         const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
         let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); return ok;
     };
-    const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, contacted: 0, followup: 0, hot: 0, won: 0, closed: 0 };
+    const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, weak: 0, contacted: 0, followup: 0, hot: 0, won: 0, closed: 0 };
 
     const card = r => {
         const dir = r.language === 'ar' ? 'rtl' : 'ltr';

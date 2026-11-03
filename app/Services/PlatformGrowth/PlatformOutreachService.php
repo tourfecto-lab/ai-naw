@@ -119,7 +119,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -811,13 +811,14 @@ class PlatformOutreachService
             // مفيش نقص واضح: الرد على الزباين والظهور في جوجل بيفيدوا أي شركة سياحة
             $needs = [['track' => !empty($l['website']) ? 'seo' : 'website', 'score' => 10, 'facts' => ['gaps' => []]]];
         }
-        $this->q('UPDATE platform_leads SET data_json=?,needs_json=?,track=?,track2=?,score=?,priority=?,scanned_at=NOW() WHERE id=?', [
+        $this->q('UPDATE platform_leads SET data_json=?,needs_json=?,track=?,track2=?,score=?,priority=?,desk_weak=?,scanned_at=NOW() WHERE id=?', [
             json_encode($data, JSON_UNESCAPED_UNICODE),
             json_encode(array_slice($needs, 0, 4), JSON_UNESCAPED_UNICODE),
             $needs[0]['track'] ?? null,
             $needs[1]['track'] ?? null,
             $score['total'],
             OutreachAudit::priority($l, $data)['score'],
+            OutreachAudit::isWeak($gaps) ? 1 : 0,
             $l['id'],
         ]);
         return $data['audit'];
@@ -1996,7 +1997,8 @@ class PlatformOutreachService
     public function deskCountries(): array
     {
         $rows = $this->q("SELECT COALESCE(country,'?') country, COUNT(*) total,
-                SUM(desk_action IS NULL AND status<>'unsubscribed') todo,
+                SUM(desk_action IS NULL AND status<>'unsubscribed' AND COALESCE(desk_weak,0)=0) todo,
+                SUM(desk_action IS NULL AND status<>'unsubscribed' AND desk_weak=1) weak,
                 SUM(desk_action IN ('contacted','call_back')) contacted,
                 SUM(" . self::followupSql() . ") followup,
                 SUM(desk_action IN ('replied','interested')) hot,
@@ -2014,7 +2016,7 @@ class PlatformOutreachService
     /** الشركات اللي لسه ماتواصلناش معاها في الدولة (اللي ليها رقم): نفس المجموعة اللي بتتقسّم عليها المستويات */
     private function deskTodoWhere(string $country): array
     {
-        $w = ["phone IS NOT NULL", "phone<>''", "status NOT IN ('invalid','unsubscribed')", 'desk_action IS NULL'];
+        $w = ["phone IS NOT NULL", "phone<>''", "status NOT IN ('invalid','unsubscribed')", 'desk_action IS NULL', 'COALESCE(desk_weak,0)=0'];
         $a = [];
         if ($country === '?') {
             $w[] = 'country IS NULL';
@@ -2060,9 +2062,24 @@ class PlatformOutreachService
         $this->settings->set('outreach_priority_v1', date('Y-m-d H:i:s'));
     }
 
+    /** الشركات اللي اتفحصت قبل علامة «ضعيفة»: بتتحسب مرة واحدة من المشاكل المخزّنة (من غير فحص جديد) */
+    private function ensureWeak(): void
+    {
+        if ($this->settings->get('outreach_weak_v1', '') !== '') {
+            return;
+        }
+        $rows = $this->q('SELECT id, data_json FROM platform_leads WHERE desk_weak IS NULL AND scanned_at IS NOT NULL LIMIT 20000')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $r) {
+            $gaps = (array) ((json_decode((string) ($r['data_json'] ?? ''), true) ?: [])['audit']['gaps'] ?? []);
+            $this->q('UPDATE platform_leads SET desk_weak=? WHERE id=?', [OutreachAudit::isWeak($gaps) ? 1 : 0, $r['id']]);
+        }
+        $this->settings->set('outreach_weak_v1', date('Y-m-d H:i:s'));
+    }
+
     public function deskLeads(array $f, array $staff = []): array
     {
         $this->ensurePriority();
+        $this->ensureWeak();
         $where = ["phone IS NOT NULL", "phone<>''", "status<>'invalid'"];
         $args = [];
         if (($f['country'] ?? '') === '?') {
@@ -2073,7 +2090,8 @@ class PlatformOutreachService
         }
         $view = (string) ($f['view'] ?? 'todo');
         $views = [
-            'todo' => "desk_action IS NULL AND status<>'unsubscribed'",
+            'todo' => "desk_action IS NULL AND status<>'unsubscribed' AND COALESCE(desk_weak,0)=0",
+            'weak' => "desk_action IS NULL AND status<>'unsubscribed' AND desk_weak=1",
             'contacted' => "desk_action IN ('contacted','call_back')",
             'followup' => self::followupSql(),
             'hot' => "desk_action IN ('replied','interested')",

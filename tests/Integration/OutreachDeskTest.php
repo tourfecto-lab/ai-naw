@@ -166,6 +166,25 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame(0, $this->svc->deskFunnel('QQ')['whatsapp']['sent']);
     }
 
+    public function testWeakMessagesAreHiddenFromTodoButKeptInTheirOwnTab(): void
+    {
+        $this->assertTrue(OutreachAudit::isWeak([]));
+        $this->assertTrue(OutreachAudit::isWeak([['id' => 'no_tracking']]));
+        $this->assertTrue(OutreachAudit::isWeak([['id' => 'no_tracking'], ['id' => 'google_few_reviews'], ['id' => 'many_guests']]), 'comparisons and soft points do not make a strong message');
+        $this->assertFalse(OutreachAudit::isWeak([['id' => 'no_tracking'], ['id' => 'no_booking']]));
+
+        $weak = $this->lead('Weakmsg Tours', 'EG', '+201000000031');
+        $strong = $this->lead('Strongmsg Tours', 'EG', '+201000000032');
+        $this->db->query('UPDATE platform_leads SET desk_weak = 1 WHERE id = ?', [$weak]);
+        $this->db->query('UPDATE platform_leads SET desk_weak = 0 WHERE id = ?', [$strong]);
+        $names = fn (string $view) => array_column($this->svc->deskLeads(['country' => 'EG', 'view' => $view, 'q' => 'msg Tours'])['rows'], 'company');
+        $this->assertSame(['Strongmsg Tours'], $names('todo'));
+        $this->assertSame(['Weakmsg Tours'], $names('weak'));
+        $this->assertEqualsCanonicalizing(['Strongmsg Tours', 'Weakmsg Tours'], $names('all'), 'nothing is deleted');
+        $this->svc->deskAction($weak, 'contacted', '', 5, 'Sara');
+        $this->assertSame([], $names('weak'), 'once staff acted on it it is no longer a hidden to-do');
+    }
+
     public function testTrialAndSubscribedAreWinsAndStopTheEmailSequence(): void
     {
         $a = $this->lead('Trialwin Tours', 'EG', '+201000000021');
