@@ -24,7 +24,6 @@ final class OutreachDeskPriorityTest extends TestCase
             $this->markTestSkipped('DB غير متاحة: ' . $e->getMessage());
         }
         $this->clean();
-        $this->svc->deskLeads(['country' => 'ZZ']); // the one-time priority/weak backfills must run before this test's own leads exist
     }
 
     protected function tearDown(): void
@@ -45,8 +44,8 @@ final class OutreachDeskPriorityTest extends TestCase
             'site' => ['ok' => true, 'https' => true, 'viewport' => true, 'social' => ['facebook' => 'page'], 'title' => 'Nile Dream Tours in Cairo', 'meta_description' => true, 'h1' => true, 'schema' => ['TravelAgency'], 'sitemap' => true, 'blog' => true],
             'ta' => ['ranking' => '#3 in Cairo']], $extra), JSON_UNESCAPED_UNICODE);
         $slug = strtolower(str_replace(' ', '', $name));
-        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, website, phone, country, city, category, language, status, step, track, score, reviews, rating, token, data_json, scanned_at, priority)
-            VALUES ('phpunit-prio', ?, ?, ?, ?, '+201000000009', 'EG', 'Cairo', 'Tour agency', 'ar', 'new', 0, 'direct_booking', 70, ?, 4.8, ?, ?, NOW(), ?)",
+        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, website, phone, country, city, category, language, status, step, track, score, reviews, rating, token, data_json, scanned_at, priority, desk_weak)
+            VALUES ('phpunit-prio', ?, ?, ?, ?, '+201000000009', 'EG', 'Cairo', 'Tour agency', 'ar', 'new', 0, 'direct_booking', 70, ?, 4.8, ?, ?, NOW(), ?, 0)",
             [$name, $slug . '@prio.test', $slug . '.test', 'https://' . $slug . '.test', $reviews, bin2hex(random_bytes(16)), $data, $priority]);
         return (int) ($this->db->query("SELECT MAX(id) AS id FROM platform_leads WHERE source = 'phpunit-prio'")[0]['id'] ?? 0);
     }
