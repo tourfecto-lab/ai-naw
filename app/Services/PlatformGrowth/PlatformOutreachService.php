@@ -117,6 +117,19 @@ class PlatformOutreachService
         ]);
         // to_email وbody_html: نسخة من الرسالة زي ما اتبعتت (للقسم «الحملات»)، والرسايل القديمة بتفضل من غيرهم
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
+        // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL']);
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            user_id BIGINT NULL,
+            user_name VARCHAR(120) NOT NULL DEFAULT '',
+            action VARCHAR(20) NOT NULL,
+            note VARCHAR(500) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_pda_lead (lead_id),
+            KEY idx_pda_created (created_at)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $done = true;
     }
 
@@ -1841,6 +1854,155 @@ class PlatformOutreachService
             'events' => $events,
             'siblings' => $siblings,
         ];
+    }
+
+    // ------------------------------------------------------------------ مكتب التواصل: موظفة بتبعت على واتساب يدويًا
+
+    /** نتايج التواصل اللي الموظفة بتسجّلها */
+    public const DESK_ACTIONS = ['contacted', 'replied', 'interested', 'not_interested', 'wrong_number', 'call_back'];
+
+    /** رقم الواتساب بالصيغة الدولية (أرقام بس) من الرقم المتخزّن: +20 / 0020 / أو محلي بيبدأ بصفر. '' لو مش واضح */
+    public static function deskPhone(?string $phone, ?string $country): string
+    {
+        $raw = trim((string) $phone);
+        $digits = preg_replace('/\D/', '', $raw);
+        if ($digits === '') {
+            return '';
+        }
+        if (preg_match('/^\s*(\+|00)/', $raw)) {
+            $digits = (string) preg_replace('/^00/', '', $digits);
+        } else {
+            $code = $country ? array_search(strtoupper($country), self::DIAL, true) : false;
+            if ($code === false) {
+                return '';
+            }
+            $code = (string) $code;
+            if (str_starts_with($digits, '0')) {
+                $digits = $code . ltrim($digits, '0');
+            } elseif (!str_starts_with($digits, $code)) {
+                return '';
+            }
+        }
+        return strlen($digits) >= 8 && strlen($digits) <= 15 ? $digits : '';
+    }
+
+    /** الدول اللي فيها شركات ليها رقم، وعدّاد التواصل لكل دولة */
+    public function deskCountries(): array
+    {
+        $rows = $this->q("SELECT COALESCE(country,'?') country, COUNT(*) total,
+                SUM(desk_action IS NULL AND status<>'unsubscribed') todo,
+                SUM(desk_action IN ('contacted','call_back')) contacted,
+                SUM(desk_action IN ('replied','interested')) hot,
+                SUM(desk_action IN ('not_interested','wrong_number')) closed
+            FROM platform_leads WHERE phone IS NOT NULL AND phone<>'' AND status<>'invalid'
+            GROUP BY COALESCE(country,'?') ORDER BY total DESC")->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(static fn ($r) => ['country' => $r['country']] + array_map('intval', array_diff_key($r, ['country' => 1])), $rows);
+    }
+
+    /**
+     * شركات دولة معيّنة للموظفة: بياناتها ورقمها والرسالة جاهزة للنسخ (نفس رسالة الإيميل: تقرير مبدئي + لينك التقرير الكامل).
+     * $f: country, view (todo|contacted|hot|closed|all), q, page. $staff: ['name' => اسم الموظفة بيتحط في توقيع الرسالة]
+     */
+    public function deskLeads(array $f, array $staff = []): array
+    {
+        $where = ["phone IS NOT NULL", "phone<>''", "status<>'invalid'"];
+        $args = [];
+        if (($f['country'] ?? '') === '?') {
+            $where[] = 'country IS NULL';
+        } elseif (!empty($f['country']) && preg_match('/^[A-Z]{2}$/', (string) $f['country'])) {
+            $where[] = 'country=?';
+            $args[] = $f['country'];
+        }
+        $view = (string) ($f['view'] ?? 'todo');
+        $views = [
+            'todo' => "desk_action IS NULL AND status<>'unsubscribed'",
+            'contacted' => "desk_action IN ('contacted','call_back')",
+            'hot' => "desk_action IN ('replied','interested')",
+            'closed' => "desk_action IN ('not_interested','wrong_number')",
+        ];
+        if (isset($views[$view])) {
+            $where[] = $views[$view];
+        }
+        if (!empty($f['q'])) {
+            $where[] = '(company LIKE ? OR email LIKE ? OR phone LIKE ? OR city LIKE ? OR domain LIKE ?)';
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
+            array_push($args, $like, $like, $like, $like, $like);
+        }
+        $page = max(1, (int) ($f['page'] ?? 1));
+        $per = 25;
+        $w = implode(' AND ', $where);
+        $total = (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
+        $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY (desk_action IS NULL) DESC, COALESCE(reviews,0) DESC, id DESC LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
+
+        $set = $this->getSettings();
+        $set['ai_opener'] = '0'; // الرسالة بتتعمل لكل شركة في القايمة: من غير مكالمة ذكاء صناعي لكل واحدة
+        if (!empty($staff['name'])) {
+            $set['sender_name'] = (string) $staff['name'];
+        }
+        $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
+        $out = [];
+        foreach ($rows as $r) {
+            $l = self::tidy($r);
+            $data = json_decode((string) ($l['data_json'] ?? ''), true) ?: [];
+            $blocked = $l['status'] === 'unsubscribed';
+            $digits = self::deskPhone($l['phone'], $l['country']);
+            $gaps = [];
+            foreach (array_slice((array) ($data['audit']['gaps'] ?? []), 0, 4) as $g) {
+                if (($t = OutreachAudit::gapText($g, $l, 'ar')) !== '') {
+                    $gaps[] = $t;
+                }
+            }
+            $needs = [];
+            foreach (array_slice((array) (json_decode((string) ($l['needs_json'] ?? ''), true) ?: []), 0, 3) as $n) {
+                $needs[] = OutreachNeeds::trackLabel((string) ($n['track'] ?? ''), 'ar');
+            }
+            $message = '';
+            if (!$blocked) {
+                try {
+                    $message = (string) $this->compose($l, 1, $set, static fn () => null)['text'];
+                } catch (Throwable $e) {
+                    Logger::warning('Outreach desk message failed', ['lead' => $l['id'], 'error' => $e->getMessage()]);
+                }
+            }
+            $out[] = [
+                'id' => (int) $l['id'], 'company' => OutreachAudit::cleanName((string) $l['company']), 'category' => $l['category'], 'city' => $l['city'], 'country' => $l['country'],
+                'website' => $l['website'], 'email' => $l['email'], 'rating' => $l['rating'], 'reviews' => $l['reviews'], 'language' => $l['language'], 'status' => $l['status'],
+                'score' => $data['audit']['score']['total'] ?? $l['score'], 'needs' => $needs, 'gaps' => $gaps, 'has_report' => !empty($data['audit']['score']),
+                'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $digits !== '' && !$blocked ? 'https://wa.me/' . $digits : '',
+                'blocked' => $blocked, 'message' => $message,
+                'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
+                'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
+                'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
+            ];
+        }
+        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries()];
+    }
+
+    /**
+     * الموظفة بتسجّل نتيجة التواصل مع شركة. الرد/الاهتمام/الرفض بيوقّفوا رسايل الإيميل للشركة دي، وإلغاء الاشتراك والتسجيل والراجع مابيتغيروش.
+     */
+    public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName): array
+    {
+        if (!in_array($action, self::DESK_ACTIONS, true)) {
+            throw new InvalidArgumentException('نتيجة غير معروفة');
+        }
+        $l = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [$leadId])->fetch(PDO::FETCH_ASSOC) ?: null);
+        if (!$l) {
+            throw new InvalidArgumentException('الشركة مش موجودة');
+        }
+        if ($l['status'] === 'unsubscribed') {
+            throw new InvalidArgumentException('الشركة دي ألغت الاشتراك: ممنوع التواصل معاها');
+        }
+        $note = mb_substr(trim($note), 0, 500);
+        $by = mb_substr($userName, 0, 120);
+        $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $leadId]);
+        $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, $action, $note !== '' ? $note : null]);
+        // اللي ردّ أو اهتم أو رفض مايفضلش يوصله إيميل تلقائي
+        $map = ['replied' => 'replied', 'interested' => 'interested', 'not_interested' => 'paused'];
+        if (isset($map[$action]) && in_array($l['status'], ['new', 'no_email', 'contacted', 'finished', 'interested', 'replied', 'paused'], true)) {
+            $this->setLeadStatus($leadId, $map[$action], 'مكتب التواصل: ' . $action . ($note !== '' ? ' - ' . $note : ''));
+        }
+        return ['action' => $action, 'note' => $note !== '' ? $note : null, 'at' => date('Y-m-d H:i:s'), 'by' => $by];
     }
 
     public function signupLinkFor(array $lead, int $step): string

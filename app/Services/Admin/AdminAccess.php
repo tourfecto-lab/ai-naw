@@ -52,6 +52,7 @@ class AdminAccess
         'audit.view'         => ['security', 'عرض سجل التدقيق'],
         'team.view'          => ['team', 'عرض فريق الأدمن'],
         'team.manage'        => ['team', 'إدارة فريق الأدمن وأدوارهم'],
+        'outreach.desk'      => ['sales', 'مكتب التواصل: شركات كل دولة وأرقامها والرسايل الجاهزة للنسخ'],
     ];
 
     /** الأدوار المعروضة (الترتيب = الأقوى أولاً) */
@@ -61,6 +62,7 @@ class AdminAccess
         'finance' => 'مالية',
         'support' => 'دعم',
         'analyst' => 'محلل (قراءة فقط)',
+        'sales'   => 'مبيعات (مكتب التواصل فقط)',
     ];
 
     private const ROLE_PERMS = [
@@ -76,6 +78,8 @@ class AdminAccess
             'analytics.view', 'users.view', 'subscriptions.view', 'billing.view', 'messages.view',
             'security.view', 'system.view', 'ai_usage.view', 'audit.view', 'team.view',
         ],
+        // موظفة التواصل: مكتب التواصل بس (مفيش عملاء ولا فلوس ولا إعدادات)
+        'sales' => ['outreach.desk'],
     ];
 
     /** @var array<int, array> كاش لكل طلب */
@@ -237,6 +241,7 @@ class AdminAccess
                 '#^/admin/health$#' => 'system.view',
                 '#^/admin/emails$#' => 'system.view',
                 '#^/admin/growth$#' => 'settings.manage',
+                '#^/admin/outreach-desk$#' => 'outreach.desk',
                 '#^/admin/plans-studio$#' => 'billing.view',
                 '#^/admin/metrics$#' => 'billing.view',
                 '#^/admin/customers-health$#' => 'users.view',
@@ -331,6 +336,8 @@ class AdminAccess
 
         // ---- تسويق المنصة بالإيميل
         if ($rel === '/growth' || strpos($rel, '/growth/') === 0) return 'settings.manage';
+        // ---- مكتب التواصل (موظفة المبيعات)
+        if ($rel === '/outreach-desk' || strpos($rel, '/outreach-desk/') === 0) return 'outreach.desk';
 
         // ---- مفاتيح الشركاء: حساسة، لصاحب إدارة الإعدادات فقط (قراءة وتعديل)
         if (strpos($rel, '/partner-keys') === 0) return 'settings.manage';

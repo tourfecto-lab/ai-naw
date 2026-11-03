@@ -54,6 +54,59 @@ class PlatformOutreachController extends Controller
         exit;
     }
 
+    /** اسم الموظفة في توقيع الرسالة: أول كلمة من اسمها (أو اسم الإيميل) */
+    private function staffName(): string
+    {
+        $n = trim((string) ($this->user['name'] ?? ''));
+        if ($n === '') {
+            $n = (string) strstr((string) ($this->user['email'] ?? ''), '@', true);
+        }
+        return trim((string) (preg_split('/\s+/u', $n)[0] ?? ''));
+    }
+
+    /** GET /admin/outreach-desk - مكتب التواصل: موظفة المبيعات بتبعت على واتساب من رسايل جاهزة */
+    public function desk(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        $css = htmlspecialchars(asset_v('/assets/css/admin-outreach-desk.css'), ENT_QUOTES, 'UTF-8');
+        $js = htmlspecialchars(asset_v('/assets/js/admin-outreach-desk.js'), ENT_QUOTES, 'UTF-8');
+        $body = '<link rel="stylesheet" href="' . $css . '"><section id="deskRoot" class="dk" dir="rtl"><p>جاري التحميل…</p></section><script src="' . $js . '"></script>';
+        echo $this->renderPanelPage('outreach-desk', 'مكتب التواصل', 'اختاري الدولة وابعتي لكل شركة على واتساب: بياناتها ورقمها والرسالة جاهزين للنسخ', $body, 'window.OutreachDesk&&window.OutreachDesk.init(window.Panel);');
+        exit;
+    }
+
+    /** GET /api/admin/outreach-desk/leads?country=&view=&q=&page= */
+    public function deskLeads(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName()]);
+            return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName()]);
+        } catch (Throwable $e) {
+            Logger::error('Outreach desk failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل الشركات', 503);
+        }
+    }
+
+    /** POST /api/admin/outreach-desk/leads/{id}/action - {action, note} */
+    public function deskAction(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        try {
+            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffName() ?: 'staff');
+            return $this->success($r);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
     /** GET /api/admin/growth */
     public function overview(array $params = []): array
     {
