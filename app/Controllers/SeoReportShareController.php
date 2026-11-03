@@ -42,6 +42,10 @@ final class SeoReportShareController extends Controller
     /** GET /r/{token}: صفحة التقرير العامة. مفيش أي تفاصيل صفحات أو إجراءات، أرقام وملخصات فقط. */
     public function show(array $params = []): array
     {
+        // نفس المسار /r/ بيخدم روابط الإعلانات القصيرة (كود 10 hex)؛ توكن التقرير دايمًا 64 hex، فأي شكل تاني يروح لتتبع الإعلانات.
+        if (!preg_match('/^[a-f0-9]{64}$/D', (string) ($params['token'] ?? ''))) {
+            return (new AdsController())->redirectUtmClick(['code' => (string) ($params['token'] ?? '')]);
+        }
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-store, private');
         header('X-Robots-Tag: noindex, nofollow, noarchive');
