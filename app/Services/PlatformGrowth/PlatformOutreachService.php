@@ -2164,7 +2164,7 @@ class PlatformOutreachService
                         $trial[$lang] ??= self::trialOffer($lang);
                         $ctx = ['lang' => $lang, 'company' => OutreachAudit::cleanName((string) $l['company']), 'name' => (string) $set['sender_name'], 'title' => (string) $set['sender_title'],
                             'scorecard' => $sc, 'seo' => $seoState, 'gaps' => $auditGaps, 'report_url' => $base . '/p/r/' . $l['token'] . '?s=1', 'trial' => $trial[$lang],
-                            'signup_url' => $base . '/p/c/' . $l['token'] . '/1'];
+                            'signup_url' => $base . '/p/c/' . $l['token'] . '/1', 'country' => (string) ($l['country'] ?? '')];
                         $message = OutreachNeeds::deskMessage($ctx);
                         $message2 = OutreachNeeds::deskServicesMessage($ctx);
                     } else {

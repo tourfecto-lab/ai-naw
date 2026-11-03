@@ -103,6 +103,24 @@ final class OutreachReportContentTest extends TestCase
         $this->assertNotSame('down', PlatformOutreachService::classifyStatus(0, 'schannel: SEC_E_ILLEGAL_MESSAGE'));
     }
 
+    public function testAfterReplyMessageStatesTheStarterPriceWithoutPromisingWhatDependsOnMetaOrGoogleReview(): void
+    {
+        $ctx = fn (string $lang, string $country) => ['lang' => $lang, 'name' => 'Sara', 'country' => $country, 'trial' => 'جرّبوا 3 أيام مجانًا', 'signup_url' => 'https://tourfecto.pro/p/c/abc/1'];
+        $eg = OutreachNeeds::deskServicesMessage($ctx('ar', 'EG'));
+        $this->assertStringContainsString('Starter', $eg);
+        $this->assertStringContainsString('3,950 جنيه', $eg);
+        $this->assertStringContainsString('مكالمة 15 دقيقة', $eg);
+        $this->assertStringContainsString('https://tourfecto.pro/p/c/abc/1', $eg);
+        $this->assertStringContainsString('$79', OutreachNeeds::deskServicesMessage($ctx('tr', 'TR')));
+        $this->assertStringContainsString('EGP 3,950', OutreachNeeds::deskServicesMessage($ctx('en', 'EG')));
+        foreach (['ar', 'en', 'tr'] as $lang) {
+            $text = OutreachNeeds::deskServicesMessage($ctx($lang, 'EG'));
+            foreach (['السمعة', 'السوشيال', 'Reputation', 'Social', 'İtibar', 'Sosyal', 'WhatsApp chat', 'خصم', 'discount'] as $banned) {
+                $this->assertStringNotContainsStringIgnoringCase($banned, $text, "$lang after-reply message must not mention $banned");
+            }
+        }
+    }
+
     public function testGoogleMissingIsWordedAsOurSearchNotAsAFactAboutThem(): void
     {
         $text = OutreachAudit::gapText(['id' => 'no_google', 'vars' => []], ['company' => 'Nile Tours', 'domain' => 'nile.test'], 'ar');

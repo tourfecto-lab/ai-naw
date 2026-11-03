@@ -219,10 +219,10 @@ class OutreachNeeds
             'report' => '📄 *التقرير الكامل* بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا عليا هنا وأوريكم 🙌', 'cta_plain' => 'ردّوا عليا هنا وأوريكم 🙌',
             's2_intro' => '{name} من Tourfecto تاني 🙌 دي نبذة سريعة عن اللي بنقدّمه لشركات السياحة في منصة واحدة:',
             's2' => ["🧠 *العقل الاستراتيجي:* بيقرا بيانات شركتكم (حجوزات، عملاء، تقييمات) ويقترح قرارات بأدلة: عملاء محتاجين متابعة، أسواق بتجيب طلب، وأسعاركم قدام المنافسين. إنتم اللي بتوافقوا وهو يجهّز التنفيذ.",
-                '🔎 *السيو والظهور في جوجل* وفي إجابات الذكاء الاصطناعي', '⭐ *السمعة:* مسودات ردود على التقييمات بموافقتكم', '📣 *السوشيال:* خطة محتوى واستوديو تصميم',
-                '📅 *الحجز والدفع* على موقعكم من غير عمولة', '👁️ *مراقبة المنافسين* وتغيّر أسعارهم', '🌍 *ذكاء السوق:* تحذيرات السفر وأسعار العملات', '📊 *لوحة تنفيذية:* إيراداتكم وسمعتكم وإنفاق إعلاناتكم في شاشة واحدة',
-                '🧩 وكمان: منشئ مواقع، CRM، وتسويق بالبريد'],
-            's2_cta' => '{trial}، وتبدأوا من هنا:', 's2_start' => 'وتبدأوا من هنا:',
+                '🔎 *السيو والظهور في جوجل* وفي إجابات الذكاء الاصطناعي', '📅 *موقع وحجز ودفع أونلاين* من غير عمولة', '👁️ *مراقبة المنافسين* وتغيّر أسعارهم',
+                '🧩 وكمان: CRM وتسويق بالبريد'],
+            's2_plan' => 'الباقة اللي بنبدأ بيها مع شركات زيكم: *Starter* بـ {price} في الشهر.',
+            's2_cta' => '{trial}. وأظبطها معاكم في مكالمة 15 دقيقة، وتبدأوا من هنا:', 's2_start' => 'وأظبطها معاكم في مكالمة 15 دقيقة، وتبدأوا من هنا:',
         ],
         'en' => [
             'greet' => 'Hello {company} team 👋',
@@ -251,10 +251,10 @@ class OutreachNeeds
             'report' => '📄 *Full report* with every point and how to fix it (free):', 'cta' => '{trial}. Reply here and I will walk you through it 🙌', 'cta_plain' => 'Reply here and I will walk you through it 🙌',
             's2_intro' => "{name} from Tourfecto again 🙌 a quick overview of what we offer tour companies in one platform:",
             's2' => ['🧠 *Strategic Brain:* reads your business data (bookings, customers, reviews) and proposes evidence-based decisions: customers to follow up, markets that bring demand, your prices against competitors. You approve, it prepares the execution.',
-                '🔎 *SEO and visibility* on Google and in AI answers', '⭐ *Reputation:* draft replies to reviews, with your approval', '📣 *Social:* a content plan and a design studio',
-                '📅 *Booking and payment* on your website, no commission', '👁️ *Competitor monitoring* and their price changes', '🌍 *Market intelligence:* travel advisories and exchange rates', '📊 *Executive dashboard:* revenue, reputation and ad spend on one screen',
-                '🧩 Also: website builder, CRM and email marketing'],
-            's2_cta' => '{trial}, start here:', 's2_start' => 'Start here:',
+                '🔎 *SEO and visibility* on Google and in AI answers', '📅 *Website, booking and online payment*, no commission', '👁️ *Competitor monitoring* and their price changes',
+                '🧩 Also: CRM and email marketing'],
+            's2_plan' => 'The plan we start tour companies with: *Starter* at {price} a month.',
+            's2_cta' => '{trial}. I can set it up with you on a 15-minute call, start here:', 's2_start' => 'I can set it up with you on a 15-minute call, start here:',
         ],
         'tr' => [
             'greet' => 'Merhaba {company} ekibi 👋',
@@ -283,10 +283,10 @@ class OutreachNeeds
             'report' => '📄 *Tam rapor*: her nokta ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. Buradan yazın, birlikte bakalım 🙌', 'cta_plain' => 'Buradan yazın, birlikte bakalım 🙌',
             's2_intro' => '{name}, Tourfecto’dan tekrar 🙌 turizm şirketlerine tek platformda sunduklarımızın kısa özeti:',
             's2' => ['🧠 *Stratejik Beyin:* işletme verilerinizi (rezervasyon, müşteri, yorum) okur ve kanıtlı kararlar önerir: takip edilecek müşteriler, talep getiren pazarlar, fiyatlarınız ve rakipler. Siz onaylarsınız, o uygulamayı hazırlar.',
-                '🔎 *SEO ve görünürlük:* Google’da ve yapay zekâ yanıtlarında', '⭐ *İtibar:* yorumlara onayınızla taslak yanıtlar', '📣 *Sosyal medya:* içerik planı ve tasarım stüdyosu',
-                '📅 *Rezervasyon ve ödeme* web sitenizde, komisyonsuz', '👁️ *Rakip takibi* ve fiyat değişiklikleri', '🌍 *Pazar istihbaratı:* seyahat uyarıları ve döviz kurları', '📊 *Yönetici paneli:* gelir, itibar ve reklam harcaması tek ekranda',
-                '🧩 Ayrıca: web sitesi oluşturucu, CRM ve e-posta pazarlama'],
-            's2_cta' => '{trial}, buradan başlayın:', 's2_start' => 'Buradan başlayın:',
+                '🔎 *SEO ve görünürlük:* Google’da ve yapay zekâ yanıtlarında', '📅 *Web sitesi, rezervasyon ve online ödeme*, komisyonsuz', '👁️ *Rakip takibi* ve fiyat değişiklikleri',
+                '🧩 Ayrıca: CRM ve e-posta pazarlama'],
+            's2_plan' => 'Turizm şirketleriyle başladığımız paket: *Starter*, ayda {price}.',
+            's2_cta' => '{trial}. 15 dakikalık bir görüşmede birlikte kurabiliriz, buradan başlayın:', 's2_start' => '15 dakikalık bir görüşmede birlikte kurabiliriz, buradan başlayın:',
         ],
     ];
 
@@ -433,6 +433,15 @@ class OutreachNeeds
         return implode("\n", $lines);
     }
 
+    /** سعر باقة Starter الشهري كما في صفحة /pricing (79 دولار، والجنيه بسعر 50 للدولار زي الصفحة): بالجنيه لمصر، وبالدولار لباقي الدول */
+    public static function starterPrice(string $country, string $lang): string
+    {
+        if (strtoupper($country) === 'EG') {
+            return $lang === 'ar' ? '3,950 جنيه' : 'EGP 3,950';
+        }
+        return '$79';
+    }
+
     /** الرسالة التانية (بعد ما يردّوا): خدمات المنصة، قصيرة، وآخرها لينك التسجيل بتاعهم */
     public static function deskServicesMessage(array $c): string
     {
@@ -442,6 +451,8 @@ class OutreachNeeds
         foreach ($t['s2'] as $x) {
             $lines[] = $x;
         }
+        $lines[] = '';
+        $lines[] = strtr($t['s2_plan'], ['{price}' => self::starterPrice((string) ($c['country'] ?? ''), $lang)]);
         $lines[] = '';
         $trial = trim((string) ($c['trial'] ?? ''));
         $lines[] = $trial !== '' ? strtr($t['s2_cta'], ['{trial}' => rtrim($trial, '.')]) : $t['s2_start'];

@@ -309,7 +309,8 @@ final class OutreachScorecardTest extends TestCase
         $m = OutreachNeeds::deskServicesMessage($this->ctx());
         $this->assertStringContainsString('العقل الاستراتيجي', $m);
         $this->assertStringContainsString('إنتم اللي بتوافقوا', $m, 'the brain proposes, they approve');
-        foreach (['السيو', 'السمعة', 'السوشيال', 'الحجز والدفع', 'مراقبة المنافسين', 'ذكاء السوق', 'لوحة تنفيذية', 'منشئ مواقع'] as $service) {
+        // الخدمات اللي شغّالة دلوقتي بس: السمعة والسوشيال بيعتمدوا على مراجعة Meta وجوجل فمش في الرسالة
+        foreach (['السيو', 'حجز ودفع أونلاين', 'مراقبة المنافسين', 'CRM', 'Starter', 'مكالمة 15 دقيقة'] as $service) {
             $this->assertStringContainsString($service, $m);
         }
         $this->assertStringContainsString('https://tourfecto.pro/p/c/abc/1', $m);
