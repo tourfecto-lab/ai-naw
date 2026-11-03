@@ -52,7 +52,14 @@ final class OutreachScorecardTest extends TestCase
         $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $sc]));
         $this->assertStringNotContainsString('مربوط بموقعكم', $m, 'never claims a real link that is a placeholder');
         $this->assertStringContainsString('مش بيودّي لصفحتكم', $m);
-        foreach (['facebook', 'fb', 'sharer', 'share', 'instagram', 'explore', 'yourpage'] as $generic) {
+        $d['site']['social'] = ['facebook' => 'https', 'instagram' => 'whatsapp'];
+        $bad = OutreachAudit::scorecard($this->taLead(), $d);
+        $this->assertSame(['placeholder', 'placeholder'], [$bad['facebook']['status'], $bad['instagram']['status']], 'a mis-read link and another brand account are not their pages');
+        $d['site']['social'] = ['facebook' => 'profile.php'];
+        $pp = OutreachAudit::scorecard($this->taLead(), $d);
+        $this->assertSame('linked', $pp['facebook']['status'], 'a real profile whose id was cut off');
+        $this->assertSame('', $pp['facebook']['url'], 'but never a link that opens the wrong page');
+        foreach (['facebook', 'fb', 'sharer', 'share', 'instagram', 'explore', 'yourpage', 'whatsapp'] as $generic) {
             $this->assertFalse(OutreachAudit::socialHandleOk('facebook', $generic), $generic);
         }
         $this->assertTrue(OutreachAudit::socialHandleOk('facebook', 'NileDreamTours'));

@@ -24,6 +24,8 @@ class OutreachAudit
     {
         $first = strtolower(explode('/', trim($handle, '/'))[0] ?? '');
         $generic = ['', 'facebook', 'fb', 'meta', 'facebookapp', 'instagram', 'insta', 'sharer', 'sharer.php', 'share', 'dialog', 'plugins', 'tr', 'login', 'home.php', 'policies', 'help', 'business', 'explore', 'accounts', 'about',
+            // حسابات منصات تانية (أيقونة واتساب بتودّي لـ instagram.com/whatsapp) وقراءة غلط لرابط جوّه رابط
+            'whatsapp', 'twitter', 'youtube', 'tiktok', 'messenger', 'threads', 'https', 'http', 'www', 'l.php', 'l',
             'yourpage', 'yourusername', 'yourprofile', 'yourbusiness', 'username', 'pagename', 'example'];
         return !in_array($first, $generic, true);
     }
@@ -433,7 +435,12 @@ class OutreachAudit
                 return ['status' => 'missing', 'url' => ''];
             }
             // رابط افتراضي من قالب الموقع (facebook.com/facebook): مش صفحة الشركة
-            return self::socialHandleOk($key, (string) $social[$key]) ? ['status' => 'linked', 'url' => $base . ltrim((string) $social[$key], '/')] : ['status' => 'placeholder', 'url' => ''];
+            if (!self::socialHandleOk($key, (string) $social[$key])) {
+                return ['status' => 'placeholder', 'url' => ''];
+            }
+            // profile.php?id=... : صفحة حقيقية بس رقمها اتقطع وقت القراءة، فنفضل نقول «مربوط» من غير لينك بيفتح صفحة غلط
+            $isProfilePhp = strtolower(explode('/', trim((string) $social[$key], '/'))[0]) === 'profile.php';
+            return ['status' => 'linked', 'url' => $isProfilePhp ? '' : $base . ltrim((string) $social[$key], '/')];
         };
 
         if ($fromTa && ($rating !== null || $ta !== [])) {
