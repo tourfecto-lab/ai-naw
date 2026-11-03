@@ -366,6 +366,33 @@ class SeoExpertService
         return $out;
     }
     /** مهام واضحة من الفحوصات التقنية (بالأرقام وخطوات الحل) */
+    /**
+     * عناوين وأوصاف خارج الطول المناسب في أي صفحة مؤهلة، من بيانات الزحف المخزّنة بس (من غير زحف جديد ولا ذكاء اصطناعي).
+     * بتغطي الصفحات اللي برا أعلى 24 أولوية ومالهاش تعديل مقترح؛ مهمة مراجعة للعميل مش تعديل تلقائي. بحد أقصى 10 مهام.
+     */
+    private function metaLengthTasks(array $r,array $pages,array $snapshot,array $changes): void{
+        $ar=($snapshot['brief']['language']??'en')==='ar';$taken=[];
+        foreach($changes as $c)$taken[($c['page_index']??-1).':'.($c['field']??'')]=true;
+        $n=0;
+        foreach($pages as $i=>$p){
+            if($n>=10)break;
+            if(!SeoPagePolicy::classify($p)['eligible'])continue;
+            foreach(['title'=>[25,65],'description'=>[110,165]] as $field=>[$min,$max]){
+                if($n>=10)break;
+                $values=$p['values'][$field]??[];$v=trim((string)($values[0]??($p[$field]??'')));
+                if($v===''||count($values)>1||isset($taken[$i.':'.$field]))continue;
+                $len=mb_strlen($v);if($len>=$min&&$len<=$max)continue;
+                $long=$len>$max;
+                $name=$field==='title'?($ar?'عنوان':'title'):($ar?'وصف':'description');
+                $title=$ar?($long?"{$name} الصفحة طويل ({$len} حرف)":"{$name} الصفحة قصير ({$len} حرف)"):'Page '.$name.($long?" is too long ({$len} characters)":" is too short ({$len} characters)");
+                $range=$min.'-'.$max;
+                $text=$ar?"الحالي: {$v}
+المناسب {$range} حرف. ".($long?'جوجل بيقص الزيادة في نتايج البحث.':'القصير بيضيّع فرصة تقنع الزائر يدوس.').' عدّله من المحرر الموحد وخلي الكلمة المهمة والبراند في مكانهم.':"Current: {$v}
+Target {$range} characters. ".($long?'Google cuts the extra text in search results.':'A short one wastes the chance to convince the visitor to click.').' Edit it in the unified editor and keep the key phrase and brand.';
+                $this->task($r,'manual','seo',$p,$title,$text,null,null,'needs_client');$n++;
+            }
+        }
+    }
     private function techTasks(array $r,array $pages,array $snapshot,array $site): void{
         require_once __DIR__.'/../Seo/PageSpeedService.php';
         $lang=($snapshot['brief']['language']??'en')==='ar'?'ar':'en';$ar=$lang==='ar';$tech=$snapshot['tech']??[];
@@ -624,6 +651,7 @@ class SeoExpertService
                 // Schema السياحة (TouristTrip + السعر لو مكتوب + Breadcrumb) من بيانات كل صفحة - من غير ذكاء صناعي
                 $this->schemaTasks($r,$pages,$snapshot,$site);
                 $this->techTasks($r,$pages,$snapshot,$site);
+                $this->metaLengthTasks($r,$pages,$snapshot,$plan['changes']);
                 $this->relatedTasks($r,$pages,$site,$snapshot);
                 $this->hygieneTasks($r,$pages,$snapshot,$site);
                 // صفحات الرحلات الناقصة (السعر، المدة، البرنامج، المشمول، الإلغاء، الأسئلة…) والقصيرة، وhreflang للمواقع اللي بكذا لغة
