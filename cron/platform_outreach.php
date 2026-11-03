@@ -10,7 +10,8 @@ require_once dirname(__DIR__) . '/app/Services/PlatformGrowth/PlatformOutreachSe
 try {
     $service = new PlatformOutreachService();
     // التشخيص الأول: الشركة مابيتبعتلهاش غير بعد ما احتياجها يتحدد
-    $scanned = $service->scan(8, 60);
+    // 20 شركة / 200 ثانية كحد أقصى في الدورة (الدورة كل 5 دقايق): إعادة الفحص بعد أي تحديث بتخلص لوحدها في ساعات
+    $scanned = $service->scan(20, 200);
     $result = $service->run();
     $result['scanned'] = $scanned;
     $result['enriched'] = $service->enrich(6, 60);
