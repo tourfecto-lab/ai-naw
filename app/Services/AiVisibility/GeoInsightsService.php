@@ -232,6 +232,8 @@ final class GeoInsightsService
             foreach ($r['_urls'] as $u) {
                 $h = self::host((string) $u);
                 if ($h === '') continue;
+                // رابط تحويل داخلي من Gemini لم يُحلّ لمصدره الفعلي: مش مصدر حقيقي، وبيظهر أول القائمة (40%) ويضلّل العميل
+                if (rtrim($h, '.') === 'vertexaisearch.cloud.google.com') continue;
                 if ($ownHost !== '' && $h === $ownHost) {
                     $own[(string) $u] = ($own[(string) $u] ?? 0) + 1;
                 }
