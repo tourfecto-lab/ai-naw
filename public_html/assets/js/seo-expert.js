@@ -47,6 +47,8 @@
     else if(key==='connector')node.textContent=value.state==='page_unavailable'?t('تعذر قراءة الموقع العام؛ راجع الصيانة والرابط ثم أعد الاختبار.','Public site unavailable; check maintenance and URL, then retest.'):value.state==='not_observed'?t('الربط لسه مش شغال على موقعك. اضغط "ركّب الربط تلقائيًا" فوق وإحنا نركّبه بدالك.','Not connected to your site yet. Press "Install automatically" above and we will set it up for you.'):t('تعذر إكمال التحقق من الإضافة. أعد الاختبار قبل إعادة تركيبها.','Connector verification could not complete. Retest before reinstalling.');
     else node.textContent=t('تعذر التحقق من الربط. راجع الحساب والخاصية والصلاحيات ثم أعد الاختبار؛ لم نفصل حسابك.','Could not verify access. Review account, property and permissions, then retest; your account was not disconnected.')+(value.note?' '+value.note:'');
    }
+   // أثناء إعادة الفحص النتيجة القديمة بتفضل ظاهرة: نعلّمها إنها سابقة علشان ما تتفهمش على إنها الحالة الحالية
+   if(pending)for(const [key,,statusId] of healthItems)if(healthValue(key,health))el(statusId).textContent+=' '+t('(نتيجة سابقة، جارٍ إعادة الفحص)','(previous result, rechecking)');
    const publishingNeedsReview=saved('publishing')===true&&healthValue('publishing',health)?.state!=='authenticated';
    el('seConnectionGrid').hidden=verified===3&&!publishingNeedsReview&&!showAllConnections;
    const age=healthAt?new Date(healthAt).toLocaleTimeString(ar?'ar':'en'):'';
