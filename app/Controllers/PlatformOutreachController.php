@@ -22,7 +22,8 @@ class PlatformOutreachController extends Controller
         if (str_starts_with($t, 'pv-')) {
             return [substr($t, 3), false];
         }
-        return [$t, !$this->allowed()];
+        // روبوتات معاينة اللينك (واتساب بيفتح اللينك بنفسه أول ما الرسالة تتبعت) مابتتحسبش فتح من الشركة
+        return [$t, !$this->allowed() && !PlatformOutreachService::isLinkBot((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''))];
     }
 
     private function guard(): ?array

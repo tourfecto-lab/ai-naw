@@ -59,4 +59,13 @@ final class OutreachSiteSignalsTest extends TestCase
         $this->assertTrue($this->page('<script>{"url":"https:\/\/x.test\/checkout\/"}</script>')['booking_engine']);
         $this->assertFalse($this->page('<a href="tel:+90000">call</a><p>Contact us to arrange your tour</p>')['booking_engine']);
     }
+
+    public function testLinkPreviewBotsAreNotCountedAsTheCompanyOpeningTheReport(): void
+    {
+        foreach (['WhatsApp/2.23.20.0 A', 'facebookexternalhit/1.1', 'Mozilla/5.0 (compatible; Googlebot/2.1)', 'TelegramBot (like TwitterBot)', ''] as $ua) {
+            $this->assertTrue(PlatformOutreachService::isLinkBot($ua), $ua);
+        }
+        $this->assertFalse(PlatformOutreachService::isLinkBot('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'));
+        $this->assertFalse(PlatformOutreachService::isLinkBot('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36'));
+    }
 }

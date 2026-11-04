@@ -1787,6 +1787,12 @@ class PlatformOutreachService
         return $l;
     }
 
+    /** يوزر-إيجنت روبوت معاينة لينك أو زاحف: مش شركة فتحت التقرير بجد */
+    public static function isLinkBot(string $ua): bool
+    {
+        return $ua === '' || (bool) preg_match('~WhatsApp|facebookexternalhit|Facebot|TelegramBot|Twitterbot|LinkedInBot|Slackbot|SkypeUriPreview|Googlebot|Google-InspectionTool|bingbot|Applebot|Discordbot|HeadlessChrome|python-requests|curl/|Go-http-client|bot|crawler|spider~i', $ua);
+    }
+
     /**
      * بيانات صفحة التقرير المجاني (/p/r/{token}): أهم 3 احتياجات بأرقام الشركة والخدمات اللي بتحلها.
      * فتح التقرير مابيوقفش الرسايل (اللي شاف ومسجّلش بتوصله المتابعة عادي)، بس بيتسجّل للتعلّم.
