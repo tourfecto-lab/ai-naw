@@ -170,7 +170,7 @@ class SeoBusinessBriefBuilder
         }
 
         // --- لو مفيش بيانات منظمة كفاية، نكمّل بمقتطف قصير من نص الصفحة الرئيسية
-        if (count($lines) < 3 && !empty($home['text'])) {
+        if (count($lines) < 3 && !empty($home['text']) && !self::isPlaceholderText((string) $home['text'])) {
             $lines[] = $L('من الصفحة الرئيسية: ', 'From the homepage: ') . mb_substr(trim((string) $home['text']), 0, 600);
         }
 
@@ -317,6 +317,12 @@ class SeoBusinessBriefBuilder
      * بنرجّع null لو مفيش اسم أو مفيش ولا حقيقة؛ ومش بنستنتج حاجة (الإلغاء المجاني مثلًا لازم يكون مكتوب بالنص).
      * العميل بيراجعها ويأكدها قبل ما أي مقال يستخدمها.
      */
+    /** نص WordPress/القوالب الافتراضي مش حقائق عن الشركة: ماننسخوش منه حاجة للبيانات اللي العميل هيأكدها. */
+    public static function isPlaceholderText(string $text): bool
+    {
+        return (bool) preg_match('/hello world!|welcome to wordpress|just another wordpress site|sample page|proudly powered by wordpress|lorem ipsum|this is an example page|this is your first post/i', $text);
+    }
+
     public static function tourFact(array $ctx): ?string
     {
         $name = '';
