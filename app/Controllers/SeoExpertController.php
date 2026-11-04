@@ -41,7 +41,7 @@ class SeoExpertController extends Controller
             if($action==='configure')return $this->success($s->configure($uid,$wid,$this->data));
             if($action==='importBrief')return $this->success($s->importBrief($uid,$wid,(string)$this->get('language','en')));
             if($action==='probe')return $this->success($s->probe($uid,$wid));
-            if($action==='reviewScope')return $this->success(($this->data['operation']??'')==='recover_crawl'?$s->recoverCrawl($uid,$id,$this->data):$s->reviewScope($uid,$id,(int)($this->data['version']??0)));
+            if($action==='reviewScope')return $this->success(($this->data['operation']??'')==='resume_apply'?$s->resumeApply($uid,$id):(($this->data['operation']??'')==='recover_crawl'?$s->recoverCrawl($uid,$id,$this->data):$s->reviewScope($uid,$id,(int)($this->data['version']??0))));
             if($action==='start')return $this->success($s->start($uid,$wid,$this->data),'Cycle queued',201);
             if($action==='approve')return $this->success($s->approve($uid,$id,$this->data));
             if($action==='edit')return $this->success($s->editTask($uid,$id,$this->data));

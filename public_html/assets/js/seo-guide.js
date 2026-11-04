@@ -213,7 +213,9 @@
     }
     // الدورة شغالة بس واقفة؟ بنقول للعميل هي فين بالظبط، وزرار الاستكمال بيكمل من النقطة المحفوظة (من غير دورة جديدة ولا خصم)
     function stallNotice() {
-      const h = run?.cycle_health, st = run?.run?.status; if (!h || !['queued', 'scanning', 'scanned'].includes(st)) return '';
+      const h = run?.cycle_health, st = run?.run?.status;
+      if (h?.apply_stalled) return `<div class="sg-row"><p>⚠ ${t('تطبيق التحسينات وقف قبل ما يخلص. تقدر تكمّله من نفس النقطة، من غير دورة جديدة ومن غير خصم.', 'Applying the improvements stopped before finishing. You can resume from the same point, with no new cycle and no new charge.')} <span class="sg-muted" dir="ltr">${esc(h.reference || '')}</span></p><button type="button" class="p-btn" data-resume-apply ${busy ? 'disabled' : ''}>${t('كمّل التطبيق', 'Resume applying')}</button></div>`;
+      if (!h || !['queued', 'scanning', 'scanned'].includes(st)) return '';
       const ref = `<span class="sg-muted" dir="ltr"> ${esc(h.reference || '')}</span>`;
       const m = {
         waiting_worker: t('الفحص في الطابور ومستني العامل يلتقطه. مش مطلوب منك حاجة.', 'The check is queued and waiting for the worker. Nothing is needed from you.'),
@@ -227,6 +229,10 @@
       const age = h.age_seconds != null ? Math.round(h.age_seconds / 60) : null;
       if (h.recoverable) return `<div class="sg-row"><p>⚠ ${t('الفحص وقف في نص الطريق' + (age != null ? ' من حوالي ' + age + ' دقيقة' : '') + '. تقدر تكمّله من نفس النقطة المحفوظة، من غير دورة جديدة ومن غير خصم.', 'The check stopped midway' + (age != null ? ' about ' + age + ' minutes ago' : '') + '. You can resume it from the saved point, with no new cycle and no new charge.')}${ref}</p><button type="button" class="p-btn" data-resume-cycle ${busy ? 'disabled' : ''}>${t('كمّل الفحص', 'Resume the check')}</button></div>`;
       return m ? `<p class="sg-muted">${m}${ref}</p>` : '';
+    }
+    async function resumeApply() {
+      await req(base + '/runs/' + run.run.id + '/review-scope', { operation: 'resume_apply' });
+      await load(); message(t('كمّلنا التطبيق من النقطة المحفوظة ✓ (من غير دورة جديدة ولا خصم)', 'Resumed applying from the saved point ✓ (no new cycle, no new charge)'));
     }
     async function resumeCycle() {
       await req(base + '/runs/' + run.run.id + '/review-scope', { operation: 'recover_crawl', confirmed: true, version: Number(run.run.version), updated_at: run.run.updated_at, config_version: Number(overview.config.version) });
@@ -284,6 +290,7 @@
       if (sites.length && list[firstOpen]?.form && !factsDraft) loadFacts();
       maybeAutoStart();
       root.querySelectorAll('[data-skip-google]').forEach(b => { b.onclick = () => { store.set('tf-seo-google-skip-' + wid(), '1'); render(); }; });
+      root.querySelectorAll('[data-resume-apply]').forEach(b => { b.onclick = act(resumeApply); });
       root.querySelectorAll('[data-resume-cycle]').forEach(b => { b.onclick = act(resumeCycle); });
       root.querySelectorAll('[data-retry-results]').forEach(b => { b.onclick = act(retryResults); });
       root.querySelectorAll('[data-step]').forEach(b => { const s = list.find(x => x.key === b.dataset.step); b.onclick = act(async () => s.run()); });
