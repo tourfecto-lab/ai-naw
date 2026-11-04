@@ -38,6 +38,21 @@ final class OutreachReportContentTest extends TestCase
         }
     }
 
+    public function testNoTextPromisesWhatDependsOnTheMetaOrGoogleReviewsBeingApproved(): void
+    {
+        // نشر على فيسبوك وإنستجرام، رد على واتساب/فيسبوك/إنستجرام، حملات Meta، ورد أو تنبيه على تقييمات جوجل: كلها بتعتمد على مراجعة Meta وجوجل
+        $banned = ['24 ساعة', '24/7', '7/24', 'Autopilot', 'نشر مجدول', 'جدولة النشر', 'Scheduled publishing', 'Scheduled posting', 'Planlı yayın', 'Planlı paylaşım', 'واتساب وفيسبوك وإنستجرام',
+            'WhatsApp, Facebook', 'WhatsApp, Facebook ve', 'ready to publish', 'yayına hazır', 'للنشر على', 'Meta and Google campaigns', 'Meta ve Google kamp', 'حملات Meta', 'التسويق بالواتساب', 'WhatsApp marketing',
+            'WhatsApp pazarlama', 'تنبيه فوري', 'Instant alert', 'Instant negative', 'anında uyarı', 'تذكيرات الرحلة على واتساب', 'WhatsApp trip reminders', 'WhatsApp tur hatırlatmaları', 'على واتساب والإيميل', 'on WhatsApp and email', 'WhatsApp ve e-posta'];
+        foreach ([OutreachNeeds::class, OutreachAudit::class] as $class) {
+            foreach ($this->allStrings($class) as $s) {
+                foreach ($banned as $b) {
+                    $this->assertStringNotContainsStringIgnoringCase($b, $s, "$class promises \"$b\": " . mb_substr($s, 0, 90));
+                }
+            }
+        }
+    }
+
     public function testNoTextStatesUnsourcedFactsAboutTravellers(): void
     {
         $banned = ['أكتر أماكن المسافرين', 'أكتر طريقة شركات', 'أغلب المسافرين', 'most travellers', 'most tour companies', 'gezginlerin çoğu', 'tur şirketlerinin çoğu', 'en çok buralarda'];
