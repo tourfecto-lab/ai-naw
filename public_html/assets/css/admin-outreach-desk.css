@@ -50,3 +50,6 @@
 .dk-cam-frame{position:absolute;top:50%;left:50%;width:86%;aspect-ratio:1.586;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none}
 .dk-cam-msg{margin:0;font-size:14px}.dk-cam-msg.bad{color:#d9534f}.dk-cam-actions{display:flex;flex-wrap:wrap;gap:8px}
 .dk-cam [hidden]{display:none!important}
+.dk-cam-view.mirror video{transform:scaleX(-1)}.dk-cam-frame.oval{width:46%;aspect-ratio:3/4;border-radius:50%}.dk-cam-hint{margin:0;font-size:13px;color:var(--panel-text-muted)}
+.dk-docs{display:flex;flex-wrap:wrap;gap:10px}.dk-doc{display:flex;flex-direction:column;gap:4px;width:200px;font-size:12px;text-decoration:none;color:inherit}.dk-doc img{width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--panel-border,rgba(128,128,128,.3));background:rgba(128,128,128,.12)}.dk-doc.none{justify-content:center;height:130px;align-items:center;border:1px dashed var(--panel-border,rgba(128,128,128,.4));border-radius:8px}
+.dk-st-head{display:flex;align-items:center;gap:12px}.dk-avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--panel-border,rgba(128,128,128,.4))}

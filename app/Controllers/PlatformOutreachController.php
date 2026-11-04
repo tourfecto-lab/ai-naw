@@ -82,7 +82,7 @@ class PlatformOutreachController extends Controller
         $css = htmlspecialchars(asset_v('/assets/css/admin-outreach-desk.css'), ENT_QUOTES, 'UTF-8');
         $js = htmlspecialchars(asset_v('/assets/js/admin-outreach-desk.js'), ENT_QUOTES, 'UTF-8');
         $body = '<link rel="stylesheet" href="' . $css . '"><section id="deskRoot" class="dk" dir="rtl"><p>جاري التحميل…</p></section><script src="' . $js . '"></script>';
-        echo $this->renderPanelPage('outreach-desk', 'مكتب التواصل', 'اختاري الدولة وابعتي لكل شركة على واتساب: بياناتها ورقمها والرسالة جاهزين للنسخ', $body, 'window.OutreachDesk&&window.OutreachDesk.init(window.Panel);');
+        echo $this->renderPanelPage('outreach-desk', 'مكتب التواصل', 'اختيار الدولة وإرسال واتساب لكل شركة: بياناتها ورقمها والرسالة جاهزين للنسخ', $body, 'window.OutreachDesk&&window.OutreachDesk.init(window.Panel);');
         exit;
     }
 
@@ -125,14 +125,14 @@ class PlatformOutreachController extends Controller
         $me = (int) ($this->user['id'] ?? 0);
         $uid = (int) $this->get('user_id', 0) ?: $me;
         if ($uid !== $me && !$this->canSeeTeam()) {
-            return $this->error('تقدري تشوفي كشفك إنتي بس', 403);
+            return $this->error('كل موظف يشوف كشفه فقط', 403);
         }
         try {
             $s = $this->service();
             $rate = (float) (new SystemSettingsService())->get('staff_usd_egp', '50');
             // الرقم القومي ورقم الحساب بيظهروا كاملين لصاحب الملف ولمالك المنصة بس؛ باقي مين يشوف الفريق بيشوف آخر 4 أرقام
             $own = $uid === $me;
-            return $this->success(['report' => $s->staffReport($uid, (string) $this->get('month', date('Y-m')), $rate > 0 ? $rate : 50.0, $own || $this->canManageTeam()),
+            return $this->success(['report' => $s->staffReport($uid, (string) $this->get('month', date('Y-m')), $rate > 0 ? $rate : 50.0, $own || $this->canManageTeam(), $this->canManageTeam()),
                 'staff' => $this->canSeeTeam() ? $s->staffList() : [], 'can_manage' => $this->canManageTeam(), 'is_self' => $own, 'pay_methods' => PlatformOutreachService::PAY_METHODS]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
@@ -152,7 +152,7 @@ class PlatformOutreachController extends Controller
         $uid = (int) $this->get('user_id', 0) ?: $me;
         $owner = $this->canManageTeam();
         if ($uid !== $me && !$owner) {
-            return $this->error('تقدري تعدّلي بياناتك إنتي بس', 403);
+            return $this->error('كل موظف يعدّل بياناته فقط', 403);
         }
         $in = [];
         foreach (['full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account', 'job_title', 'start_date', 'status', 'internal_note'] as $k) {
@@ -183,27 +183,27 @@ class PlatformOutreachController extends Controller
         $me = (int) ($this->user['id'] ?? 0);
         $uid = (int) $this->get('user_id', 0) ?: $me;
         if ($uid !== $me && !$this->canManageTeam()) {
-            return $this->error('تقدري ترفعي بطاقتك إنتي بس', 403);
+            return $this->error('رفع الصور لصاحب الملف فقط', 403);
         }
         if ((string) $this->get('consent', '') !== '1') {
-            return $this->error('لازم توافقي الأول على رفع البطاقة وقراءتها وتخزينها مشفّرة', 422);
+            return $this->error('لازم الموافقة الأول', 422);
         }
         $s = $this->service();
         $saved = [];
         try {
-            foreach (['front', 'back'] as $side) {
+            foreach (['front', 'back', 'photo'] as $side) {
                 $f = $_FILES[$side] ?? null;
                 if (!$f || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
                     continue;
                 }
                 if (($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
-                    return $this->error('الرفع فشل: جرّبي صورة أصغر', 422);
+                    return $this->error('الرفع فشل: يتجرّب بصورة أصغر', 422);
                 }
                 $s->staffIdCardSave($uid, $side, (string) file_get_contents((string) $f['tmp_name']));
                 $saved[] = $side;
             }
             if (!$saved) {
-                return $this->error('اختاري صورة وش البطاقة أو ضهرها', 422);
+                return $this->error('لازم صورة واحدة على الأقل', 422);
             }
             Logger::info('Staff ID card uploaded', ['by' => $me, 'for' => $uid, 'sides' => $saved]);
             return $this->success(['id_card' => $s->staffIdCardStatus($uid), 'extract' => in_array('front', $saved, true) ? $s->staffIdCardExtract($uid) : null]);
@@ -223,15 +223,17 @@ class PlatformOutreachController extends Controller
         }
         $me = (int) ($this->user['id'] ?? 0);
         $uid = (int) $this->get('user_id', 0) ?: $me;
-        if ($uid !== $me && !$this->canManageTeam()) {
+        // الصور (البطاقة والشخصية) لمالك المنصة بس: الموظف بيرفعها وبيعرف إنها اتسجّلت، مش بيعرضها
+        if (!$this->canManageTeam()) {
             return $this->error('غير مصرح', 403);
         }
         $side = (string) $this->get('side', 'front');
-        $card = in_array($side, ['front', 'back'], true) ? $this->service()->staffIdCardGet($uid, $side) : null;
+        $card = in_array($side, ['front', 'back', 'photo'], true) ? $this->service()->staffIdCardGet($uid, $side) : null;
         if (!$card) {
             return $this->error('مفيش صورة', 404);
         }
         Logger::info('Staff ID card viewed', ['by' => $me, 'for' => $uid, 'side' => $side]);
+        $this->service()->staffDocViewLog($me, $uid, $side);
         header('Content-Type: ' . $card[0]);
         header('Content-Disposition: inline; filename="id-' . $side . '.jpg"');
         header('Cache-Control: private, no-store');
@@ -247,12 +249,13 @@ class PlatformOutreachController extends Controller
             return $e;
         }
         if ((string) $this->get('consent', '') !== '1') {
-            return $this->error('لازم توافقي على تسجيل موقعك', 422);
+            return $this->error('لازم الموافقة على تسجيل الموقع', 422);
         }
         try {
             $acc = $this->get('accuracy', null);
             $r = $this->service()->staffLocationSave((int) ($this->user['id'] ?? 0), (float) $this->get('lat', 0), (float) $this->get('lng', 0), $acc !== null && $acc !== '' ? (int) round((float) $acc) : null);
-            return $this->success(['location' => $r]);
+            // الإحداثيات والمسافة من العنوان لمالك المنصة بس؛ الموظف بيتقاله إنه اتسجّل
+            return $this->success($this->canManageTeam() ? ['recorded' => true, 'location' => $r] : ['recorded' => true]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {

@@ -406,6 +406,50 @@ final class OutreachDeskTest extends TestCase
         }
     }
 
+    public function testLocationIsHiddenFromTheEmployeeButShownToTheOwnerAndPhotoCountsTowardsTheDocuments(): void
+    {
+        if (!function_exists('imagecreatetruecolor')) {
+            $this->markTestSkipped('GD is not available');
+        }
+        [$staff, $owner] = $this->twoUsers();
+        foreach (['platform_staff_location', 'platform_staff_docs', 'platform_staff_doc_views'] as $t) {
+            $this->db->query("DELETE FROM $t WHERE user_id = ?", [$staff]);
+        }
+        try {
+            $this->svc->staffLocationSave($staff, 30.0444, 31.2357, 20);
+            $self = $this->svc->staffReport($staff, date('Y-m'), 50.0, true, false);
+            $this->assertNull($self['location'], 'the employee never gets the coordinates or the distance');
+            $this->assertTrue($self['location_recorded'], 'only that it was recorded');
+            $this->assertSame([], $self['doc_views']);
+            $admin = $this->svc->staffReport($staff, date('Y-m'), 50.0, true, true);
+            $this->assertSame(30.0444, $admin['location']['first']['lat']);
+
+            $img = imagecreatetruecolor(400, 300);
+            ob_start();
+            imagejpeg($img);
+            $jpg = (string) ob_get_clean();
+            try {
+                $this->svc->staffIdCardSave($staff, 'front', $jpg);
+            } catch (Throwable $e) {
+                $this->markTestSkipped('encryption is not configured here: ' . $e->getMessage());
+            }
+            $this->assertFalse($this->svc->staffMe($staff)['id_card'], 'the front alone is not enough: the personal photo is part of it');
+            $this->svc->staffIdCardSave($staff, 'photo', $jpg);
+            $this->assertTrue($this->svc->staffMe($staff)['id_card']);
+            $this->assertNotNull($this->svc->staffIdCardStatus($staff)['photo']);
+            $this->assertSame('image/jpeg', $this->svc->staffIdCardGet($staff, 'photo')[0]);
+
+            $this->svc->staffDocViewLog($owner, $staff, 'photo');
+            $views = $this->svc->staffReport($staff, date('Y-m'), 50.0, true, true)['doc_views'];
+            $this->assertCount(1, $views);
+            $this->assertSame('photo', $views[0]['side']);
+        } finally {
+            foreach (['platform_staff_location', 'platform_staff_docs', 'platform_staff_doc_views'] as $t) {
+                $this->db->query("DELETE FROM $t WHERE user_id = ?", [$staff]);
+            }
+        }
+    }
+
     public function testStaffProfileInputIsValidated(): void
     {
         [$staff] = $this->twoUsers();

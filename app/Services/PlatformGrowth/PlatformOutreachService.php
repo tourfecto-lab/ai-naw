@@ -165,6 +165,14 @@ class PlatformOutreachService
             uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, side)
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_doc_views (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            viewer_id BIGINT NOT NULL,
+            user_id BIGINT NOT NULL,
+            side VARCHAR(5) NOT NULL,
+            viewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_pdv_user (user_id)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_location (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT NOT NULL,
@@ -2425,7 +2433,7 @@ class PlatformOutreachService
             'address' => trim(mb_substr(strtr((string) ($j['address'] ?? ''), self::AR_DIGITS), 0, 255))];
         if ($out['national_id'] !== '') {
             $info = self::egyptianIdInfo($out['national_id']);
-            $out += $info ?? ['warning' => 'الرقم اللي اتقرأ مش بصيغة الرقم القومي المصري (14 رقم): راجعيه بإيدك'];
+            $out += $info ?? ['warning' => 'الرقم اللي اتقرأ مش بصيغة الرقم القومي المصري (14 رقم): يتراجع يدويًا'];
         }
         return $out;
     }
@@ -2433,8 +2441,8 @@ class PlatformOutreachService
     /** يحفظ صورة البطاقة مشفّرة بعد ما يتأكد إنها صورة حقيقية ويصغّرها ويشيل بياناتها الوصفية (EXIF) */
     public function staffIdCardSave(int $userId, string $side, string $binary): void
     {
-        if (!in_array($side, ['front', 'back'], true)) {
-            throw new InvalidArgumentException('وجه البطاقة غير معروف');
+        if (!in_array($side, ['front', 'back', 'photo'], true)) {
+            throw new InvalidArgumentException('نوع الصورة غير معروف');
         }
         if ($binary === '' || strlen($binary) > 10 * 1024 * 1024) {
             throw new InvalidArgumentException('الصورة فاضية أو أكبر من 10 ميجا');
@@ -2456,7 +2464,7 @@ class PlatformOutreachService
             $binary = (string) ob_get_clean();
             $mime = 'image/jpeg';
         } elseif (strlen($binary) > 3 * 1024 * 1024) {
-            throw new InvalidArgumentException('الصورة كبيرة: صغّريها قبل الرفع');
+            throw new InvalidArgumentException('الصورة كبيرة: تتصغّر قبل الرفع');
         }
         $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
     }
@@ -2472,10 +2480,24 @@ class PlatformOutreachService
         return $bin === false || $bin === '' ? null : [(string) $r['mime'], $bin];
     }
 
-    /** @return array{front:?string,back:?string} وقت رفع كل وجه */
+    /** سجل الاطلاع على صور الموظف (مين فتحها ومتى): شفافية زي أنظمة الموارد البشرية الكبيرة */
+    public function staffDocViewLog(int $viewerId, int $userId, string $side): void
+    {
+        $this->q('INSERT INTO platform_staff_doc_views(viewer_id,user_id,side) VALUES(?,?,?)', [$viewerId, $userId, $side]);
+    }
+
+    /** آخر مرات الاطلاع على صور موظف: [{viewer, side, at}] */
+    public function staffDocViews(int $userId, int $limit = 5): array
+    {
+        $rows = $this->q("SELECT v.side, v.viewed_at, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)),''), SUBSTRING_INDEX(u.email,'@',1)) viewer
+            FROM platform_staff_doc_views v LEFT JOIN users u ON u.id=v.viewer_id WHERE v.user_id=? ORDER BY v.id DESC LIMIT " . max(1, min(20, $limit)), [$userId])->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(static fn ($r) => ['viewer' => (string) $r['viewer'], 'side' => (string) $r['side'], 'at' => (string) $r['viewed_at']], $rows);
+    }
+
+    /** @return array{front:?string,back:?string,photo:?string} وقت رفع كل صورة (وش البطاقة وضهرها والصورة الشخصية) */
     public function staffIdCardStatus(int $userId): array
     {
-        $out = ['front' => null, 'back' => null];
+        $out = ['front' => null, 'back' => null, 'photo' => null];
         foreach ($this->q('SELECT side,uploaded_at FROM platform_staff_docs WHERE user_id=?', [$userId])->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $out[$r['side']] = (string) $r['uploaded_at'];
         }
@@ -2490,7 +2512,7 @@ class PlatformOutreachService
     {
         $card = $this->staffIdCardGet($userId, 'front');
         if (!$card) {
-            return ['ok' => false, 'error' => 'ارفعي صورة وش البطاقة الأول'];
+            return ['ok' => false, 'error' => 'لازم صورة وش البطاقة الأول'];
         }
         $prompt = 'This is the front of an Egyptian national ID card. Read the printed text exactly as written and answer with ONLY a JSON object: '
             . '{"full_name": "the full name in Arabic as printed", "national_id": "the 14-digit national number", "address": "the address as printed"}. '
@@ -2500,11 +2522,11 @@ class PlatformOutreachService
             $r = $vision($card[1], $card[0], $prompt);
         } catch (Throwable $e) {
             Logger::warning('ID card OCR failed', ['error' => $e->getMessage()]);
-            return ['ok' => false, 'error' => 'القراءة الآلية مش متاحة دلوقتي: اكتبي البيانات بإيدك'];
+            return ['ok' => false, 'error' => 'القراءة الآلية مش متاحة دلوقتي: البيانات تتكتب يدويًا'];
         }
         $fields = !empty($r['success']) ? self::parseIdOcr((string) ($r['data'] ?? $r['text'] ?? '')) : [];
         if (!$fields) {
-            return ['ok' => false, 'error' => 'ماقدرناش نقرا البطاقة بوضوح: صوّريها تاني في إضاءة كويسة، أو اكتبي البيانات بإيدك'];
+            return ['ok' => false, 'error' => 'ماقدرناش نقرا البطاقة بوضوح: يتعاد التصوير في إضاءة كويسة أو تتكتب البيانات يدويًا'];
         }
         return ['ok' => true, 'fields' => $fields];
     }
@@ -2584,7 +2606,7 @@ class PlatformOutreachService
     public function staffMe(int $userId): array
     {
         return ['location_recorded' => (bool) $this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn(),
-            'profile_missing' => count($this->staffProfile($userId, false)['missing']), 'id_card' => $this->staffIdCardStatus($userId)['front'] !== null];
+            'profile_missing' => count($this->staffProfile($userId, false)['missing']), 'id_card' => ($docs = $this->staffIdCardStatus($userId))['front'] !== null && $docs['photo'] !== null];
     }
 
     /** كل الموظفين اللي سجّلوا شغل على المكتب أو عندهم تعويض متسجّل، مع عدد إجراءاتهم */
@@ -2651,7 +2673,7 @@ class PlatformOutreachService
      * النسبة = نسبة من قيمة الاشتراك الشهرية (السنوي ÷ 12) لكل عميل كان اشتراكه ساري في الشهر ده. حساب بس: مش دليل إن الدفع وصل.
      * العملات: جنيه، ودولار بسعر $usdEgp؛ غير كده بيظهر في الملاحظات ومابيتحسبش.
      */
-    public function staffReport(int $userId, string $month, float $usdEgp = 50.0, bool $revealProfile = false): array
+    public function staffReport(int $userId, string $month, float $usdEgp = 50.0, bool $revealProfile = false, bool $revealLocation = false): array
     {
         if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
             $month = date('Y-m');
@@ -2664,7 +2686,7 @@ class PlatformOutreachService
         }
         $comp = $this->staffCompGet($userId);
 
-        $labels = ['contacted' => 'بعتت واتساب', 'replied' => 'ردّوا', 'interested' => 'مهتمين', 'trial' => 'جرّبوا المنصة', 'subscribed' => 'اشتركوا', 'call_back' => 'هتكلمهم تاني', 'not_interested' => 'مش مهتمين', 'wrong_number' => 'الرقم غلط', 'undo' => 'تراجع عن الإرسال'];
+        $labels = ['contacted' => 'اتبعت واتساب', 'replied' => 'ردّوا', 'interested' => 'مهتمين', 'trial' => 'جرّبوا المنصة', 'subscribed' => 'اشتركوا', 'call_back' => 'هتكلمهم تاني', 'not_interested' => 'مش مهتمين', 'wrong_number' => 'الرقم غلط', 'undo' => 'تراجع عن الإرسال'];
         $log = $this->q('SELECT a.created_at at, a.action, a.note, l.company, l.country FROM platform_desk_actions a LEFT JOIN platform_leads l ON l.id=a.lead_id WHERE a.user_id=? AND a.created_at BETWEEN ? AND ? ORDER BY a.id DESC LIMIT 500', [$userId, $from, $to])->fetchAll(PDO::FETCH_ASSOC);
         $count = static fn (array $acts): int => count(array_unique(array_map(static fn ($r) => $r['company'] . '|' . $r['action'], array_filter($log, static fn ($r) => in_array($r['action'], $acts, true)))));
         $summary = ['actions' => count($log), 'sent' => $count(['contacted']), 'replied' => $count(['replied', 'interested', 'trial', 'subscribed']), 'trial' => $count(['trial', 'subscribed']), 'subscribed' => $count(['subscribed'])];
@@ -2699,9 +2721,12 @@ class PlatformOutreachService
             'staff' => ['user_id' => (int) $u['id'], 'name' => (string) $u['name'], 'email' => (string) $u['email']],
             'month' => $month,
             'profile' => $this->staffProfile($userId, $revealProfile),
-            // صورة البطاقة والموقع لصاحب الملف ولمالك المنصة بس (نفس شرط إظهار الرقم القومي)
+            // حالة رفع البطاقة والصورة لصاحب الملف ولمالك المنصة. الموقع (الإحداثيات والمسافة من العنوان) لمالك المنصة بس:
+            // الموظف بيعرف إنه اتسجّل ومش أكتر
             'id_card' => $revealProfile ? $this->staffIdCardStatus($userId) : null,
-            'location' => $revealProfile ? $this->staffLocation($userId) : null,
+            'location' => $revealLocation ? $this->staffLocation($userId) : null,
+            'doc_views' => $revealLocation ? $this->staffDocViews($userId) : [],
+            'location_recorded' => $revealProfile ? (bool) $this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn() : null,
             'comp' => $comp,
             'summary' => $summary,
             'customers' => $customers,
@@ -2710,7 +2735,7 @@ class PlatformOutreachService
             'log' => array_map(static fn ($r) => ['at' => (string) $r['at'], 'action' => (string) $r['action'], 'label' => $labels[$r['action']] ?? (string) $r['action'], 'note' => $r['note'], 'company' => (string) ($r['company'] ?? ''), 'country' => (string) ($r['country'] ?? '')], $log),
             'totals' => ['commission_egp' => round($commissionTotal, 2), 'salary_egp' => round($salary, 2), 'total_egp' => round($commissionTotal + $salary, 2)],
             'notes' => array_values(array_filter([
-                'الحساب من حالة الاشتراكات في المنصة: مش دليل إن الدفع وصل فعلًا، راجعي المدفوعات قبل ما تصرفي.',
+                'الحساب من حالة الاشتراكات في المنصة: مش دليل إن الدفع وصل فعلًا، المدفوعات تتراجع قبل الصرف.',
                 'الدولار بسعر ' . rtrim(rtrim(number_format($usdEgp, 2, '.', ''), '0'), '.') . ' جنيه. الاشتراك السنوي بيتحسب ÷ 12.',
                 $skipped ? 'عملاء بعملة غير الجنيه والدولار ومابيتحسبوش: ' . implode('، ', array_unique($skipped)) : null,
             ])),
