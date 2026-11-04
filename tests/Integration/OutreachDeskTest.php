@@ -795,4 +795,16 @@ final class OutreachDeskTest extends TestCase
         $eg = array_values(array_filter($this->svc->deskCountries(), static fn ($x) => $x['country'] === 'EG'))[0];
         $this->assertGreaterThanOrEqual(1, $eg['opened']);
     }
+
+    public function testLegacyViewsRecordedAroundTheSendMomentAreDiscardedAsPreviewFetchesAndLaterOnesKept(): void
+    {
+        $a = $this->lead('Preview Fetch Tours', 'EG', '+201000000081');
+        $b = $this->lead('Real Open Tours', 'EG', '+201000000082');
+        $this->db->query("UPDATE platform_leads SET desk_action='contacted', desk_at=NOW() - INTERVAL 3 DAY, report_viewed_at=NOW() - INTERVAL 3 DAY + INTERVAL 1 MINUTE, report_views=0 WHERE id=?", [$a]);
+        $this->db->query("UPDATE platform_leads SET desk_action='contacted', desk_at=NOW() - INTERVAL 3 DAY, report_viewed_at=NOW() - INTERVAL 1 DAY, report_views=0 WHERE id=?", [$b]);
+        (new SystemSettingsService())->set('outreach_views_v1', '');
+        $this->svc->scan(0, 0);
+        $this->assertNull($this->db->query('SELECT report_viewed_at FROM platform_leads WHERE id=?', [$a])[0]['report_viewed_at']);
+        $this->assertNotNull($this->db->query('SELECT report_viewed_at FROM platform_leads WHERE id=?', [$b])[0]['report_viewed_at']);
+    }
 }

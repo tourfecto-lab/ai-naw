@@ -806,6 +806,12 @@ class PlatformOutreachService
             $this->q("UPDATE platform_leads SET scanned_at=NULL WHERE step=0 AND status IN ('new','no_email')");
             $this->settings->set('outreach_audit_v8', date('Y-m-d H:i:s'));
         }
+        // «فتح التقرير» المسجّل قبل فلتر روبوتات المعاينة: واتساب كان بيفتح اللينك بنفسه لحظة الإرسال، فأي فتح قريب من وقت الإرسال (من غير عدّاد) مش فتح من الشركة
+        if ($this->settings->get('outreach_views_v1', '') === '') {
+            $this->q("UPDATE platform_leads SET report_viewed_at=NULL, report_last_at=NULL WHERE COALESCE(report_views,0)=0 AND report_viewed_at IS NOT NULL AND desk_at IS NOT NULL AND report_viewed_at BETWEEN desk_at - INTERVAL 2 MINUTE AND desk_at + INTERVAL 15 MINUTE");
+            $this->settings->set('outreach_views_v1', date('Y-m-d H:i:s'));
+        }
+
         if ($this->settings->get('outreach_ta_geo_v1', '') === '') {
             $this->fixForeignTripadvisorData();
             $this->settings->set('outreach_ta_geo_v1', date('Y-m-d H:i:s'));
