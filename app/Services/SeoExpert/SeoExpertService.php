@@ -488,6 +488,12 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
         $value=EdgeRules::sanitize('link_fix',(string)json_encode($keep,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$host);
         return ['value'=>is_string($value)?$value:null,'checks'=>$checks];
     }
+    /** @return string 'plain' (العلامة ظاهرة في الصفحة العادية) | 'cache_stale' (ظاهرة بس لو الكاش اتتجاوز) | 'missing' */
+    private function connectorSeen(array $ctx,string $url): string{
+        if(($ctx['connector_version']??'')==='4')return 'plain';
+        if(empty($ctx['wordpress'])||$url==='')return 'missing';
+        try{$bypass=(new SeoExpertPageContext())->fresh(PageContext::freshAuditUrl($url));return !empty($bypass['ok'])&&($bypass['connector_version']??'')==='4'?'cache_stale':'missing';}catch(Throwable $e){return 'missing';}
+    }
     private function hygieneTasks(array $r,array $pages,array $snapshot,array $site): void{
         $ar=($snapshot['brief']['language']??'en')==='ar';$byUrl=[];foreach($pages as $p)$byUrl[$p['url']]=$p;$sources=$snapshot['link_source']??[];$n=0;
         $words=static function(string $path){preg_match_all('/[\p{L}\p{N}]{3,}/u',mb_strtolower(str_replace(['-','/','_'],' ',$path)),$m);return array_unique($m[0]);};
@@ -698,7 +704,9 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
                 $proposed=[];foreach($plan['changes'] as $c)$proposed[$pages[$c['page_index']]['url'].':'.$c['field']]=true;
                 $this->groupReviewTasks($r,$pages,$proposed,$anchor);
                 if(($snapshot['metrics']['gsc']['state']??'')!=='measured')$this->task($r,'connection','seo',$pages[0],'Connect and verify Search Console','Use the Search Console connection button, select this site property and grant access. Recheck the connection and run a new cycle to measure actual clicks and impressions.','gsc_connection',null,'needs_client');
-                if(($pages[0]['connector_version']??'')!=='4')$this->task($r,'connection','seo',$pages[0],'Install the server-side connector','WordPress: download, install and activate the site-specific Tourfecto plugin. Custom PHP site: download tourfecto-connect.php, upload it to the site root and require it on the first line of a file every page loads. Then refresh the public page and check connections. Non-PHP sites need a developer adapter; a browser script alone is not treated as server-side execution.','connector',null,'needs_client');
+                $connectorSeen=$this->connectorSeen($pages[0],(string)$pages[0]['url']);
+                if($connectorSeen==='cache_stale')$this->task($r,'connection','seo',$pages[0],'Clear your site cache so the connector is visible','The Tourfecto connector is installed (it is visible when the page is read without the cache), but your site cache still serves an older copy of this page. Clear the page cache (Nginx, WP Rocket, LiteSpeed or your host cache), then recheck. Until then changes made through the connector will not reach visitors and cannot be verified.','connector',null,'needs_client');
+                elseif($connectorSeen==='missing')$this->task($r,'connection','seo',$pages[0],'Install the server-side connector','WordPress: download, install and activate the site-specific Tourfecto plugin. Custom PHP site: download tourfecto-connect.php, upload it to the site root and require it on the first line of a file every page loads. Then refresh the public page and check connections. Non-PHP sites need a developer adapter; a browser script alone is not treated as server-side execution.','connector',null,'needs_client');
                 $this->q("UPDATE seo_expert_runs SET status='draft',plan_json=?,summary=?,version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=?",[json_encode($plan,JSON_THROW_ON_ERROR),$plan['summary'],$id]);if(!ServiceUsageReservation::settle($r['usage_token'],'completed'))throw new RuntimeException('Usage settlement failed');
             });
             $settled=true;$stage='post_plan';
@@ -1020,7 +1028,7 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
                     if(!SeoSchemaBuilder::taskCompatible($scopePage,(string)$t['field_name'],(string)$t['expected_value'])){$this->needsClient($t,'This proposal describes a single trip, but the current page is a collection or another page type. Review the proposal; no rule was activated.');continue;}
                     $check=PageContext::verifyValue($t['field_name'],$t['expected_value'],$ctx);if($check['state']==='verified'){$this->q("UPDATE seo_expert_tasks SET status='verified',evidence_json=?,checked_at=UTC_TIMESTAMP() WHERE id=?",[json_encode($check,JSON_THROW_ON_ERROR),$t['id']]);continue;}
                     if(!empty($ctx['native_seo_owner'])&&in_array($t['field_name'],['title','description'],true)){$this->needsClient($t,'This page has directly reviewed Tourfecto SEO fields. Apply title/description changes through the unified editor; an overlay rule was not activated.');continue;}
-                    if(($ctx['connector_version']??'')!=='4'){$this->needsClient($t,'Install or update the Tourfecto server-side connector, clear the public page cache, and recheck.');continue;}
+                    if(($ctx['connector_version']??'')!=='4'){$this->needsClient($t,$this->connectorSeen($ctx,(string)$t['page_url'])==='cache_stale'?'The connector is installed, but your site cache still serves an older copy of this page. Clear the page cache and recheck; no rule was activated.':'Install or update the Tourfecto server-side connector, clear the public page cache, and recheck.');continue;}
                     if($t['field_name']==='link_fix'){
                         // إعادة تحقق حية قبل أي كتابة: بنشيل أي رابط رجع يشتغل أو الفشل بتاعه مؤقت، وأي بديل مقترح (تخمين) مابيتنفذش
                         $guard=$this->guardLinkFix($t,$reader);
