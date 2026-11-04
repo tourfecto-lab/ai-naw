@@ -115,6 +115,40 @@ final class SeoDataCostReport
             ];
         }
         usort($out['customers'], fn ($a, $b) => $b['cost'] <=> $a['cost']);
+        $out['cycles'] = $this->cycles();
+        return $out;
+    }
+
+    /**
+     * تكلفة كل دورة سيو: اللي اتخصم من العميل (الحجز) + صرف DataForSEO على نفس الموقع خلال عمر الدورة.
+     * الربط بالنافذة الزمنية تقريبي (التقدير)، والتكلفة المؤكدة هي مكالمات status=complete؛ المقدّر/المحجوز/غير المحسوم بيتعرض لوحده.
+     * @return list<array<string,mixed>>
+     */
+    public function cycles(int $limit = 30): array
+    {
+        try {
+            if (!$this->db->query("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'seo_expert_runs'")) return [];
+            $end = "IF(r.status IN ('completed','failed'), r.updated_at, UTC_TIMESTAMP())";
+            $win = "c.website_id = r.website_id AND c.created_at >= r.created_at AND c.created_at <= DATE_ADD($end, INTERVAL 5 MINUTE)";
+            $rows = $this->db->query("SELECT r.id, r.website_id, r.user_id, r.status, r.created_at, u.email, res.source AS charge_source, res.amount AS charge_amount, res.state AS charge_state,
+                    (SELECT COUNT(*) FROM dataforseo_calls c WHERE $win) AS calls,
+                    (SELECT COALESCE(SUM(c.cost),0) FROM dataforseo_calls c WHERE $win AND c.status = 'complete') AS confirmed,
+                    (SELECT COALESCE(SUM(GREATEST(c.cost, c.reserved_cost)),0) FROM dataforseo_calls c WHERE $win AND c.status <> 'complete') AS unsettled
+                FROM seo_expert_runs r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN service_usage_reservations res ON res.token = r.usage_token
+                ORDER BY r.id DESC LIMIT " . max(1, min(100, $limit))) ?: [];
+        } catch (Throwable $e) {
+            error_log('[SeoDataCostReport] cycles skipped: ' . $e->getMessage());
+            return [];
+        }
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'run_id' => (int) $r['id'], 'reference' => 'SEO-' . (int) $r['id'], 'website_id' => (int) $r['website_id'], 'user_id' => (int) $r['user_id'], 'email' => (string) ($r['email'] ?? ''),
+                'status' => (string) $r['status'], 'created_at' => (string) $r['created_at'],
+                'client_charge' => ['source' => (string) ($r['charge_source'] ?? ''), 'amount' => round((float) ($r['charge_amount'] ?? 0), 2), 'state' => (string) ($r['charge_state'] ?? '')],
+                'provider' => ['calls' => (int) $r['calls'], 'confirmed' => round((float) $r['confirmed'], 4), 'unsettled' => round((float) $r['unsettled'], 4)],
+            ];
+        }
         return $out;
     }
 }

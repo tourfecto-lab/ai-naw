@@ -2148,6 +2148,15 @@ class AdminController extends Controller
         }
         $html .= '<div class="p-card"><div class="p-card-head"><h3>العملاء</h3><span class="p-card-sub">«الوحدات» = اللي اتخصم من رصيد seo_data في باقته الشهر ده.</span></div>'
             . ($rows ? '<div style="overflow-x:auto"><table class="p-table"><thead><tr><th>العميل</th><th>الشهر ده</th><th>متوقع</th><th>مكالمات</th><th>كلمات متابَعة</th><th>الوحدات</th><th>أكبر بند</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' : '<div class="p-empty">مفيش عميل صرف الشهر ده.</div>') . '</div>';
+        $cy = '';
+        foreach ($r['cycles'] ?? [] as $c) {
+            $cy .= '<tr><td dir="ltr"><b>' . $e($c['reference']) . '</b><br><small>' . $e($c['created_at']) . '</small></td><td>' . $e($c['email'] ?: ('#' . $c['user_id'])) . '<br><small>موقع #' . (int) $c['website_id'] . '</small></td><td>' . $e($c['status']) . '</td>'
+                . '<td dir="ltr">' . ($c['client_charge']['source'] === 'wallet' ? $usd($c['client_charge']['amount']) . ' محفظة' : ($c['client_charge']['source'] === 'plan' ? 'من الباقة' : '—')) . ' <small>' . $e($c['client_charge']['state']) . '</small></td>'
+                . '<td dir="ltr">' . $usd($c['provider']['confirmed']) . ' <small>(' . (int) $c['provider']['calls'] . ' طلب)</small></td><td dir="ltr">' . ($c['provider']['unsettled'] > 0 ? '≈ ' . $usd($c['provider']['unsettled']) : '—') . '</td></tr>';
+        }
+        $html .= '<div class="p-card"><div class="p-card-head"><h3>تكلفة كل دورة سيو</h3><span class="p-card-sub">«مؤكد» = طلبات DataForSEO اتسوّت فعلًا. «غير محسوم» = محجوز أو تقديري أو انقطع بعد الإرسال، ويتعرض لوحده لحد المطابقة. الربط بالدورة بالنافذة الزمنية على نفس الموقع (تقريبي).</span></div>'
+            . ($cy ? '<div style="overflow-x:auto"><table class="p-table"><thead><tr><th>الدورة</th><th>العميل</th><th>الحالة</th><th>اتخصم من العميل</th><th>مصروف مؤكد</th><th>غير محسوم</th></tr></thead><tbody>' . $cy . '</tbody></table></div>' : '<div class="p-empty">لسه مفيش دورات.</div>')
+            . '</div>';
         return $html . '</div>';
     }
 

@@ -17,6 +17,7 @@ final class SocialIntelServiceTest extends TestCase
             $this->markTestSkipped('قاعدة الاختبار مش متاحة: ' . $e->getMessage());
         }
         new SocialIntelService();
+        new SocialCompetitorDiscovery(); // creates social_competitor_pages; cleanup() deletes from it whatever test ran first
         $this->cleanup();
     }
 
