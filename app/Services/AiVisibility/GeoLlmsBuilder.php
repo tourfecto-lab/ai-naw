@@ -24,11 +24,36 @@ class GeoLlmsBuilder
         foreach($home['links'] as $link){$target=$link['url'];if(count($trips)>=8)break;
             if(!DataForSeoRankingSource::matchesHost($target,$url)||isset($seen[$target])||!preg_match('#(?:tour|trip|excursion|cruise|رحل)#iu',parse_url($target,PHP_URL_PATH)??''))continue;$seen[$target]=true;
             $p=$this->evidence->page($target);if(empty($p['ok'])||!SeoSchemaBuilder::isTourPage($p)||!DataForSeoRankingSource::matchesHost($p['url'],$url)||$p['url']===$home['url']||$p['description']==='')continue;
-            $trips[]='- ['.self::line($p['title']?:$link['label']).']('.$p['url'].'): '.self::line($p['description']).($p['prices']?' | Published price text: '.implode('; ',array_map([self::class,'line'],$p['prices'])):'');
+            $trips[]='- ['.self::line($p['title']?:$link['label']).']('.$p['url'].'): '.self::line($p['description']).(($price=self::price($p))!==''?' | Published price: '.$price:'');
         }
         if($trips)$lines=array_merge($lines,['','## Published trip pages'],$trips);
         $lines=array_merge($lines,['','## Notes','Content reflects public page text fetched '.gmdate('Y-m-d').'. Confirm details on the linked pages. This file makes no ranking or citation guarantee.']);
         return mb_substr(implode("\n",$lines),0,19000);
+    }
+    /**
+     * سعر الرحلة نفسها بس. الأفضل سعر العرض في البيانات المنظمة (Offer/AggregateOffer)؛ لو مفيش، أول سعر في النص بشرط يكون صيغة نظيفة.
+     * نص الصفحة بيجمع أسعار رحلات تانية وأرقام ملزوقة في بعض، فمنطلعش منه غير سعر واضح واحد، وبدونه نسيب السعر بره بدل ما نضلّل.
+     */
+    private static function price(array $page): string
+    {
+        $found = [];
+        $walk = static function ($node) use (&$walk, &$found): void {
+            if (!is_array($node)) return;
+            foreach (['price', 'lowPrice'] as $k) {
+                if (isset($node[$k]) && is_scalar($node[$k]) && is_numeric(str_replace(',', '', (string) $node[$k])) && !empty($node['priceCurrency'])) {
+                    $found[] = strtoupper(preg_replace('/[^A-Za-z]/', '', (string) $node['priceCurrency'])) . ' ' . (string) $node[$k];
+                    return;
+                }
+            }
+            foreach ($node as $v) $walk($v);
+        };
+        foreach ((array) ($page['schema'] ?? []) as $item) {
+            foreach (is_array($item) ? [$item['offers'] ?? null] : [] as $offers) $walk($offers);
+            if ($found) break;
+        }
+        if ($found) return self::line($found[0]);
+        $first = trim((string) (($page['prices'] ?? [])[0] ?? ''));
+        return preg_match('/^(?:from\s+)?[$€£]\s?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?(?:\s?per (?:person|adult))?$/i', $first) ? self::line($first) : '';
     }
     private static function hollow(array $page): bool{return trim((string)($page['title']??''))===''&&trim((string)($page['description']??''))===''&&empty($page['links']);}
     public static function line(string $text): string{return trim(preg_replace('/[<>\r\n\[\]]/u',' ',strip_tags($text)));}

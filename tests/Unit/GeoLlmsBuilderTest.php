@@ -64,4 +64,40 @@ final class GeoLlmsBuilderTest extends TestCase
         $this->assertStringNotContainsString('_tourfecto_audit', $out);
         $this->assertStringContainsString('- https://example.com', $out);
     }
+
+    private function buildWithTrip(array $trip): string
+    {
+        $home = $this->home('Private day tours in Cairo.');
+        $home['links'] = [['url' => 'https://example.com/tour/cairo', 'label' => 'Cairo trip']];
+        $evidence = new class($home, $trip) extends AiVisibilityEvidence {
+            public function __construct(private array $home, private array $trip) {}
+            public function beginBudget(int $seconds): void {}
+            public function page(string $url): array { return $url === 'https://example.com/tour/cairo' ? $this->trip : $this->home; }
+        };
+        return (new GeoLlmsBuilder($evidence))->build('https://example.com');
+    }
+
+    private function trip(array $schema, array $prices): array
+    {
+        return ['ok' => true, 'url' => 'https://example.com/tour/cairo', 'title' => 'Cairo Day Tour', 'description' => 'A private day in Cairo.',
+            'schema' => $schema, 'prices' => $prices, 'h1' => 'Cairo Day Tour', 'text' => 'tour itinerary', 'languages' => [], 'phone' => [], 'email' => [], 'links' => [], 'has_schema' => (bool) $schema];
+    }
+
+    public function testTripPriceComesFromStructuredOfferNotFromPageText(): void
+    {
+        $schema = [['@type' => 'Product', 'offers' => ['@type' => 'Offer', 'price' => '135.00', 'priceCurrency' => 'USD']]];
+        $out = $this->buildWithTrip($this->trip($schema, ['from $135.00 per person', '$2362', 'From $97.00', 'From $38.00']));
+        $this->assertStringContainsString('| Published price: USD 135.00', $out);
+        $this->assertStringNotContainsString('$2362', $out);
+        $this->assertStringNotContainsString('$97.00', $out);
+    }
+
+    public function testWithoutSchemaOnlyACleanFirstPriceIsUsed(): void
+    {
+        $clean = $this->buildWithTrip($this->trip([], ['from $135.00 per person', 'From $97.00']));
+        $this->assertStringContainsString('| Published price: from $135.00 per person', $clean);
+        $this->assertStringNotContainsString('$97.00', $clean);
+        $noisy = $this->buildWithTrip($this->trip([], ['$2362', 'From $97.00']));
+        $this->assertStringNotContainsString('Published price', $noisy);
+    }
 }
