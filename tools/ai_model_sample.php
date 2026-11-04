@@ -105,22 +105,29 @@ foreach ($models as $spec) {
         if ($spentUsd >= $maxUsd || $spentTokens >= $maxTokens) { echo "Budget guard reached: stopping.\n"; break 2; }
         $t0 = microtime(true);
         try {
-            $r = $p->generateReply($c['system'], [['role' => 'user', 'content' => $c['user']]], ['model' => $model, '_routing_exact' => true, 'temperature' => 0.2, 'max_tokens' => $c['max_tokens']]);
+            $r = $p->generateReply($c['system'], [['role' => 'user', 'content' => $c['user']]], ['model' => $model, '_routing_exact' => true, 'temperature' => 0.2, 'max_tokens' => $provider === 'gemini' ? max(1500, $c['max_tokens'] * 10) : $c['max_tokens']]);
         } catch (Throwable $e) {
             $r = ['success' => false, 'error' => get_class($e)];
         }
         $out = trim((string) ($r['content'] ?? ''));
+        // سبب الفشل مختصر ومن غير أي مفتاح: بنشيل أي نص بيشبه مفتاح قبل العرض
+        $err = !empty($r['success']) ? '' : (string) preg_replace('/(sk-|AIza|Bearer\s+)[A-Za-z0-9._-]{6,}/', '$1***', mb_substr((string) ($r['error'] ?? $r['technical_error'] ?? 'unknown'), 0, 110));
         $sum = !empty($r['success']) && $out !== '' ? ($c['check'])($out) : ['passed' => 0, 'total' => 1, 'score' => 0.0, 'failed' => ['call_failed']];
         $usd = (float) ($r['estimated_cost_usd'] ?? 0);
         $tok = (int) ($r['tokens_total'] ?? 0);
         $spentUsd += $usd;
         $spentTokens += $tok;
-        $rows[] = ['provider' => $provider, 'model' => $model, 'case' => $c['id'], 'lang' => $c['lang'], 'score' => $sum['score'], 'failed' => $sum['failed'], 'tokens' => $tok, 'usd' => round($usd, 6), 'ms' => (int) round((microtime(true) - $t0) * 1000), 'output' => mb_substr($out, 0, 400)];
+        $rows[] = ['provider' => $provider, 'model' => $model, 'case' => $c['id'], 'lang' => $c['lang'], 'score' => $sum['score'], 'failed' => $sum['failed'], 'tokens' => $tok, 'usd' => round($usd, 6), 'ms' => (int) round((microtime(true) - $t0) * 1000), 'error' => $err, 'output' => mb_substr($out, 0, 400)];
     }
 }
 
 echo "\n" . str_pad('model', 34) . str_pad('case', 14) . str_pad('score', 8) . str_pad('tokens', 8) . str_pad('usd', 10) . "failed\n";
 foreach ($rows as $r) echo str_pad($r['provider'] . ':' . $r['model'], 34) . str_pad($r['case'], 14) . str_pad((string) $r['score'], 8) . str_pad((string) $r['tokens'], 8) . str_pad((string) $r['usd'], 10) . implode(',', $r['failed']) . "\n";
+$shown = [];
+foreach ($rows as $r) {
+    $k = $r['provider'];
+    if ($r['error'] !== '' && empty($shown[$k])) { echo "  ERROR {$r['provider']}:{$r['case']}: {$r['error']}\n"; $shown[$k] = true; }
+}
 echo "\nSummary per model (average score; cost per call):\n";
 $by = [];
 foreach ($rows as $r) { $k = $r['provider'] . ':' . $r['model']; $by[$k]['s'][] = $r['score']; $by[$k]['u'][] = $r['usd']; $by[$k][$r['lang']][] = $r['score']; }
