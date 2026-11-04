@@ -117,7 +117,7 @@ class VoicePostCallService
         if (in_array($bookingAction, ['create_pending', 'create_and_confirm'], true) && (!$st['contact_id'] || $bName === '' || strpos($bName, 'Caller ') === 0)) {
             $bookingAction = 'task_only'; // never create a booking without a customer record and a real name
         }
-        $this->step($tenantId, $callId, $res, 'booking', function () use ($tenantId, $callId, &$st, &$bookingAction, $decision, $br, $bName, $q, $contact, $number, $now, $call) {
+        $this->step($tenantId, $callId, $res, 'booking', function () use ($tenantId, $callId, &$st, &$bookingAction, $decision, $br, $bName, $q, $contact, $number, $call) {
             if (!in_array($bookingAction, ['create_pending', 'create_and_confirm'], true)) {
                 return ['status' => 'skipped', 'detail' => $bookingAction === 'none' ? 'no_booking_request' : ($bookingAction === 'task_only' ? 'staff_will_confirm:' . $decision['reason'] : $decision['reason'])];
             }
@@ -233,7 +233,7 @@ class VoicePostCallService
         });
 
         // 9) tell the owner about what matters, 10) let CRM automations react
-        $this->step($tenantId, $callId, $res, 'notify', function () use ($tenantId, $callId, $sig, $summary, $st, $reasons) {
+        $this->step($tenantId, $callId, $res, 'notify', function () use ($tenantId, $summary, $st, $reasons) {
             if (!$reasons && !$st['booking_id']) {
                 return ['status' => 'skipped', 'detail' => 'nothing_urgent'];
             }

@@ -127,7 +127,7 @@ class ReputationReport
         $brand = $d['brand'];
         $primary = preg_match('/^#[0-9a-f]{6}$/i', (string) $brand['primary']) ? $brand['primary'] : '#0f766e';
         $accent = preg_match('/^#[0-9a-f]{6}$/i', (string) $brand['accent']) ? $brand['accent'] : '#f59e0b';
-        $delta = static function ($now, $before, bool $lowerIsBetter = false) use ($t): string {
+        $delta = static function ($now, $before, bool $lowerIsBetter = false): string {
             if ($now === null || $before === null || (float) $before == 0.0) {
                 return '';
             }
