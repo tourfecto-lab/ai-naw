@@ -52,7 +52,13 @@ class SeoExpertController extends Controller
             if($action==='rollback')return $this->success($s->rollback($uid,$id));
             return $this->success($s->state($uid,$wid,$action));
         }catch(InvalidArgumentException $e){return $this->error($e->getMessage(),422);}
-        catch(Throwable $e){Logger::error('SEO Expert operation unavailable',['action'=>$action,'website_id'=>$wid,'user_id'=>$uid,'error'=>$e->getMessage()]);return $this->error('تعذر تنفيذ الطلب. راجع الربط وSQL ومهام السيرفر ثم حدّث الحالة / Could not complete the request. Check connections, migration and worker, then refresh status.',503);}
+        catch(Throwable $e){
+            // رقم تتبع للعميل والإدارة: نفس الرقم في السجل، ورسالة تقول أي طلب فشل بدل 503 عامة
+            $ref='SEO-'.strtoupper(bin2hex(random_bytes(4)));
+            Logger::error('SEO Expert operation unavailable',['reference'=>$ref,'action'=>$action,'website_id'=>$wid,'run_or_task_id'=>$id,'user_id'=>$uid,'exception'=>get_class($e),'error'=>$e->getMessage(),'at'=>basename($e->getFile()).':'.$e->getLine()]);
+            $what=in_array($action,['detail','overview','readiness','setup'],true)?['ar'=>'تعذر تحميل البيانات المحفوظة. ماحصلش فقد ولا خصم، جرّب تاني.','en'=>'Could not load the saved data. Nothing was lost or charged; try again.']:['ar'=>'تعذر تنفيذ الطلب. راجع الربط ومهام السيرفر ثم حدّث الحالة.','en'=>'Could not complete the request. Check connections and the worker, then refresh status.'];
+            return $this->error($what['en'].' / '.$what['ar'].' ['.$ref.']',503,['reference'=>$ref,'action'=>$action]);
+        }
     }
     public function setup(array $p=[]): array{return $this->action('setup',$p);}
     public function overview(array $p=[]): array{return $this->action('overview',$p);}

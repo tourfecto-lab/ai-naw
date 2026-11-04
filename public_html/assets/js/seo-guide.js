@@ -10,7 +10,7 @@
     if (!root || !advanced || !P) return;
     const ar = document.documentElement.lang.toLowerCase().startsWith('ar'), t = (a, e) => ar ? a : e, esc = P.esc, base = '/api/seo-expert';
     const params = new URLSearchParams(location.search);
-    let setup = null, overview = null, readiness = null, health = null, run = null, markets = null, busy = false, timer = null, alertHandlers = [], factsDraft = null, factsLoading = false, autoTried = false;
+    let setup = null, overview = null, readiness = null, health = null, run = null, markets = null, busy = false, timer = null, alertHandlers = [], factsDraft = null, factsLoading = false, autoTried = false, loadSeq = 0, loading = false, runError = false;
 
     const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
     const req = async (url, body) => {
@@ -156,7 +156,7 @@
     let note = null;
     const showNote = () => { const m = root.querySelector('#sgMessage'); if (!m) return; m.textContent = note?.text || ''; m.hidden = !note?.text; m.className = 'sg-message' + (note?.error ? ' error' : ''); };
     const message = (text, error = false) => { note = text ? { text, error } : null; showNote(); };
-    const act = fn => async () => { if (busy) return; busy = true; note = null; render(); try { await fn(); } catch (e) { message(e.message, true); } finally { busy = false; render(); } };
+    const act = fn => async () => { if (busy || loading) return; busy = true; note = null; render(); try { await fn(); } catch (e) { message(e.message, true); } finally { busy = false; render(); } };
 
     // المطلوب من العميل: المهام اللي من نفس النوع بتتجمع في بند واحد، بشرح بسيط بلغة الواجهة وزرار للخطوة الجاية
     // (المهام نفسها بتتكتب بلغة الموقع، فالعميل العربي على موقع إنجليزي كان بيشوف شرح تقني بالإنجليزي)
@@ -191,7 +191,18 @@
       return `<li class="sg-task"><div><b dir="auto">${esc(title)}</b>${text ? `<p dir="auto">${esc(text)}</p>` : ''}${chips}</div>${btn}</li>`;
     }
 
+    // الصفحات اللي اتلاقت واتفحصت واتستبعدت، وسبب الصفحات اللي ماتقراتش
+    function coverageLine() {
+      const snap = run?.run?.snapshot || {}, c = snap.coverage; if (!c) return '';
+      const excluded = Object.keys(snap.excluded_routes || {}).length, failures = snap.failures || [];
+      const why = {}; failures.forEach(f => { why[f.reason] = (why[f.reason] || 0) + 1; });
+      const names = { not_found: t('مش موجودة (404/410)', 'not found (404/410)'), timeout: t('ماردتش في الوقت', 'timed out'), dns_failure: t('الدومين مش بيتحل', 'domain did not resolve'), blocked_forbidden: t('الموقع منع الفحص', 'blocked our check'), rate_limited: t('الموقع طلب تقليل الطلبات', 'asked us to slow down'), server_error: t('خطأ سيرفر', 'server error'), maintenance_page: t('صيانة', 'maintenance') };
+      const reasons = Object.entries(why).map(([k, n]) => `${n} ${names[k] || k}`).join('، ');
+      const none = Number(c.audited || 0) === 0;
+      return `<p class="sg-muted">${none ? '⚠ ' + t('ماقدرناش نقرا أي صفحة من موقعك في الفحص ده، فمفيش توصيات لا تعني إن موقعك سليم.', 'We could not read any page of your website in this check, so having no recommendations does not mean your site is fine.') + ' ' : ''}${t('الصفحات: اتفحص ', 'Pages: checked ')}${Number(c.audited || 0)}${t('، مستبعد ', ', excluded ')}${excluded}${t('، لسه في الانتظار ', ', still queued ')}${Number(c.queued || 0)}${failures.length ? t('، ماتقراتش ', ', not read ') + failures.length + (reasons ? ' (' + esc(reasons) + ')' : '') : ''}${snap.partial ? t(' — الفحص جزئي وهيكمل في الدورة الجاية.', ' — partial check, it continues in the next cycle.') : ''}</p>`;
+    }
     function summary() {
+      if (!run && runError) return `<section class="sg-card sg-week"><div class="sg-week-head"><h3>${t('الأسبوع ده', 'This week')}</h3><span class="sg-pill bad">${t('تعذر تحميل نتائج الفحص', 'Could not load the check results')}</span></div><p>${t('الفحص اتحفظ، بس ماقدرناش نعرض نتايجه دلوقتي. ده مش معناه إن مفيش نتايج، وماحصلش خصم جديد.', 'The check was saved, but we could not load its results right now. This does not mean there are no results, and nothing was charged again.')}</p><button type="button" class="p-btn" data-retry-results ${busy ? 'disabled' : ''}>${t('حاول تحميل النتايج تاني', 'Retry loading results')}</button></section>`;
       if (!run) return '';
       const tasks = run.tasks || [], [text, tone] = runText(run.run?.status);
       // دورة ماكملتش ومافيهاش مهام: مفيش أرقام نعرضها، والتنبيه فوق فيه الحل
@@ -210,6 +221,7 @@
         ${approve ? `<div class="sg-row"><p>${t('فيه تعديلات بتذكر معلومات عن شركتك (زي سعر أو سياسة). راجعها ووافق على الصح بس.', 'Some changes mention facts about your company (like a price or policy). Review and approve only what is correct.')}</p><button type="button" class="p-btn" data-go="plan">${t('راجع ووافق', 'Review and approve')}</button></div>
         <h4>${t('مستني موافقتك', 'Waiting for your approval')}</h4><ol class="sg-todo">${pendingList.slice(0, 5).map(x => `<li><b>${esc(x.title)}</b>${x.page_path ? `<span dir="ltr">${esc(x.page_path)}</span>` : ''}</li>`).join('')}</ol>${approve > 5 ? `<button type="button" class="p-btn outline" data-go="plan">${t('عرض الكل', 'Show all')} (${approve})</button>` : ''}` : ''}
         ${todo.length ? `<h4>${t('المطلوب منك', 'What we need from you')}</h4><ol class="sg-tasks">${todo.map(todoItem).join('')}</ol>` : (!approve && tone !== 'busy' ? `<p class="sg-done">✓ ${t('مش مطلوب منك أي حاجة الأسبوع ده.', 'Nothing is needed from you this week.')}</p>` : '')}
+        ${coverageLine()}
         ${next ? `<p class="sg-muted">${t('الفحص الجاي: ', 'Next check: ')}${esc(next)}</p>` : ''}
         <div class="sg-links"><button type="button" class="p-btn outline" data-go="results">${t('شوف النتايج والزيارات', 'See results and visits')}</button><a class="p-btn outline" href="/ai-visibility">${t('ظهورك في ChatGPT', 'Your visibility in ChatGPT')}</a></div></section>`;
     }
@@ -222,13 +234,14 @@
         <p id="sgMessage" class="sg-message" role="status" hidden></p>
         ${!sites.length ? `<section class="sg-card"><h3>${t('ضيف موقعك الأول', 'Add your website first')}</h3><p>${t('اكتب رابط موقعك عشان نبدأ.', 'Enter your website link to start.')}</p><a class="p-btn" href="/websites">${t('ضيف موقع', 'Add website')}</a></section>` : `
         ${allDone ? `<details class="sg-card sg-setup"><summary>✓ ${t('كل خطوات الإعداد خلصت', 'All setup steps are done')}</summary>` : ''}<ol class="sg-steps">${list.map((s, i) => `<li class="sg-step ${s.done ? 'done' : (i === firstOpen ? 'current' : 'later')}"><span class="sg-num">${s.done ? '✓' : i + 1}</span><div><h3>${esc(s.title)}</h3>${s.done ? '' : `<p>${esc(s.text)}</p>`}${s.form && !s.done && i === firstOpen ? factsForm() : ''}
-          ${s.checking ? `<span class="sg-muted">${t('بنتأكد من ربط موقعك…', 'Checking your website connection…')}</span>` : ''}${!s.done && !s.checking && i === firstOpen && !(s.form && !factsDraft) ? `<button type="button" class="p-btn" data-step="${s.key}" ${busy ? 'disabled' : ''}>${busy ? t('لحظة…', 'One moment…') : esc(s.action)}</button>` : ''}${s.done ? `<span class="sg-ok">${t('تم', 'Done')}</span>` : ''}</div></li>`).join('')}</ol>${allDone ? '</details>' : ''}
+          ${s.checking ? `<span class="sg-muted">${t('بنتأكد من ربط موقعك…', 'Checking your website connection…')}</span>` : ''}${!s.done && !s.checking && i === firstOpen && !(s.form && !factsDraft) ? `<button type="button" class="p-btn" data-step="${s.key}" ${busy || loading ? 'disabled' : ''}>${busy ? t('لحظة…', 'One moment…') : esc(s.action)}</button>` : ''}${s.done ? `<span class="sg-ok">${t('تم', 'Done')}</span>` : ''}</div></li>`).join('')}</ol>${allDone ? '</details>' : ''}
         ${alertsHtml}${rankCard()}${summary()}${reportCard()}${marketsCard()}`}`;
-      const sel = root.querySelector('#sgSite'); if (sel && sites.length) { const want = String(params.get('website_id') || store.get('tf-seo-site') || ''); if (sites.some(s => String(s.id) === want)) sel.value = want; sel.onchange = () => { store.set('tf-seo-site', sel.value); const legacy = document.getElementById('seWebsite'); if (legacy) { legacy.value = sel.value; legacy.dispatchEvent(new Event('change')); } health = null; run = null; factsDraft = null; autoTried = false; note = null; load(); }; }
+      const sel = root.querySelector('#sgSite'); if (sel && sites.length) { const want = String(params.get('website_id') || store.get('tf-seo-site') || ''); if (sites.some(s => String(s.id) === want)) sel.value = want; sel.onchange = () => { store.set('tf-seo-site', sel.value); const legacy = document.getElementById('seWebsite'); if (legacy) { legacy.value = sel.value; legacy.dispatchEvent(new Event('change')); } health = null; run = null; overview = null; readiness = null; markets = null; keywords = null; schedules = []; runError = false; loading = true; factsDraft = null; autoTried = false; note = null; render(); load(); }; }
       showNote();
       root.querySelectorAll('[data-fact]').forEach(el => { el.oninput = () => { if (factsDraft) factsDraft[el.dataset.fact] = el.value; }; });
       if (sites.length && list[firstOpen]?.form && !factsDraft) loadFacts();
       maybeAutoStart();
+      root.querySelectorAll('[data-retry-results]').forEach(b => { b.onclick = act(retryResults); });
       root.querySelectorAll('[data-step]').forEach(b => { const s = list.find(x => x.key === b.dataset.step); b.onclick = act(async () => s.run()); });
       root.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => setAdvanced(true, b.dataset.go, false); });
       root.querySelectorAll('[data-alert]').forEach(b => { b.onclick = () => alertHandlers[Number(b.dataset.alert)]?.(); });
@@ -262,19 +275,32 @@
       message(t('تم ✓ التقرير هيوصلك أول كل شهر.', 'Done ✓ The report will arrive at the start of every month.'));
     }
 
+    async function loadRun(id, seq) {
+      try { const r = await req(base + '/runs/' + id); if (seq !== loadSeq) return; run = r; runError = false; }
+      catch (e) { if (seq !== loadSeq) return; run = null; runError = true; }
+    }
     async function load() {
       if (!wid()) { render(); return; }
-      const id = wid();
+      // كل تحميل له رقم؛ لو العميل بدّل الموقع قبل ما الردود توصل، الردود القديمة بتتجاهل
+      const id = wid(), seq = ++loadSeq; loading = true; runError = false;
       const [ov, rd, mk, kw, sc] = await Promise.allSettled([req(base + '/sites/' + id), req(base + '/sites/' + id + '/readiness'), req('/api/seo/data/markets?website_id=' + id), req('/api/seo/data/keywords?website_id=' + id), req('/api/seo/report/schedules?website_id=' + id)]);
+      if (seq !== loadSeq) return;
       overview = ov.status === 'fulfilled' ? ov.value : null; readiness = rd.status === 'fulfilled' ? rd.value : null; markets = mk.status === 'fulfilled' ? mk.value : null;
       keywords = kw.status === 'fulfilled' ? kw.value : null; schedules = sc.status === 'fulfilled' ? (sc.value?.schedules || []) : [];
       const last = overview?.runs?.[0];
-      run = last ? await req(base + '/runs/' + last.id).catch(() => null) : null;
+      run = null;
+      if (last) await loadRun(last.id, seq);
+      if (seq !== loadSeq) return;
+      loading = false;
       render();
       // فحص الربط الحقيقي بياخد ثواني؛ بنعمله في الخلفية ونحدّث الخطوات لما يخلص
-      if (!health) req(base + '/sites/' + id + '/probe', {}).then(h => { health = h; render(); }).catch(() => { health = {}; render(); });
+      if (!health) req(base + '/sites/' + id + '/probe', {}).then(h => { if (seq === loadSeq) { health = h; render(); } }).catch(() => { if (seq === loadSeq) { health = {}; render(); } });
       clearTimeout(timer);
       if (last && ['queued', 'scanning', 'scanned', 'planning', 'executing', 'monitoring'].includes(last.status)) timer = setTimeout(() => load().catch(() => {}), 20000);
+    }
+    async function retryResults() {
+      const last = overview?.runs?.[0]; if (!last) return;
+      const seq = loadSeq; await loadRun(last.id, seq); render();
     }
 
     // صفحة واحدة في المرة: الملخص البسيط، أو صفحة الخبير اللي اتفتحت من تبويبات مركز السيو (?page=...)
