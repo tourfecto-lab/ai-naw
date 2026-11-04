@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/BrainLeadFollowups.php';
 
 /**
  * تنفيذ العقل جوه الخدمات نفسها (B2+).
@@ -20,7 +21,7 @@ class BrainActions
     private const DAYS = 30;
 
     /** القرار ← التنفيذ اللي جوه الخدمة */
-    private const ACTIONS = ['reply_negative_reviews' => 'review_drafts'];
+    private const ACTIONS = ['reply_negative_reviews' => 'review_drafts', 'follow_up_leads' => 'lead_followups'];
 
     /** أقصى عدد تقييمات بنفحصها في المرة (بعضها ممكن يكون مش موجود على جوجل) */
     private const POOL = 200;
@@ -31,9 +32,12 @@ class BrainActions
     /** @var callable|null fn(int $websiteId): ?array — أرقام تقييمات جوجل الموجودة فعلًا على الموقع المربوط (null = مش معروف) */
     private $googleIds;
     private array $googleIdCache = [];
+    /** @var callable|null للاختبارات: fn(int $uid, int $leadId, string $body): void */
+    private $noteWriter;
 
-    public function __construct(?Database $db = null, ?callable $drafter = null, ?callable $googleIds = null)
+    public function __construct(?Database $db = null, ?callable $drafter = null, ?callable $googleIds = null, ?callable $noteWriter = null)
     {
+        $this->noteWriter = $noteWriter;
         $this->db = $db ?? Database::getInstance();
         $this->drafter = $drafter;
         $this->googleIds = $googleIds;
@@ -47,6 +51,7 @@ class BrainActions
     /** هيحصل إيه لو صاحب الشركة وافق: عدد اللي هيتكتب، واللي جاهز أصلًا، وأقصى استهلاك ذكاء اصطناعي */
     public function preview(int $uid, string $action): array
     {
+        if ($action === 'lead_followups') return (new BrainLeadFollowups($this->db, $this->noteWriter))->preview($uid);
         if ($action !== 'review_drafts') throw new InvalidArgumentException('Unknown action');
         $ready = (int) ($this->db->query("SELECT COUNT(*) AS c FROM reviews WHERE user_id = ? AND rating <= 3 AND reply_sent_at IS NULL
             AND created_at > DATE_SUB(NOW(), INTERVAL " . self::DAYS . " DAY) AND reply_status = 'pending' AND ai_generated_reply IS NOT NULL AND ai_generated_reply <> ''", [$uid])[0]['c'] ?? 0);
@@ -61,6 +66,7 @@ class BrainActions
     public function run(int $uid, string $action, int $limit = self::BATCH): array
     {
         $limit = max(1, min(self::MAX_DRAFTS, $limit));
+        if ($action === 'lead_followups') return (new BrainLeadFollowups($this->db, $this->noteWriter))->run($uid, $limit);
         if ($action !== 'review_drafts') throw new InvalidArgumentException('Unknown action');
         $lock = 'tourfecto:brain-action:' . $uid;
         if ((int) ($this->db->query('SELECT GET_LOCK(?, 0) AS l', [$lock])[0]['l'] ?? 0) !== 1) throw new RuntimeException('busy');

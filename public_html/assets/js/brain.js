@@ -23,10 +23,28 @@
     const OUTCOME = { improved: ['✓ اتحسّن', '✓ Improved'], unchanged: ['ماتغيرش', 'No change'], worse: ['اتراجع', 'Got worse'] };
     const num = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US');
     // التنفيذ جوه الخدمة: معاينة الأول (هيحصل إيه وبيكلّف قد إيه)، وبعدين تنفيذ بموافقة صريحة
-    const ACT_LABEL = { review_drafts: ['✍️ جهّز ردود التقييمات', '✍️ Draft the review replies'] };
+    const ACT_LABEL = { review_drafts: ['✍️ جهّز ردود التقييمات', '✍️ Draft the review replies'], lead_followups: ['✍️ جهّز رسائل المتابعة', '✍️ Draft the follow-up messages'] };
     let act = null; // {id, preview?, result?, error?, loading?}
+    // مسودات متابعة العملاء المحتملين: قوالب جاهزة من غير ذكاء اصطناعي، بتتحط ملاحظة على العميل في الـ CRM ومفيش حاجة بتتبعت
+    function leadBox(d) {
+      if (act.loading) return `<div class="br-act" role="status">${t(`بنجهّز المسودات… اتكتب ${num(act.progress?.done || 0)} من ${num(act.progress?.target || 0)}`, `Preparing drafts… ${num(act.progress?.done || 0)} of ${num(act.progress?.target || 0)}`)}</div>`;
+      if (act.error) return `<div class="br-act error" role="alert">${esc(act.error)}</div>`;
+      const p = act.result || act.preview;
+      if (act.result) return `<div class="br-act done" role="status"><b>✓ ${t(`اتجهّز ${num(p.drafted)} مسودة متابعة`, `${num(p.drafted)} follow-up drafts prepared`)}</b>${p.skipped ? ` <span class="br-muted">${t(`(${num(p.skipped)} ماتجهّزوش)`, `(${num(p.skipped)} failed)`)}</span>` : ''}
+        <p>${t('كل مسودة ملاحظة مثبّتة على العميل في الـ CRM. راجع النص وعدّله وابعته بنفسك. مفيش حاجة اتبعتت لأي عميل.', 'Each draft is a pinned note on the lead in your CRM. Review, edit and send it yourself. Nothing was sent to any customer.')}</p>
+        <a class="p-btn xs primary" href="${esc(p.review_url)}">${t('افتح العملاء المحتملين', 'Open leads')}</a></div>`;
+      if (!p.will_draft) return `<div class="br-act" role="status"><p>${p.ready_drafts ? t(`فيه ${num(p.ready_drafts)} مسودة جاهزة في الـ CRM.`, `${num(p.ready_drafts)} drafts are already waiting in your CRM.`) : t('مفيش عملاء متأخرين محتاجين مسودة دلوقتي.', 'No overdue leads need a draft right now.')}</p>
+        <a class="p-btn xs primary" href="${esc(p.review_url)}">${t('افتح العملاء المحتملين', 'Open leads')}</a></div>`;
+      return `<div class="br-act"><b>${t('قبل ما نبدأ:', 'Before we start:')}</b><ul>
+        <li>${t(`هنجهّز مسودة متابعة لـ ${num(p.will_draft)} عميل متأخر، الأعلى قيمة الأول.`, `We will prepare a follow-up draft for ${num(p.will_draft)} overdue leads, highest value first.`)}</li>
+        <li>${t('المسودة من قالب جاهز (من غير ذكاء اصطناعي)، فمفيش استهلاك من حدود حسابك.', 'Drafts come from a ready template (no AI), so nothing is used from your plan limits.')}</li>
+        <li>${t('مفيش رسالة هتتبعت لوحدها. المسودة ملاحظة على العميل وانت اللي بتبعتها.', 'No message is sent automatically. The draft is a note on the lead and you send it.')}</li></ul>
+        <div class="br-actions"><button type="button" class="p-btn xs primary" data-act-run="${d.id}">${t('موافق، جهّز المسودات', 'Approve, prepare the drafts')}</button><button type="button" class="p-btn xs outline" data-act-cancel="1">${t('لأ', 'Cancel')}</button></div></div>`;
+    }
+
     function actionBox(d) {
       if (!act || act.id !== d.id) return '';
+      if (d.service_action === 'lead_followups') return leadBox(d);
       if (act.loading) return `<div class="br-act" role="status">${act.progress ? t(`بنكتب الردود… اتكتب ${num(act.progress.done)} من ${num(act.progress.target)}`, `Drafting replies… ${num(act.progress.done)} of ${num(act.progress.target)} done`) : t('بنجهّز…', 'Preparing…')}</div>`;
       if (act.error) return `<div class="br-act error" role="alert">${esc(act.error)}</div>`;
       const p = act.result || act.preview;

@@ -4,6 +4,7 @@ return [
     'BrainAdminController' => dirname(__DIR__,2).'/app/Controllers/BrainAdminController.php',
     'BrainControl' => dirname(__DIR__,2).'/app/Services/Brain/BrainControl.php',
     'BrainDigest' => dirname(__DIR__,2).'/app/Services/Brain/BrainDigest.php',
+    'BrainLeadFollowups' => dirname(__DIR__,2).'/app/Services/Brain/BrainLeadFollowups.php',
     'BrainPlanner' => dirname(__DIR__,2).'/app/Services/Brain/BrainPlanner.php',
     'BrainConfig' => dirname(__DIR__,2).'/app/Services/Brain/BrainConfig.php',
     'BrainController' => dirname(__DIR__,2).'/app/Controllers/BrainController.php',
