@@ -49,3 +49,4 @@
 .dk-cam-view video{width:100%;height:100%;object-fit:cover;display:block}
 .dk-cam-frame{position:absolute;top:50%;left:50%;width:86%;aspect-ratio:1.586;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none}
 .dk-cam-msg{margin:0;font-size:14px}.dk-cam-msg.bad{color:#d9534f}.dk-cam-actions{display:flex;flex-wrap:wrap;gap:8px}
+.dk-cam [hidden]{display:none!important}
