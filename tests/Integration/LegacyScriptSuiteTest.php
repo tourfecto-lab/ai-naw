@@ -58,7 +58,8 @@ final class LegacyScriptSuiteTest extends TestCase
 /**
  * بنشغّل بس اللي بينجح فعلًا. الـ14 التانيين (AITest, CacheTest, DatabaseTest, EncryptionTest, HelpersTest,
  * ValidationTest, APIEndpointsTest, ChatTest, CompetitorIntelligenceTest, GbpModuleTest, ReputationTest,
- * ReviewRequestTest, SubscriptionTest, WebhookTest) متعفّنين: بيفشلوا أو بيرموا استثناء لما بيتشغّلوا، لأن الكود
- * اتغيّر من ساعة ما اتكتبوا. إعادة كتابتهم أو حذفهم قرار مفتوح (docs/ops/PENDING_FOR_OWNER_AR.md).
+ * ReviewRequestTest, SubscriptionTest, WebhookTest) كانوا بيفشلوا أو بيرموا استثناء لأن الكود اتغيّر من ساعة ما اتكتبوا،
+ * فاتشالت نسخهم من tests/Unit و tests/Integration. النسخ القديمة لسه موجودة في tests/Legacy (مستبعدة من التشغيل)
+ * لو حد عايز يعيد كتابتها كاختبارات PHPUnit حقيقية.
  */
 const LEGACY_SCRIPT_CLASSES = ['SsrfGuardTest', 'CiPermissionsTest'];
