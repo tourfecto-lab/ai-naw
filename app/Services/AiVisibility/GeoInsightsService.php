@@ -129,7 +129,7 @@ final class GeoInsightsService
     public static function compose(array $rows, array $known, string $ownHost, string $now): array
     {
         if (!$rows) {
-            return ['state' => 'not_measured', 'answers' => 0, 'trend' => [], 'competitors' => [], 'citations' => ['domains' => [], 'own_pages' => []], 'prompts' => [], 'recommendations' => [],
+            return ['state' => 'not_measured', 'answers' => 0, 'trend' => [], 'competitors' => [], 'citations' => ['domains' => [], 'own_pages' => [], 'suggested_competitors' => []], 'prompts' => [], 'recommendations' => [],
                 'note' => 'No stored AI answers yet. Measurements need the AI visibility providers to be enabled and a question set approved.'];
         }
         foreach ($rows as &$r) {
@@ -255,13 +255,32 @@ final class GeoInsightsService
         $list = [];
         foreach ($domains as $h => $d) {
             $list[] = ['domain' => $h, 'answers' => $d['answers'], 'share' => round($d['answers'] / $n, 4), 'providers' => array_keys($d['providers']),
-                'kind' => ($ownHost !== '' && $h === $ownHost) ? 'own' : (isset($knownKeys[$h]) ? 'competitor' : 'other')];
+                'kind' => ($ownHost !== '' && $h === $ownHost) ? 'own' : (isset($knownKeys[$h]) ? 'competitor' : (self::isGeneralPlatform($h) ? 'platform' : 'other'))];
         }
         usort($list, static fn ($a, $b) => [$b['answers'], $a['domain']] <=> [$a['answers'], $b['domain']]);
         arsort($own);
         $ownPages = [];
         foreach (array_slice($own, 0, 10, true) as $u => $c) $ownPages[] = ['url' => $u, 'answers' => $c];
-        return ['domains' => array_slice($list, 0, 15), 'own_pages' => $ownPages];
+        // نطاقات متكررة في الإجابات مش مسجّلة ومش منصات عامة: غالبًا شركات منافسة، بنقترحها على العميل يراجعها ويسجّلها (اقتراح مش حكم)
+        $suggested = [];
+        foreach ($list as $d) {
+            if ($d['kind'] === 'other' && $d['answers'] >= 2) {
+                $suggested[] = ['domain' => $d['domain'], 'answers' => $d['answers'], 'share' => $d['share'], 'providers' => $d['providers']];
+            }
+            if (count($suggested) >= 8) break;
+        }
+        return ['domains' => array_slice($list, 0, 15), 'own_pages' => $ownPages, 'suggested_competitors' => $suggested];
+    }
+
+    /** مواقع عامة (فيديو، مراجعات، موسوعات، سوشيال) بتظهر كمصدر في أي إجابة وليست منافسًا مباشرًا. */
+    private static function isGeneralPlatform(string $host): bool
+    {
+        static $platforms = ['youtube.com', 'youtu.be', 'tripadvisor.com', 'wikipedia.org', 'reddit.com', 'facebook.com', 'instagram.com', 'tiktok.com', 'pinterest.com',
+            'linkedin.com', 'x.com', 'twitter.com', 'quora.com', 'medium.com', 'google.com', 'lonelyplanet.com', 'britannica.com', 'trustpilot.com', 'yelp.com', 'booking.com'];
+        foreach ($platforms as $p) {
+            if ($host === $p || str_ends_with($host, '.' . $p)) return true;
+        }
+        return false;
     }
 
     /** نتيجة كل سؤال: آخر إجابة لكل مزوّد (الأحدث أولًا في المدخلات). */
