@@ -237,6 +237,29 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** POST /api/admin/outreach-desk/staff-id-delete {user_id, side | history_id | all=1}: مالك المنصة بس، حذف نهائي من غير أثر */
+    public function staffIdDelete(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        if (!$this->canManageTeam()) {
+            return $this->error('غير مصرح', 403);
+        }
+        $uid = (int) $this->get('user_id', 0);
+        if ($uid <= 0) {
+            return $this->error('الموظف مش محدد', 422);
+        }
+        try {
+            $n = $this->service()->staffIdCardDelete($uid, (string) $this->get('side', ''), (int) $this->get('history_id', 0), (string) $this->get('all', '') === '1');
+            return $this->success(['deleted' => $n]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->error('تعذر الحذف', 503);
+        }
+    }
+
     /** POST /api/admin/outreach-desk/staff-recapture {user_id}: مالك المنصة بس بيطلب من موظف إعادة تصوير البطاقة والصورة (من غير مسح القديم) */
     public function staffRecapture(array $params = []): array
     {

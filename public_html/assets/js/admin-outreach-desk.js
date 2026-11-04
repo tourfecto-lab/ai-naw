@@ -235,15 +235,19 @@
         const ic = r.id_card, loc = r.location, uid = r.staff.user_id, mgr = !!d.can_manage;
         const docUrl = side => `/api/admin/outreach-desk/staff-id-card?side=${side}&user_id=${uid}`;
         const CLIP = { front: 'fclip', back: 'bclip', photo: 'pclip' };
-        const thumb = (side, label) => ic && ic[side] && ic[CLIP[side]]
-            ? `<div class="dk-doc"><video controls preload="none" playsinline poster="${docUrl(side)}" src="${docUrl(CLIP[side])}"></video><span>🎥 ${label} · ${esc(String(ic[CLIP[side]]).slice(0, 10))} · <a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer">الصورة الثابتة</a></span></div>`
-            : ic && ic[side]
-            ? `<a class="dk-doc" href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"><span>${label} · ${esc(String(ic[side]).slice(0, 10))}</span></a>`
-            : `<div class="dk-doc none"><span>${label}: لسه</span></div>`;
+        const del = (attrs, text) => `<button class="dk-btn xs dk-del" ${attrs}>🗑 ${text}</button>`;
+        const thumb = (side, label) => {
+            const still = ic && ic[side], clip = ic && ic[CLIP[side]];
+            if (!still && !clip) return `<div class="dk-doc none"><span>${label}: لسه</span></div>`;
+            const media = clip
+                ? `<video controls preload="none" playsinline ${still ? `poster="${docUrl(side)}"` : ''} src="${docUrl(CLIP[side])}"></video>`
+                : `<a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"></a>`;
+            return `<div class="dk-doc">${media}<span>${clip ? '🎥 ' : ''}${label} · ${esc(String(clip || still).slice(0, 10))}${clip && still ? ` · <a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer">الصورة الثابتة</a>` : ''}</span><span class="dk-delrow">${clip ? del(`data-del-side="${CLIP[side]}"`, 'الفيديو') : ''}${still ? del(`data-del-side="${side}"`, 'الصورة') : ''}</span></div>`;
+        };
         // الصور (الشخصية ووش البطاقة وضهرها) للأدمن بس؛ الموظف بيشوف حالة الرفع من غير الصور
         const SIDE_LABEL = { front: 'وش البطاقة', back: 'ضهر البطاقة', photo: 'الصورة الشخصية', fclip: 'فيديو الوش', bclip: 'فيديو الضهر', pclip: 'فيديو الشخصية' };
-        const hist = mgr && (r.id_history || []).length ? `<details class="dk-more"><summary>🗂️ النسخ القديمة (${r.id_history.length})</summary><div class="dk-hist">${r.id_history.map(h => `<a href="${docUrl(h.side)}&history_id=${h.id}" target="_blank" rel="noopener noreferrer">${esc(SIDE_LABEL[h.side] || h.side)} · ${esc(String(h.uploaded_at).slice(0, 16))}</a>`).join('')}</div></details>` : '';
-        const docs = mgr ? `<div class="dk-docs">${thumb('photo', 'الصورة الشخصية')}${thumb('front', 'وش البطاقة')}${thumb('back', 'ضهر البطاقة')}</div>${hist}${(r.doc_views || []).length ? `<small class="dk-muted">آخر اطلاع على الصور: ${r.doc_views.map(v => esc(v.viewer) + ' (' + esc(v.at) + ')').join(' · ')}</small>` : ''}` : '';
+        const hist = mgr && (r.id_history || []).length ? `<details class="dk-more"><summary>🗂️ النسخ القديمة (${r.id_history.length})</summary><div class="dk-hist">${r.id_history.map(h => `<a href="${docUrl(h.side)}&history_id=${h.id}" target="_blank" rel="noopener noreferrer">${esc(SIDE_LABEL[h.side] || h.side)} · ${esc(String(h.uploaded_at).slice(0, 16))}</a> ${del(`data-del-hist="${h.id}"`, '')}`).join('')}</div></details>` : '';
+        const docs = mgr ? `<div class="dk-docs">${thumb('photo', 'الصورة الشخصية')}${thumb('front', 'وش البطاقة')}${thumb('back', 'ضهر البطاقة')}</div>${hist}${ic && (ic.front || ic.back || ic.photo || ic.fclip || ic.bclip || ic.pclip || (r.id_history || []).length) ? `<div>${del('data-del-all', 'حذف كل صور وفيديوهات الموظف (الحالي والقديم) نهائيًا')}</div>` : ''}${(r.doc_views || []).length ? `<small class="dk-muted">آخر اطلاع على الصور: ${r.doc_views.map(v => esc(v.viewer) + ' (' + esc(v.at) + ')').join(' · ')}</small>` : ''}` : '';
         const idStatus = ic ? (ic.front && ic.photo ? '✅ البطاقة والصورة الشخصية اتسجّلوا' : '⚠️ لسه ناقص: ' + [!ic.front && 'وش البطاقة', !ic.back && 'ضهر البطاقة', !ic.photo && 'الصورة الشخصية'].filter(Boolean).join('، ')) : '';
         const idBox = canEdit ? `<div class="dk-comp dk-id"><b>🪪 البطاقة والصورة الشخصية</b><span>${idStatus}</span>
             <button class="dk-btn primary" data-id-wizard>📷 ${ic && ic.front ? 'إعادة التصوير' : 'التصوير'}</button>
@@ -463,6 +467,13 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
+                    if (t.classList.contains('dk-del')) {
+                        // ضغطتين عشان مايتحذفش بالغلط: الأولى بتجهّز والتانية بتحذف نهائيًا (من غير أي أثر)
+                        if (!t.dataset.armed) { t.dataset.armed = '1'; t.dataset.txt = t.textContent; t.textContent = '⚠️ اضغط تاني للحذف النهائي'; setTimeout(() => { if (t.isConnected && t.dataset.armed) { delete t.dataset.armed; t.textContent = t.dataset.txt; } }, 4000); return; }
+                        const body = { user_id: staffUi.userId };
+                        if (t.dataset.delAll !== undefined) body.all = '1'; else if (t.dataset.delHist) body.history_id = t.dataset.delHist; else body.side = t.dataset.delSide;
+                        t.disabled = true; await api('/api/admin/outreach-desk/staff-id-delete', body); await loadStaff(); stMsg('اتحذف نهائيًا ✅'); return;
+                    }
                     if (t.dataset.recapture !== undefined) { t.disabled = true; t.textContent = '⏳ بيتبعت…'; try { await api('/api/admin/outreach-desk/staff-recapture', { user_id: staffUi.userId }); } catch (err) { t.disabled = false; t.textContent = '🔔 اطلب منه يعيد التصوير'; throw err; } await loadStaff(); const nb = staffUi.el.querySelector('[data-recapture]'); if (nb) { nb.textContent = '✅ اتطلب منه'; nb.disabled = true; } stMsg('اتطلب منه إعادة التصوير: التنبيه هيظهر له أول ما يفتح المكتب ✅'); return; }
                     if (t.dataset.idWizard !== undefined) { openWizard(staffUi.isSelf ? 0 : staffUi.userId); return; }
                     if (t.dataset.locSave !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; await loadStaff(); stMsg('اتسجّل موقعك ✅'); } finally { t.disabled = false; } return; }

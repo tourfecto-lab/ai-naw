@@ -926,4 +926,43 @@ final class OutreachDeskTest extends TestCase
         $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
         $this->db->query('DELETE FROM platform_staff_docs_history WHERE user_id=?', [self::STAFF_ID]);
     }
+
+    public function testOwnerCanHardDeleteOneItemAnOldVersionOrEverythingWithNoLeftovers(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-del@tourfecto.test']);
+        $img = imagecreatetruecolor(40, 30);
+        ob_start();
+        imagejpeg($img);
+        $jpg = (string) ob_get_clean();
+        $webm = "\x1A\x45\xDF\xA3" . str_repeat('v', 200);
+        foreach (['front', 'back', 'photo'] as $side) {
+            $this->svc->staffIdCardSave(self::STAFF_ID, $side, $jpg);
+        }
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', $webm);
+        $this->db->query('UPDATE platform_staff_docs SET uploaded_at = NOW() - INTERVAL 1 DAY WHERE user_id = ?', [self::STAFF_ID]);
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $jpg);
+        $hist = $this->svc->staffIdCardHistory(self::STAFF_ID);
+        $this->assertNotEmpty($hist);
+        $this->svc->staffDocViewLog(1, self::STAFF_ID, 'front');
+
+        $this->assertSame(1, $this->svc->staffIdCardDelete(self::STAFF_ID, 'back'));
+        $this->assertNull($this->svc->staffIdCardGet(self::STAFF_ID, 'back'));
+        $this->assertNotNull($this->svc->staffIdCardGet(self::STAFF_ID, 'photo'), 'only the chosen item goes');
+
+        $this->assertSame(1, $this->svc->staffIdCardDelete(self::STAFF_ID, '', (int) $hist[0]['id']));
+        $this->assertNull($this->svc->staffIdCardHistoryGet(self::STAFF_ID, (int) $hist[0]['id']));
+        $this->assertSame(0, $this->svc->staffIdCardDelete(self::STAFF_ID, '', (int) $hist[0]['id']), 'already gone');
+
+        $this->assertGreaterThanOrEqual(1, $this->svc->staffIdCardDelete(self::STAFF_ID, '', 0, true));
+        foreach (['platform_staff_docs', 'platform_staff_docs_history', 'platform_staff_doc_views'] as $t) {
+            $this->assertSame(0, (int) $this->db->query("SELECT COUNT(*) AS c FROM $t WHERE user_id = ?", [self::STAFF_ID])[0]['c'], "$t is empty");
+        }
+        $this->assertFalse($this->svc->staffMe(self::STAFF_ID)['id_card'], 'the employee is asked to shoot again');
+        try {
+            $this->svc->staffIdCardDelete(self::STAFF_ID, 'nonsense');
+            $this->fail('unknown side');
+        } catch (InvalidArgumentException $e) {
+            $this->assertTrue(true);
+        }
+    }
 }

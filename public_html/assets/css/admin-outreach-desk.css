@@ -93,3 +93,5 @@
 .dk-doc video{width:100%;max-height:220px;border-radius:8px;background:#000;display:block}
 
 .dk-hist{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+
+.dk-del{border-color:#c0504d;color:#e08a85}.dk-delrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.dk-hist .dk-del{padding:1px 6px}

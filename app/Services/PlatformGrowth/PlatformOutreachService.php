@@ -2709,6 +2709,28 @@ class PlatformOutreachService
         return $bin === false || $bin === '' ? null : [(string) $r['mime'], $bin];
     }
 
+    /**
+     * حذف نهائي لصور وفيديوهات موظف من غير أي أثر: صورة أو فيديو حالي ($side)، أو نسخة قديمة ($historyId)، أو كل حاجة ($all: الحالي والقديم وسجل الاطلاع عليهم).
+     * مابيتسجّلش في أي لوج إنه اتحذف إيه. نسخ الباك أب بتاعة السيرفر مش في إيدينا.
+     * @return int عدد الحاجات اللي اتحذفت
+     */
+    public function staffIdCardDelete(int $userId, string $side = '', int $historyId = 0, bool $all = false): int
+    {
+        if ($all) {
+            $n = $this->q('DELETE FROM platform_staff_docs WHERE user_id=?', [$userId])->rowCount();
+            $n += $this->q('DELETE FROM platform_staff_docs_history WHERE user_id=?', [$userId])->rowCount();
+            $this->q('DELETE FROM platform_staff_doc_views WHERE user_id=?', [$userId]);
+            return $n;
+        }
+        if ($historyId > 0) {
+            return $this->q('DELETE FROM platform_staff_docs_history WHERE user_id=? AND id=?', [$userId, $historyId])->rowCount();
+        }
+        if (!in_array($side, ['front', 'back', 'photo', 'fclip', 'bclip', 'pclip'], true)) {
+            throw new InvalidArgumentException('نوع الصورة غير معروف');
+        }
+        return $this->q('DELETE FROM platform_staff_docs WHERE user_id=? AND side=?', [$userId, $side])->rowCount();
+    }
+
     /** مقطع فيديو قصير (ثواني) بيتسجّل مع كل لقطة: وش البطاقة (fclip) وضهرها (bclip) والصورة الشخصية (pclip). WebM أو MP4 بس وبحد 6 ميجا */
     public function staffIdCardClipSave(int $userId, string $side, string $binary): void
     {

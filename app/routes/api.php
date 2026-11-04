@@ -1973,6 +1973,7 @@ $router->post('/api/admin/outreach-desk/staff-profile', 'PlatformOutreachControl
 $router->post('/api/admin/outreach-desk/staff-id-card', 'PlatformOutreachController', 'staffIdCardUpload', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/staff-id-card', 'PlatformOutreachController', 'staffIdCardView', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/staff-recapture', 'PlatformOutreachController', 'staffRecapture', ['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/outreach-desk/staff-id-delete', 'PlatformOutreachController', 'staffIdDelete', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/staff-location', 'PlatformOutreachController', 'staffLocationSave', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/staff-comp', 'PlatformOutreachController', 'staffCompSave', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/action', 'PlatformOutreachController', 'deskAction', ['AuthMiddleware','AdminMiddleware']);
