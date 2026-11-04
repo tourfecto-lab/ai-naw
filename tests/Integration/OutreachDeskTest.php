@@ -242,8 +242,23 @@ final class OutreachDeskTest extends TestCase
             $this->assertSame(3950.0, $c['monthly_egp']);
             $this->assertSame(395.0, $c['commission_egp'], '10% of 79 USD x 50');
             $this->assertSame(395.0, $r['totals']['commission_egp']);
+            $this->assertFalse($c['paid_confirmed'], 'no paid invoice yet: the commission is shown as pending');
+            $this->assertSame(0.0, $r['totals']['commission_confirmed_egp']);
+            $this->assertSame(395.0, $r['totals']['commission_pending_egp']);
             $this->assertSame(3000.0, $r['totals']['salary_egp']);
-            $this->assertSame(3395.0, $r['totals']['total_egp']);
+            $this->assertSame(3000.0, $r['totals']['total_egp'], 'only the salary is due until a paid invoice exists');
+
+            $inv = 'T-' . bin2hex(random_bytes(5));
+            $this->db->query("INSERT INTO invoices (user_id, invoice_number, plan_name, plan_type, amount, due_date, status, paid_at) VALUES (?, ?, 'starter', 'monthly', 79.00, CURDATE(), 'paid', NOW())", [$cust, $inv]);
+            try {
+                $paid = $this->svc->staffReport($staff, date('Y-m'), 50.0);
+                $this->assertTrue($paid['customers'][0]['paid_confirmed']);
+                $this->assertSame(395.0, $paid['totals']['commission_confirmed_egp']);
+                $this->assertSame(0.0, $paid['totals']['commission_pending_egp']);
+                $this->assertSame(3395.0, $paid['totals']['total_egp'], 'confirmed commission + salary');
+            } finally {
+                $this->db->query('DELETE FROM invoices WHERE invoice_number = ?', [$inv]);
+            }
             $this->assertSame(1, $r['summary']['sent']);
             $this->assertSame(1, $r['summary']['replied']);
             $this->assertSame('first message', array_values(array_filter($r['log'], fn ($l) => $l['action'] === 'contacted'))[0]['note'], 'the work log keeps the details');
@@ -476,6 +491,44 @@ final class OutreachDeskTest extends TestCase
             }
         }
         $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+    }
+
+    public function testDailyDigestEmailsEachEmployeeTheirDueFollowUpsOncePerDay(): void
+    {
+        [$sara, $mona] = $this->twoUsers();
+        $due = $this->lead('Digest Due Tours', 'EG', '+201000000101');
+        $fresh = $this->lead('Digest Fresh Tours', 'EG', '+201000000102');
+        $this->svc->deskAction($due, 'contacted', '', $sara, 'Sara');
+        $this->svc->deskAction($fresh, 'contacted', '', $mona, 'Mona');
+        $this->db->query('UPDATE platform_leads SET desk_at = NOW() - INTERVAL 3 DAY WHERE id = ?', [$due]);
+        $settings = new SystemSettingsService();
+        $settings->set('outreach_digest_date', '');
+        $mails = [];
+        $send = function ($to, $name, $subject, $html, $headers) use (&$mails) { $mails[] = compact('to', 'subject', 'html'); };
+        try {
+            $n = $this->svc->sendFollowupDigest($send, '2030-01-15');
+            $saraEmail = (string) $this->db->query('SELECT email FROM users WHERE id = ?', [$sara])[0]['email'];
+            $forSara = array_values(array_filter($mails, fn ($m) => $m['to'] === $saraEmail));
+            $this->assertCount(1, $forSara, 'Sara has a follow-up that is due');
+            $this->assertStringContainsString('Digest Due Tours', $forSara[0]['html']);
+            $this->assertStringNotContainsString('Digest Fresh Tours', $forSara[0]['html'], 'a send from today is not due yet');
+            $this->assertGreaterThanOrEqual(1, $n);
+            $this->assertSame(0, $this->svc->sendFollowupDigest($send, '2030-01-15'), 'only once per day');
+            $this->assertGreaterThanOrEqual(0, $this->svc->sendFollowupDigest($send, '2030-01-16'), 'next day it can run again');
+        } finally {
+            $settings->set('outreach_digest_date', '');
+        }
+    }
+
+    public function testAYearlyInvoiceCoversTheNextElevenMonthsAndAMonthlyOneOnlyItsOwnMonth(): void
+    {
+        $from = '2026-11-01 00:00:00';
+        $to = '2026-11-30 23:59:59';
+        $this->assertTrue(PlatformOutreachService::coveredByPaidInvoice(['2026-11-10 09:00:00'], 'monthly', $from, $to));
+        $this->assertFalse(PlatformOutreachService::coveredByPaidInvoice(['2026-10-10 09:00:00'], 'monthly', $from, $to), 'last month\'s invoice does not pay this month');
+        $this->assertTrue(PlatformOutreachService::coveredByPaidInvoice(['2026-03-10 09:00:00'], 'yearly', $from, $to), 'a yearly invoice paid in March still covers November');
+        $this->assertFalse(PlatformOutreachService::coveredByPaidInvoice(['2025-10-30 09:00:00'], 'yearly', $from, $to), 'but not 13 months later');
+        $this->assertFalse(PlatformOutreachService::coveredByPaidInvoice([], 'monthly', $from, $to));
     }
 
     public function testCompInputIsValidated(): void

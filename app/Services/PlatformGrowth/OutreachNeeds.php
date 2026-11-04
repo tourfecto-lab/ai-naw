@@ -435,6 +435,18 @@ class OutreachNeeds
     }
 
     /**
+     * تريب أدفايزر بيصنّف الشركة تحت «تسوق» أو «أطعمة» أو «حياة ليلية»...: ممكن تبقى جولة أكل أو تسوق فعلًا، وممكن تبقى محل أو مطعم أو نادي.
+     * بنرجّع الكلمة اللي اتطابقت عشان الموظف يراجع قبل ما يبعت (مابنشيلش الشركة).
+     */
+    public static function nonTourSignal(string $ranking, string $category = ''): ?string
+    {
+        if (preg_match('/(تسوق|أطعمة ومشروبات|حياة ليلية|مطاعم|Shopping|Food\s*&\s*Drink|Nightlife|Concerts|Restaurants?|Spas?\b|Alışveriş|Yeme\s*&?\s*İçme|Gece Hayatı)/iu', $ranking . ' ' . $category, $m)) {
+            return trim($m[1]);
+        }
+        return null;
+    }
+
+    /**
      * ترتيب تريب أدفايزر زي ما جه في الملف («#5 of 147 Concerts & Shows in Istanbul»): بالتركي والإنجليزي بيتكتب بنفس لغة الرسالة من غير «of» إنجليزي جوه نص تركي.
      * العربي بييجي جاهز من الملف (رقم 267 من 2,709 …) فبيفضل زي ما هو
      */
@@ -448,12 +460,14 @@ class OutreachNeeds
     }
 
     /** سعر باقة Starter الشهري كما في صفحة /pricing (79 دولار، والجنيه بسعر 50 للدولار زي الصفحة): بالجنيه لمصر، وبالدولار لباقي الدول */
-    public static function starterPrice(string $country, string $lang): string
+    public static function starterPrice(string $country, string $lang, float $usd = 79.0, float $usdEgp = 50.0): string
     {
+        $fmt = static fn (float $n): string => rtrim(rtrim(number_format($n, 2, '.', ','), '0'), '.');
         if (strtoupper($country) === 'EG') {
-            return $lang === 'ar' ? '3,950 جنيه' : 'EGP 3,950';
+            $egp = number_format(round($usd * $usdEgp), 0, '.', ',');
+            return $lang === 'ar' ? $egp . ' جنيه' : 'EGP ' . $egp;
         }
-        return '$79';
+        return '$' . $fmt($usd);
     }
 
     /** الرسالة التانية (بعد ما يردّوا): خدمات المنصة، قصيرة، وآخرها لينك التسجيل بتاعهم */
@@ -466,7 +480,7 @@ class OutreachNeeds
             $lines[] = $x;
         }
         $lines[] = '';
-        $lines[] = strtr($t['s2_plan'], ['{price}' => self::starterPrice((string) ($c['country'] ?? ''), $lang)]);
+        $lines[] = strtr($t['s2_plan'], ['{price}' => self::starterPrice((string) ($c['country'] ?? ''), $lang, (float) ($c['price_usd'] ?? 79), (float) ($c['usd_egp'] ?? 50))]);
         $lines[] = '';
         $trial = trim((string) ($c['trial'] ?? ''));
         $lines[] = $trial !== '' ? strtr($t['s2_cta'], ['{trial}' => rtrim($trial, '.')]) : $t['s2_start'];

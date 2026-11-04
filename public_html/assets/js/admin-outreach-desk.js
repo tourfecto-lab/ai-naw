@@ -75,7 +75,7 @@
         const meta = [r.city, r.category && String(r.category).split(',')[0]].filter(Boolean).map(esc).join(' · ');
         const rating = r.rating ? `⭐ ${Number(r.rating).toFixed(1)}${r.reviews ? ' (' + Number(r.reviews).toLocaleString('en') + ')' : ''}` : '';
         const head = `<div class="dk-head"><div><h3>${esc(r.company)}</h3><div class="dk-sub">${meta}${rating ? ' · ' + rating : ''}</div></div>
-            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}</div></div>`;
+            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}${r.category_flag ? `<span class="dk-b prio" title="تريب أدفايزر مصنّفها تحت هذا التصنيف: ممكن تبقى جولة فعلًا وممكن محل أو مطعم أو نادي">⚠️ تصنيفها «${esc(r.category_flag)}»: التأكد إنها شركة سياحة قبل الإرسال</span>` : ''}</div></div>`;
         if (r.blocked) return `<article class="dk-card blocked" data-id="${r.id}">${head}<div class="dk-block">🚫 الشركة دي ألغت الاشتراك: ممنوع التواصل معاها بأي وسيلة.</div></article>`;
         const phone = r.phone_intl || r.phone;
         // «اتبعتت على واتساب» + اسم الموظفة والوقت، جنب الزرار؛ وتراجع لو فتحت واتساب وماضغطتش إرسال
@@ -123,7 +123,9 @@
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
         const tabs = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l}${key ? ` <b>${c[key] || 0}</b>` : ` <b>${c.total || 0}</b>`}</button>`).join('');
         // الموقع مالوش تنبيه ولا زرار: بيتطلب مع إذن الكاميرا لما التصوير يفتح (openWizard)، عشان الموظف مايتفاجأش بإذنين منفصلين
-        const meBanner = (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
+        const due = counts.reduce((a, c) => a + (c.followup || 0), 0);
+        const meBanner = (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
+            + (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
@@ -245,13 +247,13 @@
             : (d.is_self ? `<div class="dk-comp dk-loc"><b>📍 الموقع</b><span>${r.location_recorded ? '✅ تم تسجيل الموقع' : 'لسه ماتسجّلش'}</span>${locBtn}</div>` : '');
         const profBanner = (p.missing || []).length ? `<p class="dk-st-msg bad">⚠️ بيانات ناقصة: ${p.missing.map(esc).join('، ')}</p>` : '<p class="dk-st-msg">✅ بيانات الموظف كاملة</p>';
         const tile = (n, l) => `<div class="dk-fn"><b>${n}</b><span>${l}</span></div>`;
-        const custs = r.customers.length ? `<table class="dk-tbl"><thead><tr><th>العميل</th><th>الباقة</th><th>اشترك من</th><th>الشهر ده</th><th>قيمة الشهر</th><th>النسبة</th></tr></thead><tbody>${r.customers.map(x => `<tr><td>${esc(x.company)}</td><td>${esc(x.plan)} (${x.cycle === 'yearly' ? 'سنوي' : 'شهري'})</td><td>${esc(String(x.since).slice(0, 10))}</td><td>${x.active_in_month ? '✅ ساري' : '— مش ساري'}</td><td>${x.monthly_egp == null ? '؟' : egp(x.monthly_egp)}</td><td><b>${egp(x.commission_egp)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">لسه مفيش عملاء مدفوعين منسوبين للموظف (العميل بيتنسب لأول موظف سجّل إرسال واتساب ليه).</p>';
+        const custs = r.customers.length ? `<table class="dk-tbl"><thead><tr><th>العميل</th><th>الباقة</th><th>اشترك من</th><th>الشهر ده</th><th>الدفع</th><th>قيمة الشهر</th><th>النسبة</th></tr></thead><tbody>${r.customers.map(x => `<tr><td>${esc(x.company)}</td><td>${esc(x.plan)} (${x.cycle === 'yearly' ? 'سنوي' : 'شهري'})</td><td>${esc(String(x.since).slice(0, 10))}</td><td>${x.active_in_month ? '✅ ساري' : '— مش ساري'}</td><td>${!x.active_in_month ? '—' : (x.paid_confirmed ? '✅ مؤكد' : '⏳ بانتظار فاتورة مدفوعة')}</td><td>${x.monthly_egp == null ? '؟' : egp(x.monthly_egp)}</td><td><b>${egp(x.commission_egp)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">لسه مفيش عملاء مدفوعين منسوبين للموظف (العميل بيتنسب لأول موظف سجّل إرسال واتساب ليه).</p>';
         const log = r.log.length ? `<table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>اللي حصل</th><th>ملاحظة</th></tr></thead><tbody>${r.log.map(x => `<tr><td>${esc(x.at)}</td><td>${esc(x.company)}</td><td>${esc(x.label)}</td><td>${esc(x.note || '')}</td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">مفيش شغل مسجّل في الشهر ده.</p>';
         return `<div class="dk-modal-box"><button class="dk-btn" data-st-close>✕ إغلاق</button><div class="dk-st-head">${mgr && ic && ic.photo ? `<img class="dk-avatar" src="${docUrl('photo')}" alt="">` : ''}<h2>كشف ${esc(r.staff.name)}</h2></div><p class="dk-st-msg"></p>
             <div class="dk-st-bar">${picker}<label>الشهر <input type="month" data-st-month value="${esc(r.month)}"></label></div>
             <div class="dk-fn-row">${tile(num(s.sent), 'شركات بعتلها')}${tile(num(s.replied), 'ردّوا')}${tile(num(s.trial), 'جرّبوا')}${tile(num(s.subscribed), 'اشتركوا')}${tile(num(r.customers_active), 'عملاء مدفوعين سارين')}</div>
             ${docs}${profBanner}${idBox}${profile}${locBox}${compForm}
-            <div class="dk-totals"><span>نسبة الشهر: <b>${egp(t.commission_egp)}</b></span><span>الراتب: <b>${egp(t.salary_egp)}</b></span><span class="tot">الإجمالي المستحق: <b>${egp(t.total_egp)}</b></span></div>
+            <div class="dk-totals"><span>نسبة مؤكّد دفعها: <b>${egp(t.commission_confirmed_egp)}</b></span>${t.commission_pending_egp > 0 ? `<span class="dk-muted">بانتظار تأكيد الدفع: <b>${egp(t.commission_pending_egp)}</b></span>` : ''}<span>الراتب: <b>${egp(t.salary_egp)}</b></span><span class="tot">الإجمالي المستحق: <b>${egp(t.total_egp)}</b></span></div>
             <h3>العملاء اللي جابتهم</h3>${custs}<h3>سجل الشغل (${r.log.length})</h3><div class="dk-scroll">${log}</div>
             <ul class="dk-notes">${(r.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
     };
@@ -371,7 +373,12 @@
             <p class="dk-cam-msg">${esc(extra)}</p>
             <div class="dk-comp"><label>الاسم بالكامل<input data-wz-f="full_name" value="${esc(f.full_name || '')}"></label>
             <label>الرقم القومي<input data-wz-f="national_id" inputmode="numeric" value="${esc(f.national_id || '')}"></label>
-            <label>العنوان<input data-wz-f="address" value="${esc(f.address || '')}"></label></div>
+            <label>العنوان<input data-wz-f="address" value="${esc(f.address || '')}"></label>
+            <label>رقم التليفون / واتساب<input data-wz-f="phone" type="tel" value=""></label>
+            <label>شخص للطوارئ<input data-wz-f="emergency_name" value=""></label>
+            <label>تليفون الطوارئ<input data-wz-f="emergency_phone" type="tel" value=""></label>
+            <label>طريقة استلام المستحقات<select data-wz-f="pay_method"><option value="">—</option><option value="vodafone_cash">فودافون كاش</option><option value="instapay">إنستاباي</option><option value="bank">تحويل بنكي</option><option value="cash">كاش</option></select></label>
+            <label>رقم المحفظة / الحساب<input data-wz-f="pay_account" value=""></label></div>
             <p class="dk-cam-msg bad" data-wz-err></p><div class="dk-cam-actions"><button class="dk-btn primary" data-wz-save>✅ حفظ</button></div></div>`;
     };
     const wizProcess = async (blob, gray) => {
@@ -397,7 +404,9 @@
                     if (t.dataset.wzSkip !== undefined) return wiz.step === 'back' ? wizStart('photo') : wizReview();
                     if (t.dataset.wzSave !== undefined) {
                         const body = {}; if (wiz.userId) body.user_id = wiz.userId;
-                        wiz.el.querySelectorAll('[data-wz-f]').forEach(el => { body[el.dataset.wzF] = el.value; });
+                        // الاسم والرقم القومي والعنوان بيتبعتوا دايمًا (اللي اتقرا من البطاقة)، والباقي بس لو اتكتب: عشان ما نمسحش بيانات محفوظة قبل كده
+                        const core = ['full_name', 'national_id', 'address'];
+                        wiz.el.querySelectorAll('[data-wz-f]').forEach(el => { if (core.includes(el.dataset.wzF) || el.value !== '') body[el.dataset.wzF] = el.value; });
                         t.disabled = true;
                         try { await api('/api/admin/outreach-desk/staff-profile', body); } catch (err) { t.disabled = false; wiz.el.querySelector('[data-wz-err]').textContent = err.message; return; }
                         wizClose(); toast('اتحفظت البيانات ✅');
@@ -469,6 +478,7 @@
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
+                if (t.dataset.goFollowup !== undefined) { const c = counts.find(x => x.followup > 0); if (c) { state.country = c.country; state.view = 'followup'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
                 if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }

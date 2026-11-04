@@ -15,6 +15,8 @@ try {
     $result = $service->run();
     $result['scanned'] = $scanned;
     $result['enriched'] = $service->enrich(6, 60);
+    // تذكير يومي لكل موظف بالشركات اللي محتاجة متابعة (بعد الساعة 9 الصبح، مرة في اليوم)
+    $result['digest'] = (int) date('G') >= 9 ? $service->sendFollowupDigest() : 0;
     (new SystemSettingsService())->set('outreach_last_run', date('Y-m-d H:i:s'));
     echo json_encode($result) . "\n";
 } catch (Throwable $e) {

@@ -33,6 +33,25 @@ final class OutreachSiteSignalsTest extends TestCase
         }
     }
 
+    public function testTripadvisorShoppingFoodAndNightlifeCategoriesAreFlaggedForAHumanCheck(): void
+    {
+        $this->assertSame('تسوق', OutreachNeeds::nonTourSignal('رقم 6 من 300 تسوق في القاهرة'));
+        $this->assertSame('أطعمة ومشروبات', OutreachNeeds::nonTourSignal('رقم 13 من 345 أطعمة ومشروبات في القاهرة'));
+        $this->assertSame('Concerts', OutreachNeeds::nonTourSignal('#5 of 147 Concerts & Shows in Istanbul'));
+        $this->assertSame('Shopping', OutreachNeeds::nonTourSignal('', 'Shopping, Tours'));
+        $this->assertNull(OutreachNeeds::nonTourSignal('رقم 2 من 584 رحلات بالقوارب ورياضات مائية في القاهرة', 'Tours'));
+        $this->assertNull(OutreachNeeds::nonTourSignal('#360 of 2,579 Tours in Istanbul'));
+    }
+
+    public function testStarterPriceFollowsTheSettingsInsteadOfAHardCodedNumber(): void
+    {
+        $this->assertSame('3,950 جنيه', OutreachNeeds::starterPrice('EG', 'ar'));
+        $this->assertSame('EGP 4,500', OutreachNeeds::starterPrice('EG', 'en', 90.0, 50.0));
+        $this->assertSame('5,151 جنيه', OutreachNeeds::starterPrice('EG', 'ar', 79.0, 65.2), '79 x 65.2 = 5150.8, rounded');
+        $this->assertSame('$79', OutreachNeeds::starterPrice('TR', 'tr'));
+        $this->assertSame('$89.5', OutreachNeeds::starterPrice('TR', 'en', 89.5, 50.0));
+    }
+
     public function testReserveButtonsAndEscapedCheckoutPathsCountAsBooking(): void
     {
         $this->assertTrue($this->page('<a class="btn">Rezervasyon Yap</a>')['booking_engine']);

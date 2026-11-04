@@ -2305,6 +2305,9 @@ class PlatformOutreachService
             $set['sender_name'] = (string) $staff['name'];
         }
         $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
+        // سعر Starter بالدولار وسعر الدولار بالجنيه من الإعدادات (outreach_starter_usd و staff_usd_egp): لو اتغيّرت الأسعار مفيش تعديل في الكود
+        $starterUsd = (float) $this->settings->get('outreach_starter_usd', '79') ?: 79.0;
+        $usdEgp = (float) $this->settings->get('staff_usd_egp', '50') ?: 50.0;
         $out = [];
         $trial = [];
         foreach ($rows as $r) {
@@ -2337,7 +2340,7 @@ class PlatformOutreachService
                         $trial[$lang] ??= self::trialOffer($lang);
                         $ctx = ['lang' => $lang, 'company' => OutreachAudit::cleanName((string) $l['company']), 'name' => (string) $set['sender_name'], 'title' => (string) $set['sender_title'],
                             'scorecard' => $sc, 'seo' => $seoState, 'gaps' => $auditGaps, 'report_url' => $base . '/p/r/' . $l['token'] . '?s=1', 'trial' => $trial[$lang],
-                            'signup_url' => $base . '/p/c/' . $l['token'] . '/1', 'country' => (string) ($l['country'] ?? '')];
+                            'signup_url' => $base . '/p/c/' . $l['token'] . '/1', 'country' => (string) ($l['country'] ?? ''), 'price_usd' => $starterUsd, 'usd_egp' => $usdEgp];
                         $message = OutreachNeeds::deskMessage($ctx);
                         $message2 = OutreachNeeds::deskServicesMessage($ctx);
                     } else {
@@ -2369,6 +2372,7 @@ class PlatformOutreachService
                 'scorecard' => $sc, 'priority' => $prioScore, 'tier' => $prioScore >= $thr['high'] ? 'high' : ($prioScore >= $thr['medium'] ? 'medium' : 'low'),
                 'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
                 'blocked' => $blocked, 'message' => $message, 'message2' => $message2, 'wa_url2' => $waUrl2, 'seo' => $seoState,
+                'category_flag' => class_exists('OutreachNeeds') ? OutreachNeeds::nonTourSignal((string) ($sc['tripadvisor']['ranking'] ?? ''), (string) ($l['category'] ?? '')) : null,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
@@ -2764,10 +2768,89 @@ class PlatformOutreachService
         return $first;
     }
 
+    /**
+     * تذكير يومي بالإيميل لكل موظف عنده شركات محتاجة متابعة (مرة واحدة في اليوم، من الكرون بعد الساعة 9).
+     * @param callable|null $send (to, name, subject, html, headers) => mixed
+     * @return int عدد الموظفين اللي اتبعتلهم تذكير
+     */
+    public function sendFollowupDigest(?callable $send = null, ?string $today = null): int
+    {
+        $today ??= date('Y-m-d');
+        if ($this->settings->get('outreach_digest_date', '') === $today) {
+            return 0;
+        }
+        $rows = $this->q("SELECT company, desk_user_id uid FROM platform_leads WHERE " . self::followupSql() . " AND desk_user_id IS NOT NULL AND status<>'unsubscribed' ORDER BY desk_at LIMIT 1000")->fetchAll(PDO::FETCH_ASSOC);
+        $by = [];
+        foreach ($rows as $r) {
+            $by[(int) $r['uid']][] = (string) $r['company'];
+        }
+        $this->settings->set('outreach_digest_date', $today); // قبل الإرسال: لو الإرسال فشل مانكرّرش الإيميل كل 5 دقايق
+        if (!$by) {
+            return 0;
+        }
+        if (!$send) {
+            $set = $this->getSettings();
+            $mailer = new Mailer();
+            if ($set['smtp_host'] !== '') {
+                $mailer->configure(['host' => $set['smtp_host'], 'port' => (int) $set['smtp_port'], 'username' => $set['smtp_username'], 'password' => $set['smtp_password'], 'encryption' => $set['smtp_encryption']]);
+            }
+            $mailer->configure(['from_email' => $set['from_email'], 'from_name' => $set['sender_name']]);
+            if (method_exists($mailer, 'context')) {
+                $mailer->context('platform_outreach_digest');
+            }
+            $send = static fn ($to, $name, $subject, $html, $headers) => $mailer->send($to, $name, $subject, $html, $headers);
+        }
+        $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
+        $sent = 0;
+        foreach ($by as $uid => $companies) {
+            $u = $this->q("SELECT email, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', first_name, last_name)),''), SUBSTRING_INDEX(email,'@',1)) name FROM users WHERE id=?", [$uid])->fetch(PDO::FETCH_ASSOC);
+            if (!$u || !filter_var($u['email'], FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+            $n = count($companies);
+            $list = implode('', array_map(static fn ($c) => '<li>' . htmlspecialchars($c, ENT_QUOTES, 'UTF-8') . '</li>', array_slice($companies, 0, 10)));
+            $html = '<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7"><p>' . $n . ' شركة محتاجة متابعة النهارده (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة):</p><ul>' . $list . '</ul>'
+                . ($n > 10 ? '<p>وغيرها ' . ($n - 10) . '…</p>' : '') . '<p><a href="' . htmlspecialchars($base . '/admin/outreach-desk', ENT_QUOTES, 'UTF-8') . '">فتح مكتب التواصل ← محتاجة متابعة</a></p></div>';
+            try {
+                $send((string) $u['email'], (string) $u['name'], '⏰ ' . $n . ' شركة محتاجة متابعة النهارده', $html, []);
+                $sent++;
+            } catch (Throwable $e) {
+                Logger::warning('Follow-up digest failed', ['user' => $uid, 'error' => $e->getMessage()]);
+            }
+        }
+        return $sent;
+    }
+
+    /** @return array<int,array<int,array{paid_at:string}>> user_id => فواتيرهم المدفوعة (قراية بس) */
+    private function paidInvoiceDates(): array
+    {
+        $out = [];
+        try {
+            foreach ($this->q("SELECT user_id, paid_at FROM invoices WHERE status='paid' AND paid_at IS NOT NULL")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $out[(int) $r['user_id']][] = (string) $r['paid_at'];
+            }
+        } catch (Throwable $e) {
+            Logger::warning('Invoices unavailable for the staff statement', ['error' => $e->getMessage()]);
+        }
+        return $out;
+    }
+
+    /** فاتورة مدفوعة تغطي الشهر؟ الشهري: دفع جوّه الشهر، والسنوي: دفع في آخر 12 شهر لحد آخر الشهر */
+    public static function coveredByPaidInvoice(array $paidAt, string $planType, string $from, string $to): bool
+    {
+        $start = $planType === 'yearly' ? date('Y-m-d 00:00:00', strtotime(substr($from, 0, 10) . ' -11 months')) : $from;
+        foreach ($paidAt as $d) {
+            if ($d >= $start && $d <= $to) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** الشركات من القايمة اللي بقت عملاء باشتراك مدفوع (مطابقة إيميل الحساب أو دومين الموقع). قراية بس */
     private function paidCustomers(): array
     {
-        $cols = 'l.id lead_id, l.company, s.id sub_id, s.plan_name, s.plan_type, s.status, s.price, s.currency, s.start_date, s.cancelled_at, s.expiry_date';
+        $cols = 'l.id lead_id, l.company, s.user_id uid, s.id sub_id, s.plan_name, s.plan_type, s.status, s.price, s.currency, s.start_date, s.cancelled_at, s.expiry_date';
         $queries = [
             "SELECT {$cols} FROM platform_leads l JOIN users u ON LOWER(u.email)=LOWER(l.email) JOIN subscriptions s ON s.user_id=u.id WHERE l.status<>'invalid' AND COALESCE(s.price,0)>0",
             "SELECT {$cols} FROM platform_leads l JOIN websites w ON l.domain IS NOT NULL AND LOWER(REPLACE(SUBSTRING_INDEX(SUBSTRING_INDEX(w.main_url,'://',-1),'/',1),'www.',''))=l.domain
@@ -2813,6 +2896,8 @@ class PlatformOutreachService
         $customers = [];
         $skipped = [];
         $commissionTotal = 0.0;
+        $confirmedTotal = 0.0;
+        $paidInvoices = $this->paidInvoiceDates();
         $pct = in_array($comp['comp_type'], ['commission', 'both'], true) ? $comp['commission_pct'] : 0.0;
         foreach ($this->paidCustomers() as $c) {
             if (($attr[(int) $c['lead_id']]['user_id'] ?? 0) !== $userId) {
@@ -2828,9 +2913,12 @@ class PlatformOutreachService
                 $skipped[] = $c['company'] . ' (' . $cur . ')';
             }
             $commission = $active && $egp !== null ? round($egp * $pct / 100, 2) : 0.0;
+            // الدفع مؤكّد = فاتورة مدفوعة تغطي الشهر ده (الشهري: اتدفعت في الشهر، والسنوي: اتدفعت في آخر 12 شهر)
+            $paid = $active && self::coveredByPaidInvoice($paidInvoices[(int) $c['uid']] ?? [], (string) $c['plan_type'], $from, $to);
             $commissionTotal += $commission;
+            $confirmedTotal += $paid ? $commission : 0.0;
             $customers[] = ['lead_id' => (int) $c['lead_id'], 'company' => (string) $c['company'], 'plan' => (string) $c['plan_name'], 'cycle' => (string) $c['plan_type'], 'status' => (string) $c['status'],
-                'since' => $start, 'attributed_at' => $attr[(int) $c['lead_id']]['at'] ?? null, 'active_in_month' => $active, 'monthly_egp' => $egp !== null ? round($egp, 2) : null, 'commission_egp' => $commission];
+                'since' => $start, 'attributed_at' => $attr[(int) $c['lead_id']]['at'] ?? null, 'active_in_month' => $active, 'paid_confirmed' => $paid, 'monthly_egp' => $egp !== null ? round($egp, 2) : null, 'commission_egp' => $commission];
         }
         usort($customers, static fn ($a, $b) => [$b['active_in_month'], $b['commission_egp']] <=> [$a['active_in_month'], $a['commission_egp']]);
 
@@ -2851,9 +2939,10 @@ class PlatformOutreachService
             'customers_total' => count($customers),
             'customers_active' => count(array_filter($customers, static fn ($c) => $c['active_in_month'])),
             'log' => array_map(static fn ($r) => ['at' => (string) $r['at'], 'action' => (string) $r['action'], 'label' => $labels[$r['action']] ?? (string) $r['action'], 'note' => $r['note'], 'company' => (string) ($r['company'] ?? ''), 'country' => (string) ($r['country'] ?? '')], $log),
-            'totals' => ['commission_egp' => round($commissionTotal, 2), 'salary_egp' => round($salary, 2), 'total_egp' => round($commissionTotal + $salary, 2)],
+            // المستحق = النسبة المؤكّد دفعها + الراتب. النسبة اللي دفعها مش متأكد منه بتظهر لوحدها (بانتظار فاتورة مدفوعة) ومابتدخلش في الإجمالي
+            'totals' => ['commission_egp' => round($commissionTotal, 2), 'commission_confirmed_egp' => round($confirmedTotal, 2), 'commission_pending_egp' => round($commissionTotal - $confirmedTotal, 2), 'salary_egp' => round($salary, 2), 'total_egp' => round($confirmedTotal + $salary, 2)],
             'notes' => array_values(array_filter([
-                'الحساب من حالة الاشتراكات في المنصة: مش دليل إن الدفع وصل فعلًا، المدفوعات تتراجع قبل الصرف.',
+                'النسبة بتتحسب على الاشتراكات السارية، وبتدخل في الإجمالي لما تلاقي فاتورة مدفوعة للعميل. اللي من غير فاتورة مدفوعة بيظهر «بانتظار تأكيد الدفع».',
                 'الدولار بسعر ' . rtrim(rtrim(number_format($usdEgp, 2, '.', ''), '0'), '.') . ' جنيه. الاشتراك السنوي بيتحسب ÷ 12.',
                 $skipped ? 'عملاء بعملة غير الجنيه والدولار ومابيتحسبوش: ' . implode('، ', array_unique($skipped)) : null,
             ])),
