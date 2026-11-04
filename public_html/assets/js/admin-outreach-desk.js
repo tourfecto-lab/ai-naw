@@ -238,7 +238,7 @@
             <button class="dk-btn primary" data-id-wizard>📷 ${ic && ic.front ? 'إعادة التصوير' : 'التصوير'}</button>
             <p class="dk-id-note"></p></div>` : '';
         // الموقع للأدمن بس (الإحداثيات والمسافة من العنوان)؛ الموظف بيشوف إنه اتسجّل ومش أكتر
-        const locLine = !loc ? 'لسه ماتسجّلش' : `<a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">أول موقع على الخريطة ↗</a> · ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
+        const locLine = !loc ? 'لسه ماتسجّلش' : `<b>موقع وقت التسجيل (قراءة واحدة، مش تتبّع مباشر)</b> · <a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">على الخريطة ↗</a> · اتسجّل ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
             <br>${!loc.has_address ? '⚠️ مفيش عنوان في الملف عشان نقارنه' : (!loc.address_located ? '⚠️ ماقدرناش نحوّل العنوان لموقع على الخريطة: المقارنة تتعمل يدويًا' : (loc.far ? `🚨 الموقع بعيد <b>${num(loc.distance_km)} كم</b> عن العنوان المسجّل (الحد ${loc.far_km} كم)` : `✅ الموقع قريب من العنوان (${num(loc.distance_km)} كم)`))}`;
         const locBtn = ''; // مفيش زرار موقع: بيتسجّل مع إذن الكاميرا في تصوير البطاقة
         const locBox = mgr ? `<div class="dk-comp dk-loc"><b>📍 الموقع</b><span>${locLine}</span>${locBtn}</div>`
