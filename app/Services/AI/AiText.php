@@ -52,7 +52,7 @@ class AiText
                         'max_tokens' => (int) min(4096, ($options['maxOutputTokens'] ?? 2000)),
                     ]);
                     if (!empty($r['success']) && trim((string) ($r['content'] ?? '')) !== '') {
-                        return ['success' => true, 'data' => (string) $r['content'], 'provider' => 'openai'];
+                        return ['success' => true, 'data' => (string) $r['content'], 'provider' => 'openai', 'model' => (string) ($r['model'] ?? ''), 'tokens_used' => (int) ($r['tokens_total'] ?? 0), 'cost' => (float) ($r['estimated_cost_usd'] ?? 0)];
                     }
                     $last = ['success' => false, 'error' => (string) ($r['error'] ?? 'فشل OpenAI')];
                 }
