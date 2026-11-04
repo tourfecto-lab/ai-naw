@@ -38,6 +38,7 @@ final class SeoCycleCostReportTest extends TestCase
         $this->db->query('DELETE FROM dataforseo_calls WHERE website_id = ?', [self::WID]);
         $this->db->query('DELETE FROM seo_expert_runs WHERE website_id = ?', [self::WID]);
         $this->db->query('DELETE FROM service_usage_reservations WHERE token = ?', [self::TOKEN]);
+        try { $this->db->query("DELETE FROM ai_usage_logs WHERE website_id = ?", [self::WID]); } catch (Throwable $e) {}
     }
 
     public function testCycleShowsClientChargeAndSeparatesConfirmedFromUnsettledProviderSpend(): void
@@ -50,6 +51,9 @@ final class SeoCycleCostReportTest extends TestCase
         $this->db->query($ins, ['serp/google/organic/live/advanced', 0.0, 0.01, self::WID, 'unknown', 6]);
         $this->db->query($ins, ['serp/google/organic/live/advanced', 0.5, 0.0, self::WID, 'complete', 120]); // outside the cycle window
 
+        if ($this->db->query("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ai_usage_logs'")) {
+            $this->db->query("INSERT INTO ai_usage_logs (website_id, user_id, provider, model, feature, tokens_total, estimated_cost_usd, status) VALUES (?, ?, 'gemini', 'gemini-flash-latest', ?, 4200, 0, 'success')", [self::WID, self::UID, 'seo_expert_run_' . $runId]);
+        }
         $mine = null;
         foreach ((new SeoDataCostReport($this->db))->cycles(100) as $c) {
             if ($c['run_id'] === $runId) $mine = $c;
@@ -60,5 +64,9 @@ final class SeoCycleCostReportTest extends TestCase
         $this->assertSame(2, $mine['provider']['calls']);
         $this->assertSame(0.002, $mine['provider']['confirmed']);
         $this->assertSame(0.01, $mine['provider']['unsettled'], 'an interrupted paid call stays unsettled until reconciled');
+        if ($this->db->query("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ai_usage_logs'")) {
+            $this->assertSame(4200, $mine['ai']['tokens'], 'the plan generation call is attributed to its cycle');
+            $this->assertSame('gemini:gemini-flash-latest', $mine['ai']['models']);
+        }
     }
 }
