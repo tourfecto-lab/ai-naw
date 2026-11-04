@@ -41,4 +41,27 @@ final class GeoLlmsBuilderTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->build($home);
     }
+
+    public function testHollowFirstFetchIsRetriedOnceWithACacheBusterAndTheParameterIsNotShown(): void
+    {
+        $good = $this->home('Private day tours in Cairo.');
+        $evidence = new class($good) extends AiVisibilityEvidence {
+            public array $urls = [];
+            public function __construct(private array $good) {}
+            public function beginBudget(int $seconds): void {}
+            public function page(string $url): array
+            {
+                $this->urls[] = $url;
+                if (!str_contains($url, '_tourfecto_audit=')) {
+                    return ['ok' => true, 'url' => $url, 'title' => '', 'description' => '', 'languages' => [], 'phone' => [], 'email' => [], 'links' => [], 'prices' => [], 'bytes' => 0];
+                }
+                return ['url' => $url] + $this->good;
+            }
+        };
+        $out = (new GeoLlmsBuilder($evidence))->build('https://example.com');
+        $this->assertCount(2, $evidence->urls);
+        $this->assertStringContainsString('> Private day tours in Cairo.', $out);
+        $this->assertStringNotContainsString('_tourfecto_audit', $out);
+        $this->assertStringContainsString('- https://example.com', $out);
+    }
 }

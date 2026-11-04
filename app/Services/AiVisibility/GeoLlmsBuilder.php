@@ -7,8 +7,13 @@ class GeoLlmsBuilder
     public function build(string $url): string
     {
         $this->evidence->beginBudget(60);$home=$this->evidence->page($url);if(empty($home['ok']))throw new RuntimeException('تعذر قراءة الصفحة العامة؛ لم يتم إنشاء معلومات بديلة');
+        // رد فاضي من أول طلب (كاش على الموقع أو الـCDN): نعيد مرة واحدة برابط فريد زي قارئ السيو (_tourfecto_audit) وبنشيله من الناتج
+        if(self::hollow($home)){
+            $fresh=$this->evidence->page($url.(str_contains($url,'?')?'&':'?').'_tourfecto_audit='.bin2hex(random_bytes(8)));
+            if(!empty($fresh['ok'])&&!self::hollow($fresh)){$fresh['url']=$url;$home=$fresh;}
+        }
         // صفحة اتقرت (200) لكن من غير عنوان ولا وصف ولا روابط: غالبًا الموقع بيرجّع صفحة تحقق/حجب للزاحف أو المحتوى بيتحمّل بجافاسكريبت. مسودة فاضية تضلّل العميل
-        if(trim((string)$home['title'])===''&&trim((string)$home['description'])===''&&empty($home['links']))throw new RuntimeException('الصفحة الرئيسية رجعت من غير عنوان ولا وصف ولا روابط؛ لم يتم إنشاء مسودة (تشخيص: '.(int)($home['bytes']??0).' بايت، '.preg_replace('/[^a-z0-9\/+.\-]/i','',(string)($home['mime']??'')).'، '.preg_replace('/[^a-z0-9.\-]/i','',(string)(parse_url((string)($home['url']??''),PHP_URL_HOST)?:'')).')');
+        if(self::hollow($home))throw new RuntimeException('الصفحة الرئيسية رجعت من غير عنوان ولا وصف ولا روابط؛ لم يتم إنشاء مسودة (تشخيص: '.(int)($home['bytes']??0).' بايت، '.preg_replace('/[^a-z0-9\/+.\-]/i','',(string)($home['mime']??'')).'، '.preg_replace('/[^a-z0-9.\-]/i','',(string)(parse_url((string)($home['url']??''),PHP_URL_HOST)?:'')).')');
         $lines=['# '.self::line($home['title']?:AiVisibilityDetector::host($url)),''];
         // الصفحة الرئيسية من غير وصف: نسيب الملخص بره بدل سطر "> " فاضي (مش صيغة صحيحة لـ llms.txt ومفيش معلومات نختلقها)
         if(self::line($home['description'])!=='')array_push($lines,'> '.self::line($home['description']),'');
@@ -25,5 +30,6 @@ class GeoLlmsBuilder
         $lines=array_merge($lines,['','## Notes','Content reflects public page text fetched '.gmdate('Y-m-d').'. Confirm details on the linked pages. This file makes no ranking or citation guarantee.']);
         return mb_substr(implode("\n",$lines),0,19000);
     }
+    private static function hollow(array $page): bool{return trim((string)($page['title']??''))===''&&trim((string)($page['description']??''))===''&&empty($page['links']);}
     public static function line(string $text): string{return trim(preg_replace('/[<>\r\n\[\]]/u',' ',strip_tags($text)));}
 }
