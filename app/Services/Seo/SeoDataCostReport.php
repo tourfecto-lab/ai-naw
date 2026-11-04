@@ -132,8 +132,9 @@ final class SeoDataCostReport
             $hasAi = (bool) $this->db->query("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'ai_usage_logs'");
             $aiSql = $hasAi
                 ? "(SELECT COALESCE(SUM(l.tokens_total),0) FROM ai_usage_logs l WHERE l.feature = CONCAT('seo_expert_run_', r.id)) AS ai_tokens,
+                   (SELECT COALESCE(SUM(l.estimated_cost_usd),0) FROM ai_usage_logs l WHERE l.feature = CONCAT('seo_expert_run_', r.id)) AS ai_usd,
                    (SELECT GROUP_CONCAT(DISTINCT CONCAT(l.provider, ':', COALESCE(l.model,'')) SEPARATOR ', ') FROM ai_usage_logs l WHERE l.feature = CONCAT('seo_expert_run_', r.id)) AS ai_models"
-                : "0 AS ai_tokens, NULL AS ai_models";
+                : "0 AS ai_tokens, 0 AS ai_usd, NULL AS ai_models";
             $win = "c.website_id = r.website_id AND c.created_at >= r.created_at AND c.created_at <= DATE_ADD($end, INTERVAL 5 MINUTE)";
             $rows = $this->db->query("SELECT r.id, r.website_id, r.user_id, r.status, r.created_at, u.email, res.source AS charge_source, res.amount AS charge_amount, res.state AS charge_state,
                     (SELECT COUNT(*) FROM dataforseo_calls c WHERE $win) AS calls,
@@ -153,7 +154,7 @@ final class SeoDataCostReport
                 'status' => (string) $r['status'], 'created_at' => (string) $r['created_at'],
                 'client_charge' => ['source' => (string) ($r['charge_source'] ?? ''), 'amount' => round((float) ($r['charge_amount'] ?? 0), 2), 'state' => (string) ($r['charge_state'] ?? '')],
                 'provider' => ['calls' => (int) $r['calls'], 'confirmed' => round((float) $r['confirmed'], 4), 'unsettled' => round((float) $r['unsettled'], 4)],
-                'ai' => ['tokens' => (int) ($r['ai_tokens'] ?? 0), 'models' => (string) ($r['ai_models'] ?? '')],
+                'ai' => ['tokens' => (int) ($r['ai_tokens'] ?? 0), 'usd_estimated' => round((float) ($r['ai_usd'] ?? 0), 6), 'models' => (string) ($r['ai_models'] ?? '')],
             ];
         }
         return $out;

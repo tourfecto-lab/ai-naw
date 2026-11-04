@@ -5,6 +5,7 @@ require_once __DIR__.'/SeoDiscoveryService.php';
 require_once __DIR__.'/SeoOpportunityService.php';
 require_once __DIR__.'/SeoPagePolicy.php';
 require_once __DIR__.'/SeoLinkHealth.php';
+require_once __DIR__.'/../AI/AiCostEstimate.php';
 require_once __DIR__.'/SeoRollbackVerdict.php';
 require_once __DIR__.'/SeoBriefCompare.php';
 require_once __DIR__.'/SeoNextCycle.php';
@@ -661,7 +662,7 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
             $stage='generation';$response=$selected?AiText::generate($prompt,['task'=>'strategic_seo_plan','user_id'=>$uid,'website_id'=>$wid,'output_language'=>$brief['language'],'maxOutputTokens'=>12000,'responseMimeType'=>'application/json']):['success'=>true,'data'=>json_encode(['summary'=>'No eligible marketing pages were found in this audited sample. Review the excluded-page purposes and publish confirmed public service content before generating marketing changes.','changes'=>[],'client_tasks'=>[],'content_drafts'=>[]])];
             if(empty($response['success']))throw new ProviderRequestFailure(preg_match('/timeout|timed out|reset|uncertain|network/i',(string)($response['error']??''))===1);$received=true;
             // تسجيل استدعاء الخطة مربوط برقم الدورة (توكنز وموديل ومزود): عشان الإدارة تشوف صرف الذكاء الاصطناعي لكل دورة
-            if($selected){try{$this->q("INSERT INTO ai_usage_logs(website_id,user_id,provider,model,feature,tokens_total,estimated_cost_usd,status,created_at) VALUES(?,?,?,?,?,?,0,'success',UTC_TIMESTAMP())",[$wid,$uid,mb_substr((string)($response['provider']??'default_chain'),0,30),mb_substr((string)($response['model']??''),0,100),'seo_expert_run_'.$id,(int)($response['tokens_used']??$response['tokens']??0)]);}catch(Throwable $e){Logger::warning('SEO plan AI usage not logged',['run_id'=>$id,'error'=>$e->getMessage()]);}}
+            if($selected){try{$this->q("INSERT INTO ai_usage_logs(website_id,user_id,provider,model,feature,tokens_total,estimated_cost_usd,status,created_at) VALUES(?,?,?,?,?,?,?,'success',UTC_TIMESTAMP())",[$wid,$uid,mb_substr((string)($response['provider']??'default_chain'),0,30),mb_substr((string)($response['model']??''),0,100),'seo_expert_run_'.$id,(int)($response['tokens_used']??$response['tokens']??0),(float)($response['estimated_cost_usd']??AiCostEstimate::usd((string)($response['model']??''),(int)($response['tokens_used']??$response['tokens']??0))??0)]);}catch(Throwable $e){Logger::warning('SEO plan AI usage not logged',['run_id'=>$id,'error'=>$e->getMessage()]);}}
             $stage='plan_validation';$plan=self::validatePlan((string)($response['data']??''),$pages,(string)parse_url($site['main_url'],PHP_URL_HOST),$selected);
             // الذكاء الاصطناعي بيعيد كتابة عناوين كويسة ويشيل البراند والكلمات المهمة:
             // نقبل بس التعديلات اللي بتصلّح مشكلة حقيقية، ونشيل المهام العامة من غير دليل.

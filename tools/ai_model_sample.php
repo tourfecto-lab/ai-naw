@@ -16,12 +16,13 @@ if (!is_file($root . '/vendor/autoload.php')) { fwrite(STDERR, "Composer autoloa
 require $root . '/cron/bootstrap.php';
 require_once $root . '/app/Services/AI/AiSampleChecks.php';
 
-$opts = getopt('', ['models:', 'confirm', 'max-usd::', 'max-tokens::', 'out::']);
+$opts = getopt('', ['models:', 'confirm', 'long', 'max-usd::', 'max-tokens::', 'out::']);
 $models = array_values(array_filter(array_map('trim', explode(',', (string) ($opts['models'] ?? '')))));
 if (!$models) { fwrite(STDERR, "Usage: --models=provider:model,provider:model [--confirm]\n"); exit(1); }
 $maxUsd = (float) ($opts['max-usd'] ?? 0.05);
 $maxTokens = (int) ($opts['max-tokens'] ?? 40000);
 $confirm = array_key_exists('confirm', $opts);
+$long = array_key_exists('long', $opts);
 
 $A = 'AiSampleChecks';
 /** حقائق مؤكدة: أي رقم تاني في الناتج = اختراع */
@@ -79,6 +80,39 @@ $cases = [
             'mentions_hotel_pickup' => $A::containsAll($o, ['فندق']),
         ])],
 ];
+
+if ($long) {
+    $plan = [
+        'id' => 'plan_json', 'lang' => 'en', 'max_tokens' => 1400,
+        'system' => 'You are an SEO expert for a tour operator. Return ONLY valid JSON: {"summary": string, "changes": [{"page": string, "field": "title"|"description", "value": string}], "client_tasks": [{"page": string, "title": string}]}. Rules: change a field ONLY when it is missing or longer than its limit (title 60 chars, description 155). Keep the brand "Nile Journeys". Use ONLY the given facts; never invent prices, durations, ratings, policies or availability. Leave good fields untouched.',
+        'user' => "Facts: company Nile Journeys; tours in Cairo, Giza and Luxor; Cairo felucca dinner cruise lasts 2 hours, from USD 45; Giza pyramids private tour 5 hours with hotel pick-up.\nPages:\n"
+            . "1. /tours/cairo-felucca-dinner | title: 'Cairo Felucca Dinner Cruise | Nile Journeys' (ok) | description: MISSING\n"
+            . "2. /tours/giza-pyramids-private | title: 'Private Giza Pyramids Tour with Egyptologist, Hotel Pick-up and Lunch in Cairo | Nile Journeys' (too long, 95 chars) | description: 'Explore Giza with a licensed guide. 5 hours, hotel pick-up included.' (ok)\n"
+            . "3. /tours/luxor-day-trip | title: MISSING | description: MISSING (no facts about this tour except that it is in Luxor)\n"
+            . "4. /privacy-policy | title: 'Privacy Policy | Nile Journeys' (ok) | description: MISSING (legal page, not a priority)",
+        'check' => static function (string $o) use ($A) {
+            $t = trim(preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($o)));
+            $j = json_decode($t, true);
+            $changes = is_array($j) && is_array($j['changes'] ?? null) ? $j['changes'] : [];
+            $byKey = [];
+            foreach ($changes as $c) $byKey[($c['page'] ?? '') . '|' . ($c['field'] ?? '')] = (string) ($c['value'] ?? '');
+            $all = implode(' ', array_values($byKey));
+            $lens = true;
+            foreach ($byKey as $k => $v) { $lens = $lens && mb_strlen($v) <= (str_ends_with($k, '|title') ? 60 : 155) && mb_strlen($v) >= 15; }
+            return $A::summarize([
+                'valid_json' => is_array($j),
+                'adds_missing_felucca_description' => isset($byKey['/tours/cairo-felucca-dinner|description']),
+                'shortens_giza_title' => isset($byKey['/tours/giza-pyramids-private|title']),
+                'leaves_good_fields_untouched' => !isset($byKey['/tours/cairo-felucca-dinner|title']) && !isset($byKey['/tours/giza-pyramids-private|description']) && !isset($byKey['/privacy-policy|title']),
+                'values_within_limits' => $lens,
+                'keeps_brand_in_titles' => !isset($byKey['/tours/giza-pyramids-private|title']) || $A::containsAll($byKey['/tours/giza-pyramids-private|title'], ['Nile Journeys']),
+                'numbers_only_from_facts' => $A::numbersSubset($all, ['2', '45', '5']),
+                'no_invented_promises' => $A::containsNone($all, ['free cancellation', 'guaranteed', 'best price', 'cheapest', 'rated', '5-star']),
+                'no_invented_luxor_facts' => !isset($byKey['/tours/luxor-day-trip|description']) || $A::numbersSubset($byKey['/tours/luxor-day-trip|description'], []),
+            ]);
+        }];
+    $cases[] = $plan;
+}
 
 $make = [
     'gemini' => static fn () => new GeminiProvider(),
