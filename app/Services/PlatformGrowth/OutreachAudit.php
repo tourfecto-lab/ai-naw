@@ -109,9 +109,10 @@ class OutreachAudit
         return [
             'social' => $social,
             'social_v' => 2, // 2 = فحصنا TripAdvisor كمان: غيابه معناه «مش مربوط»، مش «ماعرفناش»
-            'whatsapp' => $has('#(?:wa\.me/|api\.whatsapp\.com/send|whatsapp://send|web\.whatsapp\.com/send)#i'),
+            // أي ذكر لواتساب (رابط، أيقونة، JSON فيه wa.me\/ بشرطة مائلة...) = عندهم واتساب: الغلط في الاتجاه ده بيخلّينا نسكت، والغلط العكسي كان بيخلّينا نقول «مفيهوش واتساب» وهو عندهم
+            'whatsapp' => $has('#whatsapp|wa\.me#i'),
             'chat_widget' => $has('#(?:embed\.tawk\.to|client\.crisp\.chat|widget\.intercom\.io|livechatinc\.com|static\.zdassets\.com|code\.tidio\.co|respond\.io|getbutton\.io|elfsight\.com|jivosite\.com|smartsupp\.com|zopim)#i'),
-            'booking_engine' => $has('#(?:fareharbor\.com|bokun\.io|widgets\.bokun|rezdy\.com|peek\.com|checkfront\.com|trekksoft\.com|xola\.com|ventrata\.com|bookingkit\.(?:net|de)|regiondo\.|tourcms\.com|orioly\.com|palisis|bookeo\.com|simplybook\.|turitop\.com|rezgo\.com|zaui\.|getyourguide\.com/[^"\']*widget|viator\.com/[^"\']*widget|woocommerce|wc-cart|/checkout/?["\']|/cart/?["\']|add-to-cart|shopify|book-now-form|booking-form|secure\s+checkout|\\\\?"book_now\\\\?"|\\\\?"checkout\\\\?"\s*:\s*\{|fawry|kashier)#i'),
+            'booking_engine' => $has('#(?:fareharbor\.com|bokun\.io|widgets\.bokun|rezdy\.com|peek\.com|checkfront\.com|trekksoft\.com|xola\.com|ventrata\.com|bookingkit\.(?:net|de)|regiondo\.|tourcms\.com|orioly\.com|palisis|bookeo\.com|simplybook\.|turitop\.com|rezgo\.com|zaui\.|getyourguide\.com/[^"\']*widget|viator\.com/[^"\']*widget|woocommerce|wc-cart|/checkout/?["\']|/cart/?["\']|add-to-cart|shopify|book-now-form|booking-form|rezervasyon\s+yap|book\s+now|reserve\s+now|احجز\s+(?:الآن|الان)|\\\\?/(?:checkout|cart)\\\\?/|secure\s+checkout|\\\\?"book_now\\\\?"|\\\\?"checkout\\\\?"\s*:\s*\{|fawry|kashier)#i'),
             'payments' => $has('#(?:js\.stripe\.com|checkout\.stripe|paypal\.com/sdk|paypalobjects|iyzico|iyzipay|paytr\.com|checkout\.com|adyen|2checkout|paymob|tap\.company|payfort)#i'),
             'meta_pixel' => $has('#connect\.facebook\.net/[^"\']*/fbevents\.js|\bfbq\(\s*["\']init#i'),
             'google_tag' => $has('#googletagmanager\.com/(?:gtag/js|gtm\.js)|google-analytics\.com/(?:analytics|ga)\.js|\bgtag\(\s*["\']config#i'),

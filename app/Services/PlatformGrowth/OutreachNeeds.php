@@ -298,6 +298,7 @@ class OutreachNeeds
     {
         $lang = in_array($c['lang'] ?? '', self::LANGS, true) ? $c['lang'] : 'en';
         $t = self::DESK[$lang];
+        $sep = $lang === 'ar' ? '، ' : ', '; // فاصلة عربية جوه نص تركي أو إنجليزي كانت بتبان غلط
         $fill = static fn (string $s, array $v): string => strtr($s, $v);
         $num = static fn ($n): string => number_format((float) $n, 1, '.', '');
         $sc = (array) ($c['scorecard'] ?? []);
@@ -322,13 +323,13 @@ class OutreachNeeds
             }
         }
         if ($web) {
-            $body[] = $t['web'] . ' ' . implode('، ', $web);
+            $body[] = $t['web'] . ' ' . implode($sep, $web);
         }
 
         // السيو: بس لو الفحص أثبت إنه ناقص، وبالتفصيل اللي ناقص فعلًا
         $seo = (array) ($c['seo'] ?? []);
         if (in_array($seo['state'] ?? '', ['partial', 'missing'], true)) {
-            $list = implode('، ', array_map(static fn ($k) => $t['parts'][$k] ?? $k, array_slice((array) $seo['fails'], 0, 3)));
+            $list = implode($sep, array_map(static fn ($k) => $t['parts'][$k] ?? $k, array_slice((array) $seo['fails'], 0, 3)));
             $body[] = $t['seo'] . ' ' . $fill($t[$seo['state'] === 'missing' ? 'seo_missing' : 'seo_partial'], ['{list}' => $list]);
             $svc['seo'] = true;
         }
@@ -336,7 +337,7 @@ class OutreachNeeds
         // تريب أدفايزر: التقييم وعدد المراجعات والترتيب من بيانات الاستيراد، ومشاكلها الفعلية (صور قليلة، تقييمات سلبية كتير)
         $a = (array) ($sc['tripadvisor'] ?? []);
         if (($a['status'] ?? '') === 'found' && ($a['rating'] ?? null) !== null) {
-            $x = $t['ta'] . ' ⭐ ' . $num($a['rating']) . ' (' . number_format((int) ($a['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . (!empty($a['ranking']) ? ' · ' . $a['ranking'] : '') . (!empty($a['award']) ? ' 🏆' : '');
+            $x = $t['ta'] . ' ⭐ ' . $num($a['rating']) . ' (' . number_format((int) ($a['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . (!empty($a['ranking']) ? ' · ' . self::localizeRanking((string) $a['ranking'], $lang) : '') . (!empty($a['award']) ? ' 🏆' : '');
             $taIssues = [];
             if (($a['photos'] ?? null) !== null && (int) $a['photos'] < 20) {
                 $taIssues[] = $fill($t['ta_photos'], ['{n}' => (string) (int) $a['photos']]);
@@ -346,7 +347,7 @@ class OutreachNeeds
                 $taIssues[] = $t['ta_neg'];
                 $svc['google'] = true;
             }
-            $body[] = $x . ($taIssues ? ' · ' . implode('، ', $taIssues) : '');
+            $body[] = $x . ($taIssues ? ' · ' . implode($sep, $taIssues) : '');
         }
 
         // جوجل ماب
@@ -365,7 +366,7 @@ class OutreachNeeds
             if (isset($byId['google_few_reviews'])) {
                 $issues[] = $fill($t['g_ta'], ['{g}' => number_format((int) ($byId['google_few_reviews']['g_reviews'] ?? 0)), '{t}' => number_format((int) ($byId['google_few_reviews']['ta_reviews'] ?? 0))]);
             }
-            $body[] = $t['google'] . ' ⭐ ' . $num($g['rating']) . ' (' . number_format((int) ($g['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . ' · ' . ($issues ? implode('، ', $issues) : $t['g_ok']);
+            $body[] = $t['google'] . ' ⭐ ' . $num($g['rating']) . ' (' . number_format((int) ($g['reviews'] ?? 0)) . ' ' . $t['reviews'] . ')' . ' · ' . ($issues ? implode($sep, $issues) : $t['g_ok']);
             if ($issues) {
                 $svc['google'] = true;
             }
@@ -431,6 +432,19 @@ class OutreachNeeds
         $lines[] = '';
         $lines[] = (string) $c['name'] . (trim((string) ($c['title'] ?? '')) !== '' ? "\n" . $c['title'] : '');
         return implode("\n", $lines);
+    }
+
+    /**
+     * ترتيب تريب أدفايزر زي ما جه في الملف («#5 of 147 Concerts & Shows in Istanbul»): بالتركي والإنجليزي بيتكتب بنفس لغة الرسالة من غير «of» إنجليزي جوه نص تركي.
+     * العربي بييجي جاهز من الملف (رقم 267 من 2,709 …) فبيفضل زي ما هو
+     */
+    public static function localizeRanking(string $ranking, string $lang): string
+    {
+        $ranking = trim($ranking);
+        if ($lang === 'tr' && preg_match('/^#\s*([\d.,]+)\s+of\s+([\d.,]+)\s+(.+?)(?:\s+in\s+(.+))?$/iu', $ranking, $m)) {
+            return $m[1] . '. sıra / ' . $m[2] . ' · ' . $m[3] . (isset($m[4]) && $m[4] !== '' ? ', ' . $m[4] : '');
+        }
+        return $ranking;
     }
 
     /** سعر باقة Starter الشهري كما في صفحة /pricing (79 دولار، والجنيه بسعر 50 للدولار زي الصفحة): بالجنيه لمصر، وبالدولار لباقي الدول */

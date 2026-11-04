@@ -580,6 +580,24 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame(0, $this->svc->deskSent(['from' => '2020-01-01', 'to' => '2020-01-02'], $sara, false)['total']);
     }
 
+    public function testLeadsAlreadyEmailedGetTheirGoogleDataRefreshedWithoutChangingTheirEmailTrack(): void
+    {
+        $id = $this->lead('Refresh Sent Tours', 'EG', '+201000000091', ['step' => 1, 'track' => 'seo']);
+        $stale = ['audit' => ['gaps' => [], 'score' => ['total' => 50, 'pillars' => []], 'google' => ['checked' => true, 'found' => true, 'rating' => 3.1, 'reviews' => 7], 'at' => '2026-11-01 10:00:00']];
+        $this->db->query("UPDATE platform_leads SET data_json = ?, scanned_at = NOW(), track = 'seo', track2 = 'ads', needs_json = ?, website = NULL, domain = NULL WHERE id = ?", [json_encode($stale), '[{"track":"seo"}]', $id]);
+        $svc = new PlatformOutreachService(null, null, fn () => null);
+        $svc->places = fn () => ['candidates' => []]; // جوجل: مفيش ملف للشركة بالاسم ده
+        $svc->probe = fn () => 'error';
+        $svc->scan(50, 60);
+        $row = $this->db->query('SELECT data_json, track, track2, needs_json FROM platform_leads WHERE id = ?', [$id])[0];
+        $data = json_decode($row['data_json'], true);
+        $this->assertSame(8, $data['audit']['v'], 'marked as refreshed');
+        $this->assertFalse($data['audit']['google']['found'], 'the wrong 3.1 rating from another place is gone');
+        $this->assertSame('seo', $row['track'], 'the follow-up emails keep their topic');
+        $this->assertSame('ads', $row['track2']);
+        $this->assertSame('[{"track":"seo"}]', $row['needs_json']);
+    }
+
     public function testTrialAndSubscribedAreWinsAndStopTheEmailSequence(): void
     {
         $a = $this->lead('Trialwin Tours', 'EG', '+201000000021');

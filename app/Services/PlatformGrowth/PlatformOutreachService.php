@@ -794,10 +794,10 @@ class PlatformOutreachService
             $this->backfillCountries();
             $this->settings->set('outreach_country_v1', date('Y-m-d H:i:s'));
         }
-        if ($this->settings->get('outreach_audit_v7', '') === '') {
-            // v7: a site is 'down' only when sure (DNS/refused/5xx). v6: JS booking apps are detected (no false 'no online booking'); v5: Google rating kept only for a name-matched place
+        if ($this->settings->get('outreach_audit_v8', '') === '') {
+            // v8: any WhatsApp mention / reserve button counts as present (JSON-escaped links, "Rezervasyon Yap"). v7: a site is 'down' only when sure (DNS/refused/5xx). v6: JS booking apps are detected; v5: Google rating kept only for a name-matched place
             $this->q("UPDATE platform_leads SET scanned_at=NULL WHERE step=0 AND status IN ('new','no_email')");
-            $this->settings->set('outreach_audit_v7', date('Y-m-d H:i:s'));
+            $this->settings->set('outreach_audit_v8', date('Y-m-d H:i:s'));
         }
         if ($this->settings->get('outreach_dedupe_v1', '') === '') {
             $this->mergeDuplicateLeads();
@@ -813,6 +813,20 @@ class PlatformOutreachService
             $data = json_decode((string) ($l['data_json'] ?? ''), true) ?: [];
             $this->audit($l, $data);
             $done++;
+        }
+        // شركات اتبعتلها إيميل قبل التصليحات: بيانات جوجل والموقع اللي في تقريرها بتتحدّث، من غير ما نغيّر مسار رسايل الإيميل اللي لسه جاية
+        $rest = $limit - $done;
+        if ($rest > 0 && time() - $start <= $budget) {
+            $sent = array_map([self::class, 'tidy'], $this->q("SELECT * FROM platform_leads WHERE step>0 AND scanned_at IS NOT NULL AND status NOT IN ('invalid','unsubscribed','bounced') AND data_json LIKE '%\"audit\"%' AND data_json NOT LIKE '%\"v\":8%' ORDER BY id LIMIT " . (int) $rest)->fetchAll(PDO::FETCH_ASSOC));
+            foreach ($sent as $l) {
+                if (time() - $start > $budget) {
+                    break;
+                }
+                $keep = [$l['track'] ?? null, $l['track2'] ?? null, $l['needs_json'] ?? null];
+                $this->audit($l, json_decode((string) ($l['data_json'] ?? ''), true) ?: []);
+                $this->q('UPDATE platform_leads SET track=?, track2=?, needs_json=? WHERE id=?', [$keep[0], $keep[1], $keep[2], $l['id']]);
+                $done++;
+            }
         }
         return $done;
     }
@@ -860,7 +874,7 @@ class PlatformOutreachService
         $gaps = OutreachAudit::gaps($l, $ta, $site, $google, $bench);
         $score = OutreachAudit::score($gaps, $site !== null && !empty($site['ok']));
         $data['site'] = $site;
-        $data['audit'] = ['google' => $google, 'bench' => $bench, 'gaps' => $gaps, 'score' => $score, 'at' => date('Y-m-d H:i:s')];
+        $data['audit'] = ['google' => $google, 'bench' => $bench, 'gaps' => $gaps, 'score' => $score, 'at' => date('Y-m-d H:i:s'), 'v' => 8];
         $needs = OutreachAudit::needsFromGaps($gaps);
         if (!$needs) {
             // مفيش نقص واضح: الرد على الزباين والظهور في جوجل بيفيدوا أي شركة سياحة
