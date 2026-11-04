@@ -56,3 +56,33 @@
 .dk-day{margin-bottom:18px}.dk-day h3{margin:0 0 6px;font-size:15px}.dk-sm{font-size:12px}.dk-links{display:flex;flex-wrap:wrap;gap:8px}
 
 @media (max-width:640px){.dk-day .dk-tbl thead{display:none}.dk-day .dk-tbl,.dk-day .dk-tbl tbody{display:block}.dk-day .dk-tbl tr{display:block;border:1px solid var(--panel-border,rgba(128,128,128,.3));border-radius:10px;margin-bottom:8px;padding:6px 8px}.dk-day .dk-tbl td{display:flex;justify-content:space-between;gap:10px;border:0;padding:3px 0;text-align:left}.dk-day .dk-tbl td::before{content:attr(data-l);color:var(--panel-text-muted);font-size:11px;flex:none}.dk-modal-box .dk-tbl{font-size:12px}.dk-st-bar{flex-direction:column}.dk-docs .dk-doc{width:46%}}
+
+.dk-more{border:1px solid var(--panel-border);border-radius:10px;padding:6px 10px}.dk-more>summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}.dk-more[open]>summary{margin-bottom:6px}.dk-more .dk-msgbox{margin-top:4px}
+@media (max-width:640px){
+.dk{gap:10px;padding-bottom:70px}
+.dk-hide-m{display:none}
+.dk-top{padding:10px;gap:8px;border-radius:12px}
+.dk-chips,.dk-tabs,.dk-prio{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.dk-chips::-webkit-scrollbar,.dk-tabs::-webkit-scrollbar,.dk-prio::-webkit-scrollbar{display:none}
+.dk-chip,.dk-tab{flex:none;white-space:nowrap;padding:7px 11px;font-size:13px;border-radius:999px}
+.dk-links{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dk-links .dk-btn{justify-content:center;font-size:12px;padding:8px 6px;text-align:center}
+.dk-bar{flex-direction:column;align-items:stretch;gap:8px}.dk-search{min-width:0;max-width:none;width:100%;box-sizing:border-box}
+.dk-funnel{padding:8px 10px;gap:6px}.dk-fn-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.dk-fn-row>.dk-label{grid-column:1/-1}.dk-fn{min-width:0}.dk-fn b{font-size:17px}.dk-fn span{font-size:11px}.dk-fn small{display:none}
+.dk-banner{font-size:13px;padding:8px 10px}
+.dk-list{gap:10px}
+.dk-card{padding:12px;border-radius:12px}
+.dk-head{margin-bottom:8px;gap:6px}.dk-head h3{font-size:16px}
+.dk-badges{gap:5px}.dk-b{font-size:11px;padding:2px 8px}
+.dk-body{gap:10px}
+.dk-phone{padding:8px 10px;gap:6px}.dk-phone b{font-size:17px;flex:1 1 100%}.dk-phone .dk-label{display:none}
+.dk-phone .dk-btn{flex:1 1 40%;justify-content:center;padding:10px 8px}
+.dk-actions{gap:6px}
+.dk-actions .dk-btn{flex:1 1 44%;justify-content:center;padding:9px 6px;font-size:13px}
+.dk-result{margin-top:8px;padding-top:8px}
+.dk-result .dk-actions{display:grid;grid-template-columns:1fr 1fr}
+.dk-result .dk-actions .dk-btn{width:100%}
+.dk-note{font-size:14px;padding:9px 10px}
+.dk-msgbox{min-height:140px;font-size:13px}
+.dk-sent{font-size:11px;flex-wrap:wrap}
+.dk-pager{justify-content:space-between;flex-wrap:wrap}
+}

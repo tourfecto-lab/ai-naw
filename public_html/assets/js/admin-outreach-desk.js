@@ -68,6 +68,7 @@
     const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, weak: 0, contacted: 0, followup: 0, hot: 0, won: 0, closed: 0 };
 
     const card = r => {
+        const OPEN = window.matchMedia && window.matchMedia('(max-width:640px)').matches ? '' : ' open';
         const dir = r.language === 'ar' ? 'rtl' : 'ltr';
         const d = r.desk || {};
         const last = d.action ? `<div class="dk-last">آخر نتيجة: <b>${esc(ACTION_LABEL[d.action] || d.action)}</b> · ${esc(d.at || '')} · ${esc(d.by || '')}${d.note ? ' · ' + esc(d.note) : ''}${state.view === 'followup' ? ' · 💡 المتابعة بالرسالة التانية (الخدمات)' : ''}</div>` : '';
@@ -89,11 +90,11 @@
             <div class="dk-line"><span class="dk-label">✉️ الإيميل</span><span dir="ltr">${esc(r.email || '—')}</span>${r.email ? `<button class="dk-btn xs" data-copy-phone="${esc(r.email)}">نسخ</button>` : ''}</div>
             <div class="dk-line"><span class="dk-label">🌐 الموقع</span>${r.website ? `<a href="${esc(r.website)}" target="_blank" rel="noopener noreferrer" dir="ltr">${esc(r.website)}</a>` : '—'}</div>
             <div class="dk-line"><span class="dk-label">📊 الدرجة الرقمية</span><b>${r.score != null ? esc(r.score) + '/100' : '—'}</b></div>
-            ${scorecard(r)}
+            <details class="dk-more"${OPEN}><summary>🔎 نتيجة الفحص</summary>${scorecard(r)}
             ${r.gaps.length ? `<div class="dk-gaps"><span class="dk-label">اللي لقيناه عندهم</span><ul>${r.gaps.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>` : (r.needs.length ? `<div class="dk-line"><span class="dk-label">احتياجهم</span>${r.needs.map(n => `<span class="dk-b">${esc(n)}</span>`).join(' ')}</div>` : '')}
-            <div class="dk-muted">${emailInfo}</div></div>`;
+            <div class="dk-muted">${emailInfo}</div></details></div>`;
         const msg = `<div class="dk-col"><div class="dk-label">💬 الرسالة (تقرير مبدئي + لينك التقرير الكامل)${r.has_report ? '' : ' <span class="dk-warn">الشركة لسه ماتفحصتش: الرسالة عامة</span>'}</div>
-            <textarea class="dk-msgbox" readonly rows="10" dir="${dir}">${esc(r.message)}</textarea>
+            <details class="dk-more"${OPEN}><summary>عرض نص الرسالة</summary><textarea class="dk-msgbox" readonly rows="10" dir="${dir}">${esc(r.message)}</textarea></details>
             <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
             ${r.message2 ? `<details class="dk-msg2"><summary>📨 رسالة 2 (بعد ما يردّوا): خدمات المنصة ولينك التسجيل</summary><textarea class="dk-msgbox" readonly rows="9" dir="${dir}">${esc(r.message2)}</textarea><div class="dk-actions"><button class="dk-btn primary" data-copy-msg2>📋 نسخ رسالة الخدمات</button>${r.wa_url2 ? `<a class="dk-btn green" href="${esc(r.wa_url2)}" target="_blank" rel="noopener noreferrer">💬 افتح واتساب بالرسالة 2</a>` : ''}</div></details>` : ''}</div>`;
         const acts = `<div class="dk-result"><div class="dk-actions">${ACTIONS.map(([k, l]) => `<button class="dk-btn ${d.action === k ? 'on' : ''}" data-act="${k}">${l}</button>`).join('')}</div>
@@ -128,11 +129,11 @@
             + (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
-            <section class="dk-top"><div class="dk-tip">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
+            <section class="dk-top"><div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
             <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
-            <div class="dk-prio"><span class="dk-label">ابدئي بالأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
+            <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
             <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
             <div class="dk-pager"><span class="dk-muted">${total} شركة · صفحة ${state.page} من ${pages || 1}</span>${state.page > 1 ? '<button class="dk-btn" data-page="-1">السابق</button>' : ''}${state.page < pages ? '<button class="dk-btn" data-page="1">التالي</button>' : ''}</div>`;
