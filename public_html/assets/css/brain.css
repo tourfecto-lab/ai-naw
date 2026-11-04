@@ -80,3 +80,17 @@
 .ac-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 14px; position: sticky; top: 0; z-index: 2; padding: 6px 0; background: var(--panel-bg, transparent); }
 .ac-badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--panel-danger, #dc2626); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 @media (max-width: 640px) { .ac-tabs { flex-wrap: nowrap; overflow-x: auto; } .ac-tabs .p-tab { flex: 0 0 auto; } }
+
+/* خطة الأسبوع والأهداف والتحكم */
+.br-plan, .br-goals { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.br-plan li { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--panel-border, #e5e7eb); border-radius: 12px; }
+.br-day { font-weight: 700; font-size: 12.5px; color: var(--panel-text-muted, #6b7280); }
+.br-tag { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--panel-primary-light, #eff6ff); color: var(--panel-primary, #2563eb); font-weight: 700; }
+.br-goal { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 12px; border: 1px solid var(--panel-border, #e5e7eb); border-radius: 12px; }
+.br-goal.behind, .br-goal.missed { border-color: var(--panel-danger, #dc2626); }
+.br-goal.achieved, .br-goal.ahead { border-color: var(--panel-success, #16a34a); }
+.br-goal > div { flex: 1; min-width: 0; }
+.br-bar { position: relative; height: 8px; border-radius: 999px; background: var(--panel-border, #e5e7eb); margin: 8px 0 4px; }
+.br-bar span { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: 999px; background: var(--panel-primary, #2563eb); }
+.br-bar i { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--panel-text, #111827); opacity: .55; }
+@media (max-width: 640px) { .br-plan li { grid-template-columns: 1fr; } .br-goal { flex-direction: column; } }

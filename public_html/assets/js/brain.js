@@ -113,16 +113,24 @@
         <button type="button" class="p-btn ${sh.opted_in ? 'outline' : 'primary'}" id="brShare">${sh.opted_in ? t('أوقف المشاركة', 'Stop sharing') : t('شارك واستفيد', 'Share and benefit')}</button></section>`;
     }
 
+    const DAYN = { sun: ['الأحد', 'Sun'], mon: ['الاثنين', 'Mon'], tue: ['الثلاثاء', 'Tue'], wed: ['الأربعاء', 'Wed'], thu: ['الخميس', 'Thu'] };
+    const GMETRIC = { 'bookings.last_30': ['حجوزات آخر 30 يوم', 'Bookings, last 30 days'], 'bookings.revenue_30': ['إيراد آخر 30 يوم', 'Revenue, last 30 days'], 'reputation.avg_rating': ['متوسط التقييمات', 'Average rating'],
+      'reputation.unanswered_negative': ['تقييمات سلبية من غير رد', 'Unanswered negative reviews'], 'scores.seo_score': ['درجة الموقع', 'Site score'], 'social.published_30': ['منشورات آخر 30 يوم', 'Posts, last 30 days'], 'chat.pending_approval': ['ردود شات مستنية', 'Chat replies waiting'] };
+    const GSTATUS = { achieved: ['تحقق ✓', 'Achieved ✓'], ahead: ['متقدم', 'Ahead'], on_track: ['على المسار', 'On track'], behind: ['متأخر', 'Behind'], missed: ['فات ميعاده', 'Missed'], unknown: ['مش مقاس', 'Not measured'] };
+    const REASONS = [['not_relevant', 'مش مناسب لشركتي', 'Not relevant to me'], ['later', 'بعد أسبوعين', 'In two weeks'], ['done_elsewhere', 'اتعمل برّه المنصة', 'Done outside the platform']];
+    let dismissFor = null, goalForm = false;
+
     function decisionCard(d) {
       const st = STATUS[d.status] || [d.status, d.status], area = AREA[d.area] || [d.area, d.area];
       const measured = d.outcome ? `<p class="br-outcome ${esc(d.outcome)}">${t('النتيجة: ', 'Result: ')}${esc(t(...(OUTCOME[d.outcome] || [d.outcome, d.outcome])))}${d.baseline != null && d.result != null ? ` <span dir="ltr">(${num(d.baseline)} → ${num(d.result)})</span>` : ''}</p>` : '';
-      const buttons = d.status === 'proposed' ? `<button type="button" class="p-btn xs primary" data-set="approved" data-id="${d.id}">${t('موافق، نشتغل عليه', 'Approve')}</button><button type="button" class="p-btn xs outline" data-set="dismissed" data-id="${d.id}">${t('مش دلوقتي', 'Not now')}</button>`
+      const buttons = d.status === 'proposed' ? `<button type="button" class="p-btn xs primary" data-set="approved" data-id="${d.id}">${t('موافق، نشتغل عليه', 'Approve')}</button><button type="button" class="p-btn xs outline" data-dismiss="${d.id}">${t('مش دلوقتي', 'Not now')}</button>`
         : d.status === 'approved' ? `${d.requires_spend ? '' : `<span class="br-task">✓ ${t('اتعمل مهمة في CRM', 'Added as a CRM task')}</span>`}<button type="button" class="p-btn xs primary" data-set="done" data-id="${d.id}">${t('اتنفّذ', 'Mark done')}</button>`
         : d.status === 'dismissed' ? `<button type="button" class="p-btn xs outline" data-set="proposed" data-id="${d.id}">${t('رجّعه للمقترحات', 'Restore')}</button>` : '';
+      const why = dismissFor === d.id ? `<div class="br-act" role="group" aria-label="${t('ليه؟', 'Why?')}"><b>${t('ليه مش دلوقتي؟ (العقل هيفتكر ومش هيكرره)', 'Why not now? (the brain remembers)')}</b><div class="br-actions">${REASONS.map(r => `<button type="button" class="p-btn xs outline" data-reason="${r[0]}" data-id="${d.id}">${t(r[1], r[2])}</button>`).join('')}<button type="button" class="p-btn xs outline" data-reason="" data-id="${d.id}">${t('من غير سبب', 'No reason')}</button></div></div>` : '';
       return `<li class="br-decision ${esc(d.status)}"><div class="br-dhead"><span class="br-area">${esc(t(...area))}</span><span class="br-status">${esc(t(...st))}</span>${d.requires_spend ? `<span class="br-spend">${t('فيه صرف — بموافقتك بس', 'Involves spend — only with your approval')}</span>` : ''}</div>
         <h4 dir="auto">${esc(L(d.title))}</h4><p dir="auto">${esc(L(d.why))}</p>
         ${(d.evidence || []).length ? `<ul class="br-proof">${d.evidence.map(e => `<li dir="auto">${esc(L(e))}</li>`).join('')}</ul>` : ''}${measured}
-        <div class="br-actions">${d.service_action && ['proposed', 'approved'].includes(d.status) ? `<button type="button" class="p-btn xs primary" data-act="${d.id}">${esc(t(...(ACT_LABEL[d.service_action] || ['نفّذ', 'Run'])))}</button>` : ''}<a class="p-btn xs${d.service_action ? ' outline' : ''}" href="${esc(d.action_url || '#')}">${esc(L(d.action))}</a>${buttons}</div>${actionBox(d)}</li>`;
+        <div class="br-actions">${d.service_action && ['proposed', 'approved'].includes(d.status) ? `<button type="button" class="p-btn xs primary" data-act="${d.id}">${esc(t(...(ACT_LABEL[d.service_action] || ['نفّذ', 'Run'])))}</button>` : ''}<a class="p-btn xs${d.service_action ? ' outline' : ''}" href="${esc(d.action_url || '#')}">${esc(L(d.action))}</a>${buttons}</div>${why}${actionBox(d)}</li>`;
     }
 
     function decisions(list, results) {
@@ -135,6 +143,53 @@
         ${later.length ? `<details class="br-past"><summary>${t('مؤجلة', 'Postponed')} (${later.length})</summary><ol class="br-list">${later.map(decisionCard).join('')}</ol></details>` : ''}</section>`;
     }
 
+    // خطة الأسبوع: اللي العقل شايف إنه يتعمل الأسبوع ده، بحسب طاقتك وأهدافك. القرار المتأجل بيتقال ليه.
+    function plan() {
+      const p = data.plan; if (!p) return '';
+      const byId = Object.fromEntries((data.decisions || []).map(d => [d.key, d]));
+      const title = k => esc(L(byId[k]?.title) || k);
+      const items = (p.items || []).map(i => `<li><span class="br-day">${esc(t(...(DAYN[i.day] || [i.day, i.day])))}</span><div><b dir="auto">${title(i.key)}</b>${i.goal_aligned ? ` <span class="br-tag">${t('بيخدم هدفك', 'Serves your goal')}</span>` : ''}${i.requires_spend ? ` <span class="br-spend">${t('محتاج موافقتك على الصرف', 'Needs spend approval')}</span>` : ''}${i.status === 'approved' ? ` <span class="br-task">${t('شغالين عليه', 'In progress')}</span>` : ''}</div><small>${t('جهد', 'Effort')} ${i.effort}</small></li>`).join('');
+      const why = { capacity: t('زيادة عن طاقة الأسبوع', 'Over this week capacity'), blocked: t('لازم يتعمل قبله', 'Needs a prior step') };
+      const later = (p.deferred || []).map(x => `<li><span dir="auto">${title(x.key)}</span> <small class="br-muted">— ${esc(why[x.reason] || x.reason)}${x.blocked_by ? ': ' + x.blocked_by.map(title).join(', ') : ''}</small></li>`).join('');
+      const cap = data.prefs?.weekly_capacity || p.capacity;
+      return `<section class="br-card"><div class="br-head"><div><h3>${t('خطة الأسبوع', 'This week plan')}</h3>
+        <p class="br-muted">${t('مرتّبة بالأولوية وبما يناسب طاقتك. اللي زيادة بيتأجل للأسبوع الجاي بدل ما يتراكم عليك.', 'Ranked by priority and sized to your capacity. Extra items wait instead of piling up.')}</p></div>
+        <div class="br-results"><b>${p.used}/${p.capacity}</b><span>${t('نقاط جهد', 'effort points')}</span></div></div>
+        ${items ? `<ol class="br-plan">${items}</ol>` : `<p class="br-done">✓ ${t('مفيش حاجة مطلوبة الأسبوع ده.', 'Nothing needed this week.')}</p>`}
+        ${later ? `<details class="br-past"><summary>${t('متأجل', 'Deferred')} (${p.deferred.length})</summary><ul class="br-proof">${later}</ul></details>` : ''}
+        <label class="br-field">${t('طاقتك في الأسبوع (نقاط جهد)', 'Your weekly capacity (effort points)')}<input type="number" id="brCap" class="p-input" min="1" max="20" value="${cap}"><small>${t('قرار بسيط = 1، سيو/سوشيال/إعلانات = 3.', 'Simple = 1, SEO/social/ads = 3.')}</small></label></section>`;
+    }
+
+    function goals() {
+      const list = data.goals || [], metrics = data.goal_metrics || {};
+      const fmt = v => v === null || v === undefined ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+      const row = g => { const pr = g.progress || {}, st = GSTATUS[pr.status] || GSTATUS.unknown, open = g.status === 'active';
+        return `<li class="br-goal ${esc(pr.status || '')}"><div><b>${esc(t(...(GMETRIC[g.metric_key] || [g.metric_key, g.metric_key])))}</b> <span class="br-status">${esc(open ? t(...st) : t(...(GSTATUS[g.status] || [g.status, g.status])))}</span>
+          <p class="br-muted" dir="ltr">${fmt(g.baseline)} → <b>${fmt(g.target)}</b> · ${t('دلوقتي', 'now')} ${fmt(pr.current)} · ${esc(g.deadline)}</p>
+          ${pr.pct != null ? `<div class="br-bar" role="img" aria-label="${pr.pct}%"><span style="width:${pr.pct}%"></span><i style="inset-inline-start:${pr.expected_pct}%" title="${t('المفروض دلوقتي', 'Expected by now')}"></i></div>` : ''}
+          ${open && pr.needed_per_week != null ? `<small class="br-muted">${t('المطلوب في الأسبوع: ', 'Needed per week: ')}${fmt(pr.needed_per_week)} · ${t('فاضل ', '')}${pr.weeks_left}${t(' أسبوع', ' weeks left')}</small>` : ''}</div>
+          ${open ? `<button type="button" class="p-btn xs outline" data-goal-cancel="${g.id}">${t('إلغاء', 'Cancel')}</button>` : ''}</li>`; };
+      const form = goalForm ? `<div class="br-act"><label class="br-field">${t('المقياس', 'Metric')}<select id="brGM" class="p-select">${Object.keys(metrics).map(k => `<option value="${esc(k)}">${esc(t(...(GMETRIC[k] || [k, k])))}</option>`).join('')}</select></label>
+        <label class="br-field">${t('الرقم المستهدف', 'Target')}<input type="number" step="any" id="brGT" class="p-input" dir="ltr"></label>
+        <label class="br-field">${t('الميعاد', 'Deadline')}<input type="date" id="brGD" class="p-input" dir="ltr"></label>
+        <div class="br-actions"><button type="button" class="p-btn xs primary" id="brGSave">${t('احفظ الهدف', 'Save goal')}</button><button type="button" class="p-btn xs outline" id="brGHide">${t('إلغاء', 'Cancel')}</button></div></div>` : '';
+      return `<section class="br-card"><div class="br-head"><div><h3>${t('أهدافك', 'Your goals')}</h3><p class="br-muted">${t('حدد رقم عايز توصله وميعاد. العقل بيقيس التقدم وبيرفع أولوية القرارات اللي بتخدم الهدف، وبيقولك لو اتأخرت عن المسار.', 'Set a number and a date. The brain tracks progress and raises the priority of decisions that serve the goal.')}</p></div>
+        ${goalForm ? '' : `<button type="button" class="p-btn xs primary" id="brGNew">${t('+ هدف جديد', '+ New goal')}</button>`}</div>
+        ${list.length ? `<ul class="br-goals">${list.map(row).join('')}</ul>` : `<p class="br-muted">${t('مفيش أهداف لسه.', 'No goals yet.')}</p>`}${form}</section>`;
+    }
+
+    // الاستقلالية لكل مجال + الملخص الأسبوعي + سجل العقل
+    function control() {
+      if (!data.control_available) return '';
+      const pol = data.policy || {}, pr = data.prefs || {}, EV = { approved: ['وافقت', 'You approved'], auto_approved: ['العقل وافق تلقائيًا', 'Auto-approved'], dismissed: ['اتأجل/اترفض', 'Dismissed'], marked_done: ['علّمته اتنفّذ', 'Marked done'], restored: ['اترجّع', 'Restored'], measured: ['اتقاس', 'Measured'], resolved: ['اتحل', 'Resolved'], goal_set: ['هدف جديد', 'Goal set'], goal_achieved: ['هدف تحقق', 'Goal achieved'], goal_missed: ['هدف فات ميعاده', 'Goal missed'], goal_cancelled: ['هدف اتلغى', 'Goal cancelled'], policy: ['تغيير سياسة', 'Policy changed'], digest_sent: ['ملخص اتبعت', 'Digest sent'] };
+      const areas = Object.keys(AREA).map(a => `<label class="br-check-row"><input type="checkbox" data-policy="${a}" ${pol[a] === 'suggest' ? '' : 'checked'}><span><b>${esc(t(...AREA[a]))}</b><small>${pol[a] === 'suggest' ? t('اقتراح بس: مفيش تنفيذ تلقائي', 'Suggest only: no auto-execution') : t('التنفيذ التلقائي مسموح (لما التشغيل الذاتي شغال)', 'Auto-execution allowed (when autopilot is on)')}</small></span></label>`).join('');
+      const log = (data.audit || []).map(a => `<li><small class="br-muted" dir="ltr">${esc(String(a.created_at).slice(0, 16))}</small> ${esc(t(...(EV[a.event] || [a.event, a.event])))}${a.decision_key ? ` · <span dir="auto">${esc(L(((data.decisions || []).find(d => d.key === a.decision_key) || {}).title) || a.decision_key)}</span>` : ''}</li>`).join('');
+      return `<section class="br-card"><h3>${t('التحكم والشفافية', 'Control & transparency')}</h3>
+        <details class="br-past"><summary>${t('التنفيذ التلقائي لكل مجال', 'Auto-execution per area')}</summary><p class="br-muted">${t('شيل العلامة من أي مجال عشان العقل يقترح فيه بس ومايعملش حاجة لوحده. القرارات اللي فيها صرف فلوس مابتتنفّذش لوحدها أبدًا.', 'Untick an area so the brain only suggests there. Spending decisions never run on their own.')}</p>${areas}</details>
+        <label class="br-check-row"><input type="checkbox" id="brDigest" ${pr.digest_enabled ? 'checked' : ''}><span><b>${t('ملخص أسبوعي بالإيميل', 'Weekly email summary')}</b><small>${t('خطتك وأهدافك ونتايج القرارات مرة في الأسبوع. مقفول لحد ما تفعّله.', 'Your plan, goals and results once a week. Off until you turn it on.')}</small></span></label>
+        ${log ? `<details class="br-past"><summary>${t('سجل العقل (آخر العمليات)', 'Brain log (latest actions)')}</summary><ul class="br-proof">${log}</ul></details>` : ''}</section>`;
+    }
+
     function render() {
       if (!data) return;
       if (data.disabled) { root.innerHTML = `<section class="br-card"><h3>${t('العقل الاستراتيجي متوقف مؤقتًا', 'The strategic brain is paused')}</h3><p class="br-muted">${t('الإدارة وقفته مؤقتًا. خدماتك كلها شغالة عادي.', 'It was paused by the platform team. All your services keep working.')}</p></section>`; return; }
@@ -143,7 +198,7 @@
       const s = data.snapshot;
       root.innerHTML = `${sites.length > 1 ? `<label class="br-site">${t('الموقع', 'Website')} <select id="brSite" class="p-select">${sites.map(x => `<option value="${x.id}" ${Number(x.id) === Number(data.website_id) ? 'selected' : ''}>${esc(x.company_name || x.main_url)}</option>`).join('')}</select></label>` : ''}
         ${note ? `<p class="br-note ${note.error ? 'error' : ''}" role="status">${esc(note.text)}</p>` : ''}
-        ${decisions(data.decisions || [], data.results || {})}${signals(s)}${market(s)}${understanding(s)}${autonomy()}${sharing()}`;
+        ${decisions(data.decisions || [], data.results || {})}${plan()}${goals()}${signals(s)}${market(s)}${understanding(s)}${autonomy()}${control()}${sharing()}`;
       const sel = root.querySelector('#brSite'); if (sel) sel.onchange = () => load();
       const au = root.querySelector('#brAuto'); if (au) au.onclick = async () => {
         if (busy) return; busy = true; au.disabled = true;
@@ -183,9 +238,29 @@
         } catch (e) { act = { id, error: total.drafted ? e.message + ' ' + t(`(اتكتب ${num(total.drafted)} رد قبل المشكلة، ومستنيين موافقتك في صفحة التقييمات)`, `(${num(total.drafted)} replies were drafted before the problem and are waiting on the reviews page)`) : e.message }; }
         finally { busy = false; render(); }
       };
+      // النتيجة بترجّع الخطة والأهداف والسجل متحدّثين
+      const merge = r => { for (const k of ['decisions', 'results', 'plan', 'goals', 'policy', 'prefs', 'audit']) if (r[k] !== undefined) data[k] = r[k]; };
+      const safe = fn => async (...a) => { if (busy) return; busy = true; try { await fn(...a); } catch (e) { note = { text: e.message, error: true }; } finally { busy = false; render(); } };
+      root.querySelectorAll('[data-dismiss]').forEach(b => { b.onclick = () => { dismissFor = Number(b.dataset.dismiss); render(); }; });
+      root.querySelectorAll('[data-reason]').forEach(b => { b.onclick = safe(async () => {
+        const r = await req('/api/brain/decisions/' + b.dataset.id + '?website_id=' + wid(), { status: 'dismissed', reason: b.dataset.reason || null, website_id: wid() });
+        merge(r); dismissFor = null; note = { text: t('اتحفظ. العقل هيفتكر اختيارك.', 'Saved. The brain will remember.') };
+      }); });
+      const gn = root.querySelector('#brGNew'); if (gn) gn.onclick = () => { goalForm = true; render(); };
+      const gh = root.querySelector('#brGHide'); if (gh) gh.onclick = () => { goalForm = false; render(); };
+      const gs = root.querySelector('#brGSave'); if (gs) gs.onclick = safe(async () => {
+        const r = await req('/api/brain/goals?website_id=' + wid(), { metric_key: root.querySelector('#brGM').value, target: root.querySelector('#brGT').value, deadline: root.querySelector('#brGD').value, website_id: wid() });
+        merge(r); goalForm = false; note = { text: t('اتحفظ الهدف.', 'Goal saved.') };
+      });
+      root.querySelectorAll('[data-goal-cancel]').forEach(b => { b.onclick = safe(async () => { merge(await req('/api/brain/goals/' + b.dataset.goalCancel + '/cancel?website_id=' + wid(), { website_id: wid() })); }); });
+      root.querySelectorAll('[data-policy]').forEach(b => { b.onclick = safe(async () => {
+        const r = await req('/api/brain/policy', { area: b.dataset.policy, mode: b.checked ? 'auto' : 'suggest' }); data.policy = r.policy;
+      }); });
+      const dg = root.querySelector('#brDigest'); if (dg) dg.onclick = safe(async () => { data.prefs = (await req('/api/brain/prefs', { digest_enabled: dg.checked })).prefs; });
+      const cp = root.querySelector('#brCap'); if (cp) cp.onchange = safe(async () => { data.prefs = (await req('/api/brain/prefs', { weekly_capacity: Number(cp.value) })).prefs; await load(); });
       root.querySelectorAll('[data-set]').forEach(b => { b.onclick = async () => {
         if (busy) return; busy = true; b.disabled = true;
-        try { const r = await req('/api/brain/decisions/' + b.dataset.id + '?website_id=' + wid(), { status: b.dataset.set, website_id: wid() }); data.decisions = r.decisions; data.results = r.results; note = { text: t('اتحفظ ✓', 'Saved ✓') }; }
+        try { const r = await req('/api/brain/decisions/' + b.dataset.id + '?website_id=' + wid(), { status: b.dataset.set, website_id: wid() }); merge(r); note = { text: t('اتحفظ ✓', 'Saved ✓') }; }
         catch (e) { note = { text: e.message, error: true }; }
         finally { busy = false; render(); }
       }; });
