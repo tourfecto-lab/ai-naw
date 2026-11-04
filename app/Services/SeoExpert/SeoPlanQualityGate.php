@@ -191,7 +191,36 @@ class SeoPlanQualityGate
             $c['issue'] = $issue;
             $kept[] = $c;
         }
-        return $kept;
+        return self::dropDuplicateProposals($kept, $pages, $current);
+    }
+
+    /**
+     * اقتراح نفس العنوان/الوصف لصفحتين (أو لقيمة موجودة فعلًا في صفحة تانية) بيعيد نفس التكرار اللي المهمة بتحاول تحله.
+     * بنشيل كل المجموعة المتطابقة بدل ما نعدّل صفحة على حساب التانية؛ الصفحة بتفضل بقيمتها الحالية.
+     * @param callable $current fn(array $page,string $field): string
+     */
+    public static function dropDuplicateProposals(array $kept, array $pages, callable $current): array
+    {
+        $norm = static fn (string $v): string => mb_strtolower(trim(preg_replace('/\s+/u', ' ', $v)));
+        $groups = [];
+        foreach ($kept as $i => $c) {
+            $f = (string) ($c['field'] ?? '');
+            if (!in_array($f, ['title', 'description'], true)) continue;
+            $groups[$f . '|' . $norm((string) ($c['value'] ?? ''))][] = $i;
+        }
+        $drop = [];
+        foreach ($groups as $idx) {
+            if (count($idx) > 1) foreach ($idx as $i) $drop[$i] = true;
+        }
+        foreach ($kept as $i => $c) {
+            $f = (string) ($c['field'] ?? '');
+            if (!in_array($f, ['title', 'description'], true) || isset($drop[$i])) continue;
+            $mine = $c['page_index'] ?? -1;
+            foreach ($pages as $pi => $p) {
+                if ($pi !== $mine && $norm($current($p, $f)) !== '' && $norm($current($p, $f)) === $norm((string) ($c['value'] ?? ''))) { $drop[$i] = true; break; }
+            }
+        }
+        return array_values(array_filter($kept, static fn ($c, $i) => !isset($drop[$i]), ARRAY_FILTER_USE_BOTH));
     }
 
     /**
