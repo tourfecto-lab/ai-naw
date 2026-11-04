@@ -5,6 +5,7 @@ require_once __DIR__.'/SeoDiscoveryService.php';
 require_once __DIR__.'/SeoOpportunityService.php';
 require_once __DIR__.'/SeoPagePolicy.php';
 require_once __DIR__.'/SeoLinkHealth.php';
+require_once __DIR__.'/SeoRollbackVerdict.php';
 require_once __DIR__.'/SeoBriefCompare.php';
 require_once __DIR__.'/SeoNextCycle.php';
 require_once __DIR__.'/SeoPageIdentity.php';
@@ -1063,9 +1064,18 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
             }elseif($operation==='verify'&&SeoRecommendationReview::publicVerificationEligible($t)){
                 $url=$t['kind']==='content'?($t['published_url']?:$t['page_url']):$t['page_url'];$contextKey=($t['kind']==='content'?'publication:':'page:').$url;$ctx=$contexts[$contextKey]??($contexts[$contextKey]=$t['kind']==='content'?$reader->freshPublication($url):$reader->fresh($url));
                 if($t['status']==='reverted'){
-                    $before=json_decode($t['before_json'],true)?:[];$actual=$t['field_name']==='jsonld'?($ctx['schema']??[]):($ctx['values'][$t['field_name']]??[]);$same=!empty($ctx['ok'])&&$before===$actual;
-                    $expectedNow=json_decode((string)$t['expected_value'],true);$changedByClient=!$same&&!empty($ctx['ok'])&&$actual!==[]&&$actual!==$before&&$actual!==(is_array($expectedNow)?$expectedNow:[(string)$t['expected_value']]);
-                    $evidence=['state'=>$same?'rollback_verified':($changedByClient?'client_edit_detected':'rollback_not_seen'),'reason'=>$same?'The public page matches the recorded pre-change value.':($changedByClient?'The page has a value that is neither ours nor the one recorded before the change; it was edited after our change. We did not overwrite it.':'The reverted value is not yet verified; review cache or intervening page edits.'),'before'=>$before,'observed'=>$actual,'checked_at'=>gmdate('c')];
+                    $before=json_decode($t['before_json'],true)?:[];$readField=static fn(array $c)=>$t['field_name']==='jsonld'?($c['schema']??[]):($c['values'][$t['field_name']]??[]);
+                    $ours=static fn(array $c)=>!empty($c['ok'])&&PageContext::verifyValue($t['field_name'],(string)$t['expected_value'],$c)['state']==='verified';
+                    $actual=$readField($ctx);$verdict=SeoRollbackVerdict::evaluate($before,$actual,$ours($ctx),!empty($ctx['ok']));$cacheStale=false;
+                    // الزوار ممكن يشوفوا نسخة كاش قديمة: نقرا نسخة بتتجاوز الكاش ونقول ده صراحة بدل "مش متحقق"
+                    if($verdict!==SeoRollbackVerdict::VERIFIED&&!empty($ctx['ok'])){
+                        try{$sep=str_contains((string)$t['page_url'],'?')?'&':'?';$bypass=$reader->fresh($t['page_url'].$sep.'tf_cb='.bin2hex(random_bytes(6)));
+                            if(!empty($bypass['ok'])){$bActual=$readField($bypass);$bVerdict=SeoRollbackVerdict::evaluate($before,$bActual,$ours($bypass),true);if($bVerdict!==$verdict){$verdict=$bVerdict;$actual=$bActual;$cacheStale=true;}}
+                        }catch(Throwable $e){error_log('[SeoExpertService] rollback cache bypass failed: '.$e->getMessage());}
+                    }
+                    $same=$verdict===SeoRollbackVerdict::VERIFIED&&!$cacheStale;$changedByClient=$verdict===SeoRollbackVerdict::CLIENT_EDIT;
+                    $reason=$cacheStale?($verdict===SeoRollbackVerdict::VERIFIED?'The rollback is live on your server, but your site cache still serves the previous page to visitors. Clear the page cache.':'The page has a value that is neither ours nor the one recorded before our change; it was edited after our change, so it was not overwritten. Your site cache may still show the older page to visitors.'):($same?'The public page matches the recorded pre-change value.':($changedByClient?'The page has a value that is neither ours nor the one recorded before our change; it was edited after our change, so it was not overwritten.':'The reverted value is not yet verified; review cache or intervening page edits.'));
+                    $evidence=['state'=>$cacheStale&&$verdict===SeoRollbackVerdict::VERIFIED?'rollback_cache_stale':$verdict,'cache_stale'=>$cacheStale,'reason'=>$reason,'before'=>$before,'observed'=>$actual,'checked_at'=>gmdate('c')];
                     if(!$same&&!$changedByClient&&$attempt<3)$pending=true;$this->q('UPDATE seo_expert_tasks SET evidence_json=?,checked_at=UTC_TIMESTAMP() WHERE id=?',[json_encode($evidence,JSON_THROW_ON_ERROR),$t['id']]);continue;
                 }
                 if($t['kind']==='content'){
