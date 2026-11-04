@@ -265,7 +265,7 @@
             <h3>العملاء اللي جابتهم</h3>${custs}<h3>سجل الشغل (${r.log.length})</h3><div class="dk-scroll">${log}</div>
             <ul class="dk-notes">${(r.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
     };
-    const stMsg = (m, bad) => { const el = staffUi.el && staffUi.el.querySelector('.dk-st-msg'); if (el) { el.textContent = m; el.className = 'dk-st-msg' + (bad ? ' bad' : ''); } };
+    const stMsg = (m, bad) => { const el = staffUi.el && staffUi.el.querySelector('.dk-st-msg'); if (el) { el.textContent = m; el.className = 'dk-st-msg' + (bad ? ' bad' : ''); el.scrollIntoView({ block: 'nearest' }); } };
     // الموقع: مرة واحدة بإذن الموظفة (المتصفح بيسألها)، ومفيش تتبّع مستمر
     const doLocation = () => new Promise((resolve, reject) => {
         if (!navigator.geolocation) return reject(new Error('المتصفح ده مش بيدعم تحديد الموقع'));
@@ -461,7 +461,7 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
-                    if (t.dataset.recapture !== undefined) { await api('/api/admin/outreach-desk/staff-recapture', { user_id: staffUi.userId }); await loadStaff(); stMsg('اتطلب منه إعادة التصوير: التنبيه هيظهر له أول ما يفتح المكتب ✅'); return; }
+                    if (t.dataset.recapture !== undefined) { t.disabled = true; t.textContent = '⏳ بيتبعت…'; try { await api('/api/admin/outreach-desk/staff-recapture', { user_id: staffUi.userId }); } catch (err) { t.disabled = false; t.textContent = '🔔 اطلب منه يعيد التصوير'; throw err; } await loadStaff(); const nb = staffUi.el.querySelector('[data-recapture]'); if (nb) { nb.textContent = '✅ اتطلب منه'; nb.disabled = true; } stMsg('اتطلب منه إعادة التصوير: التنبيه هيظهر له أول ما يفتح المكتب ✅'); return; }
                     if (t.dataset.idWizard !== undefined) { openWizard(staffUi.isSelf ? 0 : staffUi.userId); return; }
                     if (t.dataset.locSave !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; await loadStaff(); stMsg('اتسجّل موقعك ✅'); } finally { t.disabled = false; } return; }
                     if (t.dataset.pfSave !== undefined) {
