@@ -125,7 +125,8 @@
         // أول دخول: موقعها مرة واحدة بإذنها (عشان نتأكد من العنوان)، وتنبيه لو بياناتها ناقصة
         const meBanner = (me.location_recorded === false ? `<div class="dk-banner">📍 سجّلي موقعك
                 <button class="dk-btn primary" data-loc-first>سجّلي موقعي</button></div>` : '')
-            + (me.profile_missing > 0 ? `<div class="dk-banner">📋 بيانات ملفك ناقصة (${me.profile_missing}). افتحي «كشف الشغل» وكمّلي بياناتك وارفعي صورة البطاقة.</div>` : '');
+            + (me.id_card === false ? `<div class="dk-banner">🪪 صوّري بطاقتك <button class="dk-btn primary" data-id-wizard-main>📷 صوّري البطاقة</button></div>` : '')
+            + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات ملفك ناقصة (${me.profile_missing}). افتحي «كشف الشغل» وكمّليها.</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip">اختاري الدولة، وانسخي الرقم والرسالة وابعتيها على واتساب، وبعدها سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
@@ -202,9 +203,8 @@
         const ic = r.id_card, loc = r.location, uid = r.staff.user_id;
         const idView = side => ic && ic[side] ? ` · <a href="/api/admin/outreach-desk/staff-id-card?side=${side}&user_id=${uid}" target="_blank" rel="noopener noreferrer">عرض</a> (${esc(String(ic[side]).slice(0, 10))})` : '';
         const idBox = canEdit ? `<div class="dk-comp dk-id"><b>🪪 صورة البطاقة</b>
-            <label>الوش${idView('front')}<input type="file" accept="image/*" capture="environment" data-id-file="front"></label>
-            <label>الضهر${idView('back')}<input type="file" accept="image/*" capture="environment" data-id-file="back"></label>
-            <button class="dk-btn primary" data-id-upload>ارفع واقرا البيانات</button>
+            ${ic && (ic.front || ic.back) ? `<span>الوش${idView('front') || ' —'}</span><span>الضهر${idView('back') || ' —'}</span>` : ''}
+            <button class="dk-btn primary" data-id-wizard>📷 ${ic && ic.front ? 'صوّري البطاقة تاني' : 'صوّري البطاقة'}</button>
             <p class="dk-id-note"></p></div>` : '';
         const locLine = !loc ? 'لسه ماتسجّلش' : `<a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">أول موقع على الخريطة ↗</a> · ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
             <br>${!loc.has_address ? '⚠️ مفيش عنوان في الملف عشان نقارنه' : (!loc.address_located ? '⚠️ ماقدرناش نحوّل العنوان لموقع على الخريطة: قارنيه بإيدك' : (loc.far ? `🚨 الموقع بعيد <b>${num(loc.distance_km)} كم</b> عن العنوان المسجّل (الحد ${loc.far_km} كم)` : `✅ الموقع قريب من العنوان (${num(loc.distance_km)} كم)`))}`;
@@ -241,25 +241,97 @@
         img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('الصورة مش مقروءة')); };
         img.src = url;
     });
-    const uploadIdCard = async () => {
-        const q = s => staffUi.el.querySelector(s), note = q('.dk-id-note');
-        const fd = new FormData(); fd.append('consent', '1'); fd.append('csrf_token', csrf); fd.append('user_id', staffUi.userId);
-        let n = 0;
-        for (const side of ['front', 'back']) { const f = q(`[data-id-file="${side}"]`).files[0]; if (f) { fd.append(side, await shrinkImage(f), side + '.jpg'); n++; } }
-        if (!n) throw new Error('اختاري صورة وش البطاقة (وضهرها لو عايزة)');
-        note.textContent = 'بيترفع ويتقرا… (ممكن ياخد 10 ثواني)';
+    // تصوير البطاقة: كاميرا ومربع للبطاقة ← قراءة الوش ← «اقلبي البطاقة» ← الضهر ← صفحة مراجعة بالبيانات اللي اتقرت (تعدّلها وتحفظ)
+    const wiz = { el: null, stream: null, userId: 0, side: 'front', fields: null, partial: null };
+    const wizStop = () => { if (wiz.stream) { wiz.stream.getTracks().forEach(t => t.stop()); wiz.stream = null; } };
+    const wizClose = () => { wizStop(); if (wiz.el) wiz.el.hidden = true; };
+    const wizUpload = async (side, blob) => {
+        const fd = new FormData(); fd.append('consent', '1'); fd.append('csrf_token', csrf); if (wiz.userId) fd.append('user_id', wiz.userId); fd.append(side, blob, side + '.jpg');
         const resp = await fetch('/api/admin/outreach-desk/staff-id-card', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
         const r = await resp.json().catch(() => null);
         if (!r?.success) throw new Error(r?.error || 'الرفع فشل');
-        const ex = r.data.extract;
-        if (ex && ex.ok) {
-            const f = ex.fields;
-            [['full_name', f.full_name], ['national_id', f.national_id], ['address', f.address]].forEach(([k, v]) => { const el = q(`[data-pf="${k}"]`); if (el && v) el.value = v; });
-            const extra = f.birth_date ? ` · ميلاد ${f.birth_date} · ${f.gender === 'male' ? 'ذكر' : 'أنثى'} · ${f.governorate}` : '';
-            note.innerHTML = '✅ اتقرت البطاقة وبياناتها اتحطت في الخانات تحت' + esc(extra) + (f.warning ? '<br>⚠️ ' + esc(f.warning) : '');
-        } else {
-            note.textContent = n && ex ? '✅ الصورة اتحفظت. ' + (ex.error || '') : '✅ الصورة اتحفظت';
+        return r.data;
+    };
+    const wizMsg = (text, bad) => { const m = wiz.el.querySelector('.dk-cam-msg'); if (m) { m.textContent = text; m.classList.toggle('bad', !!bad); } };
+    const wizBusy = busy => wiz.el.querySelectorAll('button,[data-wz-file]').forEach(b => { b.disabled = busy; });
+    const wizVideo = async () => {
+        try {
+            wiz.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+            wiz.el.querySelector('video').srcObject = wiz.stream;
+        } catch (e) {
+            wizMsg('الكاميرا مش متاحة أو الإذن اتمنع: اختاري صورة من الجهاز', true);
+            wiz.el.querySelector('.dk-cam-view').hidden = true; wiz.el.querySelector('[data-wz-shot]').hidden = true;
         }
+    };
+    const wizCamera = (side, text, bad) => {
+        wizStop(); wiz.side = side;
+        wiz.el.innerHTML = `<div class="dk-cam-box"><button class="dk-btn" data-wz-close>✕ إغلاق</button><h3>${side === 'front' ? 'صوّري وش البطاقة' : 'اقلبي البطاقة وصوّري الضهر'}</h3>
+            <div class="dk-cam-view"><video autoplay playsinline muted></video><div class="dk-cam-frame"></div></div>
+            <p class="dk-cam-msg ${bad ? 'bad' : ''}">${esc(text || 'حطي البطاقة جوه المربع في إضاءة كويسة')}</p>
+            <div class="dk-cam-actions"><button class="dk-btn primary" data-wz-shot>📸 صوّري</button>
+            <label class="dk-btn">🖼️ اختاري صورة<input type="file" accept="image/*" capture="environment" hidden data-wz-file></label>
+            ${side === 'front' ? '<button class="dk-btn" data-wz-manual>✍️ هكتب البيانات بإيدي</button>' : '<button class="dk-btn" data-wz-skipback>تخطّي الضهر</button>'}</div></div>`;
+        wizVideo();
+    };
+    // بنقص من الكاميرا المنطقة اللي جوه المربع بس (بنحسبها من مكان المربع فوق الفيديو)
+    const wizCrop = () => {
+        const view = wiz.el.querySelector('.dk-cam-view'), v = view.querySelector('video'), fr = view.querySelector('.dk-cam-frame');
+        if (!v.videoWidth) throw new Error('الكاميرا لسه بتفتح: استني ثانية');
+        const vr = view.getBoundingClientRect(), f = fr.getBoundingClientRect(), s = Math.max(vr.width / v.videoWidth, vr.height / v.videoHeight);
+        const ox = (vr.width - v.videoWidth * s) / 2, oy = (vr.height - v.videoHeight * s) / 2;
+        const sx = Math.max(0, (f.left - vr.left - ox) / s), sy = Math.max(0, (f.top - vr.top - oy) / s), sw = f.width / s, sh = f.height / s, k = Math.min(1, 1600 / sw);
+        const c = document.createElement('canvas'); c.width = Math.round(sw * k); c.height = Math.round(sh * k);
+        c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('التصوير فشل')), 'image/jpeg', 0.88));
+    };
+    const wizReview = () => {
+        wizStop(); const f = wiz.fields || wiz.partial || {};
+        const extra = f.birth_date ? `ميلاد ${f.birth_date} · ${f.gender === 'male' ? 'ذكر' : 'أنثى'} · ${f.governorate}` : '';
+        wiz.el.innerHTML = `<div class="dk-cam-box"><button class="dk-btn" data-wz-close>✕ إغلاق</button><h3>البيانات اللي اتقرت من البطاقة</h3>
+            <p class="dk-cam-msg">${esc(extra)}</p>
+            <div class="dk-comp"><label>الاسم بالكامل<input data-wz-f="full_name" value="${esc(f.full_name || '')}"></label>
+            <label>الرقم القومي<input data-wz-f="national_id" inputmode="numeric" value="${esc(f.national_id || '')}"></label>
+            <label>العنوان<input data-wz-f="address" value="${esc(f.address || '')}"></label></div>
+            <p class="dk-cam-msg bad" data-wz-err></p><div class="dk-cam-actions"><button class="dk-btn primary" data-wz-save>✅ حفظ</button></div></div>`;
+    };
+    const wizProcess = async blob => {
+        const side = wiz.side; wizBusy(true); wizMsg(side === 'front' ? 'بنقرا البطاقة… (ممكن ياخد 10 ثواني)' : 'بيترفع…');
+        try {
+            const d = await wizUpload(side, blob);
+            if (side === 'back') return wizReview();
+            const ex = d.extract, f = ex && ex.ok ? ex.fields : null;
+            wiz.partial = f;
+            if (f && f.full_name && f.national_id && !f.warning) { wiz.fields = f; wizCamera('back', '✅ اتقرت البطاقة صح. اقلبي البطاقة وصوّري الضهر'); }
+            else wizCamera('front', (ex && ex.error) || 'مقدرناش نقرا الاسم والرقم القومي صح: صوّري تاني والبطاقة كلها جوه المربع من غير لمعان', true);
+        } catch (err) { wizBusy(false); wizMsg(err.message, true); }
+    };
+    const openWizard = userId => {
+        if (!wiz.el) {
+            wiz.el = document.createElement('div'); wiz.el.className = 'dk-modal dk-cam'; wiz.el.dir = 'rtl'; document.body.appendChild(wiz.el);
+            wiz.el.addEventListener('click', async e => {
+                const t = e.target.closest('button'); if (!t) return;
+                try {
+                    if (t.dataset.wzClose !== undefined) return wizClose();
+                    if (t.dataset.wzShot !== undefined) return await wizProcess(await wizCrop());
+                    if (t.dataset.wzManual !== undefined) return wizReview();
+                    if (t.dataset.wzSkipback !== undefined) return wizReview();
+                    if (t.dataset.wzSave !== undefined) {
+                        const body = {}; if (wiz.userId) body.user_id = wiz.userId;
+                        wiz.el.querySelectorAll('[data-wz-f]').forEach(el => { body[el.dataset.wzF] = el.value; });
+                        t.disabled = true;
+                        try { await api('/api/admin/outreach-desk/staff-profile', body); } catch (err) { t.disabled = false; wiz.el.querySelector('[data-wz-err]').textContent = err.message; return; }
+                        wizClose(); toast('اتحفظت بيانات البطاقة ✅');
+                        if (staffUi.el && !staffUi.el.hidden) await loadStaff();
+                        await load(true);
+                    }
+                } catch (err) { wizBusy(false); wizMsg(err.message, true); }
+            });
+            wiz.el.addEventListener('change', async e => {
+                const f = e.target.files && e.target.files[0]; if (!f || e.target.dataset.wzFile === undefined) return;
+                try { await wizProcess(await shrinkImage(f)); } catch (err) { wizBusy(false); wizMsg(err.message, true); }
+            });
+        }
+        wiz.userId = userId || 0; wiz.fields = null; wiz.partial = null; wiz.el.hidden = false; wizCamera('front');
     };
     const openStaff = async () => {
         if (!staffUi.el) {
@@ -268,7 +340,7 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
-                    if (t.dataset.idUpload !== undefined) { t.disabled = true; try { await uploadIdCard(); } finally { t.disabled = false; } return; }
+                    if (t.dataset.idWizard !== undefined) { openWizard(staffUi.userId); return; }
                     if (t.dataset.locSave !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; await loadStaff(); stMsg('اتسجّل موقعك ✅'); } finally { t.disabled = false; } return; }
                     if (t.dataset.pfSave !== undefined) {
                         const body = { user_id: staffUi.userId };
@@ -313,6 +385,7 @@
                     toast('اتسجّل، والرسالة اتحدّثت ✅'); return;
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
+                if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
                 if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
                 if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }

@@ -737,9 +737,9 @@ if (session_status() === PHP_SESSION_NONE) {
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
-// الموقع ممنوع في الموقع كله إلا مكتب التواصل: الموظفة بتسجّل موقعها مرة واحدة بإذنها (كشف الموظف)
+// الموقع والكاميرا ممنوعين في الموقع كله إلا مكتب التواصل: الموظفة بتسجّل موقعها مرة واحدة وبتصوّر بطاقتها (كشف الموظف)
 $permGeo = strpos((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'), '/admin/outreach-desk') === 0 ? '(self)' : '()';
-header('Permissions-Policy: geolocation=' . $permGeo . ', microphone=(self), camera=(), payment=(self)');
+header('Permissions-Policy: geolocation=' . $permGeo . ', microphone=(self), camera=' . $permGeo . ', payment=(self)');
 // CSP متوازن: بيمنع تحميل سكربتات/إطارات من مصادر خارجية غير موثوقة
 // (defense-in-depth ضد XSS)، لكن سايبين 'unsafe-inline' مفعّلة لأن
 // الموقع فيه كمية كبيرة من <script>/<style> جوه الصفحات نفسها (heredoc)
