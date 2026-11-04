@@ -3,6 +3,12 @@ require_once __DIR__.'/SeoConnectedTaskVerifier.php';
 /** Presentation of the next step; never changes persisted task status or asserts indexing. */
 final class SeoTaskFollowUp
 {
+    /** مهمة تعديل وقفت لسبب مؤقت عند الاتصال (موصل أو كاش أو صفحة مش متاحة): العميل يقدر يعتمدها تاني من غير دورة جديدة. */
+    public static function retryableMetadata(array $task): bool {
+        if(($task['kind']??'')!=='metadata'||($task['status']??'')!=='needs_client')return false;
+        $e=$task['evidence']??json_decode((string)($task['evidence_json']??''),true)??[];
+        return (bool)preg_match('/connector|page cache|cache still serves|Public page is unavailable|different domain/i',(string)($e['reason']??''));
+    }
     public static function forTask(array $task,?int $now=null): array {
         $now??=time();$review=$task['recommendation_review']['state']??'';
         $evidence=$task['evidence']??json_decode((string)($task['evidence_json']??''),true)??[];

@@ -42,4 +42,13 @@ final class SeoLinkHealthTest extends TestCase
         };
         $this->assertSame('gone', SeoLinkHealth::confirmGone($reader2, 'https://x.test/a')['state']);
     }
+
+    public function testMetadataTaskStoppedByConnectorOrCacheCanBeRetriedWithoutANewCycle(): void
+    {
+        require_once __DIR__ . '/../../app/Services/SeoExpert/SeoTaskFollowUp.php';
+        $stopped = ['kind' => 'metadata', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'The connector is installed, but your site cache still serves an older copy of this page.'])];
+        $this->assertTrue(SeoTaskFollowUp::retryableMetadata($stopped));
+        $this->assertFalse(SeoTaskFollowUp::retryableMetadata(['kind' => 'metadata', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'The page changed after planning.'])]));
+        $this->assertFalse(SeoTaskFollowUp::retryableMetadata(['kind' => 'content', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'connector'])]));
+    }
 }
