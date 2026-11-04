@@ -9,7 +9,7 @@
     const flag = c => /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1E6 + x.charCodeAt(0) - 65)) : '🌐';
     const countryName = c => c === '?' || !c ? 'دولة مش معروفة' : (COUNTRY[c] || c);
     const LANG = { ar: 'عربي', en: 'English', tr: 'Türkçe' };
-    const VIEWS = [['todo', 'لسه ماتواصلتش', 'todo'], ['followup', '⏰ محتاجة متابعة', 'followup'], ['contacted', 'اتواصلت', 'contacted'], ['hot', 'ردّوا / مهتمين', 'hot'], ['won', '🎉 جرّبوا / اشتركوا', 'won'], ['closed', 'اتقفلت', 'closed'], ['weak', 'رسالتها ضعيفة (مخفية)', 'weak'], ['all', 'الكل', null]];
+    const VIEWS = [['todo', 'لسه ماتواصلتش', 'todo'], ['opened', '👀 فتحوا التقرير', 'opened'], ['followup', '⏰ محتاجة متابعة', 'followup'], ['contacted', 'اتواصلت', 'contacted'], ['hot', 'ردّوا / مهتمين', 'hot'], ['won', '🎉 جرّبوا / اشتركوا', 'won'], ['closed', 'اتقفلت', 'closed'], ['weak', 'رسالتها ضعيفة (مخفية)', 'weak'], ['all', 'الكل', null]];
     const ACTIONS = [
         ['contacted', '✅ بعتّ على واتساب', 'تم الإرسال على واتساب'], ['replied', '💬 ردّوا', 'ردّوا'], ['interested', '🔥 مهتمين', 'مهتمين'],
         ['trial', '🧪 جرّبوا المنصة', 'جرّبوا المنصة'], ['subscribed', '🎉 اشتركوا', 'اشتركوا'],
@@ -65,7 +65,7 @@
         const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
         let ok = false; try { ok = document.execCommand('copy'); } catch (e) { ok = false; } ta.remove(); return ok;
     };
-    const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, weak: 0, contacted: 0, followup: 0, hot: 0, won: 0, closed: 0 };
+    const cur = () => counts.find(c => c.country === state.country) || { total: 0, todo: 0, weak: 0, contacted: 0, opened: 0, followup: 0, hot: 0, won: 0, closed: 0 };
 
     const card = r => {
         const OPEN = window.matchMedia && window.matchMedia('(max-width:640px)').matches ? '' : ' open';
@@ -76,7 +76,7 @@
         const meta = [r.city, r.category && String(r.category).split(',')[0]].filter(Boolean).map(esc).join(' · ');
         const rating = r.rating ? `⭐ ${Number(r.rating).toFixed(1)}${r.reviews ? ' (' + Number(r.reviews).toLocaleString('en') + ')' : ''}` : '';
         const head = `<div class="dk-head"><div><h3>${esc(r.company)}</h3><div class="dk-sub">${meta}${rating ? ' · ' + rating : ''}</div></div>
-            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}${r.category_flag ? `<span class="dk-b prio" title="تريب أدفايزر مصنّفها تحت هذا التصنيف: ممكن تبقى جولة فعلًا وممكن محل أو مطعم أو نادي">⚠️ تصنيفها «${esc(r.category_flag)}»: التأكد إنها شركة سياحة قبل الإرسال</span>` : ''}</div></div>`;
+            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${r.report_viewed ? `<span class="dk-b hot" title="أول فتح: ${esc(r.report_first_at || '')}">👀 فتحت التقرير${r.report_views > 1 ? ' ' + num(r.report_views) + ' مرات' : ''} · آخر مرة ${esc(r.report_last_at || '')}</span>` : ''}${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}${r.category_flag ? `<span class="dk-b prio" title="تريب أدفايزر مصنّفها تحت هذا التصنيف: ممكن تبقى جولة فعلًا وممكن محل أو مطعم أو نادي">⚠️ تصنيفها «${esc(r.category_flag)}»: التأكد إنها شركة سياحة قبل الإرسال</span>` : ''}</div></div>`;
         if (r.blocked) return `<article class="dk-card blocked" data-id="${r.id}">${head}<div class="dk-block">🚫 الشركة دي ألغت الاشتراك: ممنوع التواصل معاها بأي وسيلة.</div></article>`;
         const phone = r.phone_intl || r.phone;
         // «اتبعتت على واتساب» + اسم الموظفة والوقت، جنب الزرار؛ وتراجع لو فتحت واتساب وماضغطتش إرسال
@@ -125,7 +125,9 @@
         const tabs = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l}${key ? ` <b>${c[key] || 0}</b>` : ` <b>${c.total || 0}</b>`}</button>`).join('');
         // الموقع مالوش تنبيه ولا زرار: بيتطلب مع إذن الكاميرا لما التصوير يفتح (openWizard)، عشان الموظف مايتفاجأش بإذنين منفصلين
         const due = counts.reduce((a, c) => a + (c.followup || 0), 0);
-        const meBanner = (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
+        const opened = counts.reduce((a, x) => a + (x.opened || 0), 0);
+        const meBanner = (opened > 0 ? `<div class="dk-banner">👀 ${num(opened)} شركة فتحت التقرير ومفيش نتيجة لسه: الأنسب التواصل معاها دلوقتي وهي لسه شايفاه <button class="dk-btn primary" data-go-opened>شوف مين فتح</button></div>` : '')
+            + (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
             + (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
@@ -479,6 +481,7 @@
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
+                if (t.dataset.goOpened !== undefined) { const c = counts.find(x => x.opened > 0); if (c) { state.country = c.country; state.view = 'opened'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.goFollowup !== undefined) { const c = counts.find(x => x.followup > 0); if (c) { state.country = c.country; state.view = 'followup'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
                 if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }

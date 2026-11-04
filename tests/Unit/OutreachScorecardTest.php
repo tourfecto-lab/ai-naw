@@ -277,7 +277,7 @@ final class OutreachScorecardTest extends TestCase
             $this->assertStringNotContainsString($absent, $m, "$absent must not be guessed");
         }
         $this->assertStringContainsString('https://tourfecto.pro/p/r/abc?s=1', $m);
-        $this->assertStringContainsString('ردّوا عليا هنا وأوريكم', $m, 'no trial text: a plain call to reply');
+        $this->assertStringContainsString('ردّوا بكلمة «تمام»', $m, 'no trial text: a plain call to reply');
     }
 
     public function testAStrongCompanyIsComplimentedAndOfferedGrowthNotProblems(): void
@@ -361,5 +361,21 @@ final class OutreachScorecardTest extends TestCase
         $prop->setValue($ctl, ['email' => 'tourfectonet@gmail.com']);
         $this->assertSame('', $name->invoke($ctl), 'no name: the message falls back to the configured sender name');
         $this->assertSame('tourfectonet', $label->invoke($ctl), 'the contact log still identifies who did it');
+    }
+
+    public function testMessageOpensWithAWarmGreetingAndPraiseFromRealReviewsOnlyWhenThereAreGapsToFix(): void
+    {
+        $sc = ['tripadvisor' => ['status' => 'found', 'rating' => 4.9, 'reviews' => 2623], 'google' => ['status' => 'found', 'rating' => 4.4, 'reviews' => 37, 'hours' => true, 'median' => 400]];
+        $gaps = [['id' => 'no_booking', 'vars' => []]];
+        $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $sc, 'gaps' => $gaps, 'seo' => ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6]]));
+        $this->assertStringNotContainsString('السلام عليكم', $m);
+        $this->assertStringNotContainsString('يا فريق', $m);
+        $this->assertStringStartsWith('أهلًا بحضراتكم في', $m);
+        $this->assertStringContainsString('⭐ 4.9 من 2,623 تقييم على تريب أدفايزر', $m);
+        $seo = ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6];
+        $weak = ['tripadvisor' => ['status' => 'found', 'rating' => 4.1, 'reviews' => 2623]];
+        $this->assertStringNotContainsString('ما شاء الله', OutreachNeeds::deskMessage($this->ctx(['scorecard' => $weak, 'gaps' => $gaps, 'seo' => $seo])), 'no praise without a strong rating');
+        $strong = ['tripadvisor' => ['status' => 'found', 'rating' => 4.9, 'reviews' => 2623]];
+        $this->assertStringNotContainsString('ما شاء الله', OutreachNeeds::deskMessage($this->ctx(['scorecard' => $strong, 'gaps' => [], 'seo' => $seo])), 'nothing to fix: the strong-company message is used instead');
     }
 }

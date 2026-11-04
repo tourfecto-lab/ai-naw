@@ -193,7 +193,9 @@ class OutreachNeeds
      */
     private const DESK = [
         'ar' => [
-            'greet' => 'السلام عليكم يا فريق {company} 👋',
+            'greet' => 'أهلًا بحضراتكم في {company} 👋',
+            'praise' => 'ما شاء الله، ⭐ {r} من {n} تقييم على {src}: سمعة قوية فعلًا 👏', 'src_ta' => 'تريب أدفايزر', 'src_g' => 'جوجل',
+            'intro_p' => 'أنا {name} من Tourfecto. بصّيت على موقعكم وصفحاتكم عشان السمعة دي تتحوّل لحجوزات أكتر، وده اللي لقيته فعلًا:',
             'intro' => 'أنا {name} من Tourfecto. بصّيت على موقعكم وصفحاتكم على جوجل والسوشيال، وده اللي لقيته فعلًا:',
             'intro_ok' => 'أنا {name} من Tourfecto. بصّيت على حضوركم الرقمي، وده الملخص:',
             'all_ok' => '✅ حضوركم قوي في كل اللي فحصناه',
@@ -216,7 +218,7 @@ class OutreachNeeds
             'serv' => ['seo' => '• السيو: بيفحص الموقع ويجهّز إصلاح كل نقطة ناقصة وخطة تحسين', 'google' => '• جوجل: مسودات ردود جاهزة على التقييمات ومراجعة ملفكم', 'social' => '• السوشيال: بوستات وصور وفيديوهات لشهر كامل بلوجو شركتكم',
                 'booking' => '• محرّك حجز على موقعكم بدفع أونلاين من غير عمولة', 'chat' => '• شات ذكي على موقعكم بيرد على أسئلة زباينكم'],
             'grow' => 'وللنمو: *العقل الاستراتيجي* بيقترح لكم قرارات من بيانات شغلكم.',
-            'report' => '📄 *التقرير الكامل* بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا عليا هنا وأوريكم 🙌', 'cta_plain' => 'ردّوا عليا هنا وأوريكم 🙌',
+            'report' => '📄 *التقرير الكامل* بالتفصيل وإزاي تتصلّح (مجاني):', 'cta' => '{trial}. ردّوا بكلمة «تمام» وأرتّبلكم الخطوات على شركتكم 🙌', 'cta_plain' => 'ردّوا بكلمة «تمام» وأرتّبلكم الخطوات على شركتكم 🙌',
             's2_intro' => '{name} من Tourfecto تاني 🙌 دي نبذة سريعة عن اللي بنقدّمه لشركات السياحة في منصة واحدة:',
             's2' => ["🧠 *العقل الاستراتيجي:* بيقرا بيانات شركتكم (حجوزات، عملاء، تقييمات) ويقترح قرارات بأدلة: عملاء محتاجين متابعة، أسواق بتجيب طلب، وأسعاركم قدام المنافسين. إنتم اللي بتوافقوا وهو يجهّز التنفيذ.",
                 '🔎 *السيو والظهور في جوجل* وفي إجابات الذكاء الاصطناعي', '📅 *موقع وحجز ودفع أونلاين* من غير عمولة', '👁️ *مراقبة المنافسين* وتغيّر أسعارهم',
@@ -226,6 +228,8 @@ class OutreachNeeds
         ],
         'en' => [
             'greet' => 'Hello {company} team 👋',
+            'praise' => 'Impressive: ⭐ {r} from {n} reviews on {src}. That is a strong reputation 👏', 'src_ta' => 'Tripadvisor', 'src_g' => 'Google',
+            'intro_p' => "I'm {name} from Tourfecto. I looked at your website and pages to see how that reputation can turn into more bookings. Here is what I found:",
             'intro' => "I'm {name} from Tourfecto. I looked at your website and your Google and social pages. Here is what I actually found:",
             'intro_ok' => "I'm {name} from Tourfecto. I looked at your online presence. Summary:",
             'all_ok' => '✅ You are strong on everything we checked',
@@ -248,7 +252,7 @@ class OutreachNeeds
             'serv' => ['seo' => '• SEO: audits your site and prepares a fix for every missing point, plus an improvement plan', 'google' => '• Google: ready draft replies to reviews and a review of your profile', 'social' => '• Social: a month of posts, images and short videos with your logo',
                 'booking' => '• A booking engine on your site with online payment and no commission', 'chat' => '• A smart chat on your website that answers your customers\' questions'],
             'grow' => 'And to grow: the *Strategic Brain* suggests decisions from your own business data.',
-            'report' => '📄 *Full report* with every point and how to fix it (free):', 'cta' => '{trial}. Reply here and I will walk you through it 🙌', 'cta_plain' => 'Reply here and I will walk you through it 🙌',
+            'report' => '📄 *Full report* with every point and how to fix it (free):', 'cta' => '{trial}. Reply "yes" and I will lay out the steps for your company 🙌', 'cta_plain' => 'Reply "yes" and I will lay out the steps for your company 🙌',
             's2_intro' => "{name} from Tourfecto again 🙌 a quick overview of what we offer tour companies in one platform:",
             's2' => ['🧠 *Strategic Brain:* reads your business data (bookings, customers, reviews) and proposes evidence-based decisions: customers to follow up, markets that bring demand, your prices against competitors. You approve, it prepares the execution.',
                 '🔎 *SEO and visibility* on Google and in AI answers', '📅 *Website, booking and online payment*, no commission', '👁️ *Competitor monitoring* and their price changes',
@@ -258,6 +262,8 @@ class OutreachNeeds
         ],
         'tr' => [
             'greet' => 'Merhaba {company} ekibi 👋',
+            'praise' => 'Etkileyici: {src}’da {n} yorumla ⭐ {r}. Gerçekten güçlü bir itibar 👏', 'src_ta' => 'Tripadvisor', 'src_g' => 'Google',
+            'intro_p' => 'Ben Tourfecto’dan {name}. Bu itibarın daha fazla rezervasyona dönüşmesi için web sitenize ve sayfalarınıza baktım, bulduklarım şunlar:',
             'intro' => 'Ben Tourfecto’dan {name}. Web sitenize ve Google ile sosyal medya sayfalarınıza baktım, gerçekten bulduklarım şunlar:',
             'intro_ok' => 'Ben Tourfecto’dan {name}. Dijital varlığınıza baktım, özet:',
             'all_ok' => '✅ Baktığımız her konuda güçlüsünüz',
@@ -280,7 +286,7 @@ class OutreachNeeds
             'serv' => ['seo' => '• SEO: sitenizi tarar, eksik her nokta için düzeltme ve iyileştirme planı hazırlar', 'google' => '• Google: yorumlar için hazır yanıt taslakları ve profil kontrolü', 'social' => '• Sosyal medya: logonuzla bir aylık gönderi, görsel ve kısa video',
                 'booking' => '• Sitenize komisyonsuz, online ödemeli rezervasyon motoru', 'chat' => '• Web sitenizde müşteri sorularını yanıtlayan akıllı sohbet'],
             'grow' => 'Büyümek için: *Stratejik Beyin* kendi işletme verilerinizden kararlar önerir.',
-            'report' => '📄 *Tam rapor*: her nokta ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. Buradan yazın, birlikte bakalım 🙌', 'cta_plain' => 'Buradan yazın, birlikte bakalım 🙌',
+            'report' => '📄 *Tam rapor*: her nokta ve nasıl düzeltileceği (ücretsiz):', 'cta' => '{trial}. “Evet” yazın, şirketiniz için adımları çıkarayım 🙌', 'cta_plain' => '“Evet” yazın, şirketiniz için adımları çıkarayım 🙌',
             's2_intro' => '{name}, Tourfecto’dan tekrar 🙌 turizm şirketlerine tek platformda sunduklarımızın kısa özeti:',
             's2' => ['🧠 *Stratejik Beyin:* işletme verilerinizi (rezervasyon, müşteri, yorum) okur ve kanıtlı kararlar önerir: takip edilecek müşteriler, talep getiren pazarlar, fiyatlarınız ve rakipler. Siz onaylarsınız, o uygulamayı hazırlar.',
                 '🔎 *SEO ve görünürlük:* Google’da ve yapay zekâ yanıtlarında', '📅 *Web sitesi, rezervasyon ve online ödeme*, komisyonsuz', '👁️ *Rakip takibi* ve fiyat değişiklikleri',
@@ -402,7 +408,23 @@ class OutreachNeeds
             }
         }
 
-        $lines = [$fill($t['greet'], ['{company}' => OutreachAudit::shortName((string) $c['company'])]), $fill($svc || $body ? $t['intro'] : $t['intro_ok'], ['{name}' => $c['name']]), ''];
+        // سطر مدح من رقم حقيقي (تقييم قوي وعدد معتبر)، بس لما فيه نواقص نقولها بعده: المدح مش بيتكتب من غير سند
+        $praise = '';
+        if ($svc) {
+            foreach ([['tripadvisor', 'src_ta', 100], ['google', 'src_g', 50]] as [$k, $srcKey, $minReviews]) {
+                $p = (array) ($sc[$k] ?? []);
+                if (($p['status'] ?? '') === 'found' && (float) ($p['rating'] ?? 0) >= 4.5 && (int) ($p['reviews'] ?? 0) >= $minReviews) {
+                    $praise = $fill($t['praise'], ['{r}' => $num($p['rating']), '{n}' => number_format((int) $p['reviews']), '{src}' => $t[$srcKey]]);
+                    break;
+                }
+            }
+        }
+        $lines = [$fill($t['greet'], ['{company}' => OutreachAudit::shortName((string) $c['company'])])];
+        if ($praise !== '') {
+            $lines[] = $praise;
+        }
+        $lines[] = $fill($praise !== '' ? $t['intro_p'] : ($svc || $body ? $t['intro'] : $t['intro_ok']), ['{name}' => $c['name']]);
+        $lines[] = '';
         $lines = array_merge($lines, $body ?: [$t['all_ok']]);
         if ($svc) {
             // جملة «ليه مهم» واحدة، للأهم: سيو ثم جوجل ثم سوشيال ثم حجز ثم شات

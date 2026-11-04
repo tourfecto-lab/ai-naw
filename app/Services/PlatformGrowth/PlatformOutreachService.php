@@ -112,6 +112,8 @@ class PlatformOutreachService
             'scanned_at' => 'DATETIME NULL',
             'approved' => 'TINYINT NOT NULL DEFAULT 0',
             'report_viewed_at' => 'DATETIME NULL',
+            'report_last_at' => 'DATETIME NULL',
+            'report_views' => 'INT NOT NULL DEFAULT 0',
             'whatsapp_at' => 'DATETIME NULL',
             'score' => 'TINYINT NULL',
         ]);
@@ -1804,7 +1806,7 @@ class PlatformOutreachService
             return null;
         }
         if ($record) {
-            $this->q('UPDATE platform_leads SET report_viewed_at=COALESCE(report_viewed_at,NOW()) WHERE id=?', [$l['id']]);
+            $this->q('UPDATE platform_leads SET report_viewed_at=COALESCE(report_viewed_at,NOW()), report_last_at=NOW(), report_views=COALESCE(report_views,0)+1 WHERE id=?', [$l['id']]);
         }
         $lang = in_array($l['language'], OutreachNeeds::LANGS, true) ? $l['language'] : 'en';
         $needs = json_decode((string) ($l['needs_json'] ?? ''), true) ?: [];
@@ -2109,6 +2111,7 @@ class PlatformOutreachService
                 SUM(desk_action IS NULL AND status<>'unsubscribed' AND desk_weak=1) weak,
                 SUM(desk_action IN ('contacted','call_back'){$own}) contacted,
                 SUM((" . self::followupSql() . "){$own}) followup,
+                SUM(report_viewed_at IS NOT NULL AND status<>'unsubscribed' AND (desk_action IS NULL OR (desk_action IN ('contacted','call_back'){$own}))) opened,
                 SUM(desk_action IN ('replied','interested'){$own}) hot,
                 SUM(desk_action IN ('trial','subscribed'){$own}) won,
                 SUM(desk_action IN ('not_interested','wrong_number'){$own}) closed
@@ -2298,6 +2301,7 @@ class PlatformOutreachService
             'weak' => "desk_action IS NULL AND status<>'unsubscribed' AND desk_weak=1",
             'contacted' => "desk_action IN ('contacted','call_back')",
             'followup' => self::followupSql(),
+            'opened' => "report_viewed_at IS NOT NULL AND status<>'unsubscribed' AND (desk_action IS NULL OR desk_action IN ('contacted','call_back'))",
             'hot' => "desk_action IN ('replied','interested')",
             'won' => "desk_action IN ('trial','subscribed')",
             'closed' => "desk_action IN ('not_interested','wrong_number')",
@@ -2309,7 +2313,9 @@ class PlatformOutreachService
         $me = (int) ($staff['user_id'] ?? 0);
         $mineOnly = $me > 0 && empty($staff['all']);
         if ($mineOnly) {
-            if (in_array($view, ['contacted', 'followup', 'hot', 'won', 'closed'], true)) {
+            if ($view === 'opened') {
+                $where[] = '(desk_action IS NULL OR desk_user_id=' . $me . ')';
+            } elseif (in_array($view, ['contacted', 'followup', 'hot', 'won', 'closed'], true)) {
                 $where[] = 'desk_user_id=' . $me;
             } elseif (!isset($views[$view])) {
                 $where[] = '(desk_action IS NULL OR desk_user_id=' . $me . ')';
@@ -2333,7 +2339,7 @@ class PlatformOutreachService
         $w = implode(' AND ', $where);
         $total = (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
         // المتابعة: الأقدم أولًا (اللي استنّت أكتر)
-        $order = $view === 'followup' ? 'desk_at ASC, id' : '(desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC';
+        $order = $view === 'opened' ? 'report_last_at DESC, id DESC' : ($view === 'followup' ? 'desk_at ASC, id' : '(desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC');
         $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY {$order} LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
 
         $set = $this->getSettings();
@@ -2412,6 +2418,7 @@ class PlatformOutreachService
                 'category_flag' => class_exists('OutreachNeeds') ? OutreachNeeds::nonTourSignal((string) ($sc['tripadvisor']['ranking'] ?? ''), (string) ($l['category'] ?? '')) : null,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
+                'report_views' => (int) ($l['report_views'] ?? 0), 'report_first_at' => $l['report_viewed_at'] ?? null, 'report_last_at' => $l['report_last_at'] ?? ($l['report_viewed_at'] ?? null),
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
             ];
         }

@@ -772,4 +772,27 @@ final class OutreachDeskTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->svc->deskAction($id, 'delete_everything', '', 5, 'Sara');
     }
+
+    public function testOpenedTabListsCompaniesThatOpenedTheReportWithCountAndLastOpenAndIgnoresClosedOnes(): void
+    {
+        $tok = bin2hex(random_bytes(16));
+        $a = $this->lead('Opened Tours', 'EG', '+201000000071', ['token' => $tok]);
+        $b = $this->lead('Closed Opened Tours', 'EG', '+201000000072');
+        $c = $this->lead('Never Opened Tours', 'EG', '+201000000073');
+        $this->svc->report($tok, true);
+        $this->svc->report($tok, true);
+        $this->svc->report($tok, false);
+        $this->db->query('UPDATE platform_leads SET report_viewed_at=NOW() WHERE id=?', [$b]);
+        $this->db->query("UPDATE platform_leads SET desk_action='not_interested' WHERE id=?", [$b]);
+        $r = $this->svc->deskLeads(['country' => 'EG', 'view' => 'opened', 'q' => 'desk.test'], ['name' => 'Sara']);
+        $ids = array_column($r['rows'], 'id');
+        $this->assertContains($a, $ids);
+        $this->assertNotContains($b, $ids, 'a company that already said no is not a hot lead');
+        $this->assertNotContains($c, $ids);
+        $row = array_values(array_filter($r['rows'], static fn ($x) => $x['id'] === $a))[0];
+        $this->assertSame(2, $row['report_views'], 'the admin preview (record=false) is not counted');
+        $this->assertNotEmpty($row['report_last_at']);
+        $eg = array_values(array_filter($this->svc->deskCountries(), static fn ($x) => $x['country'] === 'EG'))[0];
+        $this->assertGreaterThanOrEqual(1, $eg['opened']);
+    }
 }
