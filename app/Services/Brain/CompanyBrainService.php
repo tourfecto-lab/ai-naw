@@ -51,6 +51,11 @@ final class CompanyBrainService
         $bookings = $this->first("SELECT SUM(created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)) AS last_30, SUM(created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)) AS last_90,
                 SUM(CASE WHEN created_at > DATE_SUB(NOW(), INTERVAL 30 DAY) THEN total_amount ELSE 0 END) AS revenue_30
             FROM bookings WHERE user_id = ? AND status IN ('confirmed','completed')", [$uid]);
+        // مراحل الحجز: حجوزات مستنية تأكيد بقالها أكتر من يومين وماجاش ميعادها، والمفقود (ملغي أو ماجاش) من حجوزات آخر 30 يوم
+        $funnel = $this->first("SELECT SUM(created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)) AS created_30,
+                SUM(created_at > DATE_SUB(NOW(), INTERVAL 30 DAY) AND status IN ('cancelled','no_show')) AS lost_30,
+                SUM(status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL 2 DAY) AND start_date >= CURDATE()) AS pending_stale
+            FROM bookings WHERE user_id = ?", [$uid]);
         $seoSite = $this->first('SELECT status, policy_json, cycles_used, budget_month FROM seo_expert_sites WHERE website_id = ? AND user_id = ? LIMIT 1', [$wid, $uid]);
         $seoTasks = $this->first("SELECT COUNT(*) AS c FROM seo_expert_tasks t JOIN seo_expert_runs r ON r.id = t.run_id
             WHERE r.website_id = ? AND t.user_id = ? AND t.status = 'needs_client'
@@ -93,7 +98,9 @@ final class CompanyBrainService
             ] : null,
             'reputation' => $reviews === null ? null : ['reviews_30' => $int($reviews, 'total'), 'avg_rating' => isset($reviews['avg_rating']) ? round((float) $reviews['avg_rating'], 2) : null, 'unanswered_negative' => $int($reviews, 'unanswered_negative')],
             'chat' => $chat === null ? null : ['messages_30' => $int($chat, 'messages'), 'pending_approval' => $int($chat, 'pending_approval')],
-            'bookings' => $bookings === null ? null : ['last_30' => $int($bookings, 'last_30') ?? 0, 'last_90' => $int($bookings, 'last_90') ?? 0, 'revenue_30' => isset($bookings['revenue_30']) ? round((float) $bookings['revenue_30'], 2) : null],
+            'bookings' => $bookings === null ? null : ['last_30' => $int($bookings, 'last_30') ?? 0, 'last_90' => $int($bookings, 'last_90') ?? 0, 'revenue_30' => isset($bookings['revenue_30']) ? round((float) $bookings['revenue_30'], 2) : null,
+                'created_30' => $int($funnel, 'created_30') ?? 0, 'lost_30' => $int($funnel, 'lost_30') ?? 0, 'pending_stale' => $int($funnel, 'pending_stale') ?? 0,
+                'lost_rate_30' => ($int($funnel, 'created_30') ?? 0) > 0 ? (int) round(100 * ($int($funnel, 'lost_30') ?? 0) / (int) $funnel['created_30']) : null],
             'seo' => [
                 'autopilot' => $seoSite ? ($seoSite['status'] === 'active' && !empty($policy['autopilot'])) : false,
                 'configured' => (bool) $seoSite,

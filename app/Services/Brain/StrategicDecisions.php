@@ -164,6 +164,8 @@ final class StrategicDecisions
         foreach (self::marketDecisions($s['market'] ?? null) as $d) $add($d);
         // 9) النمو: متابعة العملاء المحتملين، أسواق جديدة، باقات، وتسعير قدام المنافسين (GrowthAdvisor)
         foreach (self::growthDecisions($s) as $d) $add($d);
+        // 9ب) مراحل الحجز: حجوزات مستنية تأكيد، ونسبة مفقودة عالية
+        foreach (self::bookingDecisions($s['bookings'] ?? null) as $d) $add($d);
         // 10) الأهداف: هدف نشط متأخر عن المسار بقرار يوجّه للخدمة اللي بتأثر على مقياسه
         foreach (self::goalDecisions($goals) as $d) $add($d);
 
@@ -182,6 +184,35 @@ final class StrategicDecisions
         }
         unset($d);
         usort($out, static fn ($a, $b) => $b['priority'] <=> $a['priority'] ?: strcmp($a['key'], $b['key']));
+        return $out;
+    }
+
+    /**
+     * قرارات مراحل الحجز من أرقام الحجوزات الفعلية. $b = null لو الحجوزات مش متاحة (مفيش قرار من غير بيانات)
+     * @param array<string,mixed>|null $b
+     * @return array<int,array<string,mixed>>
+     */
+    public static function bookingDecisions(?array $b): array
+    {
+        if (!$b) return [];
+        $out = [];
+        $stale = (int) ($b['pending_stale'] ?? 0);
+        if ($stale > 0) {
+            $out[] = self::d('confirm_pending_bookings', 'acquisition', $stale >= 3 ? 3 : 2,
+                ['أكّد الحجوزات المستنية', 'Confirm the waiting bookings'],
+                ['الحجز اللي مستني تأكيد بيتلغي كتير لما العميل يفضل من غير رد، وخصوصًا لو ميعاده قرّب.', 'A booking left unconfirmed is often lost when the guest hears nothing back, especially as the date gets close.'],
+                [[$stale . ' حجز مستني تأكيد بقاله أكتر من يومين وميعاده لسه ماجاش', $stale . ' bookings have been waiting for confirmation for over two days and their date has not passed']],
+                '/bookings', ['افتح الحجوزات', 'Open bookings'], 'bookings.pending_stale', $stale, 'down');
+        }
+        $created = (int) ($b['created_30'] ?? 0);
+        $rate = $b['lost_rate_30'] ?? null;
+        if ($created >= 5 && $rate !== null && $rate >= 25) {
+            $out[] = self::d('reduce_lost_bookings', 'acquisition', 2,
+                ['حجوزات كتير بتتلغي أو العميل مابيجيش', 'Many bookings are cancelled or no-shows'],
+                ['كل حجز بيضيع هو إيراد وكان مضمون تقريبًا. تذكير قبل الميعاد وسياسة إلغاء واضحة بيقلّلوا الفاقد.', 'Every lost booking was near-certain revenue. A reminder before the date and a clear cancellation policy cut the loss.'],
+                [[$rate . '% من حجوزات آخر 30 يوم (' . (int) ($b['lost_30'] ?? 0) . ' من ' . $created . ') اتلغت أو العميل ماجاش', $rate . '% of the last 30 days\' bookings (' . (int) ($b['lost_30'] ?? 0) . ' of ' . $created . ') were cancelled or no-shows']],
+                '/bookings', ['راجع الحجوزات الملغية', 'Review the lost bookings'], 'bookings.lost_rate_30', $rate, 'down');
+        }
         return $out;
     }
 
