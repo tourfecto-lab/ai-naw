@@ -73,12 +73,14 @@ class SeoExpertService
         $site=$this->site($uid,$wid);try{$ctx=(new SeoExpertPageContext())->fresh($site['main_url']);}catch(Throwable $e){$ctx=['ok'=>false,'error'=>'inspection_unavailable'];}$metrics=$this->metrics($uid,$wid,$site);
         $publishing=['state'=>'not_connected'];$r=$this->connection($uid,$wid,'wordpress');
         if($r){try{$credentials=(new Encryption())->decrypt($r['access_token']);[$name,$password]=array_pad(explode(':',$credentials,2),2,'');if(!WordPressConnector::hostsEqual((string)parse_url($site['main_url'],PHP_URL_HOST),(string)parse_url($r['external_location_id'],PHP_URL_HOST)))throw new RuntimeException('target_mismatch');$res=$this->publisher()->testConnection($r['external_location_id'],$name,$password);$publishing=['state'=>!empty($res['success'])?'authenticated':'unavailable','note'=>'Authentication is verified; actual publication permissions are checked by WordPress when publishing.'];}catch(Throwable $e){$publishing=['state'=>'unavailable'];}}
-        $observed=!empty($ctx['ok'])&&($ctx['connector_version']??'')==='4';
+        $observed=!empty($ctx['ok'])&&($ctx['connector_version']??'')==='4';$cacheStale=false;
+        // كاش الصفحات ممكن يرجّع نسخة قديمة من قبل تركيب الموصل: نقرا نسخة بتتجاوز الكاش، ولو العلامة فيها نقول إن الكاش قديم بدل "مش متركّب"
+        if(!$observed&&!empty($ctx['ok'])&&!empty($ctx['wordpress'])){try{$bypass=(new SeoExpertPageContext())->fresh(PageContext::freshAuditUrl($site['main_url']));if(!empty($bypass['ok'])&&($bypass['connector_version']??'')==='4'){$observed=true;$cacheStale=true;}}catch(Throwable $e){error_log('[SeoExpertService] connector cache bypass check failed: '.$e->getMessage());}}
         $retried=$observed?$this->retryAfterConnector($uid,$wid):0;
         // علامة الموصّل في الصفحة بتثبت إنه مركّب بس؛ آخر سحب للقواعد هو اللي بيثبت إنه شغّال فعلًا
         $pull=['minutes'=>null,'stale'=>true];
         try{$pr=$this->q('SELECT last_seen_at FROM edge_connections WHERE website_id=?',[$wid])->fetch(PDO::FETCH_ASSOC);$pull=EdgeFixController::freshness($pr['last_seen_at']??null);}catch(Throwable $e){}
-        return ['connector'=>['state'=>$observed?'publicly_observed':(empty($ctx['ok'])||!empty($ctx['coming_soon'])?'page_unavailable':'not_observed'),'checked_at'=>gmdate('c'),'retried'=>$retried,'pull_minutes'=>$pull['minutes'],'pull_stale'=>$observed&&$pull['stale']],'metrics'=>$metrics,'publishing'=>$publishing];
+        return ['connector'=>['state'=>$observed?'publicly_observed':(empty($ctx['ok'])||!empty($ctx['coming_soon'])?'page_unavailable':'not_observed'),'checked_at'=>gmdate('c'),'retried'=>$retried,'pull_minutes'=>$pull['minutes'],'pull_stale'=>$observed&&$pull['stale'],'cache_stale'=>$cacheStale],'metrics'=>$metrics,'publishing'=>$publishing];
     }
     /**
      * تعديلات العنوان/الوصف اللي العميل وافق عليها ووقفت لأن ملف الربط ماكانش شغال:
