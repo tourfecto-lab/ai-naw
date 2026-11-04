@@ -102,6 +102,64 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    private function canSeeTeam(): bool
+    {
+        return AdminAccess::can($this->user, 'team.view');
+    }
+
+    private function canManageTeam(): bool
+    {
+        return AdminAccess::can($this->user, 'team.manage');
+    }
+
+    /**
+     * GET /api/admin/outreach-desk/staff-report?month=YYYY-MM&user_id=
+     * الموظفة بتشوف كشفها هي بس؛ مين عنده صلاحية الفريق بيشوف أي موظفة وقايمة الموظفين وتعويض كل واحدة
+     */
+    public function staffReport(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        $me = (int) ($this->user['id'] ?? 0);
+        $uid = (int) $this->get('user_id', 0) ?: $me;
+        if ($uid !== $me && !$this->canSeeTeam()) {
+            return $this->error('تقدري تشوفي كشفك إنتي بس', 403);
+        }
+        try {
+            $s = $this->service();
+            $rate = (float) (new SystemSettingsService())->get('staff_usd_egp', '50');
+            return $this->success(['report' => $s->staffReport($uid, (string) $this->get('month', date('Y-m')), $rate > 0 ? $rate : 50.0),
+                'staff' => $this->canSeeTeam() ? $s->staffList() : [], 'can_manage' => $this->canManageTeam(), 'is_self' => $uid === $me]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Staff report failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل الكشف', 503);
+        }
+    }
+
+    /** POST /api/admin/outreach-desk/staff-comp {user_id, comp_type, commission_pct, monthly_salary, note}: بس لمن عنده صلاحية إدارة الفريق */
+    public function staffCompSave(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        if (!$this->canManageTeam()) {
+            return $this->error('تعديل النسب والمرتبات لمالك المنصة بس', 403);
+        }
+        try {
+            $r = $this->service()->staffCompSet((int) $this->get('user_id', 0), (string) $this->get('comp_type', 'none'), (float) $this->get('commission_pct', 0), (float) $this->get('monthly_salary', 0), (string) $this->get('note', ''), $this->staffLabel());
+            return $this->success(['comp' => $r]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Staff comp save failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر الحفظ', 503);
+        }
+    }
+
     /** GET /api/admin/outreach-desk/funnel?country= : نتايج التواصل (واتساب وإيميل) وأداء الموظفات آخر 7 أيام */
     public function deskFunnel(array $params = []): array
     {

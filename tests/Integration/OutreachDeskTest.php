@@ -185,6 +185,90 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame([], $names('weak'), 'once staff acted on it it is no longer a hidden to-do');
     }
 
+    /** @return array{0:int,1:int,2:string} [staff user id, customer user id, customer email] */
+    private function twoUsers(): array
+    {
+        $u = $this->db->query('SELECT id, email FROM users ORDER BY id LIMIT 2');
+        if (count($u) < 2) {
+            $this->markTestSkipped('needs two users in the test DB');
+        }
+        return [(int) $u[0]['id'], (int) $u[1]['id'], (string) $u[1]['email']];
+    }
+
+    private function cleanStaff(int $staffId, int $custId): void
+    {
+        $this->db->query('DELETE FROM subscriptions WHERE user_id = ? AND plan_name = ? AND price = 79.00', [$custId, 'starter']);
+        $this->db->query('DELETE FROM platform_staff_comp WHERE user_id = ?', [$staffId]);
+    }
+
+    public function testCustomerIsAttributedToTheFirstStaffWhoSentAndAnUndoIsIgnored(): void
+    {
+        [$s1, $s2] = $this->twoUsers();
+        $a = $this->lead('Attrib One Tours', 'EG', '+201000000041');
+        $b = $this->lead('Attrib Two Tours', 'EG', '+201000000042');
+        $this->svc->deskAction($a, 'contacted', '', $s1, 'Sara');
+        $this->svc->deskAction($a, 'contacted', '', $s2, 'Mona');
+        $this->svc->deskAction($b, 'contacted', '', $s1, 'Sara');
+        $this->svc->deskAction($b, 'undo', '', $s1, 'Sara');
+        $this->svc->deskAction($b, 'contacted', '', $s2, 'Mona');
+        $attr = $this->svc->staffAttribution();
+        $this->assertSame($s1, $attr[$a]['user_id'], 'the first staff to send keeps the company');
+        $this->assertSame($s2, $attr[$b]['user_id'], 'a send that was undone does not count');
+    }
+
+    public function testStaffReportCountsCommissionOnlyForTheirOwnActiveCustomersAndAddsSalary(): void
+    {
+        [$staff, $cust, $email] = $this->twoUsers();
+        $this->cleanStaff($staff, $cust);
+        $mine = $this->lead('Commission Mine Tours', 'EG', '+201000000051');
+        $other = $this->lead('Commission Other Tours', 'EG', '+201000000052');
+        $this->db->query('UPDATE platform_leads SET email = ? WHERE id = ?', [$email, $mine]);
+        $this->svc->deskAction($mine, 'contacted', 'first message', $staff, 'Sara');
+        $this->svc->deskAction($mine, 'replied', '', $staff, 'Sara');
+        $this->svc->deskAction($other, 'contacted', '', $cust, 'Mona'); // someone else's company
+        $this->db->query("INSERT INTO subscriptions (user_id, plan_name, plan_type, status, price, currency, start_date) VALUES (?, 'starter', 'monthly', 'active', 79.00, 'USD', '2020-01-01 00:00:00')", [$cust]);
+        try {
+            $this->svc->staffCompSet($staff, 'both', 10, 3000, 'test', 'Owner');
+            $r = $this->svc->staffReport($staff, date('Y-m'), 50.0);
+            $this->assertSame('both', $r['comp']['comp_type']);
+            $this->assertSame(1, $r['customers_active']);
+            $c = $r['customers'][0];
+            $this->assertSame('Commission Mine Tours', $c['company']);
+            $this->assertSame(3950.0, $c['monthly_egp']);
+            $this->assertSame(395.0, $c['commission_egp'], '10% of 79 USD x 50');
+            $this->assertSame(395.0, $r['totals']['commission_egp']);
+            $this->assertSame(3000.0, $r['totals']['salary_egp']);
+            $this->assertSame(3395.0, $r['totals']['total_egp']);
+            $this->assertSame(1, $r['summary']['sent']);
+            $this->assertSame(1, $r['summary']['replied']);
+            $this->assertSame('first message', array_values(array_filter($r['log'], fn ($l) => $l['action'] === 'contacted'))[0]['note'], 'the work log keeps the details');
+
+            $this->svc->staffCompSet($staff, 'salary', 10, 3000, '', 'Owner');
+            $r2 = $this->svc->staffReport($staff, date('Y-m'), 50.0);
+            $this->assertSame(0.0, $r2['totals']['commission_egp'], 'salary only: no commission');
+            $this->assertSame(0.0, $this->svc->staffCompGet($staff)['commission_pct']);
+
+            $old = $this->svc->staffReport($staff, '2019-06', 50.0);
+            $this->assertSame(0, $old['customers_active'], 'a subscription that had not started yet earns nothing for that month');
+        } finally {
+            $this->cleanStaff($staff, $cust);
+        }
+    }
+
+    public function testCompInputIsValidated(): void
+    {
+        [$staff] = $this->twoUsers();
+        foreach ([['bogus', 5, 0], ['commission', 101, 0], ['commission', -1, 0], ['salary', 0, -5]] as [$type, $pct, $sal]) {
+            try {
+                $this->svc->staffCompSet($staff, $type, (float) $pct, (float) $sal, '', 'Owner');
+                $this->fail("$type/$pct/$sal should be rejected");
+            } catch (InvalidArgumentException $e) {
+                $this->assertNotSame('', $e->getMessage());
+            }
+        }
+        $this->cleanStaff($staff, 0);
+    }
+
     public function testTrialAndSubscribedAreWinsAndStopTheEmailSequence(): void
     {
         $a = $this->lead('Trialwin Tours', 'EG', '+201000000021');

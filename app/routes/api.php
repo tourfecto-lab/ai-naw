@@ -1966,6 +1966,8 @@ $router->get('/api/admin/growth/messages', 'PlatformOutreachController', 'sentMe
 $router->get('/api/admin/growth/messages/{id}', 'PlatformOutreachController', 'messageDetail', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/leads', 'PlatformOutreachController', 'deskLeads', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/funnel', 'PlatformOutreachController', 'deskFunnel', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/outreach-desk/staff-report', 'PlatformOutreachController', 'staffReport', ['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/outreach-desk/staff-comp', 'PlatformOutreachController', 'staffCompSave', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/action', 'PlatformOutreachController', 'deskAction', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/social', 'PlatformOutreachController', 'deskSocial', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing', 'AiRoutingAdminController', 'save', ['AuthMiddleware','AdminMiddleware']);

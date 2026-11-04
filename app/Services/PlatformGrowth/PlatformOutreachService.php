@@ -131,6 +131,15 @@ class PlatformOutreachService
             KEY idx_pda_lead (lead_id),
             KEY idx_pda_created (created_at)
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_comp (
+            user_id BIGINT NOT NULL PRIMARY KEY,
+            comp_type VARCHAR(12) NOT NULL DEFAULT 'none',
+            commission_pct DECIMAL(5,2) NOT NULL DEFAULT 0,
+            monthly_salary DECIMAL(10,2) NOT NULL DEFAULT 0,
+            note VARCHAR(255) NULL,
+            updated_by VARCHAR(120) NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $done = true;
     }
 
@@ -2202,6 +2211,163 @@ class PlatformOutreachService
             ];
         }
         return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries(), 'tiers' => $this->deskTiers((string) ($f['country'] ?? ''))];
+    }
+
+    // ------------------------------------------------------------------ كشف الموظفين: الشغل والعملاء والنسبة والراتب
+
+    public const COMP_TYPES = ['none', 'commission', 'salary', 'both'];
+
+    /** @return array{comp_type:string,commission_pct:float,monthly_salary:float,note:?string,updated_by:?string,updated_at:?string} */
+    public function staffCompGet(int $userId): array
+    {
+        $r = $this->q('SELECT comp_type,commission_pct,monthly_salary,note,updated_by,updated_at FROM platform_staff_comp WHERE user_id=?', [$userId])->fetch(PDO::FETCH_ASSOC) ?: [];
+        return ['comp_type' => (string) ($r['comp_type'] ?? 'none'), 'commission_pct' => (float) ($r['commission_pct'] ?? 0), 'monthly_salary' => (float) ($r['monthly_salary'] ?? 0),
+            'note' => $r['note'] ?? null, 'updated_by' => $r['updated_by'] ?? null, 'updated_at' => $r['updated_at'] ?? null];
+    }
+
+    /** نوع التعويض: نسبة على كل عميل كل شهر، أو راتب شهري ثابت، أو الاتنين. حساب فقط (مفيش دفع فعلي من هنا) */
+    public function staffCompSet(int $userId, string $type, float $pct, float $salary, string $note, string $by): array
+    {
+        if (!in_array($type, self::COMP_TYPES, true)) {
+            throw new InvalidArgumentException('نوع التعويض غير معروف');
+        }
+        if ($pct < 0 || $pct > 100 || $salary < 0 || $salary > 10000000) {
+            throw new InvalidArgumentException('النسبة بين 0 و100 والراتب رقم موجب');
+        }
+        if (!$this->q('SELECT 1 FROM users WHERE id=?', [$userId])->fetchColumn()) {
+            throw new InvalidArgumentException('الموظف مش موجود');
+        }
+        $pct = in_array($type, ['commission', 'both'], true) ? $pct : 0.0;
+        $salary = in_array($type, ['salary', 'both'], true) ? $salary : 0.0;
+        $this->q('INSERT INTO platform_staff_comp(user_id,comp_type,commission_pct,monthly_salary,note,updated_by) VALUES(?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE comp_type=VALUES(comp_type),commission_pct=VALUES(commission_pct),monthly_salary=VALUES(monthly_salary),note=VALUES(note),updated_by=VALUES(updated_by)',
+            [$userId, $type, $pct, $salary, mb_substr(trim($note), 0, 255) ?: null, mb_substr($by, 0, 120)]);
+        return $this->staffCompGet($userId);
+    }
+
+    /** كل الموظفين اللي سجّلوا شغل على المكتب أو عندهم تعويض متسجّل، مع عدد إجراءاتهم */
+    public function staffList(): array
+    {
+        $sql = "SELECT u.id user_id, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)),''), SUBSTRING_INDEX(u.email,'@',1)) name, u.email,
+                COALESCE(c.comp_type,'none') comp_type, COALESCE(c.commission_pct,0) commission_pct, COALESCE(c.monthly_salary,0) monthly_salary,
+                (SELECT COUNT(*) FROM platform_desk_actions a WHERE a.user_id=u.id AND a.action<>'undo') actions
+            FROM users u LEFT JOIN platform_staff_comp c ON c.user_id=u.id
+            WHERE u.id IN (SELECT user_id FROM platform_desk_actions WHERE user_id IS NOT NULL) OR u.id IN (SELECT user_id FROM platform_staff_comp)%s
+            ORDER BY actions DESC, name";
+        try {
+            $rows = $this->q(sprintf($sql, ' OR u.id IN (SELECT user_id FROM admin_staff)'))->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            $rows = $this->q(sprintf($sql, ''))->fetchAll(PDO::FETCH_ASSOC); // جدول فريق الأدمن لسه ما اتعملش
+        }
+        return array_map(static fn ($r) => ['user_id' => (int) $r['user_id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'comp_type' => (string) $r['comp_type'],
+            'commission_pct' => (float) $r['commission_pct'], 'monthly_salary' => (float) $r['monthly_salary'], 'actions' => (int) $r['actions']], $rows);
+    }
+
+    /**
+     * العميل بيتنسب لأول موظفة سجّلت إرسال واتساب ليه (التراجع بيمسح الإرسال: بنتجاهله).
+     * @return array<int,array{user_id:int,name:string,at:string}> lead_id => الموظفة
+     */
+    public function staffAttribution(): array
+    {
+        $first = [];
+        foreach ($this->q("SELECT lead_id,user_id,user_name,action,created_at FROM platform_desk_actions WHERE action IN ('contacted','undo') AND user_id IS NOT NULL ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $lid = (int) $r['lead_id'];
+            if ($r['action'] === 'undo') {
+                unset($first[$lid]);
+            } elseif (!isset($first[$lid])) {
+                $first[$lid] = ['user_id' => (int) $r['user_id'], 'name' => (string) $r['user_name'], 'at' => (string) $r['created_at']];
+            }
+        }
+        return $first;
+    }
+
+    /** الشركات من القايمة اللي بقت عملاء باشتراك مدفوع (مطابقة إيميل الحساب أو دومين الموقع). قراية بس */
+    private function paidCustomers(): array
+    {
+        $cols = 'l.id lead_id, l.company, s.id sub_id, s.plan_name, s.plan_type, s.status, s.price, s.currency, s.start_date, s.cancelled_at, s.expiry_date';
+        $queries = [
+            "SELECT {$cols} FROM platform_leads l JOIN users u ON LOWER(u.email)=LOWER(l.email) JOIN subscriptions s ON s.user_id=u.id WHERE l.status<>'invalid' AND COALESCE(s.price,0)>0",
+            "SELECT {$cols} FROM platform_leads l JOIN websites w ON l.domain IS NOT NULL AND LOWER(REPLACE(SUBSTRING_INDEX(SUBSTRING_INDEX(w.main_url,'://',-1),'/',1),'www.',''))=l.domain
+                JOIN subscriptions s ON s.user_id=w.user_id WHERE l.status<>'invalid' AND COALESCE(s.price,0)>0",
+        ];
+        $out = [];
+        foreach ($queries as $sql) {
+            try {
+                foreach ($this->q($sql)->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                    $out[$r['lead_id'] . ':' . $r['sub_id']] = $r;
+                }
+            } catch (Throwable $e) {
+                Logger::warning('Staff customers query failed', ['error' => $e->getMessage()]);
+            }
+        }
+        return array_values($out);
+    }
+
+    /**
+     * كشف موظفة لشهر (YYYY-MM): شغلها بالتاريخ والتفاصيل، والعملاء اللي جابتهم ونسبتها الشهرية، والراتب، والإجمالي.
+     * النسبة = نسبة من قيمة الاشتراك الشهرية (السنوي ÷ 12) لكل عميل كان اشتراكه ساري في الشهر ده. حساب بس: مش دليل إن الدفع وصل.
+     * العملات: جنيه، ودولار بسعر $usdEgp؛ غير كده بيظهر في الملاحظات ومابيتحسبش.
+     */
+    public function staffReport(int $userId, string $month, float $usdEgp = 50.0): array
+    {
+        if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
+            $month = date('Y-m');
+        }
+        $from = $month . '-01 00:00:00';
+        $to = date('Y-m-d 23:59:59', strtotime($month . '-01 +1 month -1 day'));
+        $u = $this->q("SELECT id, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', first_name, last_name)),''), SUBSTRING_INDEX(email,'@',1)) name, email FROM users WHERE id=?", [$userId])->fetch(PDO::FETCH_ASSOC);
+        if (!$u) {
+            throw new InvalidArgumentException('الموظف مش موجود');
+        }
+        $comp = $this->staffCompGet($userId);
+
+        $labels = ['contacted' => 'بعتت واتساب', 'replied' => 'ردّوا', 'interested' => 'مهتمين', 'trial' => 'جرّبوا المنصة', 'subscribed' => 'اشتركوا', 'call_back' => 'هتكلمهم تاني', 'not_interested' => 'مش مهتمين', 'wrong_number' => 'الرقم غلط', 'undo' => 'تراجع عن الإرسال'];
+        $log = $this->q('SELECT a.created_at at, a.action, a.note, l.company, l.country FROM platform_desk_actions a LEFT JOIN platform_leads l ON l.id=a.lead_id WHERE a.user_id=? AND a.created_at BETWEEN ? AND ? ORDER BY a.id DESC LIMIT 500', [$userId, $from, $to])->fetchAll(PDO::FETCH_ASSOC);
+        $count = static fn (array $acts): int => count(array_unique(array_map(static fn ($r) => $r['company'] . '|' . $r['action'], array_filter($log, static fn ($r) => in_array($r['action'], $acts, true)))));
+        $summary = ['actions' => count($log), 'sent' => $count(['contacted']), 'replied' => $count(['replied', 'interested', 'trial', 'subscribed']), 'trial' => $count(['trial', 'subscribed']), 'subscribed' => $count(['subscribed'])];
+
+        $attr = $this->staffAttribution();
+        $customers = [];
+        $skipped = [];
+        $commissionTotal = 0.0;
+        $pct = in_array($comp['comp_type'], ['commission', 'both'], true) ? $comp['commission_pct'] : 0.0;
+        foreach ($this->paidCustomers() as $c) {
+            if (($attr[(int) $c['lead_id']]['user_id'] ?? 0) !== $userId) {
+                continue;
+            }
+            $start = (string) $c['start_date'];
+            $end = $c['cancelled_at'] ?: ($c['status'] === 'active' ? null : $c['expiry_date']);
+            $active = $start !== '' && $start <= $to && ($c['status'] === 'active' || ($end !== null && $end >= $from));
+            $monthly = (float) $c['price'] / ($c['plan_type'] === 'yearly' ? 12 : 1);
+            $cur = strtoupper((string) ($c['currency'] ?: 'USD'));
+            $egp = $cur === 'EGP' ? $monthly : ($cur === 'USD' ? $monthly * $usdEgp : null);
+            if ($active && $egp === null) {
+                $skipped[] = $c['company'] . ' (' . $cur . ')';
+            }
+            $commission = $active && $egp !== null ? round($egp * $pct / 100, 2) : 0.0;
+            $commissionTotal += $commission;
+            $customers[] = ['lead_id' => (int) $c['lead_id'], 'company' => (string) $c['company'], 'plan' => (string) $c['plan_name'], 'cycle' => (string) $c['plan_type'], 'status' => (string) $c['status'],
+                'since' => $start, 'attributed_at' => $attr[(int) $c['lead_id']]['at'] ?? null, 'active_in_month' => $active, 'monthly_egp' => $egp !== null ? round($egp, 2) : null, 'commission_egp' => $commission];
+        }
+        usort($customers, static fn ($a, $b) => [$b['active_in_month'], $b['commission_egp']] <=> [$a['active_in_month'], $a['commission_egp']]);
+
+        $salary = in_array($comp['comp_type'], ['salary', 'both'], true) ? $comp['monthly_salary'] : 0.0;
+        return [
+            'staff' => ['user_id' => (int) $u['id'], 'name' => (string) $u['name'], 'email' => (string) $u['email']],
+            'month' => $month,
+            'comp' => $comp,
+            'summary' => $summary,
+            'customers' => $customers,
+            'customers_total' => count($customers),
+            'customers_active' => count(array_filter($customers, static fn ($c) => $c['active_in_month'])),
+            'log' => array_map(static fn ($r) => ['at' => (string) $r['at'], 'action' => (string) $r['action'], 'label' => $labels[$r['action']] ?? (string) $r['action'], 'note' => $r['note'], 'company' => (string) ($r['company'] ?? ''), 'country' => (string) ($r['country'] ?? '')], $log),
+            'totals' => ['commission_egp' => round($commissionTotal, 2), 'salary_egp' => round($salary, 2), 'total_egp' => round($commissionTotal + $salary, 2)],
+            'notes' => array_values(array_filter([
+                'الحساب من حالة الاشتراكات في المنصة: مش دليل إن الدفع وصل فعلًا، راجعي المدفوعات قبل ما تصرفي.',
+                'الدولار بسعر ' . rtrim(rtrim(number_format($usdEgp, 2, '.', ''), '0'), '.') . ' جنيه. الاشتراك السنوي بيتحسب ÷ 12.',
+                $skipped ? 'عملاء بعملة غير الجنيه والدولار ومابيتحسبوش: ' . implode('، ', array_unique($skipped)) : null,
+            ])),
+        ];
     }
 
     /**

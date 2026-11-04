@@ -125,6 +125,7 @@
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>
             <section class="dk-top"><div class="dk-tip">اختاري الدولة، وانسخي الرقم والرسالة وابعتيها على واتساب، وبعدها سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
+            <div><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             <div class="dk-prio"><span class="dk-label">ابدئي بالأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="دوّري باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
@@ -167,6 +168,62 @@
         } catch (err) { toast(err.message, true); }
     };
 
+    // كشف الموظفة: شغلها بالتاريخ والتفاصيل، والعملاء اللي جابتهم ونسبتها الشهرية، والراتب، وإجمالي الشهر
+    const COMP = { none: 'غير محدد', commission: 'نسبة على العملاء', salary: 'راتب شهري ثابت', both: 'راتب + نسبة' };
+    const egp = n => num(Math.round(Number(n || 0))) + ' جنيه';
+    const staffUi = { userId: 0, month: new Date().toISOString().slice(0, 7), el: null };
+    const staffHtml = d => {
+        const r = d.report, c = r.comp, t = r.totals, s = r.summary;
+        const picker = (d.staff || []).length ? `<label>الموظف <select data-st-user>${d.staff.map(x => `<option value="${x.user_id}" ${x.user_id === r.staff.user_id ? 'selected' : ''}>${esc(x.name)} (${esc(COMP[x.comp_type])}) · ${x.actions} إجراء</option>`).join('')}</select></label>` : '';
+        const compForm = d.can_manage ? `<div class="dk-comp"><b>تعويض ${esc(r.staff.name)}</b>
+            <label>النوع <select data-st-type>${Object.entries(COMP).map(([k, l]) => `<option value="${k}" ${c.comp_type === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            <label>النسبة % من الاشتراك الشهري <input type="number" min="0" max="100" step="0.5" data-st-pct value="${esc(c.commission_pct)}"></label>
+            <label>الراتب الشهري (جنيه) <input type="number" min="0" step="50" data-st-salary value="${esc(c.monthly_salary)}"></label>
+            <input data-st-note placeholder="ملاحظة (اختياري)" maxlength="255" value="${esc(c.note || '')}">
+            <button class="dk-btn primary" data-st-save>حفظ</button>${c.updated_by ? `<small class="dk-muted">آخر تعديل: ${esc(c.updated_by)} · ${esc(c.updated_at || '')}</small>` : ''}</div>`
+            : `<div class="dk-comp"><b>تعويضك:</b> ${esc(COMP[c.comp_type])}${c.commission_pct ? ' · ' + esc(c.commission_pct) + '% من كل اشتراك شهريًا' : ''}${c.monthly_salary ? ' · راتب ' + egp(c.monthly_salary) : ''}</div>`;
+        const tile = (n, l) => `<div class="dk-fn"><b>${n}</b><span>${l}</span></div>`;
+        const custs = r.customers.length ? `<table class="dk-tbl"><thead><tr><th>العميل</th><th>الباقة</th><th>اشترك من</th><th>الشهر ده</th><th>قيمة الشهر</th><th>النسبة</th></tr></thead><tbody>${r.customers.map(x => `<tr><td>${esc(x.company)}</td><td>${esc(x.plan)} (${x.cycle === 'yearly' ? 'سنوي' : 'شهري'})</td><td>${esc(String(x.since).slice(0, 10))}</td><td>${x.active_in_month ? '✅ ساري' : '— مش ساري'}</td><td>${x.monthly_egp == null ? '؟' : egp(x.monthly_egp)}</td><td><b>${egp(x.commission_egp)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">لسه مفيش عملاء مدفوعين منسوبين لها (العميل بيتنسب لأول موظفة سجّلت إرسال واتساب ليه).</p>';
+        const log = r.log.length ? `<table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>اللي حصل</th><th>ملاحظة</th></tr></thead><tbody>${r.log.map(x => `<tr><td>${esc(x.at)}</td><td>${esc(x.company)}</td><td>${esc(x.label)}</td><td>${esc(x.note || '')}</td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">مفيش شغل مسجّل في الشهر ده.</p>';
+        return `<div class="dk-modal-box"><button class="dk-btn" data-st-close>✕ إغلاق</button><h2>كشف ${esc(r.staff.name)}</h2><p class="dk-st-msg"></p>
+            <div class="dk-st-bar">${picker}<label>الشهر <input type="month" data-st-month value="${esc(r.month)}"></label></div>
+            <div class="dk-fn-row">${tile(num(s.sent), 'شركات بعتلها')}${tile(num(s.replied), 'ردّوا')}${tile(num(s.trial), 'جرّبوا')}${tile(num(s.subscribed), 'اشتركوا')}${tile(num(r.customers_active), 'عملاء مدفوعين سارين')}</div>
+            ${compForm}
+            <div class="dk-totals"><span>نسبة الشهر: <b>${egp(t.commission_egp)}</b></span><span>الراتب: <b>${egp(t.salary_egp)}</b></span><span class="tot">الإجمالي المستحق: <b>${egp(t.total_egp)}</b></span></div>
+            <h3>العملاء اللي جابتهم</h3>${custs}<h3>سجل الشغل (${r.log.length})</h3><div class="dk-scroll">${log}</div>
+            <ul class="dk-notes">${(r.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
+    };
+    const stMsg = (m, bad) => { const el = staffUi.el && staffUi.el.querySelector('.dk-st-msg'); if (el) { el.textContent = m; el.className = 'dk-st-msg' + (bad ? ' bad' : ''); } };
+    const openStaff = async () => {
+        if (!staffUi.el) {
+            staffUi.el = document.createElement('div'); staffUi.el.className = 'dk-modal'; staffUi.el.dir = 'rtl'; document.body.appendChild(staffUi.el);
+            staffUi.el.addEventListener('click', async e => {
+                const t = e.target.closest('button'); if (!t) return;
+                try {
+                    if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
+                    if (t.dataset.stSave !== undefined) {
+                        const q = s => staffUi.el.querySelector(s);
+                        await api('/api/admin/outreach-desk/staff-comp', { user_id: staffUi.userId, comp_type: q('[data-st-type]').value, commission_pct: q('[data-st-pct]').value, monthly_salary: q('[data-st-salary]').value, note: q('[data-st-note]').value });
+                        await loadStaff(); stMsg('اتحفظ التعويض ✅');
+                    }
+                } catch (err) { stMsg(err.message, true); }
+            });
+            staffUi.el.addEventListener('change', async e => {
+                try {
+                    if (e.target.dataset.stUser !== undefined) { staffUi.userId = Number(e.target.value); await loadStaff(); }
+                    if (e.target.dataset.stMonth !== undefined && e.target.value) { staffUi.month = e.target.value; await loadStaff(); }
+                } catch (err) { stMsg(err.message, true); }
+            });
+        }
+        staffUi.el.hidden = false; staffUi.el.innerHTML = '<div class="dk-modal-box"><p>جاري التحميل…</p></div>';
+        try { await loadStaff(); } catch (err) { staffUi.el.innerHTML = `<div class="dk-modal-box"><button class="dk-btn" data-st-close>✕ إغلاق</button><p class="dk-msg bad">${esc(err.message)}</p></div>`; }
+    };
+    const loadStaff = async () => {
+        const d = await api('/api/admin/outreach-desk/staff-report?month=' + encodeURIComponent(staffUi.month) + (staffUi.userId ? '&user_id=' + staffUi.userId : ''));
+        staffUi.userId = d.report.staff.user_id;
+        staffUi.el.innerHTML = staffHtml(d);
+    };
+
     const bind = () => {
         root.addEventListener('click', async e => {
             const wa = e.target.closest('a[data-wa]');
@@ -181,6 +238,7 @@
                     const y = window.scrollY; await load(true); window.scrollTo(0, y); // الرسالة بتتغيّر على حسب اللي شافته
                     toast('اتسجّل، والرسالة اتحدّثت ✅'); return;
                 }
+                if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }
                 if (t.dataset.country) { state.country = t.dataset.country; state.view = 'todo'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); }

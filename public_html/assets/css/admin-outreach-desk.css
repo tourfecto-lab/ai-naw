@@ -34,3 +34,11 @@
 .dk-b.prio{font-weight:700}.dk-b.hot{background:rgba(224,100,60,.25)}.dk-b.dim{opacity:.7}.dk-prio{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .dk-seen{display:flex;flex-wrap:wrap;gap:4px;align-items:center;width:100%;margin:2px 0 4px}.dk-sc-row{flex-wrap:wrap}.dk-msg2{margin-top:8px;border:1px solid var(--panel-border);border-radius:10px;padding:8px 10px}.dk-msg2 summary{cursor:pointer;font-size:13px}.dk-msg2 .dk-msgbox{margin-top:8px;min-height:150px}
 .dk-funnel{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--panel-border,rgba(128,128,128,.25));border-radius:10px;background:var(--panel-card-bg-2,rgba(128,128,128,.08))}.dk-fn-row{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}.dk-fn{display:flex;flex-direction:column;min-width:84px}.dk-fn b{font-size:20px;line-height:1.1}.dk-fn span{font-size:12px}.dk-fn small{font-size:11px;color:var(--panel-text-muted)}
+.dk-modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);overflow:auto;padding:24px 12px}.dk-modal[hidden]{display:none}
+.dk-modal-box{max-width:980px;margin:0 auto;background:var(--panel-bg,#fff);color:var(--panel-text,inherit);border:1px solid var(--panel-border,rgba(128,128,128,.3));border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.dk-modal-box h2,.dk-modal-box h3{margin:0}.dk-st-bar{display:flex;flex-wrap:wrap;gap:12px}.dk-st-bar label,.dk-comp label{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.dk-comp{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:10px;border:1px dashed var(--panel-border,rgba(128,128,128,.4));border-radius:10px}
+.dk-comp input,.dk-comp select,.dk-st-bar input,.dk-st-bar select{padding:6px 8px;border-radius:8px;border:1px solid var(--panel-border,rgba(128,128,128,.4));background:transparent;color:inherit}
+.dk-totals{display:flex;flex-wrap:wrap;gap:8px 24px;font-size:15px}.dk-totals .tot{font-size:17px}
+.dk-tbl{width:100%;border-collapse:collapse;font-size:13px}.dk-tbl th,.dk-tbl td{padding:6px 8px;border-bottom:1px solid var(--panel-border,rgba(128,128,128,.25));text-align:right;vertical-align:top}
+.dk-scroll{max-height:340px;overflow:auto}.dk-notes{margin:0;padding-inline-start:18px;font-size:12px;color:var(--panel-text-muted)}.dk-st-msg{margin:0;font-size:13px}.dk-st-msg.bad{color:#d9534f}
