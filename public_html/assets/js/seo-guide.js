@@ -195,6 +195,20 @@
       return `<li class="sg-task"><div><b dir="auto">${esc(title)}</b>${text ? `<p dir="auto">${esc(text)}</p>` : ''}${chips}</div>${btn}</li>`;
     }
 
+    // أسئلة العميل الخمسة في سطر واحد: أنهي موقع؟ إيه الفايدة؟ إمتى الخطوة الجاية؟ (اللي اتعمل واللي محتاجني تحت)
+    function nextCheckText() {
+      const u = usage(), paused = overview?.config?.status && overview.config.status !== 'active';
+      if (paused || !overview?.config) return '';
+      return u?.exhausted ? longDate(u.resumes) : overview.config.next_due_at ? longDate(new Date(String(overview.config.next_due_at).replace(' ', 'T') + 'Z')) : '';
+    }
+    function heroFacts(sites, allDone) {
+      const site = sites.find(x => String(x.id) === String(wid())) || sites[0]; if (!site) return '';
+      const next = allDone ? nextCheckText() : '';
+      const parts = [`${t('الموقع: ', 'Website: ')}<b dir="ltr">${esc(String(site.domain || site.company_name || '').replace(/^https?:\/\//, ''))}</b>`];
+      if (next) parts.push(`${t('الفحص الجاي: ', 'Next check: ')}<b>${esc(next)}</b>`);
+      if (allDone) parts.push(t('الفايدة: صفحاتك بتتحسن لجوجل ولإجابات الذكاء الاصطناعي من غير ما تعمل حاجة.', 'Benefit: your pages keep improving for Google and AI answers without you doing anything.'));
+      return `<p class="sg-muted sg-hero-facts">${parts.join(' · ')}</p>`;
+    }
     // إيه اللي شغال دلوقتي وإيه اللي محتاجه عشان باقي الوظايف تتفتح (من غير ما نقول "مفيش بيانات" لو المشكلة في الربط)
     function capabilityCard() {
       if (!health || !Object.keys(health).length) return '';
@@ -277,7 +291,7 @@
     function render() {
       const list = steps(), sites = setup?.websites || [], firstOpen = list.findIndex(s => !s.done), allDone = firstOpen === -1, alertsHtml = sites.length ? alerts() : '';
       root.innerHTML = `<section class="sg-card sg-hero ${allDone && !alertHandlers.length ? 'ok' : ''}"><div><h2>${allDone && usage()?.exhausted ? t('الطيار الآلي واقف لحد ', 'Autopilot is paused until ') + esc(longDate(usage().resumes)) : allDone && alertHandlers.length ? t('الطيار الآلي متفعّل، وفيه حاجة محتاجة منك تحت', 'Autopilot is on; something below needs you') : allDone ? t('خدمة السيو شغالة لوحدها ✓', 'Your SEO runs on its own ✓') : t('فاضل ', '') + (list.length - list.filter(s => s.done).length) + t(' خطوة وخدمة السيو تشتغل لوحدها', ' step(s) left until your SEO runs on its own')}</h2>
-          <p>${allDone && usage()?.exhausted ? t('استخدمت كل فحوصات الشهر ده. التحسينات اللي اتطبقت لسه شغالة على موقعك، والفحص بيرجع لوحده أول الشهر.', 'You used all checks this month. Applied improvements stay live on your site, and checks restart automatically next month.') : allDone ? t('المنصة بتفحص موقعك وتحسّنه كل أسبوع. هنبلغك لو احتجنا منك حاجة.', 'The platform checks and improves your site every week. We will tell you if we need anything.') : t('كل خطوة بتاخد دقيقة. خلّصها بالترتيب، وبعدها المنصة بتكمل الباقي.', 'Each step takes a minute. Finish them in order and the platform does the rest.')}</p></div>
+          <p>${allDone && usage()?.exhausted ? t('استخدمت كل فحوصات الشهر ده. التحسينات اللي اتطبقت لسه شغالة على موقعك، والفحص بيرجع لوحده أول الشهر.', 'You used all checks this month. Applied improvements stay live on your site, and checks restart automatically next month.') : allDone ? t('المنصة بتفحص موقعك وتحسّنه كل أسبوع. هنبلغك لو احتجنا منك حاجة.', 'The platform checks and improves your site every week. We will tell you if we need anything.') : t('كل خطوة بتاخد دقيقة. خلّصها بالترتيب، وبعدها المنصة بتكمل الباقي.', 'Each step takes a minute. Finish them in order and the platform does the rest.')}</p>${heroFacts(sites, allDone)}</div>
           ${sites.length > 1 ? `<label class="sg-site">${t('الموقع', 'Website')} <select id="sgSite" class="p-select">${sites.map(s => `<option value="${s.id}">${esc(s.domain || s.company_name || s.id)}</option>`).join('')}</select></label>` : `<input type="hidden" id="sgSite" value="${sites[0]?.id || ''}">`}</section>
         <p id="sgMessage" class="sg-message" role="status" hidden></p>
         ${!sites.length ? `<section class="sg-card"><h3>${t('ضيف موقعك الأول', 'Add your website first')}</h3><p>${t('اكتب رابط موقعك عشان نبدأ.', 'Enter your website link to start.')}</p><a class="p-btn" href="/websites">${t('ضيف موقع', 'Add website')}</a></section>` : `
