@@ -477,10 +477,10 @@ class PlatformOutreachService
             }
             $existing = null;
             if ($lead['email']) {
-                $existing = $this->q('SELECT id,status,step,data_json FROM platform_leads WHERE email=?', [$lead['email']])->fetch(PDO::FETCH_ASSOC) ?: null;
+                $existing = $this->q('SELECT id,status,step,data_json,country FROM platform_leads WHERE email=?', [$lead['email']])->fetch(PDO::FETCH_ASSOC) ?: null;
             }
             if (!$existing && $lead['domain']) {
-                $existing = $this->q('SELECT id,status,email,step,data_json FROM platform_leads WHERE domain=? LIMIT 1', [$lead['domain']])->fetch(PDO::FETCH_ASSOC) ?: null;
+                $existing = $this->q('SELECT id,status,email,step,data_json,country FROM platform_leads WHERE domain=? LIMIT 1', [$lead['domain']])->fetch(PDO::FETCH_ASSOC) ?: null;
                 if ($existing && $lead['email'] && !empty($existing['email']) && strcasecmp($existing['email'], $lead['email']) !== 0) {
                     $existing = null; // نفس الشركة بإيميل تاني: نضيفه (بنقفل الرسايل لو حد منهم ردّ)
                 }
@@ -493,6 +493,11 @@ class PlatformOutreachService
                 if (!$existing && $lead['company'] !== '' && $lead['city']) {
                     $existing = $this->q('SELECT id,status,email,step,data_json FROM platform_leads WHERE company=? AND city=? AND email IS NULL AND domain IS NULL AND status<>\'invalid\' ORDER BY id LIMIT 1', [$lead['company'], $lead['city']])->fetch(PDO::FETCH_ASSOC) ?: null;
                 }
+            }
+            // نفس الدومين أو الإيميل لكن من بلد تانية (شركة اسمها زي اسمها في مصر وتركيا): مش نفس الشركة، فمانلمسش بياناتها (بيانات تريب أدفايزر بتاعة القاهرة كانت بتتحط على شركة في إسطنبول)
+            if ($existing && !empty($existing['country']) && !empty($lead['country']) && strcasecmp((string) $existing['country'], (string) $lead['country']) !== 0) {
+                $stats['skipped']++;
+                continue;
             }
             if ($existing) {
                 // بنكمّل البيانات الناقصة بس، من غير ما نلمس الحالة
@@ -799,6 +804,10 @@ class PlatformOutreachService
             $this->q("UPDATE platform_leads SET scanned_at=NULL WHERE step=0 AND status IN ('new','no_email')");
             $this->settings->set('outreach_audit_v8', date('Y-m-d H:i:s'));
         }
+        if ($this->settings->get('outreach_ta_geo_v1', '') === '') {
+            $this->fixForeignTripadvisorData();
+            $this->settings->set('outreach_ta_geo_v1', date('Y-m-d H:i:s'));
+        }
         if ($this->settings->get('outreach_dedupe_v1', '') === '') {
             $this->mergeDuplicateLeads();
             $this->settings->set('outreach_dedupe_v1', date('Y-m-d H:i:s'));
@@ -901,6 +910,28 @@ class PlatformOutreachService
             return [];
         }
         return $cache[$city] ??= $this->q("SELECT company,reviews,rating,category,city FROM platform_leads WHERE city=? AND status<>'invalid' LIMIT 3000", [$city])->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * بيانات تريب أدفايزر بتاعة بلد تانية اتحطت على شركة (g294201 = القاهرة على شركة في تركيا مثلًا، أو ترتيب بالعربي على شركة تركية): بتتشال وبتتفحص تاني.
+     * @return int عدد الشركات اللي اتصلّحت
+     */
+    public function fixForeignTripadvisorData(): int
+    {
+        $n = 0;
+        $rows = $this->q("SELECT id, country, language, data_json FROM platform_leads WHERE data_json LIKE '%\"ta\"%' AND country IS NOT NULL AND country<>'EG'")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $r) {
+            $data = json_decode((string) ($r['data_json'] ?? ''), true) ?: [];
+            $ta = (array) ($data['ta'] ?? []);
+            $blob = (string) ($ta['url'] ?? '') . ' ' . (string) ($ta['ranking'] ?? '') . ' ' . (string) ($data['maps_url'] ?? '');
+            if (!$ta || !preg_match('/g294201|Cairo_Governorate|القاهرة/u', $blob)) {
+                continue;
+            }
+            unset($data['ta']);
+            $this->q('UPDATE platform_leads SET data_json=?, scanned_at=NULL, approved=0 WHERE id=?', [json_encode($data, JSON_UNESCAPED_UNICODE), $r['id']]);
+            $n++;
+        }
+        return $n;
     }
 
     /**

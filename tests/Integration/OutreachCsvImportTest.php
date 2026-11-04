@@ -43,6 +43,28 @@ final class OutreachCsvImportTest extends TestCase
         return $head . "\n" . $row . "\n";
     }
 
+    public function testAnEgyptianRowNeverOverwritesATurkishCompanyThatSharesItsDomain(): void
+    {
+        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, website, country, city, language, status, step, token, data_json) VALUES ('phpunit-csv', 'Geo Tours Istanbul', 'geo@geo.csvtest.example', 'geo.csvtest.example', 'https://geo.csvtest.example', 'TR', 'Istanbul', 'tr', 'new', 0, ?, ?)",
+            [bin2hex(random_bytes(8)), json_encode(['ta' => ['ranking' => '#9 of 2,579 Tours in Istanbul', 'url' => 'https://www.tripadvisor.com/Attraction_Review-g293974-d1-Reviews-Geo.html']])]);
+        $head = '"name","category","rating","numberOfReviews","webUrl","website","phone","addressObj/city","addressObj/country","subcategories/0","rankingString"';
+        $row = '"Geo Tours","attraction","4.9","1200","https://ar.tripadvisor.com/Attraction_Review-g294201-d2-Reviews-Geo_Tours-Cairo_Cairo_Governorate.html","https://geo.csvtest.example","+20 100 000 0777","القاهرة","مصر","رحلات خاصة","رقم 9 من 1,160 مواصلات في القاهرة"';
+        $r = $this->svc->importText($head . "\n" . $row . "\n");
+        $this->assertSame(0, $r['updated'] + $r['added'], 'a different country is a different company: skipped');
+        $data = json_decode((string) $this->db->query("SELECT data_json FROM platform_leads WHERE domain = 'geo.csvtest.example'")[0]['data_json'], true);
+        $this->assertStringContainsString('Istanbul', $data['ta']['ranking'], 'the Turkish company keeps its own Tripadvisor data');
+    }
+
+    public function testExistingForeignTripadvisorDataIsRemovedAndTheCompanyIsRescanned(): void
+    {
+        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, website, country, city, language, status, step, token, scanned_at, data_json) VALUES ('phpunit-csv', 'Bad Geo Tours', 'bad@badgeo.csvtest.example', 'badgeo.csvtest.example', 'https://badgeo.csvtest.example', 'TR', 'Istanbul', 'tr', 'new', 0, ?, NOW(), ?)",
+            [bin2hex(random_bytes(8)), json_encode(['ta' => ['ranking' => 'رقم 9 من 1,160 مواصلات في القاهرة', 'url' => 'https://ar.tripadvisor.com/Attraction_Review-g294201-d3-Reviews-Rimo-Cairo_Cairo_Governorate.html'], 'audit' => ['gaps' => []]])]);
+        $this->assertGreaterThanOrEqual(1, $this->svc->fixForeignTripadvisorData());
+        $row = $this->db->query("SELECT data_json, scanned_at FROM platform_leads WHERE domain = 'badgeo.csvtest.example'")[0];
+        $this->assertArrayNotHasKey('ta', json_decode((string) $row['data_json'], true));
+        $this->assertNull($row['scanned_at'], 'queued for a fresh scan');
+    }
+
     public function testReImportingACompanyWithoutWebsiteOrEmailDoesNotDuplicateIt(): void
     {
         $this->svc->importText($this->noWebsiteCsv());
