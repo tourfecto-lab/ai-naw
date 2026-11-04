@@ -24,4 +24,12 @@ final class AiTextOutputCapTest extends TestCase
     {
         $this->assertSame(256, AiText::openAiOutputCap('gpt-4o-mini', 10));
     }
+
+    public function testGeminiTimeoutGrowsWithTheRequestedOutput(): void
+    {
+        $this->assertSame(25, AiText::geminiTimeout(1000, true), 'short answers keep the quick fallback');
+        $this->assertSame(60, AiText::geminiTimeout(1000, false));
+        $this->assertSame(90, AiText::geminiTimeout(12000, true), 'the weekly SEO plan gets enough time (was 25s and always fell back)');
+        $this->assertSame(90, AiText::geminiTimeout(40000, false), 'capped');
+    }
 }

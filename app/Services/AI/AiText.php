@@ -11,6 +11,17 @@
 class AiText
 {
     /**
+     * مهلة طلب Gemini بالثواني: قصيرة للردود القصيرة لما فيه بديل، وأطول للإخراج الكبير (الموديلات اللي بتفكّر بطيئة).
+     * التراكم محمي بميزانية إعادة المحاولة داخل GeminiClient (GEMINI_RETRY_BUDGET).
+     */
+    public static function geminiTimeout(int $maxOutputTokens, bool $hasFallback): int
+    {
+        $base = $hasFallback ? 25 : 60;
+        $extra = $maxOutputTokens > 4000 ? (int) ceil($maxOutputTokens / 150) : 0;
+        return min(90, $base + $extra);
+    }
+
+    /**
      * سقف الإخراج لمسار OpenAI: موديلات gpt-4o/gpt-4.1/o* بتدعم 16k توكن إخراج، والقديمة 4096.
      * قبل كده كان السقف 4096 ثابت، وخطة السيو (12000) كانت ممكن تتقطع وتفشل الدورة على المواقع الكبيرة.
      */
@@ -41,9 +52,8 @@ class AiText
             try {
                 if ($provider === 'gemini') {
                     $client = $gemini ?? new GeminiClient();
-                    if ($hasNext) {
-                        $client->setTimeout(25);          // لو فيه بديل منستناش 60 ثانية × إعادة محاولات
-                    }
+                    // المهلة حسب حجم الإخراج المطلوب: 25 ثانية كانت بتقطع خطة السيو (12000 توكن) وبتحوّلها لـOpenAI كل مرة
+                    $client->setTimeout(self::geminiTimeout((int) ($options['maxOutputTokens'] ?? 0), $hasNext));
                     $r = $client->generateContent($prompt, $options);
                     if (!empty($r['success']) && trim((string) ($r['data'] ?? '')) !== '') {
                         return $r;
