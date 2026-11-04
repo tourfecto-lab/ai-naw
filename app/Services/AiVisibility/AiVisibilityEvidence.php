@@ -5,6 +5,7 @@ class AiVisibilityEvidence
     private $transport; private array $cache=[]; private ?float $deadline=null;
     public function beginBudget(int $seconds): void{$this->deadline=microtime(true)+max(1,$seconds);}
     public function __construct(?callable $transport=null){$this->transport=$transport;}
+    /** نفس User-Agent بتاع قارئ السيو (SeoExpertPageContext): مواقع كتير بتحجب أو بترجّع صفحة فاضية لأي اسم زاحف غير معروف فكانت المسودة بتطلع من غير محتوى. */
     public function page(string $url): array
     {
         if(isset($this->cache[$url]))return $this->cache[$url];
@@ -13,7 +14,7 @@ class AiVisibilityEvidence
         try {
             if($this->transport)$r=($this->transport)($url,'GET');
             else {
-                $body='';$mime='';$r=SafeHttp::exec($url,[CURLOPT_TIMEOUT=>6,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_ENCODING=>'',CURLOPT_USERAGENT=>'TourfectoEvidence/1.0',CURLOPT_HTTPHEADER=>['Accept: text/html,application/xhtml+xml'],CURLOPT_HEADERFUNCTION=>static function($c,$line)use(&$body,&$mime){if(preg_match('#^HTTP/#i',$line)){$body='';$mime='';}elseif(stripos($line,'Content-Type:')===0)$mime=trim(substr($line,13));return strlen($line);},CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$body){$body.=$chunk;return strlen($body)>1000000?0:strlen($chunk);}],2);$r['body']=$body;if($mime!==''&&!preg_match('#^text/html|^application/xhtml\+xml#i',$mime))return ['ok'=>false,'url'=>$url];
+                $body='';$mime='';$r=SafeHttp::exec($url,[CURLOPT_TIMEOUT=>6,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2,CURLOPT_ENCODING=>'',CURLOPT_USERAGENT=>'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',CURLOPT_HTTPHEADER=>['Accept: text/html,application/xhtml+xml'],CURLOPT_HEADERFUNCTION=>static function($c,$line)use(&$body,&$mime){if(preg_match('#^HTTP/#i',$line)){$body='';$mime='';}elseif(stripos($line,'Content-Type:')===0)$mime=trim(substr($line,13));return strlen($line);},CURLOPT_WRITEFUNCTION=>static function($c,$chunk)use(&$body){$body.=$chunk;return strlen($body)>1000000?0:strlen($chunk);}],2);$r['body']=$body;if($mime!==''&&!preg_match('#^text/html|^application/xhtml\+xml#i',$mime))return ['ok'=>false,'url'=>$url];
             }
             if(($r['code']??0)!==200 || !empty($r['error']) || strlen($r['body']??'')>1000000)return ['ok'=>false,'url'=>$url];
             $final=$r['url']??$url;if(!AiVisibilityDetector::safeUrl($final))return ['ok'=>false,'url'=>$url];
