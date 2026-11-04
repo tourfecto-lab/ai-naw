@@ -864,7 +864,7 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
                 if(!(new QueueManager($this->db))->push(SeoExpertCycleJob::class,['run_id'=>$id],'seo',5))throw new RuntimeException('Crawl recovery queue unavailable.');
                 $this->q('UPDATE seo_expert_runs SET version=version+1,updated_at=UTC_TIMESTAMP() WHERE id=? AND user_id=?',[$id,$uid]);
             });
-            $result=$this->detail($uid,$id);$result['recovery']=['state'=>'queued_existing_crawl','new_cycle'=>false,'new_charge'=>false];return $result;
+            Logger::info('SEO cycle resumed from saved stage',['reference'=>'SEO-'.$id,'run_id'=>$id,'website_id'=>$wid,'user_id'=>$uid,'phase'=>$owned['status'],'new_cycle'=>false,'new_charge'=>false]);$result=$this->detail($uid,$id);$result['recovery']=['state'=>'queued_existing_crawl','new_cycle'=>false,'new_charge'=>false];return $result;
         }finally{ExternalExecution::unlock('seo-expert-site:'.$wid);}
     }
     public function approve(int $uid,int $id,array $input): array{

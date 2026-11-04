@@ -191,6 +191,27 @@
       return `<li class="sg-task"><div><b dir="auto">${esc(title)}</b>${text ? `<p dir="auto">${esc(text)}</p>` : ''}${chips}</div>${btn}</li>`;
     }
 
+    // الدورة شغالة بس واقفة؟ بنقول للعميل هي فين بالظبط، وزرار الاستكمال بيكمل من النقطة المحفوظة (من غير دورة جديدة ولا خصم)
+    function stallNotice() {
+      const h = run?.cycle_health, st = run?.run?.status; if (!h || !['queued', 'scanning', 'scanned'].includes(st)) return '';
+      const ref = `<span class="sg-muted" dir="ltr"> ${esc(h.reference || '')}</span>`;
+      const m = {
+        waiting_worker: t('الفحص في الطابور ومستني العامل يلتقطه. مش مطلوب منك حاجة.', 'The check is queued and waiting for the worker. Nothing is needed from you.'),
+        worker_unavailable: t('العامل (اللي بينفذ الفحوصات) مش شغال دلوقتي. الدورة محفوظة وهتكمل لما يرجع.', 'The worker that runs checks is not running right now. The cycle is saved and continues when it returns.'),
+        processing: t('الفحص شغال دلوقتي.', 'The check is running now.'),
+        recent_progress: t('فيه تقدم حديث، الفحص شغال.', 'There was recent progress; the check is running.'),
+        attempt_limit: t('الفحص وصل لحد المحاولات. فريق الدعم هيراجعه، وماحصلش خصم جديد.', 'The check reached its retry limit. Support will review it; nothing was charged again.'),
+        queue_unavailable: t('طابور التنفيذ مش متاح مؤقتًا. الدورة محفوظة.', 'The job queue is temporarily unavailable. The cycle is saved.'),
+        identity_review: t('بيانات شركتك اتغيرت بعد بداية الدورة. راجعها وأكدها الأول.', 'Your company details changed after this cycle started. Review and confirm them first.'),
+      }[h.state];
+      const age = h.age_seconds != null ? Math.round(h.age_seconds / 60) : null;
+      if (h.recoverable) return `<div class="sg-row"><p>⚠ ${t('الفحص وقف في نص الطريق' + (age != null ? ' من حوالي ' + age + ' دقيقة' : '') + '. تقدر تكمّله من نفس النقطة المحفوظة، من غير دورة جديدة ومن غير خصم.', 'The check stopped midway' + (age != null ? ' about ' + age + ' minutes ago' : '') + '. You can resume it from the saved point, with no new cycle and no new charge.')}${ref}</p><button type="button" class="p-btn" data-resume-cycle ${busy ? 'disabled' : ''}>${t('كمّل الفحص', 'Resume the check')}</button></div>`;
+      return m ? `<p class="sg-muted">${m}${ref}</p>` : '';
+    }
+    async function resumeCycle() {
+      await req(base + '/runs/' + run.run.id + '/review-scope', { operation: 'recover_crawl', confirmed: true, version: Number(run.run.version), updated_at: run.run.updated_at, config_version: Number(overview.config.version) });
+      await load(); message(t('كمّلنا الفحص من النقطة المحفوظة ✓ (من غير دورة جديدة ولا خصم)', 'Resumed from the saved point ✓ (no new cycle, no new charge)'));
+    }
     // الصفحات اللي اتلاقت واتفحصت واتستبعدت، وسبب الصفحات اللي ماتقراتش
     function coverageLine() {
       const snap = run?.run?.snapshot || {}, c = snap.coverage; if (!c) return '';
@@ -214,6 +235,7 @@
       // الفحوصات خلصت: الفحص الجاي أول الشهر الجاي مش الموعد الأسبوعي المحفوظ؛ والطيار المتوقف مالوش فحص جاي
       const next = paused ? '' : u?.exhausted ? longDate(u.resumes) : overview?.config?.next_due_at ? longDate(new Date(String(overview.config.next_due_at).replace(' ', 'T') + 'Z')) : '';
       return `<section class="sg-card sg-week"><div class="sg-week-head"><h3>${t('الأسبوع ده', 'This week')}</h3><span class="sg-pill ${tone}">${esc(text)}</span></div>
+        ${stallNotice()}
         ${tone === 'busy' && !tasks.length ? `<div class="sg-progress"><span class="sg-bar"></span><p>${t('المنصة شغالة على موقعك دلوقتي. الصفحة دي بتتحدث لوحدها، ومش محتاج تفضل فاتحها.', 'The platform is working on your website now. This page updates itself; you do not need to keep it open.')}</p></div>` : `
         <div class="sg-stats"><div><b>${auto}</b><span>${t('تحسين المنصة عملته لوحدها', 'improvements done automatically')}</span></div>
         <div class="${approve ? 'warn' : ''}"><b>${approve}</b><span>${t('محتاج موافقتك (فيه معلومة عن شركتك)', 'need your approval (company facts)')}</span></div>
@@ -241,6 +263,7 @@
       root.querySelectorAll('[data-fact]').forEach(el => { el.oninput = () => { if (factsDraft) factsDraft[el.dataset.fact] = el.value; }; });
       if (sites.length && list[firstOpen]?.form && !factsDraft) loadFacts();
       maybeAutoStart();
+      root.querySelectorAll('[data-resume-cycle]').forEach(b => { b.onclick = act(resumeCycle); });
       root.querySelectorAll('[data-retry-results]').forEach(b => { b.onclick = act(retryResults); });
       root.querySelectorAll('[data-step]').forEach(b => { const s = list.find(x => x.key === b.dataset.step); b.onclick = act(async () => s.run()); });
       root.querySelectorAll('[data-go]').forEach(b => { b.onclick = () => setAdvanced(true, b.dataset.go, false); });

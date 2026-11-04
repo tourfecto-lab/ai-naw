@@ -10,13 +10,13 @@ final class SeoCycleHealth {
         if(!$available||$limited)$state='queue_unavailable';
         elseif($counts['processing'])$state='processing';
         elseif($counts['pending'])$state=$blockedAttempts?'attempt_limit':'waiting_worker';
-        elseif(!in_array($phase,['queued','scanning'],true))$state=in_array($phase,['planning','failed'],true)?'outcome_review':'phase_not_recoverable';
+        elseif(!in_array($phase,['queued','scanning','scanned'],true))$state=in_array($phase,['planning','failed'],true)?'outcome_review':'phase_not_recoverable';
         elseif(!$identity)$state='identity_review';
         elseif(!$worker)$state='worker_unavailable';
         elseif($reservation!=='reserved'||$tasks>0||!empty($run['approved_at']))$state='outcome_review';
         elseif($age===null)$state='time_unavailable';
         elseif($age<900)$state='recent_progress';
-        else {$state='missing_crawl_job';$safe=true;}
-        return ['state'=>$state,'recoverable'=>$safe,'phase'=>$phase,'last_progress_at'=>$raw?:null,'age_seconds'=>$age,'worker_ready'=>$worker,'queue_available'=>$available&&!$limited,'jobs'=>$counts,'no_new_cycle_charge'=>true];
+        else {$state=$phase==='scanned'?'missing_continuation_job':'missing_crawl_job';$safe=true;}
+        return ['reference'=>'SEO-'.(int)($run['id']??0),'state'=>$state,'recoverable'=>$safe,'phase'=>$phase,'last_progress_at'=>$raw?:null,'age_seconds'=>$age,'worker_ready'=>$worker,'queue_available'=>$available&&!$limited,'jobs'=>$counts,'no_new_cycle_charge'=>true];
     }
 }
