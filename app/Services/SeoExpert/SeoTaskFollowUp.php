@@ -7,7 +7,7 @@ final class SeoTaskFollowUp
     public static function retryableMetadata(array $task): bool {
         if(($task['kind']??'')!=='metadata'||($task['status']??'')!=='needs_client')return false;
         $e=$task['evidence']??json_decode((string)($task['evidence_json']??''),true)??[];
-        return (bool)preg_match('/connector|page cache|cache still serves|Public page is unavailable|different domain/i',(string)($e['reason']??''));
+        return (bool)preg_match('/connector|page cache|cache still serves|Public page is unavailable|different domain|indexing\/canonical intent review/i',(string)($e['reason']??''));
     }
     public static function forTask(array $task,?int $now=null): array {
         $now??=time();$review=$task['recommendation_review']['state']??'';

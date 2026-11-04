@@ -48,6 +48,8 @@ final class SeoLinkHealthTest extends TestCase
         require_once __DIR__ . '/../../app/Services/SeoExpert/SeoTaskFollowUp.php';
         $stopped = ['kind' => 'metadata', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'The connector is installed, but your site cache still serves an older copy of this page.'])];
         $this->assertTrue(SeoTaskFollowUp::retryableMetadata($stopped));
+        $noindex = ['kind' => 'metadata', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'The page is outside marketing scope or needs an indexing/canonical intent review. No rule was changed.'])];
+        $this->assertTrue(SeoTaskFollowUp::retryableMetadata($noindex), 'rechecked at execution time, so safe to retry after the owner fixes noindex');
         $this->assertFalse(SeoTaskFollowUp::retryableMetadata(['kind' => 'metadata', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'The page changed after planning.'])]));
         $this->assertFalse(SeoTaskFollowUp::retryableMetadata(['kind' => 'content', 'status' => 'needs_client', 'evidence_json' => json_encode(['reason' => 'connector'])]));
     }
