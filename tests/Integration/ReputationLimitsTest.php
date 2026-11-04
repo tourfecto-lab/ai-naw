@@ -103,6 +103,22 @@ final class ReputationLimitsTest extends TestCase
         $this->assertSame(-1, ReputationLimits::limit(self::UID, 'review_requests_monthly', $this->db));
     }
 
+    public function testCustomPlanTakesTierFromReputationTierFeature(): void
+    {
+        $this->pdo->exec("INSERT INTO subscription_plans (plan_code, name, price, currency, billing_cycle, ai_analysis_limit, ai_message_limit, review_auto_reply_limit, features_json, is_active, sort_order) VALUES
+            ('tier-test_monthly', 'Tier Test', 10, 'USD', 'monthly', 1, 1, 1, '{\"reputation_tier\":\"enterprise\"}', 1, 999)");
+        $planId = (int) $this->pdo->lastInsertId();
+        try {
+            $this->pdo->exec("UPDATE subscriptions SET plan_id = $planId WHERE user_id = " . self::UID);
+            $this->assertSame('enterprise', ReputationLimits::tierFor(self::UID, $this->db));
+            $this->pdo->exec("UPDATE subscription_plans SET features_json = '{}' WHERE id = $planId");
+            $this->assertSame('free', ReputationLimits::tierFor(self::UID, $this->db));
+        } finally {
+            $this->pdo->exec("UPDATE subscriptions SET plan_id = {$this->planId} WHERE user_id = " . self::UID);
+            $this->pdo->exec("DELETE FROM subscription_plans WHERE id = $planId");
+        }
+    }
+
     public function testSaveValidatesAndRejectsBadInput(): void
     {
         foreach ([

@@ -270,7 +270,21 @@ class ReputationLimits
             $sub = null;
         }
         $plan = (string) ($sub['plan_name'] ?? '');
-        return in_array($plan, ['starter', 'professional', 'enterprise'], true) ? $plan : 'free';
+        if (in_array($plan, ['starter', 'professional', 'enterprise'], true)) {
+            return $plan;
+        }
+        // باقة مخصصة (مثلًا باقات العمرة): features_json فيها reputation_tier بتحدد تاخد حدود أنهي مستوى
+        if ($sub) {
+            try {
+                $tier = class_exists('FeatureResolver') ? FeatureResolver::value($owner, 'reputation_tier') : null;
+            } catch (Throwable $e) {
+                $tier = null;
+            }
+            if (is_string($tier) && in_array($tier, ['starter', 'professional', 'enterprise'], true)) {
+                return $tier;
+            }
+        }
+        return 'free';
     }
 
     /** @return int|bool effective value for this customer (per-customer override first, then the plan's setting) */
