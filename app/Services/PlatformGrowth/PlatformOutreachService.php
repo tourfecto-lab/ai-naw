@@ -168,6 +168,16 @@ class PlatformOutreachService
             uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, side)
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_docs_history (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            side VARCHAR(5) NOT NULL,
+            mime VARCHAR(20) NOT NULL,
+            data_enc LONGTEXT NOT NULL,
+            uploaded_at DATETIME NOT NULL,
+            archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_pdh_user (user_id)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_doc_views (
             id INT AUTO_INCREMENT PRIMARY KEY,
             viewer_id BIGINT NOT NULL,
@@ -2661,10 +2671,42 @@ class PlatformOutreachService
         } elseif (strlen($binary) > 3 * 1024 * 1024) {
             throw new InvalidArgumentException('الصورة كبيرة: تتصغّر قبل الرفع');
         }
+        $this->archiveDoc($userId, $side);
         $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
+        // الفيديو القديم بتاع نفس الخطوة مايفضلش "حالي" جنب صورة جديدة: بيتأرشف (لو قديم) وبيتشال من الحالي، والفيديو الجديد بيتحفظ بعدها لو اتبعت
+        $this->archiveDoc($userId, ['front' => 'fclip', 'back' => 'bclip', 'photo' => 'pclip'][$side]);
+        $this->q('DELETE FROM platform_staff_docs WHERE user_id=? AND side=?', [$userId, ['front' => 'fclip', 'back' => 'bclip', 'photo' => 'pclip'][$side]]);
         if ($side === 'photo') {
             $this->q('UPDATE platform_staff_profile SET recapture_at=NULL WHERE user_id=?', [$userId]);
         }
+    }
+
+    /**
+     * التصوير الجديد مابيمسحش القديم: القديم بيتنقل لسجل منفصل (للمالك بس) والجديد بيبقى الحالي.
+     * لو القديم اتصوّر من أقل من 30 دقيقة (إعادة محاولة في نفس الجلسة لأن القراءة فشلت مثلًا) بيتبدّل من غير ما يتأرشف، عشان السجل مايتملاش لقطات فاشلة.
+     * بنحتفظ بآخر 10 نسخ قديمة لكل خطوة.
+     */
+    private function archiveDoc(int $userId, string $side): void
+    {
+        $this->q('INSERT INTO platform_staff_docs_history(user_id,side,mime,data_enc,uploaded_at) SELECT user_id,side,mime,data_enc,uploaded_at FROM platform_staff_docs WHERE user_id=? AND side=? AND uploaded_at < NOW() - INTERVAL 30 MINUTE', [$userId, $side]);
+        $this->q('DELETE FROM platform_staff_docs_history WHERE user_id=? AND side=? AND id NOT IN (SELECT id FROM (SELECT id FROM platform_staff_docs_history WHERE user_id=? AND side=? ORDER BY id DESC LIMIT 10) k)', [$userId, $side, $userId, $side]);
+    }
+
+    /** النسخ القديمة لصور وفيديوهات موظف (للمالك): [{id, side, uploaded_at, archived_at, mime}] الأحدث الأول */
+    public function staffIdCardHistory(int $userId): array
+    {
+        return $this->q('SELECT id, side, mime, uploaded_at, archived_at FROM platform_staff_docs_history WHERE user_id=? ORDER BY id DESC LIMIT 60', [$userId])->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** @return array{0:string,1:string}|null [mime, binary] لنسخة قديمة */
+    public function staffIdCardHistoryGet(int $userId, int $id): ?array
+    {
+        $r = $this->q('SELECT mime,data_enc FROM platform_staff_docs_history WHERE user_id=? AND id=?', [$userId, $id])->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            return null;
+        }
+        $bin = base64_decode($this->decField((string) $r['data_enc']), true);
+        return $bin === false || $bin === '' ? null : [(string) $r['mime'], $bin];
     }
 
     /** مقطع فيديو قصير (ثواني) بيتسجّل مع كل لقطة: وش البطاقة (fclip) وضهرها (bclip) والصورة الشخصية (pclip). WebM أو MP4 بس وبحد 6 ميجا */
@@ -2680,6 +2722,7 @@ class PlatformOutreachService
         if ($mime === '') {
             throw new InvalidArgumentException('المقطع مش فيديو (WebM أو MP4)');
         }
+        $this->archiveDoc($userId, $side);
         $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
     }
 
@@ -3061,6 +3104,7 @@ class PlatformOutreachService
             'id_card' => $revealProfile ? $this->staffIdCardStatus($userId) : null,
             'location' => $revealLocation ? $this->staffLocation($userId) : null,
             'doc_views' => $revealLocation ? $this->staffDocViews($userId) : [],
+            'id_history' => $revealLocation ? $this->staffIdCardHistory($userId) : [],
             'location_recorded' => $revealProfile ? (bool) $this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn() : null,
             'comp' => $comp,
             'summary' => $summary,

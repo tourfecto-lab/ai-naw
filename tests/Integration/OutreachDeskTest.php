@@ -39,6 +39,8 @@ final class OutreachDeskTest extends TestCase
         $this->db->query("DELETE FROM platform_leads WHERE source = 'phpunit-desk'");
         $this->db->query('DELETE FROM subscriptions WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
         $this->db->query('DELETE FROM platform_staff_comp WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
+        $this->db->query('DELETE FROM platform_staff_docs_history WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
         $this->db->query('DELETE FROM users WHERE id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
     }
 
@@ -873,7 +875,9 @@ final class OutreachDeskTest extends TestCase
         $this->assertNotNull($this->svc->staffIdCardGet(self::STAFF_ID, 'front'), 'the old photos stay until new ones arrive');
         $this->assertNotEmpty($this->svc->staffProfile(self::STAFF_ID, true)['recapture_at']);
 
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('v', 300));
         $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $jpg);
+        $this->assertNull($this->svc->staffIdCardGet(self::STAFF_ID, 'fclip'), 'a new still takes the old clip of the same step out of the current set');
         $this->assertTrue($this->svc->staffMe(self::STAFF_ID)['recapture'], 'still asked until the last step (selfie) is saved');
         $this->svc->staffIdCardSave(self::STAFF_ID, 'photo', $jpg);
         $me = $this->svc->staffMe(self::STAFF_ID);
@@ -882,5 +886,44 @@ final class OutreachDeskTest extends TestCase
         $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
         $this->expectException(InvalidArgumentException::class);
         $this->svc->staffRecaptureRequest(99999999, 'Owner');
+    }
+
+    public function testNewCaptureKeepsTheOldOneInAnOwnerOnlyHistoryAndQuickRetriesDoNotFillIt(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-hist@tourfecto.test']);
+        $mk = static function (int $w): string {
+            $img = imagecreatetruecolor($w, 30);
+            ob_start();
+            imagejpeg($img);
+            return (string) ob_get_clean();
+        };
+        $old = $mk(40);
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $old);
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('o', 200));
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $mk(50));
+        $this->assertSame([], $this->svc->staffIdCardHistory(self::STAFF_ID), 'a retry within 30 minutes just replaces (no history noise)');
+
+        $this->db->query("UPDATE platform_staff_docs SET uploaded_at = NOW() - INTERVAL 2 DAY WHERE user_id = ?", [self::STAFF_ID]);
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('o', 200));
+        $this->db->query("UPDATE platform_staff_docs SET uploaded_at = NOW() - INTERVAL 2 DAY WHERE user_id = ?", [self::STAFF_ID]);
+        $newStill = $mk(60);
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $newStill);
+
+        $this->assertSame(60, getimagesizefromstring($this->svc->staffIdCardGet(self::STAFF_ID, 'front')[1])[0], 'the new one is the current one');
+        $this->assertNull($this->svc->staffIdCardGet(self::STAFF_ID, 'fclip'), 'the old clip is not current any more');
+        $h = $this->svc->staffIdCardHistory(self::STAFF_ID);
+        $sides = array_column($h, 'side');
+        sort($sides);
+        $this->assertSame(['fclip', 'front'], $sides);
+        $this->assertCount(2, $h, 'the old still and the old clip are both kept');
+        foreach ($h as $row) {
+            $this->assertNotNull($this->svc->staffIdCardHistoryGet(self::STAFF_ID, (int) $row['id']));
+            if ($row['side'] === 'front') {
+                $this->assertSame(50, getimagesizefromstring($this->svc->staffIdCardHistoryGet(self::STAFF_ID, (int) $row['id'])[1])[0], 'the old still is the one kept');
+            }
+        }
+        $this->assertNull($this->svc->staffIdCardHistoryGet(self::STAFF_ID + 1, (int) $h[0]['id']), 'history is per employee');
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+        $this->db->query('DELETE FROM platform_staff_docs_history WHERE user_id=?', [self::STAFF_ID]);
     }
 }

@@ -272,7 +272,8 @@ class PlatformOutreachController extends Controller
             return $this->error('غير مصرح', 403);
         }
         $side = (string) $this->get('side', 'front');
-        $card = in_array($side, ['front', 'back', 'photo', 'fclip', 'bclip', 'pclip'], true) ? $this->service()->staffIdCardGet($uid, $side) : null;
+        $historyId = (int) $this->get('history_id', 0);
+        $card = $historyId > 0 ? $this->service()->staffIdCardHistoryGet($uid, $historyId) : (in_array($side, ['front', 'back', 'photo', 'fclip', 'bclip', 'pclip'], true) ? $this->service()->staffIdCardGet($uid, $side) : null);
         if (!$card) {
             return $this->error('مفيش صورة', 404);
         }
