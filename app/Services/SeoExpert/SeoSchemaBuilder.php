@@ -32,6 +32,10 @@ class SeoSchemaBuilder
         if (preg_match('#/(?:blog|news|guides?|category|tag|author|quiz|page/\d+)(?:/|$)#i', $path)) {
             return false;
         }
+        // فندق أو غرفة أو سيارة أو إيجار: منتج حجز مختلف، مش رحلة (ممنوع TouristTrip عليه)
+        if (preg_match('#/(?:st_hotel|hotel_room|st_cars|st_rental|hotels?|rooms?|cars?|car-rentals?|rentals?)(?:/|$)#i', $path)) {
+            return false;
+        }
         $h1 = (string) ($page['h1'] ?? '');
         // A destination collection is not a single bookable trip, even with only one card.
         if (self::collectionSchema($page['schema'] ?? [])) return false;
