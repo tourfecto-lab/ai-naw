@@ -7,7 +7,10 @@ class GeoLlmsBuilder
     public function build(string $url): string
     {
         $this->evidence->beginBudget(60);$home=$this->evidence->page($url);if(empty($home['ok']))throw new RuntimeException('تعذر قراءة الصفحة العامة؛ لم يتم إنشاء معلومات بديلة');
-        $lines=['# '.self::line($home['title']?:AiVisibilityDetector::host($url)),'','> '.self::line($home['description']),'','## Website','- '.$home['url']];
+        $lines=['# '.self::line($home['title']?:AiVisibilityDetector::host($url)),''];
+        // الصفحة الرئيسية من غير وصف: نسيب الملخص بره بدل سطر "> " فاضي (مش صيغة صحيحة لـ llms.txt ومفيش معلومات نختلقها)
+        if(self::line($home['description'])!=='')array_push($lines,'> '.self::line($home['description']),'');
+        array_push($lines,'## Website','- '.$home['url']);
         if($home['languages'])$lines[]='- Published page language: '.implode(', ',$home['languages']);
         foreach(['phone'=>'Phone','email'=>'Email'] as $key=>$label)foreach($home[$key] as $value)$lines[]='- '.$label.': '.self::line($value);
         $trips=[];$seen=[];
