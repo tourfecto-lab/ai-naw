@@ -201,11 +201,33 @@ class SeoPlanQualityGate
      * نصايح زي "حسّن السرعة" أو "اعمل باك لينكات" أو "انشر على السوشيال"
      * مش مهمة للعميل - والسوشيال والمنافسين وجوجل بيزنس خدمات المنصة نفسها.
      */
-    public static function filterClientTasks(array $tasks,array $pages=[]): array
+    /** robots.txt بيمنع الموقع كله (User-agent: * مع Disallow: /)؟ منطق خالص. */
+    public static function robotsBlocksSite(string $robots): bool
     {
-        return array_values(array_filter($tasks, static function ($t)use($pages): bool {
+        $applies = false;
+        foreach (preg_split('/\R/', $robots) ?: [] as $line) {
+            $line = trim(preg_replace('/#.*$/', '', $line));
+            if (preg_match('/^user-agent:\s*(.+)$/i', $line, $m)) { $applies = trim($m[1]) === '*'; continue; }
+            if ($applies && preg_match('/^disallow:\s*\/\s*$/i', $line)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * @param array $site دليل من الموقع: sitemap_valid (عدد sitemaps اتقرت صح) و robots_text (نص robots.txt لو اتقرا)
+     */
+    public static function filterClientTasks(array $tasks,array $pages=[],array $site=[]): array
+    {
+        return array_values(array_filter($tasks, static function ($t)use($pages,$site): bool {
             $title = trim((string) ($t['title'] ?? ''));
             if (preg_match(self::GENERIC_TASK, $title)) {
+                return false;
+            }
+            // مهمة عامة بتطلب حاجة الموقع عنده فعلًا: مفيش دليل يبررها
+            if (!empty($site['sitemap_valid']) && preg_match('/\b(?:create|generate|add|build|submit|set\s*up)\b.*\bsitemap|\bsitemap\b.*\b(?:create|generate)\b/i', $title)) {
+                return false;
+            }
+            if (isset($site['robots_text']) && is_string($site['robots_text']) && $site['robots_text'] !== '' && !self::robotsBlocksSite($site['robots_text']) && preg_match('/robots\.txt/i', $title)) {
                 return false;
             }
             $text = $title . ' ' . (string) ($t['instructions'] ?? '');

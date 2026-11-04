@@ -662,7 +662,9 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
             require_once __DIR__.'/SeoPlanQualityGate.php';
             $brand=(string)($snapshot['brief']['shared_profile']['facts']['business_name']??($snapshot['brief']['business_name']??''));
             $plan['changes']=SeoPlanQualityGate::filterChanges($plan['changes'],$pages,$brand,SeoClaimEvidence::snapshotFacts($snapshot));
-            $plan['client_tasks']=SeoPlanQualityGate::filterClientTasks($plan['client_tasks'],$pages);
+            $siteEvidence=['sitemap_valid'=>(int)($snapshot['discovery']['sitemap_valid']??0)];
+            try{$robotsText=(new PageContext())->fetchText(rtrim((string)$site['main_url'],'/').'/robots.txt');if(is_string($robotsText))$siteEvidence['robots_text']=$robotsText;}catch(Throwable $e){error_log('[SeoExpertService] robots.txt read skipped: '.$e->getMessage());}
+            $plan['client_tasks']=SeoPlanQualityGate::filterClientTasks($plan['client_tasks'],$pages,$siteEvidence);
             // صفحات بتنافس بعض على نفس البحث: الأضعف بتاخد عنوان ووصف لكلمة تانية أدق (بعد البوابة عمدًا، لأن عنوانها الحالي غالبًا مش "غلط")
             $stage='conflict_retargeting';try{$plan['changes']=array_merge($plan['changes'],$this->retargetConflicts($snapshot,$pages,$plan['changes'],$brand,(int)$r['website_id']));}catch(Throwable $e){Logger::warning('SEO conflict retargeting skipped',['run_id'=>$id,'error'=>$e->getMessage()]);}
             // عنوان فيه اسم الشركة مرتين («… | Tourfecto | Tourfecto Travel»): بنصلّحه حتميًا حتى لو الذكاء الاصطناعي ما اقترحش حاجة للصفحة دي
@@ -1124,8 +1126,14 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
         $labels=['title'=>'Review missing page titles','description'=>'Review missing page summaries','h1'=>'Review missing main headings','canonical'=>'Review canonical decisions','indexing'=>'Confirm search indexing intent'];
         foreach(SeoPagePolicy::groups($pages,$proposed) as $field=>$rows){
             $help=$field==='indexing'?'These pages have noindex. Confirm whether exclusion is intended; keeping noindex can be correct. No rule is removed automatically.':($field==='canonical'?'Review the preferred URL and duplicate/language variants for these pages. Do not blindly add self-canonicals or replace existing canonicals.':'Review these eligible public pages and provide factual, page-specific values. A group is not a claim that all pages have the same fix.');
+            $label=$labels[$field];
+            // noindex على كل الموقع تقريبًا = إعداد واحد (في ووردبريس: Discourage search engines)، مش مشكلة في كل صفحة
+            if($field==='indexing'&&count($rows)>=5&&count($pages)>0&&count($rows)/count($pages)>=0.9){
+                $label='Your whole site is set to noindex';
+                $help='Search engines are told not to index almost every page ('.count($rows).' of '.count($pages).' pages checked). On WordPress this is usually Settings → Reading → "Discourage search engines from indexing this site". If this is a live business website, turn it off so Google can show your pages; if the site is still being built, keeping it on is correct. No rule is removed automatically.';
+            }
             $instructions=$help."\nPages: ".count($rows)."\n".implode("\n",array_column(array_slice($rows,0,20),'url'));if(count($rows)>20)$instructions.="\nMore affected URLs are retained in the scope report.";
-            $this->task($run,'manual','seo',$anchor,$labels[$field],$instructions,'group_'.$field,null,'needs_client');
+            $this->task($run,'manual','seo',$anchor,$label,$instructions,'group_'.$field,null,'needs_client');
             $this->q("UPDATE seo_expert_tasks SET evidence_json=? WHERE id=LAST_INSERT_ID() AND run_id=? AND user_id=?",[json_encode(['scope_group'=>['field'=>$field,'pages'=>$rows]],JSON_THROW_ON_ERROR),$run['id'],$run['user_id']]);
         }
     }

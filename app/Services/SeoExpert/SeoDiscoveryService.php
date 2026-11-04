@@ -47,6 +47,7 @@ final class SeoDiscoveryService {
             $url=array_shift($state['sitemap_queue']);if(in_array($url,$state['sitemap_seen'],true))continue;$state['sitemap_seen'][]=$url;$processed++;
             $r=$this->fetch($url);if(!$r['ok'])continue;$parsed=self::parseSitemap($r['body'],$home);
             if(!$parsed['valid']){$state['warnings'][]='invalid_or_unsafe_sitemap';continue;}
+            $state['sitemap_valid']=(int)($state['sitemap_valid']??0)+1;
             $state['sitemap_queue']=array_values(array_unique(array_merge($state['sitemap_queue'],$parsed['sitemaps'])));
             foreach($parsed['pages'] as $u)if(!isset($state['known_urls'][hash('sha256',$u)]) && count($state['known_urls'])<5000){$state['known_urls'][hash('sha256',$u)]=true;$new[]=$u;$state['sources']['sitemap']++;}
         }
