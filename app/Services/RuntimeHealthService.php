@@ -8,12 +8,24 @@ class RuntimeHealthService
         return $base . '/cache/queue-heartbeat.json';
     }
 
+    /** بصمة قصيرة لأهم ملفات الخدمات: الموقع والـworker بيقارنوها عشان نكتشف إن الـworker بيشغّل نسخة غير اللي على الموقع. */
+    public static function fingerprint(): array
+    {
+        $root = dirname(__DIR__, 2);
+        $out = ['dir' => basename($root), 'php' => PHP_VERSION, 'files' => []];
+        foreach (['app/Services/SeoExpert/SeoExpertService.php', 'app/Services/SeoExpert/SeoPagePriority.php', 'app/Services/SeoExpert/SeoPagePolicy.php', 'app/Services/RuntimeHealthService.php'] as $rel) {
+            $f = $root . '/' . $rel;
+            $out['files'][basename($rel, '.php')] = is_file($f) ? substr((string) md5_file($f), 0, 8) : null;
+        }
+        return $out;
+    }
+
     public static function heartbeat(string $status, array $counts = []): void
     {
         $path = self::heartbeatPath();
         if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0750, true) && !is_dir(dirname($path))) { throw new RuntimeException('Heartbeat storage unavailable'); }
         $temp = $path . '.' . bin2hex(random_bytes(6));
-        $json = json_encode(['time' => time(), 'status' => $status, 'counts' => $counts], JSON_THROW_ON_ERROR);
+        $json = json_encode(['time' => time(), 'status' => $status, 'counts' => $counts, 'code' => self::fingerprint()], JSON_THROW_ON_ERROR);
         if (file_put_contents($temp, $json, LOCK_EX) === false || !rename($temp, $path)) { @unlink($temp); throw new RuntimeException('Heartbeat write failed'); }
         chmod($path, 0640);
     }
@@ -26,6 +38,10 @@ class RuntimeHealthService
             $heart = is_file(self::heartbeatPath()) ? json_decode((string) file_get_contents(self::heartbeatPath()), true) : null;
             $age = is_array($heart) ? max(0, time() - (int) ($heart['time'] ?? 0)) : null;
             $data['queue_cron'] = ['status' => $age === null ? 'missing' : ($age > 300 ? 'stale' : ($heart['status'] ?? 'unknown')), 'age_seconds' => $age];
+            // الموقع والـworker لازم يشغّلوا نفس الكود: اختلاف البصمة = الـworker على نسخة تانية أو مجلد تاني
+            $web = self::fingerprint();
+            $worker = is_array($heart) ? ($heart['code'] ?? null) : null;
+            $data['code_sync'] = ['web' => $web, 'worker' => $worker, 'state' => !is_array($worker) ? 'unknown' : (($worker['files'] ?? null) === $web['files'] ? 'in_sync' : 'out_of_sync')];
             try {
                 $data['queue'] = $db->query("SELECT status, COUNT(*) AS count, MIN(available_at) AS oldest_available_at FROM jobs GROUP BY status");
                 $data['queue_overdue'] = (int) ($db->query("SELECT COUNT(*) AS n FROM jobs WHERE (status = 'pending' AND available_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)) OR (status = 'processing' AND reserved_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE))")[0]['n'] ?? 0);

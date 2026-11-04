@@ -4,6 +4,7 @@ require_once __DIR__ . '/StrategicDecisions.php';
 require_once __DIR__ . '/BrainExecutor.php';
 require_once __DIR__ . '/BrainActions.php';
 require_once __DIR__ . '/BrainConfig.php';
+require_once __DIR__ . '/BrainControl.php';
 
 /**
  * Tourfecto - العقل الاستراتيجي: حفظ القرارات وقياس نتيجتها (الحلقة: قرار ← موافقة ← تنفيذ ← قياس ← تعلّم)
@@ -21,12 +22,19 @@ final class BrainDecisionStore
 
     private Database $db;
     private ?BrainExecutor $executor;
+    private ?BrainControl $control = null;
 
     public function __construct(?Database $db = null, ?BrainExecutor $executor = null)
     {
         $this->db = $db ?? Database::getInstance();
         BrainSchema::ensure($this->db);
         $this->executor = $executor;
+    }
+
+    /** الأهداف والسياسة والذاكرة والسجل (لو جداولها مش متاحة بتشتغل بقيم افتراضية) */
+    public function control(): BrainControl
+    {
+        return $this->control ??= new BrainControl($this->db);
     }
 
     private function executor(): BrainExecutor
@@ -57,10 +65,11 @@ final class BrainDecisionStore
     }
 
     /** موافقة + تنفيذ (مهمة وتنبيه). القرار اللي فيه صرف مابيتنفّذش من هنا أبدًا */
-    private function approveAndExecute(int $uid, int $wid, array $row, array $snapshot, string $lang): void
+    private function approveAndExecute(int $uid, int $wid, array $row, array $snapshot, string $lang, bool $auto = false): void
     {
         $current = $row['metric_key'] ? StrategicDecisions::metricValue($snapshot, $row['metric_key']) : null;
         $this->db->query("UPDATE brain_decisions SET status = 'approved', decided_at = UTC_TIMESTAMP(), baseline_value = COALESCE(?, baseline_value) WHERE id = ? AND user_id = ?", [$current, (int) $row['id'], $uid]);
+        $this->control()->log($uid, $wid, (string) $row['decision_key'], $auto ? 'auto_approved' : 'approved', $auto ? 'autonomy' : 'owner');
         $decision = json_decode((string) $row['payload_json'], true) ?: [];
         if (!empty($decision['requires_spend']) || (int) $row['requires_spend'] === 1) return;
         try {
@@ -114,14 +123,19 @@ final class BrainDecisionStore
             $outcome = StrategicDecisions::outcome($before, $after, (string) $row['metric_direction']) ?? ($gone && $row['area'] === 'data' ? 'improved' : null);
             $this->db->query('UPDATE brain_decisions SET status = ?, result_value = ?, outcome = ?, measured_at = ? WHERE id = ? AND user_id = ?',
                 [$gone ? 'resolved' : 'done', $after, $outcome, $now, (int) $row['id'], $uid]);
+            $this->control()->log($uid, $wid, (string) $key, $gone ? 'resolved' : 'measured', $outcome ?? 'no_verdict');
         }
         // التشغيل الذاتي: القرارات المقترحة اللي مافيهاش صرف بتتوافق وتتنفّذ (مهمة + تنبيه) من غير ما حد يدوس.
         // الأدمن يقدر يقفله للكل، ويحدد أقصى عدد في اليوم لكل شركة (الأعلى أولوية الأول)
         if (($autonomy ?? $this->autonomy($uid)) && BrainConfig::get('brain_autonomy_allowed', $this->db)) {
             $left = BrainConfig::get('brain_auto_actions_per_day', $this->db) - $this->autoExecutedToday($uid);
+            // المجالات اللي الشركة قفلت فيها التنفيذ التلقائي (اقتراح بس) والقرارات اللي رفضتها أو أجّلتها بتتخطى
+            $skipAreas = $this->control()->suggestOnlyAreas($uid);
+            $skipKeys = $this->control()->excludedKeys($uid, $wid);
             foreach ($this->db->query("SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ? AND status = 'proposed' AND requires_spend = 0 ORDER BY priority DESC, id ASC", [$uid, $wid]) ?: [] as $row) {
+                if (in_array($row['area'], $skipAreas, true) || in_array($row['decision_key'], $skipKeys, true)) continue;
                 if ($left-- <= 0) break;
-                $this->approveAndExecute($uid, $wid, $row, $snapshot, $lang);
+                $this->approveAndExecute($uid, $wid, $row, $snapshot, $lang, true);
             }
         }
         // أي قرار متوافق عليه لازم يكون ليه مهمة (منع التكرار في المنفّذ بيخلي ده آمن مع كل تحديث)
@@ -144,7 +158,8 @@ final class BrainDecisionStore
     }
 
     /** صاحب الشركة بيوافق/يرفض/يعلّم إنه اتنفّذ. القرار لازم يكون بتاعه. */
-    public function setStatus(int $uid, int $wid, int $id, string $status, array $snapshot, string $lang = 'ar'): array
+    /** @param string|null $reason سبب الرفض (not_relevant / later / done_elsewhere): العقل بيفتكره ومايكررش القرار */
+    public function setStatus(int $uid, int $wid, int $id, string $status, array $snapshot, string $lang = 'ar', ?string $reason = null): array
     {
         if (!in_array($status, ['approved', 'dismissed', 'done', 'proposed'], true)) throw new InvalidArgumentException('Invalid status');
         $row = $this->db->query('SELECT * FROM brain_decisions WHERE id = ? AND user_id = ? AND website_id = ? LIMIT 1', [$id, $uid, $wid])[0] ?? null;
@@ -158,6 +173,10 @@ final class BrainDecisionStore
         } else {
             $this->db->query('UPDATE brain_decisions SET status = ?, decided_at = ? WHERE id = ? AND user_id = ?', [$status, $now, $id, $uid]);
         }
+        $key = (string) $row['decision_key'];
+        if ($status === 'dismissed') $this->control()->remember($uid, $wid, $key, $reason);
+        if ($status === 'proposed') $this->control()->forget($uid, $wid, $key);
+        if ($status !== 'approved') $this->control()->log($uid, $wid, $key, $status === 'dismissed' ? 'dismissed' : ($status === 'done' ? 'marked_done' : 'restored'), $reason);
         return $this->list($uid, $wid);
     }
 

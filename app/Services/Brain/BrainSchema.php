@@ -3,6 +3,7 @@
 final class BrainSchema
 {
     private static bool $ready = false;
+    private static ?bool $extras = null;
 
     public static function ensure(Database $db): void
     {
@@ -26,5 +27,29 @@ final class BrainSchema
             $pdo->exec($m[0]);
         }
         self::$ready = true;
+    }
+
+    /**
+     * جداول الأهداف والسياسة والذاكرة والسجل. منفصلة عن ensure() عن قصد: لو السيرفر مارضيش يعمل DDL،
+     * العقل الأساسي (القرارات) يفضل شغال، والإضافات دي بس هي اللي تتعطل.
+     */
+    public static function ensureExtras(Database $db): bool
+    {
+        if (self::$extras !== null) return self::$extras;
+        try {
+            $pdo = $db->getConnection();
+            if ($pdo->inTransaction()) return false;
+            $file = dirname(__DIR__, 3) . '/database/migrations/2026_11_04_000001_brain_goals_plan_control.sql';
+            $sql = (string) file_get_contents($file);
+            foreach (['brain_goals', 'brain_policy', 'brain_prefs', 'brain_memory', 'brain_audit'] as $table) {
+                if ($db->query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", [$table])) continue;
+                if (!preg_match('/CREATE TABLE IF NOT EXISTS ' . $table . ' \\(.*?\\) ENGINE=[^;]+;/s', $sql, $m)) return self::$extras = false;
+                $pdo->exec($m[0]);
+            }
+            return self::$extras = true;
+        } catch (Throwable $e) {
+            if (class_exists('Logger')) Logger::warning('Brain extras schema unavailable', ['error' => $e->getMessage()]);
+            return self::$extras = false;
+        }
     }
 }

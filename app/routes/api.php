@@ -2097,6 +2097,10 @@ $router->get('/api/brain/decisions/{id}/action','BrainController','actionPreview
 $router->post('/api/brain/decisions/{id}/action','BrainController','actionRun',['AuthMiddleware']);
 $router->post('/api/brain/sharing','BrainController','sharing',['AuthMiddleware']);
 $router->post('/api/brain/autonomy','BrainController','autonomy',['AuthMiddleware']);
+$router->post('/api/brain/goals','BrainController','goalCreate',['AuthMiddleware']);
+$router->post('/api/brain/goals/{id}/cancel','BrainController','goalCancel',['AuthMiddleware']);
+$router->post('/api/brain/policy','BrainController','policy',['AuthMiddleware']);
+$router->post('/api/brain/prefs','BrainController','prefs',['AuthMiddleware']);
 // العقل الاستراتيجي — الإدارة
 $router->get('/api/admin/brain','BrainAdminController','data',['AuthMiddleware','AdminMiddleware']);
 // TOURFECTO AI CEO — AI Mission Control (إدارة شركة Tourfecto نفسها)
