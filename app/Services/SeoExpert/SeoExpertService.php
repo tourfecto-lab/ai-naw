@@ -1088,7 +1088,15 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
                     if($check['publication_quality']['state']!=='complete')$check['reason'].=' Publication quality checks need review; see canonical, schema, links and sitemap details.';
 
                 }
-                else $check=PageContext::verifyValue($t['field_name'],$t['expected_value'],$ctx);
+                else {
+                    $check=PageContext::verifyValue($t['field_name'],$t['expected_value'],$ctx);
+                    // التعديل ممكن يكون شغال فعلًا لكن كاش السيرفر لسه بيقدّم الصفحة القديمة للزوار: نقرا نسخة بتتجاوز الكاش ونقول ده صراحة
+                    if($check['state']!=='verified'&&!empty($ctx['ok'])&&$t['kind']==='metadata'&&empty($ctx['coming_soon'])){
+                        try{$sep=str_contains((string)$t['page_url'],'?')?'&':'?';$bypass=$reader->fresh($t['page_url'].$sep.'tf_cb='.bin2hex(random_bytes(6)));
+                            if(!empty($bypass['ok'])&&PageContext::verifyValue($t['field_name'],$t['expected_value'],$bypass)['state']==='verified'){$check['state']='pending';$check['cache_stale']=true;$check['reason']='The change is live on your server, but your site cache still serves the previous page to visitors. Clear the page cache (Nginx, WP Rocket, LiteSpeed or your host cache); verification then completes on its own.';}
+                        }catch(Throwable $e){error_log('[SeoExpertService] cache bypass verification failed: '.$e->getMessage());}
+                    }
+                }
                 $revisionEvidence=json_decode((string)$t['evidence_json'],true)?:[];if(isset($revisionEvidence['publication_revision']))$check['publication_revision']=$revisionEvidence['publication_revision'];
                 $state=$check['state']==='verified'?'verified':($attempt<3?'active':'needs_client');if($state==='active')$pending=true;
                 $this->q('UPDATE seo_expert_tasks SET status=?,evidence_json=?,checked_at=UTC_TIMESTAMP(),updated_at=UTC_TIMESTAMP() WHERE id=?',[$state,json_encode($check,JSON_THROW_ON_ERROR),$t['id']]);
