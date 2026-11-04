@@ -45,4 +45,28 @@ final class GeoCitationsRedirectTest extends TestCase
         $this->assertSame('own', $byDomain['example.com']['kind']);
         $this->assertSame('https://www.example.com/tours/cairo', $out['own_pages'][0]['url']);
     }
+
+    public function testRepeatedUnregisteredOperatorDomainsAreSuggestedAsCompetitors(): void
+    {
+        $out = $this->citations([
+            $this->row('openai', ['https://rival-tours.com/a', 'https://youtube.com/watch?v=1', 'https://registered.com/x']),
+            $this->row('gemini', ['https://www.rival-tours.com/b', 'https://m.youtube.com/z', 'https://registered.com/y']),
+            $this->row('openai', ['https://one-off.com/c']),
+        ], 'example.com', ['registered.com' => true]);
+        $byDomain = array_column($out['domains'], null, 'domain');
+        $this->assertSame('platform', $byDomain['youtube.com']['kind']);
+        $this->assertSame('platform', $byDomain['m.youtube.com']['kind']);
+        $this->assertSame(['rival-tours.com'], array_column($out['suggested_competitors'], 'domain'));
+        $this->assertSame(2, $out['suggested_competitors'][0]['answers']);
+    }
+
+    public function testSuggestionsAreCappedAtEight(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 12; $i++) {
+            $rows[] = $this->row('openai', ["https://rival$i.com/a"]);
+            $rows[] = $this->row('gemini', ["https://rival$i.com/b"]);
+        }
+        $this->assertCount(8, $this->citations($rows)['suggested_competitors']);
+    }
 }
