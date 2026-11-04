@@ -18,7 +18,7 @@ class AiVisibilityEvidence
             }
             if(($r['code']??0)!==200 || !empty($r['error']) || strlen($r['body']??'')>1000000)return ['ok'=>false,'url'=>$url];
             $final=$r['url']??$url;if(!AiVisibilityDetector::safeUrl($final))return ['ok'=>false,'url'=>$url];
-            return $this->cache[$url]=self::parse($r['body'],$final);
+            return $this->cache[$url]=self::parse($r['body'],$final)+['bytes'=>strlen((string)$r['body']),'mime'=>(string)($mime??'')];
         } catch(Throwable $e){return ['ok'=>false,'url'=>$url];}
     }
     public static function parse(string $html,string $url): array
