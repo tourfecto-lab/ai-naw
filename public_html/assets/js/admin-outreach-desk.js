@@ -241,9 +241,9 @@
             ? `<a class="dk-doc" href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"><span>${label} · ${esc(String(ic[side]).slice(0, 10))}</span></a>`
             : `<div class="dk-doc none"><span>${label}: لسه</span></div>`;
         // الصور (الشخصية ووش البطاقة وضهرها) للأدمن بس؛ الموظف بيشوف حالة الرفع من غير الصور
-        const docs = mgr ? `<div class="dk-docs">${thumb('photo', 'الصورة الشخصية')}${thumb('front', 'وش البطاقة')}${thumb('back', 'ضهر البطاقة')}</div>${hist}${(r.doc_views || []).length ? `<small class="dk-muted">آخر اطلاع على الصور: ${r.doc_views.map(v => esc(v.viewer) + ' (' + esc(v.at) + ')').join(' · ')}</small>` : ''}` : '';
         const SIDE_LABEL = { front: 'وش البطاقة', back: 'ضهر البطاقة', photo: 'الصورة الشخصية', fclip: 'فيديو الوش', bclip: 'فيديو الضهر', pclip: 'فيديو الشخصية' };
         const hist = mgr && (r.id_history || []).length ? `<details class="dk-more"><summary>🗂️ النسخ القديمة (${r.id_history.length})</summary><div class="dk-hist">${r.id_history.map(h => `<a href="${docUrl(h.side)}&history_id=${h.id}" target="_blank" rel="noopener noreferrer">${esc(SIDE_LABEL[h.side] || h.side)} · ${esc(String(h.uploaded_at).slice(0, 16))}</a>`).join('')}</div></details>` : '';
+        const docs = mgr ? `<div class="dk-docs">${thumb('photo', 'الصورة الشخصية')}${thumb('front', 'وش البطاقة')}${thumb('back', 'ضهر البطاقة')}</div>${hist}${(r.doc_views || []).length ? `<small class="dk-muted">آخر اطلاع على الصور: ${r.doc_views.map(v => esc(v.viewer) + ' (' + esc(v.at) + ')').join(' · ')}</small>` : ''}` : '';
         const idStatus = ic ? (ic.front && ic.photo ? '✅ البطاقة والصورة الشخصية اتسجّلوا' : '⚠️ لسه ناقص: ' + [!ic.front && 'وش البطاقة', !ic.back && 'ضهر البطاقة', !ic.photo && 'الصورة الشخصية'].filter(Boolean).join('، ')) : '';
         const idBox = canEdit ? `<div class="dk-comp dk-id"><b>🪪 البطاقة والصورة الشخصية</b><span>${idStatus}</span>
             <button class="dk-btn primary" data-id-wizard>📷 ${ic && ic.front ? 'إعادة التصوير' : 'التصوير'}</button>
