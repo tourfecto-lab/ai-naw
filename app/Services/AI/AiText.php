@@ -10,6 +10,16 @@
  */
 class AiText
 {
+    /**
+     * سقف الإخراج لمسار OpenAI: موديلات gpt-4o/gpt-4.1/o* بتدعم 16k توكن إخراج، والقديمة 4096.
+     * قبل كده كان السقف 4096 ثابت، وخطة السيو (12000) كانت ممكن تتقطع وتفشل الدورة على المواقع الكبيرة.
+     */
+    public static function openAiOutputCap(string $model, int $requested): int
+    {
+        $limit = preg_match('/^(?:gpt-4o|gpt-4\.1|o\d)/i', trim($model)) === 1 ? 16000 : 4096;
+        return max(256, min($limit, $requested));
+    }
+
     public static function generate(string $prompt, array $options = [], ?GeminiClient $gemini = null): array
     {
         $prompt = ContentLanguageService::apply($prompt, $options);
@@ -49,7 +59,7 @@ class AiText
                     }
                     $r = $oa->generateReply('', [['role' => 'user', 'content' => $prompt]], [
                         'temperature' => (float) ($options['temperature'] ?? 0.7),
-                        'max_tokens' => (int) min(4096, ($options['maxOutputTokens'] ?? 2000)),
+                        'max_tokens' => self::openAiOutputCap(defined('OPENAI_MODEL') ? (string) OPENAI_MODEL : 'gpt-4o-mini', (int) ($options['maxOutputTokens'] ?? 2000)),
                     ]);
                     if (!empty($r['success']) && trim((string) ($r['content'] ?? '')) !== '') {
                         return ['success' => true, 'data' => (string) $r['content'], 'provider' => 'openai', 'model' => (string) ($r['model'] ?? ''), 'tokens_used' => (int) ($r['tokens_total'] ?? 0), 'cost' => (float) ($r['estimated_cost_usd'] ?? 0)];
