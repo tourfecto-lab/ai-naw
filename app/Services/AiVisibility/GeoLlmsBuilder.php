@@ -13,7 +13,7 @@ class GeoLlmsBuilder
             if(!empty($fresh['ok'])&&!self::hollow($fresh)){$fresh['url']=$url;$home=$fresh;}
         }
         // صفحة اتقرت (200) لكن من غير عنوان ولا وصف ولا روابط: غالبًا الموقع بيرجّع صفحة تحقق/حجب للزاحف أو المحتوى بيتحمّل بجافاسكريبت. مسودة فاضية تضلّل العميل
-        if(self::hollow($home))throw new RuntimeException('الصفحة الرئيسية رجعت من غير عنوان ولا وصف ولا روابط؛ لم يتم إنشاء مسودة (تشخيص: '.(int)($home['bytes']??0).' بايت، '.preg_replace('/[^a-z0-9\/+.\-]/i','',(string)($home['mime']??'')).'، '.preg_replace('/[^a-z0-9.\-]/i','',(string)(parse_url((string)($home['url']??''),PHP_URL_HOST)?:'')).')');
+        if(self::hollow($home))throw new RuntimeException('الصفحة الرئيسية رجعت من غير عنوان ولا وصف ولا روابط؛ لم يتم إنشاء مسودة (تشخيص: '.(int)($home['bytes']??0).' بايت، '.preg_replace('/[^a-z0-9\/+.\-]/i','',(string)($home['mime']??'')).'، '.preg_replace('/[^a-z0-9.\-]/i','',(string)(parse_url((string)($home['url']??''),PHP_URL_HOST)?:'')).', length '.preg_replace('/[^0-9]/','',(string)($home['clen']??'')).', encoding '.preg_replace('/[^a-z0-9\-]/i','',(string)($home['cenc']??'')).', redirects '.(int)($home['redirects']??0).', headers '.(int)($home['header_size']??0).')');
         $lines=['# '.self::line($home['title']?:AiVisibilityDetector::host($url)),''];
         // الصفحة الرئيسية من غير وصف: نسيب الملخص بره بدل سطر "> " فاضي (مش صيغة صحيحة لـ llms.txt ومفيش معلومات نختلقها)
         if(self::line($home['description'])!=='')array_push($lines,'> '.self::line($home['description']),'');
