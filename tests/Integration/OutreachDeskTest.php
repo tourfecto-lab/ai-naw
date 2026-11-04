@@ -493,6 +493,51 @@ final class OutreachDeskTest extends TestCase
         $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
     }
 
+    public function testAnEmployeeWhoLeftIsLockedOutAndUnansweredCompaniesGoBackToTheListWhileRepliesStayWithThem(): void
+    {
+        [$staff, $other] = $this->twoUsers();
+        if ($staff === AdminAccess::primaryOwnerId()) {
+            [$staff, $other] = [$other, $staff]; // المالك الأساسي مابيتوقفش أبدًا
+        }
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+        $noReply = $this->lead('Offboard NoReply Tours', 'EG', '+201000000111');
+        $replied = $this->lead('Offboard Replied Tours', 'EG', '+201000000112');
+        $this->svc->deskAction($noReply, 'contacted', '', $staff, 'Sara');
+        $this->svc->deskAction($replied, 'contacted', '', $staff, 'Sara');
+        $this->svc->deskAction($replied, 'replied', '', $staff, 'Sara');
+        try {
+            AdminAccess::resetCache();
+            $user = ['id' => $staff, 'role' => 'admin'];
+            $this->assertTrue(AdminAccess::can($user, 'outreach.desk'), 'active employee: has the desk');
+
+            $r = $this->svc->staffProfileSet($staff, ['status' => 'left'], true, 'Owner');
+            $this->assertSame(1, $r['released'], 'only the company without a reply goes back');
+            AdminAccess::resetCache();
+            $this->assertFalse(AdminAccess::can($user, 'outreach.desk'), 'a staff member who left cannot use the admin area');
+            $this->assertFalse(AdminAccess::can($user, 'analytics.view'));
+
+            $row = fn (int $id) => $this->db->query('SELECT desk_action, desk_user_id FROM platform_leads WHERE id = ?', [$id])[0];
+            $this->assertNull($row($noReply)['desk_action']);
+            $this->assertNull($row($noReply)['desk_user_id']);
+            $this->assertSame('replied', $row($replied)['desk_action'], 'a company that replied stays with its owner (for the commission)');
+            $this->assertSame($staff, (int) $row($replied)['desk_user_id']);
+
+            // موظف تاني ياخد الشركة اللي رجعت، والإسناد ينتقل له (مش للي ساب)
+            $this->svc->deskAction($noReply, 'contacted', '', $other, 'Mona');
+            $this->assertSame($other, $this->svc->staffAttribution()[$noReply]['user_id']);
+            $this->assertSame($staff, $this->svc->staffAttribution()[$replied]['user_id']);
+            $log = $this->svc->staffReport($staff, date('Y-m'))['log'];
+            $this->assertContains('رجعت للقايمة (الموظف ساب الشغل)', array_column($log, 'label'), 'the history keeps the release');
+
+            $this->svc->staffProfileSet($staff, ['status' => 'active'], true, 'Owner');
+            AdminAccess::resetCache();
+            $this->assertTrue(AdminAccess::can($user, 'outreach.desk'), 'reactivated');
+        } finally {
+            $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+            AdminAccess::resetCache();
+        }
+    }
+
     public function testDailyDigestEmailsEachEmployeeTheirDueFollowUpsOncePerDay(): void
     {
         [$sara, $mona] = $this->twoUsers();
@@ -518,6 +563,16 @@ final class OutreachDeskTest extends TestCase
         } finally {
             $settings->set('outreach_digest_date', '');
         }
+    }
+
+    public function testCommissionConvertsEveryPlatformCurrencyToPounds(): void
+    {
+        $this->assertSame(100.0, PlatformOutreachService::toEgp(100.0, 'EGP', 50.0));
+        $this->assertSame(3950.0, PlatformOutreachService::toEgp(79.0, 'USD', 50.0));
+        $sar = PlatformOutreachService::toEgp(375.0, 'SAR', 50.0);
+        $this->assertEqualsWithDelta(375.0 / CurrencyService::rate('SAR') * 50.0, $sar, 0.001, 'SAR goes through USD with the platform rate');
+        $this->assertGreaterThan(0, $sar);
+        $this->assertNull(PlatformOutreachService::toEgp(10.0, 'XXX', 50.0), 'an unknown currency is reported, not guessed');
     }
 
     public function testAYearlyInvoiceCoversTheNextElevenMonthsAndAMonthlyOneOnlyItsOwnMonth(): void

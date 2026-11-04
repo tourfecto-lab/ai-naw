@@ -154,7 +154,34 @@ class AdminAccess
         if (!in_array($user['role'] ?? '', ['admin', 'super_admin'], true)) {
             return false;
         }
+        // موظف المالك خلّى حالته «موقوف» أو «ساب الشغل»: مفيش صلاحيات (المالك مابيتوقفش أبدًا)
+        if (self::isSuspended($user)) {
+            return false;
+        }
         return in_array($permission, self::permissionsFor($user), true);
+    }
+
+    /** @var array<int,bool> */
+    private static $suspended = [];
+
+    /** حالة الموظف في ملفه (platform_staff_profile): «paused» أو «left» = موقوف. الجدول لسه ما اتعملش = مش موقوف */
+    public static function isSuspended(array $user): bool
+    {
+        $uid = (int) ($user['id'] ?? 0);
+        if ($uid <= 0 || ($user['role'] ?? '') === 'super_admin') {
+            return false;
+        }
+        if (isset(self::$suspended[$uid])) {
+            return self::$suspended[$uid];
+        }
+        $out = false;
+        try {
+            $rows = Database::getInstance()->query('SELECT status FROM platform_staff_profile WHERE user_id = ? LIMIT 1', [$uid]);
+            $out = !empty($rows[0]) && in_array((string) $rows[0]['status'], ['paused', 'left'], true);
+        } catch (\Throwable $e) {
+            $out = false;
+        }
+        return self::$suspended[$uid] = $out && !self::isPrimaryOwner($user);
     }
 
     /** @var int|null */
@@ -197,6 +224,7 @@ class AdminAccess
     public static function resetCache(): void
     {
         self::$cache = [];
+        self::$suspended = [];
     }
 
     // ---------------------------------------------------------------- قواعد المسارات

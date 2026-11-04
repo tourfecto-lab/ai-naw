@@ -2492,7 +2492,26 @@ class PlatformOutreachService
             $set = implode(',', array_map(static fn ($c) => "`{$c}`=?", array_keys($vals)));
             $this->q("UPDATE platform_staff_profile SET {$set},updated_by=? WHERE user_id=?", array_merge(array_values($vals), [mb_substr($by, 0, 120), $userId]));
         }
-        return $this->staffProfile($userId, true);
+        $released = 0;
+        if ($isOwner && ($vals['status'] ?? '') === 'left') {
+            $released = $this->staffOffboard($userId, $by);
+        }
+        return $this->staffProfile($userId, true) + ['released' => $released];
+    }
+
+    /**
+     * موظف ساب الشغل: الشركات اللي بعتلها ومالهاش رد (اتبعتلها أو «هنكلمها تاني») بترجع لقايمة «لسه ماتواصلتش» عشان موظف تاني ياخدها،
+     * والشركات اللي ردّت أو اهتمت أو جرّبت أو اشتركت بتفضل منسوبة له (عشان النسبة). السجل بيحتفظ بكل اللي حصل.
+     * @return int عدد الشركات اللي رجعت للقايمة
+     */
+    public function staffOffboard(int $userId, string $by): int
+    {
+        $ids = $this->q("SELECT id FROM platform_leads WHERE desk_user_id=? AND desk_action IN ('contacted','call_back')", [$userId])->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($ids as $id) {
+            $this->q('UPDATE platform_leads SET desk_action=NULL, desk_note=NULL, desk_at=NULL, desk_by=NULL, desk_user_id=NULL WHERE id=? AND desk_user_id=?', [$id, $userId]);
+            $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$id, $userId, mb_substr($by, 0, 120), 'released', 'الموظف ساب الشغل']);
+        }
+        return count($ids);
     }
 
     /** @return array{comp_type:string,commission_pct:float,monthly_salary:float,note:?string,updated_by:?string,updated_at:?string} */
@@ -2757,9 +2776,9 @@ class PlatformOutreachService
     public function staffAttribution(): array
     {
         $first = [];
-        foreach ($this->q("SELECT lead_id,user_id,user_name,action,created_at FROM platform_desk_actions WHERE action IN ('contacted','undo') AND user_id IS NOT NULL ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        foreach ($this->q("SELECT lead_id,user_id,user_name,action,created_at FROM platform_desk_actions WHERE action IN ('contacted','undo','released') AND user_id IS NOT NULL ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $lid = (int) $r['lead_id'];
-            if ($r['action'] === 'undo') {
+            if ($r['action'] !== 'contacted') {
                 unset($first[$lid]);
             } elseif (!isset($first[$lid])) {
                 $first[$lid] = ['user_id' => (int) $r['user_id'], 'name' => (string) $r['user_name'], 'at' => (string) $r['created_at']];
@@ -2819,6 +2838,22 @@ class PlatformOutreachService
             }
         }
         return $sent;
+    }
+
+    /** مبلغ بأي عملة => جنيه: الجنيه زي ما هو، والدولار بسعر الإعدادات، والباقي من أسعار صرف المنصة (CurrencyService) عن طريق الدولار. null = عملة مش معروفة */
+    public static function toEgp(float $amount, string $cur, float $usdEgp): ?float
+    {
+        $cur = strtoupper($cur ?: 'USD');
+        if ($cur === 'EGP') {
+            return $amount;
+        }
+        if ($cur === 'USD') {
+            return $amount * $usdEgp;
+        }
+        if (!class_exists('CurrencyService') || !CurrencyService::valid($cur) || CurrencyService::rate($cur) <= 0) {
+            return null;
+        }
+        return ($amount / CurrencyService::rate($cur)) * $usdEgp;
     }
 
     /** @return array<int,array<int,array{paid_at:string}>> user_id => فواتيرهم المدفوعة (قراية بس) */
@@ -2887,7 +2922,7 @@ class PlatformOutreachService
         }
         $comp = $this->staffCompGet($userId);
 
-        $labels = ['contacted' => 'اتبعت واتساب', 'replied' => 'ردّوا', 'interested' => 'مهتمين', 'trial' => 'جرّبوا المنصة', 'subscribed' => 'اشتركوا', 'call_back' => 'هتكلمهم تاني', 'not_interested' => 'مش مهتمين', 'wrong_number' => 'الرقم غلط', 'undo' => 'تراجع عن الإرسال'];
+        $labels = ['contacted' => 'اتبعت واتساب', 'replied' => 'ردّوا', 'interested' => 'مهتمين', 'trial' => 'جرّبوا المنصة', 'subscribed' => 'اشتركوا', 'call_back' => 'هتكلمهم تاني', 'not_interested' => 'مش مهتمين', 'wrong_number' => 'الرقم غلط', 'undo' => 'تراجع عن الإرسال', 'released' => 'رجعت للقايمة (الموظف ساب الشغل)'];
         $log = $this->q('SELECT a.created_at at, a.action, a.note, l.company, l.country FROM platform_desk_actions a LEFT JOIN platform_leads l ON l.id=a.lead_id WHERE a.user_id=? AND a.created_at BETWEEN ? AND ? ORDER BY a.id DESC LIMIT 500', [$userId, $from, $to])->fetchAll(PDO::FETCH_ASSOC);
         $count = static fn (array $acts): int => count(array_unique(array_map(static fn ($r) => $r['company'] . '|' . $r['action'], array_filter($log, static fn ($r) => in_array($r['action'], $acts, true)))));
         $summary = ['actions' => count($log), 'sent' => $count(['contacted']), 'replied' => $count(['replied', 'interested', 'trial', 'subscribed']), 'trial' => $count(['trial', 'subscribed']), 'subscribed' => $count(['subscribed'])];
@@ -2908,7 +2943,7 @@ class PlatformOutreachService
             $active = $start !== '' && $start <= $to && ($c['status'] === 'active' || ($end !== null && $end >= $from));
             $monthly = (float) $c['price'] / ($c['plan_type'] === 'yearly' ? 12 : 1);
             $cur = strtoupper((string) ($c['currency'] ?: 'USD'));
-            $egp = $cur === 'EGP' ? $monthly : ($cur === 'USD' ? $monthly * $usdEgp : null);
+            $egp = self::toEgp($monthly, $cur, $usdEgp);
             if ($active && $egp === null) {
                 $skipped[] = $c['company'] . ' (' . $cur . ')';
             }
@@ -2943,8 +2978,8 @@ class PlatformOutreachService
             'totals' => ['commission_egp' => round($commissionTotal, 2), 'commission_confirmed_egp' => round($confirmedTotal, 2), 'commission_pending_egp' => round($commissionTotal - $confirmedTotal, 2), 'salary_egp' => round($salary, 2), 'total_egp' => round($confirmedTotal + $salary, 2)],
             'notes' => array_values(array_filter([
                 'النسبة بتتحسب على الاشتراكات السارية، وبتدخل في الإجمالي لما تلاقي فاتورة مدفوعة للعميل. اللي من غير فاتورة مدفوعة بيظهر «بانتظار تأكيد الدفع».',
-                'الدولار بسعر ' . rtrim(rtrim(number_format($usdEgp, 2, '.', ''), '0'), '.') . ' جنيه. الاشتراك السنوي بيتحسب ÷ 12.',
-                $skipped ? 'عملاء بعملة غير الجنيه والدولار ومابيتحسبوش: ' . implode('، ', array_unique($skipped)) : null,
+                'الدولار بسعر ' . rtrim(rtrim(number_format($usdEgp, 2, '.', ''), '0'), '.') . ' جنيه، والعملات التانية (ريال، درهم، يورو...) بأسعار الصرف المسجّلة في المنصة. الاشتراك السنوي بيتحسب ÷ 12.',
+                $skipped ? 'عملاء بعملة مش في أسعار الصرف ومابيتحسبوش: ' . implode('، ', array_unique($skipped)) : null,
             ])),
         ];
     }

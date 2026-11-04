@@ -437,7 +437,7 @@
                     if (t.dataset.pfSave !== undefined) {
                         const body = { user_id: staffUi.userId };
                         staffUi.el.querySelectorAll('[data-pf]').forEach(el => { body[el.dataset.pf] = el.value; });
-                        await api('/api/admin/outreach-desk/staff-profile', body); await loadStaff(); stMsg('اتحفظت البيانات ✅'); return;
+                        const saved = await api('/api/admin/outreach-desk/staff-profile', body); await loadStaff(); stMsg('اتحفظت البيانات ✅' + (saved.profile && saved.profile.released ? ` · رجعت ${saved.profile.released} شركة لقايمة «لسه ماتواصلتش» (الموظف ساب الشغل)` : '')); return;
                     }
                     if (t.dataset.stSave !== undefined) {
                         const q = s => staffUi.el.querySelector(s);
