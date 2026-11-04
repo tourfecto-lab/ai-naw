@@ -148,7 +148,7 @@ final class GeoInsightsService
         return [
             'state' => 'measured_sample',
             'answers' => count($rows),
-            'confidence' => count($rows) >= 100 ? 'high' : (count($rows) >= 30 ? 'medium' : 'low'),
+            'confidence' => self::confidence(count($rows)),
             'as_of' => (string) $rows[0]['checked_at'],
             'stale' => (strtotime($now . ' UTC') - strtotime((string) $rows[0]['checked_at'] . ' UTC')) > 14 * 86400,
             'trend' => self::trend($rows),
@@ -220,6 +220,12 @@ final class GeoInsightsService
         }
         usort($out, static fn ($a, $b) => [$b['answers'], $a['name']] <=> [$a['answers'], $b['name']]);
         return ['brand' => ['answers' => $brand, 'share' => round($brand / $n, 4)], 'list' => array_slice($out, 0, 15)];
+    }
+
+    /** قاعدة الثقة الوحيدة لقياس GEO (بتستخدمها صفحة الرؤى ولوحة الظهور علشان الرقمين ما يختلفوش): عدد الإجابات المقيسة. */
+    public static function confidence(int $answers): string
+    {
+        return $answers >= 100 ? 'high' : ($answers >= 30 ? 'medium' : 'low');
     }
 
     /** أكتر النطاقات استشهادًا (مع تصنيف: موقعنا/منافس/آخر) وأكتر صفحات موقعنا استشهادًا. */

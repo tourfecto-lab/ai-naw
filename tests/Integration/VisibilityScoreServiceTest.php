@@ -30,15 +30,24 @@ final class VisibilityScoreServiceTest extends TestCase
         ]], self::NOW);
         $this->assertSame(65, $g['score']); // 100*(0.7*0.5+0.3*1.0)
         $this->assertSame(2, $g['providers']);
-        $this->assertSame('high', $g['confidence']); // 2 providers x 20 questions
+        $this->assertSame('medium', $g['confidence']); // 2 providers x 20 questions = 40 answers (30-99)
         $this->assertFalse($g['stale']);
+    }
+
+    public function testGeoConfidenceUsesTheSameRuleAsGeoInsights(): void
+    {
+        foreach ([[9, 'low'], [29, 'low'], [30, 'medium'], [99, 'medium'], [100, 'high']] as [$n, $want]) {
+            $g = VisibilityScoreService::geo(['providers' => ['openai' => $this->provider(0.5, 0.5, $n)]], self::NOW);
+            $this->assertSame($want, $g['confidence'], "$n answers");
+            $this->assertSame($want, GeoInsightsService::confidence($n));
+        }
     }
 
     public function testStaleSamplesAreFlagged(): void
     {
         $g = VisibilityScoreService::geo(['providers' => ['openai' => $this->provider(0.2, 0.0, 40, '2026-09-01')]], self::NOW);
         $this->assertTrue($g['stale']);
-        $this->assertSame('high', $g['confidence']);
+        $this->assertSame('medium', $g['confidence']);
     }
 
     public function testSeoScoreIsClampedAndDated(): void
