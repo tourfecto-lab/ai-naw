@@ -28,9 +28,9 @@
 
     const dayTable = (day, all) => `<section class="dk-day"><h3>${esc(dayLabel(day.date))} <small>(${num(day.count)} رسالة)</small></h3>
         <div class="dk-scroll"><table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>البلد</th><th>الرقم</th>${all ? '<th>مين بعت</th>' : ''}<th>النوع</th><th>النتيجة</th><th>ملاحظة</th><th>تفاصيل</th></tr></thead><tbody>
-        ${day.items.map(x => `<tr><td>${esc(x.at)}</td><td><b>${esc(x.company)}</b></td><td>${esc([x.country, x.city].filter(Boolean).join(' · '))}</td><td dir="ltr">${esc(x.phone)}</td>${all ? `<td>${esc(x.staff)}</td>` : ''}
-            <td><span class="dk-b ${x.kind === 'followup' ? 'hot' : ''}">${KIND[x.kind]}</span></td><td>${x.result && x.result !== 'contacted' ? `<span class="dk-b ${RESULT_CLS[x.result] || ''}">${esc(x.result_label)}</span>` : '<span class="dk-muted">لسه من غير رد</span>'}</td>
-            <td>${esc(x.note)}</td><td class="dk-sm">${x.email_step > 0 ? 'اتبعتلها إيميل ' + x.email_step : 'من غير إيميل'}${x.report_viewed ? ' · فتحت التقرير' : ''} · <a href="${esc(x.report_url)}" target="_blank" rel="noopener noreferrer">التقرير ↗</a></td></tr>`).join('')}
+        ${day.items.map(x => `<tr><td data-l="الوقت">${esc(x.at)}</td><td data-l="الشركة"><b>${esc(x.company)}</b></td><td data-l="البلد">${esc([x.country, x.city].filter(Boolean).join(' · '))}</td><td data-l="الرقم" dir="ltr">${esc(x.phone)}</td>${all ? `<td data-l="مين بعت">${esc(x.staff)}</td>` : ''}
+            <td data-l="النوع"><span class="dk-b ${x.kind === 'followup' ? 'hot' : ''}">${KIND[x.kind]}</span></td><td data-l="النتيجة">${x.result && x.result !== 'contacted' ? `<span class="dk-b ${RESULT_CLS[x.result] || ''}">${esc(x.result_label)}</span>` : '<span class="dk-muted">لسه من غير رد</span>'}</td>
+            <td data-l="ملاحظة">${esc(x.note)}</td><td data-l="تفاصيل" class="dk-sm">${x.email_step > 0 ? 'اتبعتلها إيميل ' + x.email_step : 'من غير إيميل'}${x.report_viewed ? ' · فتحت التقرير' : ''} · <a href="${esc(x.report_url)}" target="_blank" rel="noopener noreferrer">التقرير ↗</a></td></tr>`).join('')}
         </tbody></table></div></section>`;
 
     const render = () => {
