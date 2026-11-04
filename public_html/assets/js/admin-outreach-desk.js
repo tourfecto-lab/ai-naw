@@ -392,7 +392,7 @@
     };
     const wizShoot = async cur => {
         wiz.busy = true;
-        try { const blob = await wizBlob(); wizMsg('🎥 ثواني وبنسجّل…'); const clip = await wizClip(); await wizProcess(blob, cur, clip); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
+        try { const blob = await wizBlob(); wizMsg('📷 بنصوّر…'); const clip = await wizClip(); await wizProcess(blob, cur, clip); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
     };
     const wizReview = () => {
         wizStop(); const f = wiz.fields || wiz.partial || {};
