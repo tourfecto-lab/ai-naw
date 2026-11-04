@@ -193,7 +193,7 @@ HTML;
         $body = PublicLayout::hero($C::t(['المساعدة', 'Help']), $C::t(['مركز المساعدة', 'Help center']), $C::t(['عايز حاجة؟ هتلاقيها هنا.', 'Need something? You’ll find it here.']))
             . '<section class="blk tight" style="padding-top:0"><div class="container-narrow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">' . $html . '</div></section>';
         header('Content-Type: text/html; charset=utf-8');
-        echo PublicLayout::render(['title' => $C::t(['مركز المساعدة', 'Help center']), 'description' => $C::t(['مساعدة واستفسارات منصة Tourfecto.', 'Tourfecto help and support.']), 'path' => '/help', 'body' => $body]);
+        echo PublicLayout::render(['title' => $C::t(['مركز المساعدة', 'Help center']), 'description' => $C::t(['مركز مساعدة Tourfecto: أسئلة شائعة وشروحات لاستخدام الحجوزات والتقييمات والسيو، وطرق التواصل مع الدعم لو احتجت مساعدة.', 'Tourfecto help center: common questions and guides for bookings, reviews and SEO, plus ways to reach support when you need a hand.']), 'path' => '/help', 'body' => $body]);
         exit;
     }
 

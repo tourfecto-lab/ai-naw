@@ -1200,7 +1200,7 @@ class MarketingController extends Controller
             . $this->formScript('contact');
         $this->out(PublicLayout::render([
             'title' => $this->t(['تواصل معنا', 'Contact us']),
-            'description' => $this->t(['تواصل مع فريق Tourfecto على الواتساب أو الإيميل أو من خلال الفورم.', 'Reach the Tourfecto team by WhatsApp, email or the contact form.']),
+            'description' => $this->t(['تواصل مع فريق Tourfecto على الواتساب أو الإيميل أو من خلال الفورم، واسألنا عن الباقات أو الدعم أو أي استفسار عن المنصة لشركتك.', 'Reach the Tourfecto team by WhatsApp, email or the contact form. Ask about plans, support or anything about the platform for your tour company.']),
             'path' => '/contact', 'active' => 'contact', 'body' => $body,
         ]));
         return [];
@@ -1247,7 +1247,7 @@ class MarketingController extends Controller
             . $this->formScript('demo');
         $this->out(PublicLayout::render([
             'title' => $this->t(['اطلب عرض توضيحي', 'Book a demo']),
-            'description' => $this->t(['احجز عرض توضيحي مجاني لمنصة Tourfecto على شركتك.', 'Book a free Tourfecto demo for your company.']),
+            'description' => $this->t(['احجز عرضًا توضيحيًا مجانيًا لمنصة Tourfecto على شركتك، وشوف الحجوزات والتقييمات والسيو في مكان واحد قبل ما تشترك.', 'Book a free Tourfecto demo for your company and see bookings, reviews and SEO working together in one place before you subscribe.']),
             'path' => '/demo', 'active' => '', 'body' => $body,
         ]));
         return [];
@@ -1383,7 +1383,7 @@ class MarketingController extends Controller
             . '<section class="blk tight" style="padding-top:0"><div class="container-narrow prose">' . $html . '</div></section>';
         $this->out(PublicLayout::render([
             'title' => $this->t(['سياسة الاسترجاع', 'Refund policy']),
-            'description' => $this->t(['سياسة الاسترجاع والإلغاء لاشتراكات منصة Tourfecto.', 'Refund and cancellation policy for Tourfecto subscriptions.']),
+            'description' => $this->t(['سياسة الاسترجاع والإلغاء لاشتراكات منصة Tourfecto، اقرأ الشروط كاملة قبل الاشتراك أو الإلغاء أو طلب الاسترجاع.', 'Refund and cancellation policy for Tourfecto subscriptions. Read the full terms before you subscribe, cancel or request a refund.']),
             'path' => '/refund-policy', 'body' => $body,
         ]));
         return [];
@@ -1524,7 +1524,7 @@ HTML;
             . '<section class="blk tight" style="padding-top:0"><div class="post-grid">' . $grid . '</div>' . $pager . '</section>';
         $this->out(PublicLayout::render([
             'title' => $this->t(['المدونة', 'Blog']),
-            'description' => $this->t(['مقالات ونصايح لشركات الرحلات والسياحة: الحجوزات، التسويق، التقييمات و SEO.', 'Articles and tips for tour and travel companies: bookings, marketing, reviews and SEO.']),
+            'description' => $this->t(['مقالات ونصايح لشركات الرحلات والسياحة عن الحجوزات والتسويق وتقييمات العملاء والسيو، علشان تزوّد حجوزاتك وتظهر أكتر في البحث.', 'Articles and practical tips for tour and travel companies on bookings, marketing, customer reviews and SEO, to help you get found and booked more.']),
             'path' => '/blog', 'active' => 'blog', 'body' => $body,
         ]));
         return [];
