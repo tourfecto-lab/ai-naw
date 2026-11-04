@@ -901,7 +901,7 @@ final class OutreachDeskTest extends TestCase
         $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $old);
         $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('o', 200));
         $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $mk(50));
-        $this->assertSame([], $this->svc->staffIdCardHistory(self::STAFF_ID), 'a retry within 30 minutes just replaces (no history noise)');
+        $this->assertSame([], $this->svc->staffIdCardHistory(self::STAFF_ID), 'a retry within 10 minutes just replaces (no history noise)');
 
         $this->db->query("UPDATE platform_staff_docs SET uploaded_at = NOW() - INTERVAL 2 DAY WHERE user_id = ?", [self::STAFF_ID]);
         $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('o', 200));
