@@ -123,8 +123,8 @@
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
         const tabs = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l}${key ? ` <b>${c[key] || 0}</b>` : ` <b>${c.total || 0}</b>`}</button>`).join('');
         // أول دخول: موقعها مرة واحدة بإذنها (عشان نتأكد من العنوان)، وتنبيه لو بياناتها ناقصة
-        const meBanner = (me.location_recorded === false ? `<div class="dk-banner">📍 محتاجين موقعك <b>مرة واحدة</b> عشان نتأكد من عنوانك. المتصفح هيسألك عن الإذن، ومفيش تتبّع مستمر.
-                <button class="dk-btn primary" data-loc-first>اسمحي وسجّلي موقعي</button></div>` : '')
+        const meBanner = (me.location_recorded === false ? `<div class="dk-banner">📍 سجّلي موقعك
+                <button class="dk-btn primary" data-loc-first>سجّلي موقعي</button></div>` : '')
             + (me.profile_missing > 0 ? `<div class="dk-banner">📋 بيانات ملفك ناقصة (${me.profile_missing}). افتحي «كشف الشغل» وكمّلي بياناتك وارفعي صورة البطاقة.</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip">اختاري الدولة، وانسخي الرقم والرسالة وابعتيها على واتساب، وبعدها سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
@@ -204,14 +204,12 @@
         const idBox = canEdit ? `<div class="dk-comp dk-id"><b>🪪 صورة البطاقة</b>
             <label>الوش${idView('front')}<input type="file" accept="image/*" capture="environment" data-id-file="front"></label>
             <label>الضهر${idView('back')}<input type="file" accept="image/*" capture="environment" data-id-file="back"></label>
-            <label class="dk-consent"><input type="checkbox" data-id-consent> أوافق على رفع صورة البطاقة وقراءة بياناتها بالذكاء الاصطناعي (Google Gemini) وتخزينها مشفّرة، ومايشوفهاش غير مالك المنصة.</label>
             <button class="dk-btn primary" data-id-upload>ارفع واقرا البيانات</button>
-            <small class="dk-muted">البيانات اللي بتتقرا بتتحط في الخانات تحت كاقتراح: راجعيها وصحّحيها واضغطي «حفظ البيانات». مفيش حاجة بتتحفظ لوحدها.</small>
             <p class="dk-id-note"></p></div>` : '';
         const locLine = !loc ? 'لسه ماتسجّلش' : `<a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">أول موقع على الخريطة ↗</a> · ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
             <br>${!loc.has_address ? '⚠️ مفيش عنوان في الملف عشان نقارنه' : (!loc.address_located ? '⚠️ ماقدرناش نحوّل العنوان لموقع على الخريطة: قارنيه بإيدك' : (loc.far ? `🚨 الموقع بعيد <b>${num(loc.distance_km)} كم</b> عن العنوان المسجّل (الحد ${loc.far_km} كم)` : `✅ الموقع قريب من العنوان (${num(loc.distance_km)} كم)`))}`;
         const locBox = loc !== null || d.is_self ? `<div class="dk-comp dk-loc"><b>📍 الموقع</b><span>${locLine}</span>
-            ${d.is_self ? '<button class="dk-btn" data-loc-save>' + (loc ? 'حدّثي موقعي' : 'سجّلي موقعي (بإذنك)') + '</button><small class="dk-muted">بيتسجّل موقعك مرة واحدة وقت ما تضغطي، ومفيش تتبّع مستمر. المتصفح هيسألك عن الإذن.</small>' : ''}</div>` : '';
+            ${d.is_self ? '<button class="dk-btn" data-loc-save>' + (loc ? 'حدّثي موقعي' : 'سجّلي موقعي') + '</button>' : ''}</div>` : '';
         const profBanner = (p.missing || []).length ? `<p class="dk-st-msg bad">⚠️ بيانات ناقصة: ${p.missing.map(esc).join('، ')}</p>` : '<p class="dk-st-msg">✅ بيانات الموظف كاملة</p>';
         const tile = (n, l) => `<div class="dk-fn"><b>${n}</b><span>${l}</span></div>`;
         const custs = r.customers.length ? `<table class="dk-tbl"><thead><tr><th>العميل</th><th>الباقة</th><th>اشترك من</th><th>الشهر ده</th><th>قيمة الشهر</th><th>النسبة</th></tr></thead><tbody>${r.customers.map(x => `<tr><td>${esc(x.company)}</td><td>${esc(x.plan)} (${x.cycle === 'yearly' ? 'سنوي' : 'شهري'})</td><td>${esc(String(x.since).slice(0, 10))}</td><td>${x.active_in_month ? '✅ ساري' : '— مش ساري'}</td><td>${x.monthly_egp == null ? '؟' : egp(x.monthly_egp)}</td><td><b>${egp(x.commission_egp)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">لسه مفيش عملاء مدفوعين منسوبين لها (العميل بيتنسب لأول موظفة سجّلت إرسال واتساب ليه).</p>';
@@ -245,7 +243,6 @@
     });
     const uploadIdCard = async () => {
         const q = s => staffUi.el.querySelector(s), note = q('.dk-id-note');
-        if (!q('[data-id-consent]').checked) throw new Error('وافقي الأول على رفع البطاقة وقراءتها وتخزينها');
         const fd = new FormData(); fd.append('consent', '1'); fd.append('csrf_token', csrf); fd.append('user_id', staffUi.userId);
         let n = 0;
         for (const side of ['front', 'back']) { const f = q(`[data-id-file="${side}"]`).files[0]; if (f) { fd.append(side, await shrinkImage(f), side + '.jpg'); n++; } }
@@ -259,7 +256,7 @@
             const f = ex.fields;
             [['full_name', f.full_name], ['national_id', f.national_id], ['address', f.address]].forEach(([k, v]) => { const el = q(`[data-pf="${k}"]`); if (el && v) el.value = v; });
             const extra = f.birth_date ? ` · ميلاد ${f.birth_date} · ${f.gender === 'male' ? 'ذكر' : 'أنثى'} · ${f.governorate}` : '';
-            note.innerHTML = '✅ اتقرت البطاقة وبياناتها اتحطت في الخانات تحت' + esc(extra) + (f.warning ? '<br>⚠️ ' + esc(f.warning) : '') + '<br><b>راجعيها بعينك وصحّحي أي غلط، وبعدين اضغطي «حفظ البيانات».</b>';
+            note.innerHTML = '✅ اتقرت البطاقة وبياناتها اتحطت في الخانات تحت' + esc(extra) + (f.warning ? '<br>⚠️ ' + esc(f.warning) : '');
         } else {
             note.textContent = n && ex ? '✅ الصورة اتحفظت. ' + (ex.error || '') : '✅ الصورة اتحفظت';
         }
