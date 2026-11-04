@@ -153,7 +153,7 @@ final class VisibilityScoreService
         return [
             'state' => 'measured_sample', 'score' => (int) round(100 * (0.7 * $avgSov + 0.3 * $avgCite)),
             'source' => 'ai_answers_sample', 'as_of' => $latest, 'providers' => count($sov), 'questions' => $questions,
-            'confidence' => $questions >= 30 ? 'high' : ($questions >= 10 ? 'medium' : 'low'),
+            'confidence' => GeoInsightsService::confidence($questions),
             'stale' => $latest === null || self::isStale($latest . ' 00:00:00', $now),
         ];
     }
