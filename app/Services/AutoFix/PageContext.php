@@ -26,6 +26,8 @@ class PageContext
             if ($fresh['error'] === null && $fresh['http'] === 200 && $fresh['body'] !== '') $r = $fresh;
         }
         $out['http_status'] = (int) $r['http'];
+        $out['retry_after'] = $r['headers']['retry-after'] ?? null;
+        $out['error_detail'] = $r['error_detail'] ?? null;
         if ($r['error'] !== null || $r['http'] < 200 || $r['http'] >= 400 || $r['body'] === '') {
             $out['error'] = $r['error'] ?? ('http_' . $r['http']);
             return $out;

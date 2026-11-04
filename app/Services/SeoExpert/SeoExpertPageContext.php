@@ -38,7 +38,7 @@ class SeoExpertPageContext extends PageContext
         if($withBody&&$body!==''&&class_exists('DOMDocument')){$doc=new DOMDocument();$old=libxml_use_internal_errors(true);try{if($doc->loadHTML($body,LIBXML_NONET)){$xp=new DOMXPath($doc);$this->nativeOwner=$xp->query('//head/meta[@name="tourfecto-seo-owner" and @content="native"]')->length>0;$this->guideLayout=$xp->evaluate('string(//head/meta[@name="tourfecto-guide-layout"]/@content)');if($this->publicationRead){foreach($xp->query('//*[@data-tourfecto-guide]//a[@href]|//article//a[@href]') as $anchor){$href=$anchor->getAttribute('href');if(filter_var($href,FILTER_VALIDATE_URL)&&in_array(parse_url($href,PHP_URL_SCHEME),['http','https'],true)&&!isset($this->publicationAnchors[$href]))$this->publicationAnchors[$href]=true;if(count($this->publicationAnchors)>=80)break;}}}}finally{libxml_clear_errors();libxml_use_internal_errors($old);}}
         $this->wordpress=$withBody && preg_match('~wp-content/|wp-includes/|wp-json/|name=["\']generator["\'][^>]*WordPress~i',$body)===1;
         $this->robotsHeader=(string)($headers['x-robots-tag']??'');
-        return ['http'=>$r['code'],'body'=>$body,'headers'=>$headers,'error'=>$r['error']!==''?'fetch_failed':null,'final_url'=>$r['url']?:$url];
+        return ['http'=>$r['code'],'body'=>$body,'headers'=>$headers,'error'=>$r['error']!==''?'fetch_failed':null,'error_detail'=>(string)$r['error'],'final_url'=>$r['url']?:$url];
     }
     /** Bounded same-site XML reads. A sitemap entry is discovery evidence, never proof of Google indexing. */
     public function publicationSitemap(string $siteUrl,string $articleUrl,bool $connector): array

@@ -4,6 +4,7 @@ require_once __DIR__.'/SeoExpertPageContext.php';
 require_once __DIR__.'/SeoDiscoveryService.php';
 require_once __DIR__.'/SeoOpportunityService.php';
 require_once __DIR__.'/SeoPagePolicy.php';
+require_once __DIR__.'/SeoLinkHealth.php';
 require_once __DIR__.'/SeoWorkWindow.php';
 require_once __DIR__.'/SeoCycleHealth.php';
 require_once __DIR__.'/SeoVerificationState.php';
@@ -303,7 +304,7 @@ class SeoExpertService
         $reader=$this->reader??new SeoExpertPageContext();$queue=array_merge($prior['pending_urls']??[$site['main_url']],$discovery['urls']);$seen=array_fill_keys($prior['seen_paths']??[],true);$pages=$prior['pages']??[];$failures=$prior['failures']??[];$excluded=$prior['excluded_routes']??[];$inbound=$prior['inbound']??[];$linkSource=$prior['link_source']??[];$fetched=0;$attempts=(int)($prior['attempts']??0);$attemptLimit=$limit*2;
         while($queue&&count($pages)<$limit&&$attempts<$attemptLimit&&$fetched<8&&microtime(true)<$deadline){
             $url=array_shift($queue);$url=SeoDiscoveryService::pageUrl($url,$site['main_url']);if($url===null)continue;try{$path=self::path($url);}catch(Throwable $e){continue;}if(isset($seen[$path]))continue;$seen[$path]=true;$fetched++;$attempts++;
-            $ctx=$reader->fresh($url);if(empty($ctx['ok'])||!empty($ctx['coming_soon'])){$failures[]=['url'=>$url,'reason'=>!empty($ctx['coming_soon'])?'maintenance_page':'unreachable'];continue;}
+            $ctx=$reader->fresh($url);if(empty($ctx['ok'])||!empty($ctx['coming_soon'])){$health=SeoLinkHealth::classify($ctx);$failures[]=['url'=>$url,'reason'=>$health['state']==='gone'?'not_found':$health['reason'],'status'=>$health['status'],'retry_after'=>$health['retry_after'],'observed_at'=>gmdate('c')];continue;}
             if(!WordPressConnector::hostsEqual((string)parse_url($url,PHP_URL_HOST),(string)parse_url($ctx['final_url'],PHP_URL_HOST))){$failures[]=['url'=>$url,'reason'=>'redirected_to_another_host'];continue;}
             $url=$ctx['final_url'];$route=SeoPagePolicy::route($url);if(!$route['eligible']){if(count($excluded)<100)$excluded[$url]=['url'=>$url,'reason'=>$route['reason']];continue;}try{$path=self::path($url);}catch(Throwable $e){continue;}$ctx['url']=$url;$ctx['page_path']=$path;if(in_array($path,array_column($pages,'page_path'),true))continue;$seen[$path]=true;$ctx['schema_truncated']=strlen(json_encode($ctx['schema']??[]))>12000;if($ctx['schema_truncated'])$ctx['schema']=[];
             foreach(['title'=>240,'description'=>1000,'canonical'=>1800,'lang'=>30] as $k=>$max){$ctx[$k]=mb_substr((string)$ctx[$k],0,$max);if(isset($ctx['values'][$k]))$ctx['values'][$k]=array_map(static fn($v)=>mb_substr((string)$v,0,$max),array_slice($ctx['values'][$k],0,4));}
@@ -468,18 +469,34 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
             if($h=SeoTourContentAudit::hreflangTask($pages,$ar))$this->task($r,'manual','seo',$h['page'],$h['title'],$h['instructions'],null,null,'needs_client');
         }catch(Throwable $e){Logger::warning('SEO content audit skipped',['run_id'=>$r['id']??null,'error'=>$e->getMessage()]);}
     }
+    /** @return array{value:?string,checks:array} قيمة link_fix بعد إعادة التحقق الحي؛ null لو مفيش رابط ثبت إنه مكسور. */
+    private function guardLinkFix(array $t,object $reader): array{
+        $items=json_decode((string)$t['expected_value'],true);$items=is_array($items)?$items:[];$keep=[];$checks=[];
+        $host=(string)parse_url((string)$t['page_url'],PHP_URL_HOST);$origin=(string)(parse_url((string)$t['page_url'],PHP_URL_SCHEME)?:'https').'://'.$host;
+        foreach(array_slice($items,0,10) as $x){
+            if(!is_array($x)||empty($x['from']))continue;
+            $abs=(string)$x['from'];if(!preg_match('#^https?://#i',$abs))$abs=$origin.'/'.ltrim($abs,'/');
+            $h=SeoLinkHealth::confirmGone($reader,$abs);$checks[]=['url'=>$abs,'state'=>$h['state'],'reason'=>$h['reason'],'status'=>$h['status'],'retry_after'=>$h['retry_after']];
+            if($h['state']==='gone')$keep[]=['from'=>(string)$x['from'],'to'=>''];
+        }
+        if(!$keep)return ['value'=>null,'checks'=>$checks];
+        $value=EdgeRules::sanitize('link_fix',(string)json_encode($keep,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE),$host);
+        return ['value'=>is_string($value)?$value:null,'checks'=>$checks];
+    }
     private function hygieneTasks(array $r,array $pages,array $snapshot,array $site): void{
         $ar=($snapshot['brief']['language']??'en')==='ar';$byUrl=[];foreach($pages as $p)$byUrl[$p['url']]=$p;$sources=$snapshot['link_source']??[];$n=0;
         $words=static function(string $path){preg_match_all('/[\p{L}\p{N}]{3,}/u',mb_strtolower(str_replace(['-','/','_'],' ',$path)),$m);return array_unique($m[0]);};
         // الروابط المكسورة: ملف الربط بيصلحها لوحده (لأقرب صفحة شغالة لو التطابق واضح، أو بيشيل الرابط ويسيب النص)، ولو الربط قديم بتفضل للعميل
         $fixes=[];
         foreach($snapshot['failures']??[] as $f){
-            if($n>=10||($f['reason']??'')!=='unreachable')continue;try{$path=self::path((string)$f['url']);}catch(Throwable $e){continue;}$from=$sources[$path]??null;if(!$from||!isset($byUrl[$from]))continue;
+            if($n>=10||($f['reason']??'')!=='not_found')continue;try{$path=self::path((string)$f['url']);}catch(Throwable $e){continue;}$from=$sources[$path]??null;if(!$from||!isset($byUrl[$from]))continue;
             $best=null;$bestScore=0;foreach($pages as $p){$common=count(array_intersect($words($path),$words((string)$p['page_path'])));if($common>$bestScore){$best=$p['url'];$bestScore=$common;}}
             // التغيير التلقائي لصفحة بديلة بس لو التطابق واضح: كلمتين مميزتين على الأقل (مش tours/blog...) ومفيش صفحة تانية بنفس الدرجة
             $generic=['tour','tours','trip','trips','blog','page','pages','category','product','products','html','php','www','en','ar','de','fr','es','it'];$key=static fn($x)=>array_values(array_diff($words($x),$generic));$top=0;$ties=0;$pick=null;
             foreach($pages as $p){$c=count(array_intersect($key($path),$key((string)$p['page_path'])));if($c>$top){$top=$c;$ties=1;$pick=$p['url'];}elseif($c&&$c===$top)$ties++;}
-            if(SeoPagePolicy::classify($byUrl[$from])['eligible']&&count($fixes[$from]??[])<10){$fixes[$from][]=['from'=>(string)$f['url'],'to'=>$top>=2&&$ties===1?(string)$pick:'','hint'=>$best];$n++;continue;}
+            // البديل المبني على تشابه كلمات مجرد تخمين: بيتعرض للمراجعة ومابيتنفذش تلقائي. الإزالة بتتعمل بس لرابط ثبت إنه 404/410 وهيتعاد التحقق منه وقت التنفيذ.
+            $guess=$top>=2&&$ties===1?(string)$pick:'';if($guess!==''){$best=$guess;}
+            elseif(SeoPagePolicy::classify($byUrl[$from])['eligible']&&count($fixes[$from]??[])<10){$fixes[$from][]=['from'=>(string)$f['url'],'to'=>'','hint'=>$best];$n++;continue;}
             $this->task($r,'manual','seo',$byUrl[$from],$ar?'رابط مكسور في الصفحة دي':'Broken link on this page',($ar?"الصفحة دي فيها رابط لـ {$f['url']} والرابط ده مش بيفتح. ":"This page links to {$f['url']}, which does not open. ").($best?($ar?"غيّر الرابط لـ {$best} (أقرب صفحة شغالة) أو شيله.":"Change it to {$best} (the closest working page) or remove it."):($ar?'شيل الرابط أو غيّره لصفحة شغالة.':'Remove it or point it to a working page.')),'broken_link',$best,'needs_client');$n++;
         }
         $host=(string)parse_url((string)$site['main_url'],PHP_URL_HOST);
@@ -995,6 +1012,12 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
                     $check=PageContext::verifyValue($t['field_name'],$t['expected_value'],$ctx);if($check['state']==='verified'){$this->q("UPDATE seo_expert_tasks SET status='verified',evidence_json=?,checked_at=UTC_TIMESTAMP() WHERE id=?",[json_encode($check,JSON_THROW_ON_ERROR),$t['id']]);continue;}
                     if(!empty($ctx['native_seo_owner'])&&in_array($t['field_name'],['title','description'],true)){$this->needsClient($t,'This page has directly reviewed Tourfecto SEO fields. Apply title/description changes through the unified editor; an overlay rule was not activated.');continue;}
                     if(($ctx['connector_version']??'')!=='4'){$this->needsClient($t,'Install or update the Tourfecto server-side connector, clear the public page cache, and recheck.');continue;}
+                    if($t['field_name']==='link_fix'){
+                        // إعادة تحقق حية قبل أي كتابة: بنشيل أي رابط رجع يشتغل أو الفشل بتاعه مؤقت، وأي بديل مقترح (تخمين) مابيتنفذش
+                        $guard=$this->guardLinkFix($t,$reader);
+                        if($guard['value']===null){$this->q("UPDATE seo_expert_tasks SET status='needs_client',evidence_json=?,updated_at=UTC_TIMESTAMP() WHERE id=?",[json_encode(['reason'=>'No link was changed: none of the listed links was confirmed as permanently missing (404/410) on re-check.','link_checks'=>$guard['checks']],JSON_THROW_ON_ERROR),$t['id']]);continue;}
+                        if($guard['value']!==(string)$t['expected_value']){$t['expected_value']=$guard['value'];$this->q('UPDATE seo_expert_tasks SET expected_value=?,updated_at=UTC_TIMESTAMP() WHERE id=?',[$guard['value'],$t['id']]);}
+                    }
                     if($t['field_name']==='link_fix'&&!preg_match('/\blinks\b/',(string)($ctx['connector_features']??''))){$this->needsClient($t,'Update the Tourfecto plugin/connector to the latest version (download it again from the SEO page) so broken links are fixed automatically, or change the links listed in this task yourself.');continue;}
                     if($t['field_name']==='related_links'&&!str_contains((string)($ctx['connector_features']??''),'body')){$this->needsClient($t,'Update the Tourfecto plugin/connector to the latest version (download it again from the SEO page), clear the page cache, and recheck. The older version cannot add related-trip links.');continue;}
                     $before=json_decode($t['before_json'],true)?:[];$now=$t['field_name']==='jsonld'?($ctx['schema']??[]):($ctx['values'][$t['field_name']]??[]);
