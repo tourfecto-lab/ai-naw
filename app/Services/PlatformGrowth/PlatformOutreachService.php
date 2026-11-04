@@ -159,7 +159,7 @@ class PlatformOutreachService
             updated_by VARCHAR(120) NULL,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $this->addColumns('platform_staff_profile', ['sign_name' => 'VARCHAR(40) NULL']);
+        $this->addColumns('platform_staff_profile', ['sign_name' => 'VARCHAR(40) NULL', 'recapture_at' => 'DATETIME NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_docs (
             user_id BIGINT NOT NULL,
             side VARCHAR(5) NOT NULL,
@@ -2490,7 +2490,7 @@ class PlatformOutreachService
         $shown = ['national_id' => $reveal ? $nid : self::maskTail($nid), 'pay_account' => $reveal ? $acc : self::maskTail($acc)] + $raw; // المخفي الأول عشان يغلب الأصلي
         return $shown + [
             'job_title' => (string) ($r['job_title'] ?? ''), 'start_date' => $r['start_date'] ?? null, 'status' => (string) ($r['status'] ?? 'active'),
-            'internal_note' => $reveal ? (string) ($r['internal_note'] ?? '') : '', 'updated_by' => $r['updated_by'] ?? null, 'updated_at' => $r['updated_at'] ?? null,
+            'recapture_at' => $r['recapture_at'] ?? null, 'internal_note' => $reveal ? (string) ($r['internal_note'] ?? '') : '', 'updated_by' => $r['updated_by'] ?? null, 'updated_at' => $r['updated_at'] ?? null,
             'missing' => $missing, 'complete' => $missing === [], 'revealed' => $reveal,
         ];
     }
@@ -2662,6 +2662,9 @@ class PlatformOutreachService
             throw new InvalidArgumentException('الصورة كبيرة: تتصغّر قبل الرفع');
         }
         $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
+        if ($side === 'photo') {
+            $this->q('UPDATE platform_staff_profile SET recapture_at=NULL WHERE user_id=?', [$userId]);
+        }
     }
 
     /** مقطع فيديو قصير (ثواني) بيتسجّل مع كل لقطة: وش البطاقة (fclip) وضهرها (bclip) والصورة الشخصية (pclip). WebM أو MP4 بس وبحد 6 ميجا */
@@ -2823,11 +2826,22 @@ class PlatformOutreachService
         }
     }
 
+    /** مالك المنصة بيطلب من موظف يعيد تصوير البطاقة والصورة الشخصية: مابيتمسحش حاجة، والتنبيه بيظهر للموظف لحد ما يخلّص الصورة الشخصية (آخر خطوة) */
+    public function staffRecaptureRequest(int $userId, string $by): void
+    {
+        if (!$this->q('SELECT 1 FROM users WHERE id=?', [$userId])->fetchColumn()) {
+            throw new InvalidArgumentException('الموظف مش موجود');
+        }
+        $this->q('INSERT IGNORE INTO platform_staff_profile(user_id) VALUES(?)', [$userId]);
+        $this->q('UPDATE platform_staff_profile SET recapture_at=NOW(), updated_by=? WHERE user_id=?', [mb_substr($by, 0, 120), $userId]);
+    }
+
     /** للموظفة نفسها: إيه الناقص عليها (موقع، بيانات، صورة بطاقة) عشان تتنبّه أول ما تدخل المكتب */
     public function staffMe(int $userId): array
     {
         return ['location_recorded' => (bool) $this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn(),
-            'profile_missing' => count($this->staffProfile($userId, false)['missing']), 'id_card' => ($docs = $this->staffIdCardStatus($userId))['front'] !== null && $docs['photo'] !== null];
+            'profile_missing' => count($this->staffProfile($userId, false)['missing']), 'recapture' => $recap = (bool) $this->q('SELECT recapture_at FROM platform_staff_profile WHERE user_id=?', [$userId])->fetchColumn(),
+            'id_card' => !$recap && ($docs = $this->staffIdCardStatus($userId))['front'] !== null && $docs['photo'] !== null];
     }
 
     /** كل الموظفين اللي سجّلوا شغل على المكتب أو عندهم تعويض متسجّل، مع عدد إجراءاتهم */

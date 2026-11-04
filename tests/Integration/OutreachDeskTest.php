@@ -852,4 +852,35 @@ final class OutreachDeskTest extends TestCase
         }
         $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
     }
+
+    public function testOwnerRecaptureRequestAsksForNewPhotosWithoutDeletingTheOldOnesAndClearsWhenTheSelfieIsSaved(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-recap@tourfecto.test']);
+        $img = imagecreatetruecolor(40, 30);
+        ob_start();
+        imagejpeg($img);
+        $jpg = (string) ob_get_clean();
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $jpg);
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'photo', $jpg);
+        $me = $this->svc->staffMe(self::STAFF_ID);
+        $this->assertTrue($me['id_card']);
+        $this->assertFalse($me['recapture']);
+
+        $this->svc->staffRecaptureRequest(self::STAFF_ID, 'Owner');
+        $me = $this->svc->staffMe(self::STAFF_ID);
+        $this->assertFalse($me['id_card'], 'the banner asks again');
+        $this->assertTrue($me['recapture']);
+        $this->assertNotNull($this->svc->staffIdCardGet(self::STAFF_ID, 'front'), 'the old photos stay until new ones arrive');
+        $this->assertNotEmpty($this->svc->staffProfile(self::STAFF_ID, true)['recapture_at']);
+
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $jpg);
+        $this->assertTrue($this->svc->staffMe(self::STAFF_ID)['recapture'], 'still asked until the last step (selfie) is saved');
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'photo', $jpg);
+        $me = $this->svc->staffMe(self::STAFF_ID);
+        $this->assertFalse($me['recapture']);
+        $this->assertTrue($me['id_card']);
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+        $this->expectException(InvalidArgumentException::class);
+        $this->svc->staffRecaptureRequest(99999999, 'Owner');
+    }
 }

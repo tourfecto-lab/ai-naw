@@ -237,6 +237,28 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** POST /api/admin/outreach-desk/staff-recapture {user_id}: مالك المنصة بس بيطلب من موظف إعادة تصوير البطاقة والصورة (من غير مسح القديم) */
+    public function staffRecapture(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        if (!$this->canManageTeam()) {
+            return $this->error('غير مصرح', 403);
+        }
+        $uid = (int) $this->get('user_id', 0);
+        try {
+            $this->service()->staffRecaptureRequest($uid, $this->staffLabel());
+            Logger::info('Staff ID recapture requested', ['by' => (int) ($this->user['id'] ?? 0), 'for' => $uid]);
+            return $this->success(['requested' => true]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Staff recapture failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر الطلب', 503);
+        }
+    }
+
     /** GET /api/admin/outreach-desk/staff-id-card?side=front|back&user_id= : الصورة نفسها، لصاحبها ولمالك المنصة بس */
     public function staffIdCardView(array $params = []): array
     {

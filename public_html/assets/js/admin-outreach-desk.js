@@ -128,7 +128,7 @@
         const opened = counts.reduce((a, x) => a + (x.opened || 0), 0);
         const meBanner = (opened > 0 ? `<div class="dk-banner">👀 ${num(opened)} شركة فتحت التقرير ومفيش نتيجة لسه: الأنسب التواصل معاها دلوقتي وهي لسه شايفاه <button class="dk-btn primary" data-go-opened>شوف مين فتح</button></div>` : '')
             + (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
-            + (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
+            + (me.id_card === false ? `<div class="dk-banner">🪪 ${me.recapture ? 'مطلوب إعادة تصوير البطاقة والصورة الشخصية' : 'تصوير البطاقة والصورة الشخصية'} <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
@@ -245,6 +245,7 @@
         const idStatus = ic ? (ic.front && ic.photo ? '✅ البطاقة والصورة الشخصية اتسجّلوا' : '⚠️ لسه ناقص: ' + [!ic.front && 'وش البطاقة', !ic.back && 'ضهر البطاقة', !ic.photo && 'الصورة الشخصية'].filter(Boolean).join('، ')) : '';
         const idBox = canEdit ? `<div class="dk-comp dk-id"><b>🪪 البطاقة والصورة الشخصية</b><span>${idStatus}</span>
             <button class="dk-btn primary" data-id-wizard>📷 ${ic && ic.front ? 'إعادة التصوير' : 'التصوير'}</button>
+            ${mgr && !d.is_self ? `<button class="dk-btn" data-recapture>🔔 اطلب منه يعيد التصوير</button>${p.recapture_at ? `<small class="dk-muted">اتطلب ${esc(String(p.recapture_at).slice(0, 16))} ولسه ماصوّرش</small>` : ''}` : ''}
             <p class="dk-id-note"></p></div>` : '';
         // الموقع للأدمن بس (الإحداثيات والمسافة من العنوان)؛ الموظف بيشوف إنه اتسجّل ومش أكتر
         const locLine = !loc ? 'لسه ماتسجّلش' : `<b>موقع وقت التسجيل (قراءة واحدة، مش تتبّع مباشر)</b> · <a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">على الخريطة ↗</a> · اتسجّل ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
@@ -460,6 +461,7 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
+                    if (t.dataset.recapture !== undefined) { await api('/api/admin/outreach-desk/staff-recapture', { user_id: staffUi.userId }); await loadStaff(); stMsg('اتطلب منه إعادة التصوير: التنبيه هيظهر له أول ما يفتح المكتب ✅'); return; }
                     if (t.dataset.idWizard !== undefined) { openWizard(staffUi.isSelf ? 0 : staffUi.userId); return; }
                     if (t.dataset.locSave !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; await loadStaff(); stMsg('اتسجّل موقعك ✅'); } finally { t.disabled = false; } return; }
                     if (t.dataset.pfSave !== undefined) {
