@@ -807,4 +807,23 @@ final class OutreachDeskTest extends TestCase
         $this->assertNull($this->db->query('SELECT report_viewed_at FROM platform_leads WHERE id=?', [$a])[0]['report_viewed_at']);
         $this->assertNotNull($this->db->query('SELECT report_viewed_at FROM platform_leads WHERE id=?', [$b])[0]['report_viewed_at']);
     }
+
+    public function testStaffSignatureNameIsSavedByTheStaffMemberAndRejectsLinksAndDigits(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-sign@tourfecto.test']);
+        $this->assertSame('', $this->svc->staffSignName(self::STAFF_ID));
+        $p = $this->svc->staffProfileSet(self::STAFF_ID, ['sign_name' => '  سلمى  '], false, 'self');
+        $this->assertSame('سلمى', $p['sign_name']);
+        $this->assertSame('سلمى', $this->svc->staffSignName(self::STAFF_ID));
+        foreach (['http://x.co', 'Sara123', 'س'] as $bad) {
+            try {
+                $this->svc->staffProfileSet(self::STAFF_ID, ['sign_name' => $bad], false, 'self');
+                $this->fail("$bad should be rejected");
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('الاسم في التوقيع', $e->getMessage());
+            }
+        }
+        $this->svc->staffProfileSet(self::STAFF_ID, ['sign_name' => ''], false, 'self');
+        $this->assertSame('', $this->svc->staffSignName(self::STAFF_ID), 'empty clears it');
+    }
 }

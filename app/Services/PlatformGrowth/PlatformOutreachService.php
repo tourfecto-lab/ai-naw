@@ -159,6 +159,7 @@ class PlatformOutreachService
             updated_by VARCHAR(120) NULL,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->addColumns('platform_staff_profile', ['sign_name' => 'VARCHAR(40) NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_docs (
             user_id BIGINT NOT NULL,
             side VARCHAR(5) NOT NULL,
@@ -2442,7 +2443,7 @@ class PlatformOutreachService
     public const PAY_METHODS = ['vodafone_cash', 'instapay', 'bank', 'cash'];
     public const PROFILE_STATUSES = ['active', 'paused', 'left'];
     /** الموظف يعدّل بيانات نفسه دي */
-    private const PROFILE_SELF = ['full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account'];
+    private const PROFILE_SELF = ['sign_name', 'full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account'];
     /** مالك المنصة بس */
     private const PROFILE_OWNER = ['job_title', 'start_date', 'status', 'internal_note'];
 
@@ -2478,7 +2479,7 @@ class PlatformOutreachService
         $r = $this->q('SELECT * FROM platform_staff_profile WHERE user_id=?', [$userId])->fetch(PDO::FETCH_ASSOC) ?: [];
         $nid = $this->decField($r['national_id_enc'] ?? null);
         $acc = $this->decField($r['pay_account_enc'] ?? null);
-        $raw = ['full_name' => (string) ($r['full_name'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''), 'address' => (string) ($r['address'] ?? ''), 'emergency_name' => (string) ($r['emergency_name'] ?? ''),
+        $raw = ['sign_name' => (string) ($r['sign_name'] ?? ''), 'full_name' => (string) ($r['full_name'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''), 'address' => (string) ($r['address'] ?? ''), 'emergency_name' => (string) ($r['emergency_name'] ?? ''),
             'emergency_phone' => (string) ($r['emergency_phone'] ?? ''), 'national_id' => $nid, 'pay_method' => (string) ($r['pay_method'] ?? ''), 'pay_account' => $acc];
         $missing = [];
         foreach (self::PROFILE_REQUIRED as $k => $label) {
@@ -2507,9 +2508,12 @@ class PlatformOutreachService
                 continue;
             }
             $v = trim((string) $in[$k]);
-            $len = ['full_name' => 150, 'phone' => 40, 'address' => 255, 'emergency_name' => 120, 'emergency_phone' => 40, 'job_title' => 100, 'internal_note' => 500, 'national_id' => 40, 'pay_account' => 80][$k] ?? 0;
+            $len = ['full_name' => 150, 'phone' => 40, 'address' => 255, 'emergency_name' => 120, 'emergency_phone' => 40, 'job_title' => 100, 'internal_note' => 500, 'national_id' => 40, 'pay_account' => 80, 'sign_name' => 40][$k] ?? 0;
             if ($len && mb_strlen($v) > $len) {
                 throw new InvalidArgumentException('النص أطول من المسموح: ' . (self::PROFILE_REQUIRED[$k] ?? $k));
+            }
+            if ($k === 'sign_name' && $v !== '' && (mb_strlen($v) < 2 || !preg_match('/^[\p{L}\p{M}][\p{L}\p{M} .-]*$/u', $v))) {
+                throw new InvalidArgumentException('الاسم في التوقيع: حروف بس (من 2 لـ 40 حرف) من غير أرقام أو لينكات');
             }
             if (in_array($k, ['phone', 'emergency_phone'], true) && $v !== '' && !preg_match('/^\+?[0-9 \-()]{6,20}$/', $v)) {
                 throw new InvalidArgumentException('رقم التليفون غير صحيح');
@@ -2791,6 +2795,16 @@ class PlatformOutreachService
         $dist = $addrGeo ? self::distanceKm((float) $first['lat'], (float) $first['lng'], $addrGeo['lat'], $addrGeo['lng']) : null;
         return ['first' => $pt($first), 'latest' => $pt($last), 'count' => count($rows), 'has_address' => $address !== '', 'address_located' => $addrGeo !== null,
             'distance_km' => $dist, 'far' => $dist !== null && $dist > self::LOCATION_FAR_KM, 'far_km' => self::LOCATION_FAR_KM];
+    }
+
+    /** الاسم اللي بيتوقّع بيه الموظف رسايله ('' لو ماسجّلش اسم) */
+    public function staffSignName(int $userId): string
+    {
+        try {
+            return trim((string) $this->q('SELECT sign_name FROM platform_staff_profile WHERE user_id=?', [$userId])->fetchColumn());
+        } catch (Throwable $e) {
+            return '';
+        }
     }
 
     /** للموظفة نفسها: إيه الناقص عليها (موقع، بيانات، صورة بطاقة) عشان تتنبّه أول ما تدخل المكتب */

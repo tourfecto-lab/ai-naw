@@ -58,6 +58,15 @@ class PlatformOutreachController extends Controller
     /** اسم الموظفة في توقيع الرسالة: أول كلمة من اسمها (أو اسم الإيميل) */
     private function staffName(): string
     {
+        // الاسم اللي الموظف كتبه لتوقيعه بيغلب اسم الحساب (اللي ممكن يبقى يوزرنيم)
+        if ($sign = $this->service()->staffSignName((int) ($this->user['id'] ?? 0))) {
+            return $sign;
+        }
+        return $this->accountName();
+    }
+
+    private function accountName(): string
+    {
         // اسم حقيقي بس: لو الحساب من غير اسم، الرسالة بتتوقّع باسم المرسل المظبوط في إعدادات تسويق المنصة (مش جزء من الإيميل)
         foreach (['first_name', 'name'] as $k) {
             $n = trim((string) ($this->user[$k] ?? ''));
@@ -71,7 +80,7 @@ class PlatformOutreachController extends Controller
     /** اسم الموظفة في سجل التواصل: الاسم لو موجود، وإلا بداية إيميلها (للتعريف بس، مش في الرسالة) */
     private function staffLabel(): string
     {
-        return $this->staffName() ?: ((string) strstr((string) ($this->user['email'] ?? ''), '@', true) ?: 'staff');
+        return $this->accountName() ?: ((string) strstr((string) ($this->user['email'] ?? ''), '@', true) ?: 'staff');
     }
 
     /** GET /admin/outreach-desk - مكتب التواصل: موظفة المبيعات بتبعت على واتساب من رسايل جاهزة */
@@ -156,7 +165,7 @@ class PlatformOutreachController extends Controller
             return $this->error('كل موظف يعدّل بياناته فقط', 403);
         }
         $in = [];
-        foreach (['full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account', 'job_title', 'start_date', 'status', 'internal_note'] as $k) {
+        foreach (['sign_name', 'full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account', 'job_title', 'start_date', 'status', 'internal_note'] as $k) {
             $v = $this->get($k, null);
             if ($v !== null) {
                 $in[$k] = $v;

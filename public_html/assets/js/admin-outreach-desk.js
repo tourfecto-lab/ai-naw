@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {};
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '';
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -133,6 +133,7 @@
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
+            <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
             <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
@@ -144,7 +145,7 @@
     const load = async (keepScroll) => {
         const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
+        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
@@ -224,7 +225,7 @@
         const ownerFields = d.can_manage ? inp('job_title', 'المسمى الوظيفي') + inp('start_date', 'تاريخ التعيين', 'date')
             + `<label>الحالة <select data-pf="status">${[['active', 'شغّال'], ['paused', 'موقوف مؤقتًا'], ['left', 'ساب الشغل']].map(([k, l]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` + inp('internal_note', 'ملاحظة داخلية (للمالك بس)') : '';
         const profile = canEdit ? `<div class="dk-comp dk-prof"><b>ملف الموظف</b>
-            ${inp('full_name', 'الاسم بالكامل')}${inp('phone', 'رقم التليفون / واتساب', 'tel')}${inp('national_id', 'الرقم القومي أو جواز السفر')}${inp('address', 'العنوان')}
+            ${inp('sign_name', 'الاسم في توقيع الرسايل')}${inp('full_name', 'الاسم بالكامل')}${inp('phone', 'رقم التليفون / واتساب', 'tel')}${inp('national_id', 'الرقم القومي أو جواز السفر')}${inp('address', 'العنوان')}
             ${inp('emergency_name', 'شخص للطوارئ')}${inp('emergency_phone', 'تليفون الطوارئ', 'tel')}
             <label>طريقة استلام المستحقات <select data-pf="pay_method"><option value="">—</option>${Object.entries(PAY).map(([k, l]) => `<option value="${k}" ${p.pay_method === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
             ${inp('pay_account', 'رقم المحفظة / الحساب')}${ownerFields}
@@ -481,6 +482,7 @@
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
+                if (t.dataset.signSave !== undefined) { const v = (root.querySelector('#dkSign') || {}).value || ''; await api('/api/admin/outreach-desk/staff-profile', { sign_name: v }); toast('اتحفظ اسمك في التوقيع ✅'); return await load(true); }
                 if (t.dataset.goOpened !== undefined) { const c = counts.find(x => x.opened > 0); if (c) { state.country = c.country; state.view = 'opened'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.goFollowup !== undefined) { const c = counts.find(x => x.followup > 0); if (c) { state.country = c.country; state.view = 'followup'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
