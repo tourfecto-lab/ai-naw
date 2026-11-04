@@ -33,4 +33,12 @@ final class GeoLlmsBuilderTest extends TestCase
         $this->assertStringNotContainsString("> \n", $out);
         $this->assertStringContainsString("# Example Tours\n\n## Website\n- https://example.com", $out);
     }
+
+    public function testHollowPageWithNoTitleDescriptionOrLinksIsRejected(): void
+    {
+        $home = $this->home('');
+        $home['title'] = '';
+        $this->expectException(RuntimeException::class);
+        $this->build($home);
+    }
 }

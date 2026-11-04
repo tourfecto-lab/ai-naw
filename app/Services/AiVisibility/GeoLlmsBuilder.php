@@ -7,6 +7,8 @@ class GeoLlmsBuilder
     public function build(string $url): string
     {
         $this->evidence->beginBudget(60);$home=$this->evidence->page($url);if(empty($home['ok']))throw new RuntimeException('تعذر قراءة الصفحة العامة؛ لم يتم إنشاء معلومات بديلة');
+        // صفحة اتقرت (200) لكن من غير عنوان ولا وصف ولا روابط: غالبًا الموقع بيرجّع صفحة تحقق/حجب للزاحف أو المحتوى بيتحمّل بجافاسكريبت. مسودة فاضية تضلّل العميل
+        if(trim((string)$home['title'])===''&&trim((string)$home['description'])===''&&empty($home['links']))throw new RuntimeException('الصفحة الرئيسية رجعت من غير عنوان ولا وصف ولا روابط؛ لم يتم إنشاء مسودة');
         $lines=['# '.self::line($home['title']?:AiVisibilityDetector::host($url)),''];
         // الصفحة الرئيسية من غير وصف: نسيب الملخص بره بدل سطر "> " فاضي (مش صيغة صحيحة لـ llms.txt ومفيش معلومات نختلقها)
         if(self::line($home['description'])!=='')array_push($lines,'> '.self::line($home['description']),'');
