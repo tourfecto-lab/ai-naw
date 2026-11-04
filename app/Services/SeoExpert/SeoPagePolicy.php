@@ -1,5 +1,6 @@
 <?php
 /** Conservative marketing scope; exclusions do not change robots, canonicals or site content. */
+require_once __DIR__.'/SeoPageIdentity.php';
 final class SeoPagePolicy {
     public const VERSION=2;
     public static function route(string $url): array {
@@ -8,7 +9,7 @@ final class SeoPagePolicy {
             if(in_array($part,['quiz','cart','basket','checkout','account','my-account','login','logout','register','signup','sign-up','password-reset','reset-password','forgot-password','order-confirm','order-confirmation','order-received','thank-you','wp-admin','wp-json','admin','api'],true)||preg_match('/^(?:function-page(?:-|$)|member-packages-checkout|wp-login\.php$)/',$part))return ['eligible'=>false,'kind'=>'operational','reason'=>'operational_route'];
             if(in_array($part,['coming-soon','maintenance','become-local-expert','traveler-viator-affiliate','affiliate-search','st-layouts','st_layouts'],true)||preg_match('/^(?:footer-page|header-page|layout-page|template-page)(?:-|$)/',$part))return ['eligible'=>false,'kind'=>'theme_system','reason'=>'theme_or_maintenance_route'];
         }
-        $kind=$path==='/'?'homepage':(preg_match('#/(?:tour|tours|st_tours|activity|activities|st_activity|product|products|service|services)(?:/|$)#',$path)?'service':(preg_match('#/(?:destination|destinations|location|locations)(?:/|$)#',$path)?'destination':'public_content'));
+        $kind=$path==='/'?'homepage':(preg_match('#/(?:tour|tours|st_tours|activity|activities|st_activity|product|products|service|services|trip|trips|package|packages|excursion|excursions)(?:\.php)?(?:/|$)#',$path)?'service':(preg_match('#/(?:destination|destinations|location|locations)(?:/|$)#',$path)?'destination':'public_content'));
         return ['eligible'=>true,'kind'=>$kind,'reason'=>'public_route_candidate'];
     }
     public static function classify(array $p): array {
@@ -17,7 +18,7 @@ final class SeoPagePolicy {
         if(preg_match('/\b(?:noindex|none)\b/i',(string)($p['robots']??'')))return ['eligible'=>false,'kind'=>'indexing_review','reason'=>'noindex_intent_review'];
         $canonical=(string)($p['canonical']??'');if($canonical!==''){
             $a=parse_url((string)($p['url']??''));$b=parse_url($canonical);
-            if($b&&((!empty($b['host'])&&!WordPressConnector::hostsEqual((string)($a['host']??''),(string)$b['host']))||(rtrim((string)($b['path']??'/'),'/')!==rtrim((string)($a['path']??'/'),'/'))))return ['eligible'=>false,'kind'=>'canonical_review','reason'=>'alternate_canonical_review'];
+            if($b&&((!empty($b['host'])&&!WordPressConnector::hostsEqual((string)($a['host']??''),(string)$b['host']))||(rtrim((string)($b['path']??'/'),'/')!==rtrim((string)($a['path']??'/'),'/'))||(SeoPageIdentity::normalize($b['query']??'')['query']!==SeoPageIdentity::normalize($a['query']??'')['query'])))return ['eligible'=>false,'kind'=>'canonical_review','reason'=>'alternate_canonical_review'];
         }
         return $decision;
     }

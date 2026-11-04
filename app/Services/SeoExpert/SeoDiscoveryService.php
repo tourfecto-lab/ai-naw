@@ -1,14 +1,16 @@
 <?php
 require_once __DIR__.'/SeoPagePolicy.php';
+require_once __DIR__.'/SeoPageIdentity.php';
 /** Bounded resumable discovery. All returned URLs still require a fresh public-page audit. */
 final class SeoDiscoveryService {
     private $transport;
     public function __construct(?callable $transport=null) { $this->transport=$transport; }
     public static function pageUrl(string $url,string $home): ?string {
         if(strlen($url)>1800)return null;$p=parse_url($url);$host=(string)parse_url($home,PHP_URL_HOST);
-        if(!$p || !in_array($p['scheme']??'',['https','http'],true) || empty($p['host']) || !WordPressConnector::hostsEqual($p['host'],$host) || isset($p['user']) || isset($p['pass']) || !empty($p['query']) || isset($p['port']) && $p['port']!==parse_url($home,PHP_URL_PORT))return null;
+        if(!$p || !in_array($p['scheme']??'',['https','http'],true) || empty($p['host']) || !WordPressConnector::hostsEqual($p['host'],$host) || isset($p['user']) || isset($p['pass']) || isset($p['port']) && $p['port']!==parse_url($home,PHP_URL_PORT))return null;
+        $identity=SeoPageIdentity::normalize($p['query']??'');if(!$identity['ok'])return null;
         $path=$p['path']??'/';if(!SeoPagePolicy::route($url)['eligible'])return null;if(strlen($path)>1000 || preg_match('/[\x00-\x20\\\\]/',$path) || preg_match('#/(?:wp-admin|wp-login(?:\.php)?|cart|checkout|account|my-account|login|logout|wp-json|api|admin)(?:/|$)#i',$path) || preg_match('/\.(?:xml|pdf|zip|gz|css|js|png|jpe?g|webp|svg|gif|avif|ico|woff2?|ttf|eot|mp3|mp4)$/i',$path))return null;
-        return $p['scheme'].'://'.$p['host'].(isset($p['port'])?':'.$p['port']:'').$path;
+        return $p['scheme'].'://'.$p['host'].(isset($p['port'])?':'.$p['port']:'').$path.($identity['query']!==''?'?'.$identity['query']:'');
     }
     private static function sitemapUrl(string $url,string $home): ?string {
         if(strlen($url)>1800)return null;$p=parse_url($url);if(!$p || !in_array($p['scheme']??'',['https','http'],true) || !WordPressConnector::hostsEqual((string)($p['host']??''),(string)parse_url($home,PHP_URL_HOST)) || isset($p['user']) || isset($p['pass']) || !empty($p['query']) || (isset($p['port']) && $p['port']!==parse_url($home,PHP_URL_PORT)) || preg_match('/[\x00-\x20\\\\]/',$url))return null;
