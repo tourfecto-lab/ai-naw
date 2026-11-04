@@ -79,7 +79,9 @@ final class AdminPlanPartialUpdateTest extends TestCase
         $this->assertEquals(['zz-partial_monthly' => 77, 'zz-partial_yearly' => 770], $rows);
         $log = $this->pdo->query("SELECT changes_json FROM plan_change_audit WHERE plan_key = 'zz-partial' ORDER BY id DESC LIMIT 1")->fetchColumn();
         $diff = json_decode((string) $log, true);
-        $this->assertEquals(['from' => 99, 'to' => 77], $diff['price_monthly']);
+        // the custom plan copies the price of its base plan (seo-essential), which migrations may change
+        $this->assertEquals(['from' => (float) $diff['price_monthly']['from'], 'to' => 77], $diff['price_monthly']);
+        $this->assertGreaterThan(0, (float) $diff['price_monthly']['from'], 'the old price is recorded');
         $this->assertArrayNotHasKey('seo_cycles', $diff, 'untouched limits must not appear as changes');
     }
 }

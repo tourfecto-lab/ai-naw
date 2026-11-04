@@ -215,8 +215,15 @@ final class ReputationModuleIntegrationTest extends TestCase
         $this->assertArrayHasKey('email', $channels);
     }
 
+    /** The plan must allow SMS so the test reaches the provider/phone checks, whatever other tests saved for the free tier. */
+    private function allowSmsForTestUser(): void
+    {
+        ReputationLimits::saveOverride(self::TEST_USER_ID, ['sms_requests_monthly' => 5], 1);
+    }
+
     public function testSmsChannelRejectsWhenTwilioNotConfigured(): void
     {
+        $this->allowSmsForTestUser();
         try {
             self::$rrService->createRequest(
                 self::TEST_USER_ID,
@@ -234,6 +241,7 @@ final class ReputationModuleIntegrationTest extends TestCase
 
     public function testSmsChannelRequiresPhone(): void
     {
+        $this->allowSmsForTestUser();
         try {
             self::$rrService->createRequest(
                 self::TEST_USER_ID,

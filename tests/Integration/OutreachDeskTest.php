@@ -9,6 +9,8 @@ use PHPUnit\Framework\TestCase;
 final class OutreachDeskTest extends TestCase
 {
     private ?Database $db = null;
+    private const STAFF_ID = 999101;
+    private const CUSTOMER_ID = 999102;
     private PlatformOutreachService $svc;
 
     protected function setUp(): void
@@ -35,6 +37,9 @@ final class OutreachDeskTest extends TestCase
         $ids = array_map('intval', array_column($this->db->query("SELECT id FROM platform_leads WHERE source = 'phpunit-desk'") ?: [], 'id'));
         if ($ids) $this->db->query('DELETE FROM platform_desk_actions WHERE lead_id IN (' . implode(',', $ids) . ')');
         $this->db->query("DELETE FROM platform_leads WHERE source = 'phpunit-desk'");
+        $this->db->query('DELETE FROM subscriptions WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
+        $this->db->query('DELETE FROM platform_staff_comp WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
+        $this->db->query('DELETE FROM users WHERE id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
     }
 
     private function lead(string $name, string $country, ?string $phone, array $v = []): int
@@ -188,11 +193,12 @@ final class OutreachDeskTest extends TestCase
     /** @return array{0:int,1:int,2:string} [staff user id, customer user id, customer email] */
     private function twoUsers(): array
     {
-        $u = $this->db->query('SELECT id, email FROM users ORDER BY id LIMIT 2');
-        if (count($u) < 2) {
-            $this->markTestSkipped('needs two users in the test DB');
+        // Dedicated users: the first rows of `users` differ per database and may already own subscriptions.
+        foreach ([self::STAFF_ID, self::CUSTOMER_ID] as $id) {
+            $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [$id, "desk-test-$id@tourfecto.test"]);
+            $this->db->query('DELETE FROM subscriptions WHERE user_id = ?', [$id]);
         }
-        return [(int) $u[0]['id'], (int) $u[1]['id'], (string) $u[1]['email']];
+        return [self::STAFF_ID, self::CUSTOMER_ID, 'desk-test-' . self::CUSTOMER_ID . '@tourfecto.test'];
     }
 
     private function cleanStaff(int $staffId, int $custId): void

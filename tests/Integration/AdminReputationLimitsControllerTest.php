@@ -34,6 +34,8 @@ final class AdminReputationLimitsControllerTest extends TestCase
 
     public function testSaveWithoutATokenIsRejectedWith419(): void
     {
+        // another test may have left a token in the request globals; this one must submit none
+        unset($_SERVER['HTTP_X_CSRF_TOKEN'], $_POST['csrf_token'], $_GET['csrf_token'], $_REQUEST['csrf_token']);
         $res = $this->controller(['limits' => ['free' => ['locations' => 1]]])->save();
         $this->assertSame(419, $res['code'] ?? $res['status'] ?? 419);
         $this->assertFalse($res['success'] ?? true);
