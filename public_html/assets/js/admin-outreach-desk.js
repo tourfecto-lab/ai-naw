@@ -174,7 +174,7 @@
     const staffUi = { userId: 0, month: new Date().toISOString().slice(0, 7), el: null };
     const staffHtml = d => {
         const r = d.report, c = r.comp, t = r.totals, s = r.summary;
-        const picker = (d.staff || []).length ? `<label>الموظف <select data-st-user>${d.staff.map(x => `<option value="${x.user_id}" ${x.user_id === r.staff.user_id ? 'selected' : ''}>${esc(x.name)} (${esc(COMP[x.comp_type])}) · ${x.actions} إجراء</option>`).join('')}</select></label>` : '';
+        const picker = (d.staff || []).length ? `<label>الموظف <select data-st-user>${d.staff.map(x => `<option value="${x.user_id}" ${x.user_id === r.staff.user_id ? 'selected' : ''}>${esc(x.name)} (${esc(COMP[x.comp_type])}) · ${x.actions} إجراء${x.profile_missing ? ' · بياناته ناقصة' : ''}</option>`).join('')}</select></label>` : '';
         const compForm = d.can_manage ? `<div class="dk-comp"><b>تعويض ${esc(r.staff.name)}</b>
             <label>النوع <select data-st-type>${Object.entries(COMP).map(([k, l]) => `<option value="${k}" ${c.comp_type === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
             <label>النسبة % من الاشتراك الشهري <input type="number" min="0" max="100" step="0.5" data-st-pct value="${esc(c.commission_pct)}"></label>
@@ -182,13 +182,27 @@
             <input data-st-note placeholder="ملاحظة (اختياري)" maxlength="255" value="${esc(c.note || '')}">
             <button class="dk-btn primary" data-st-save>حفظ</button>${c.updated_by ? `<small class="dk-muted">آخر تعديل: ${esc(c.updated_by)} · ${esc(c.updated_at || '')}</small>` : ''}</div>`
             : `<div class="dk-comp"><b>تعويضك:</b> ${esc(COMP[c.comp_type])}${c.commission_pct ? ' · ' + esc(c.commission_pct) + '% من كل اشتراك شهريًا' : ''}${c.monthly_salary ? ' · راتب ' + egp(c.monthly_salary) : ''}</div>`;
+        const p = r.profile || {}, canEdit = d.is_self || d.can_manage;
+        const PAY = { vodafone_cash: 'فودافون كاش', instapay: 'إنستاباي', bank: 'تحويل بنكي', cash: 'كاش' };
+        const inp = (k, l, type) => `<label>${l}<input data-pf="${k}" type="${type || 'text'}" value="${esc(p[k] || '')}"></label>`;
+        const ownerFields = d.can_manage ? inp('job_title', 'المسمى الوظيفي') + inp('start_date', 'تاريخ التعيين', 'date')
+            + `<label>الحالة <select data-pf="status">${[['active', 'شغّال'], ['paused', 'موقوف مؤقتًا'], ['left', 'ساب الشغل']].map(([k, l]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` + inp('internal_note', 'ملاحظة داخلية (للمالك بس)') : '';
+        const profile = canEdit ? `<div class="dk-comp dk-prof"><b>ملف الموظف</b>
+            ${inp('full_name', 'الاسم بالكامل')}${inp('phone', 'رقم التليفون / واتساب', 'tel')}${inp('national_id', 'الرقم القومي أو جواز السفر')}${inp('address', 'العنوان')}
+            ${inp('emergency_name', 'شخص للطوارئ')}${inp('emergency_phone', 'تليفون الطوارئ', 'tel')}
+            <label>طريقة استلام المستحقات <select data-pf="pay_method"><option value="">—</option>${Object.entries(PAY).map(([k, l]) => `<option value="${k}" ${p.pay_method === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+            ${inp('pay_account', 'رقم المحفظة / الحساب')}${ownerFields}
+            <button class="dk-btn primary" data-pf-save>حفظ البيانات</button>
+            <small class="dk-muted">الرقم القومي ورقم الحساب بيتخزّنوا مشفّرين، ومايظهروش كاملين غير لصاحب الملف ولمالك المنصة (الباقي بيشوف آخر 4 أرقام).</small></div>`
+            : `<div class="dk-comp"><b>بيانات الموظف:</b> ${esc(p.full_name || '—')} · ${esc(p.phone || '—')} · ${esc(p.job_title || '—')}${p.start_date ? ' · تعيين ' + esc(p.start_date) : ''} · ${esc(PAY[p.pay_method] || 'طريقة الاستلام غير مسجّلة')} ${esc(p.pay_account || '')}</div>`;
+        const profBanner = (p.missing || []).length ? `<p class="dk-st-msg bad">⚠️ بيانات ناقصة: ${p.missing.map(esc).join('، ')}</p>` : '<p class="dk-st-msg">✅ بيانات الموظف كاملة</p>';
         const tile = (n, l) => `<div class="dk-fn"><b>${n}</b><span>${l}</span></div>`;
         const custs = r.customers.length ? `<table class="dk-tbl"><thead><tr><th>العميل</th><th>الباقة</th><th>اشترك من</th><th>الشهر ده</th><th>قيمة الشهر</th><th>النسبة</th></tr></thead><tbody>${r.customers.map(x => `<tr><td>${esc(x.company)}</td><td>${esc(x.plan)} (${x.cycle === 'yearly' ? 'سنوي' : 'شهري'})</td><td>${esc(String(x.since).slice(0, 10))}</td><td>${x.active_in_month ? '✅ ساري' : '— مش ساري'}</td><td>${x.monthly_egp == null ? '؟' : egp(x.monthly_egp)}</td><td><b>${egp(x.commission_egp)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">لسه مفيش عملاء مدفوعين منسوبين لها (العميل بيتنسب لأول موظفة سجّلت إرسال واتساب ليه).</p>';
         const log = r.log.length ? `<table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>اللي حصل</th><th>ملاحظة</th></tr></thead><tbody>${r.log.map(x => `<tr><td>${esc(x.at)}</td><td>${esc(x.company)}</td><td>${esc(x.label)}</td><td>${esc(x.note || '')}</td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">مفيش شغل مسجّل في الشهر ده.</p>';
         return `<div class="dk-modal-box"><button class="dk-btn" data-st-close>✕ إغلاق</button><h2>كشف ${esc(r.staff.name)}</h2><p class="dk-st-msg"></p>
             <div class="dk-st-bar">${picker}<label>الشهر <input type="month" data-st-month value="${esc(r.month)}"></label></div>
             <div class="dk-fn-row">${tile(num(s.sent), 'شركات بعتلها')}${tile(num(s.replied), 'ردّوا')}${tile(num(s.trial), 'جرّبوا')}${tile(num(s.subscribed), 'اشتركوا')}${tile(num(r.customers_active), 'عملاء مدفوعين سارين')}</div>
-            ${compForm}
+            ${profBanner}${profile}${compForm}
             <div class="dk-totals"><span>نسبة الشهر: <b>${egp(t.commission_egp)}</b></span><span>الراتب: <b>${egp(t.salary_egp)}</b></span><span class="tot">الإجمالي المستحق: <b>${egp(t.total_egp)}</b></span></div>
             <h3>العملاء اللي جابتهم</h3>${custs}<h3>سجل الشغل (${r.log.length})</h3><div class="dk-scroll">${log}</div>
             <ul class="dk-notes">${(r.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
@@ -201,6 +215,11 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
+                    if (t.dataset.pfSave !== undefined) {
+                        const body = { user_id: staffUi.userId };
+                        staffUi.el.querySelectorAll('[data-pf]').forEach(el => { body[el.dataset.pf] = el.value; });
+                        await api('/api/admin/outreach-desk/staff-profile', body); await loadStaff(); stMsg('اتحفظت البيانات ✅'); return;
+                    }
                     if (t.dataset.stSave !== undefined) {
                         const q = s => staffUi.el.querySelector(s);
                         await api('/api/admin/outreach-desk/staff-comp', { user_id: staffUi.userId, comp_type: q('[data-st-type]').value, commission_pct: q('[data-st-pct]').value, monthly_salary: q('[data-st-salary]').value, note: q('[data-st-note]').value });

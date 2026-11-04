@@ -140,6 +140,23 @@ class PlatformOutreachService
             updated_by VARCHAR(120) NULL,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_profile (
+            user_id BIGINT NOT NULL PRIMARY KEY,
+            full_name VARCHAR(150) NULL,
+            phone VARCHAR(40) NULL,
+            job_title VARCHAR(100) NULL,
+            start_date DATE NULL,
+            status VARCHAR(10) NOT NULL DEFAULT 'active',
+            address VARCHAR(255) NULL,
+            emergency_name VARCHAR(120) NULL,
+            emergency_phone VARCHAR(40) NULL,
+            national_id_enc TEXT NULL,
+            pay_method VARCHAR(20) NULL,
+            pay_account_enc TEXT NULL,
+            internal_note VARCHAR(500) NULL,
+            updated_by VARCHAR(120) NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $done = true;
     }
 
@@ -2217,6 +2234,116 @@ class PlatformOutreachService
 
     public const COMP_TYPES = ['none', 'commission', 'salary', 'both'];
 
+    // ---- ملف الموظف (بيانات شخصية وتواصل وطوارئ واستلام المستحقات)
+    /** البيانات المطلوبة من كل موظف: المفتاح => الاسم اللي بيظهر لو ناقصة */
+    public const PROFILE_REQUIRED = ['full_name' => 'الاسم بالكامل', 'phone' => 'رقم التليفون', 'national_id' => 'الرقم القومي أو جواز السفر', 'address' => 'العنوان',
+        'emergency_name' => 'اسم شخص للطوارئ', 'emergency_phone' => 'تليفون الطوارئ', 'pay_method' => 'طريقة استلام المستحقات', 'pay_account' => 'رقم الحساب أو المحفظة'];
+    public const PAY_METHODS = ['vodafone_cash', 'instapay', 'bank', 'cash'];
+    public const PROFILE_STATUSES = ['active', 'paused', 'left'];
+    /** الموظف يعدّل بيانات نفسه دي */
+    private const PROFILE_SELF = ['full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account'];
+    /** مالك المنصة بس */
+    private const PROFILE_OWNER = ['job_title', 'start_date', 'status', 'internal_note'];
+
+    private function encField(string $v): string
+    {
+        return $v === '' ? '' : (new Encryption())->encrypt($v, 'staff-profile');
+    }
+
+    private function decField(?string $v): string
+    {
+        if ($v === null || $v === '') {
+            return '';
+        }
+        try {
+            return (new Encryption())->decrypt($v, 'staff-profile');
+        } catch (Throwable $e) {
+            return '';
+        }
+    }
+
+    private static function maskTail(string $v): string
+    {
+        $n = mb_strlen($v);
+        return $n === 0 ? '' : str_repeat('•', max(0, $n - 4)) . mb_substr($v, -4);
+    }
+
+    /**
+     * ملف الموظف. $reveal = false بيخفي الرقم القومي ورقم الحساب (آخر 4 بس)، ولازم يبقى true لصاحب الملف أو مالك المنصة.
+     * @return array<string,mixed> الحقول + missing (البيانات المطلوبة الناقصة) + complete
+     */
+    public function staffProfile(int $userId, bool $reveal): array
+    {
+        $r = $this->q('SELECT * FROM platform_staff_profile WHERE user_id=?', [$userId])->fetch(PDO::FETCH_ASSOC) ?: [];
+        $nid = $this->decField($r['national_id_enc'] ?? null);
+        $acc = $this->decField($r['pay_account_enc'] ?? null);
+        $raw = ['full_name' => (string) ($r['full_name'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''), 'address' => (string) ($r['address'] ?? ''), 'emergency_name' => (string) ($r['emergency_name'] ?? ''),
+            'emergency_phone' => (string) ($r['emergency_phone'] ?? ''), 'national_id' => $nid, 'pay_method' => (string) ($r['pay_method'] ?? ''), 'pay_account' => $acc];
+        $missing = [];
+        foreach (self::PROFILE_REQUIRED as $k => $label) {
+            if (trim($raw[$k]) === '') {
+                $missing[] = $label;
+            }
+        }
+        $shown = ['national_id' => $reveal ? $nid : self::maskTail($nid), 'pay_account' => $reveal ? $acc : self::maskTail($acc)] + $raw; // المخفي الأول عشان يغلب الأصلي
+        return $shown + [
+            'job_title' => (string) ($r['job_title'] ?? ''), 'start_date' => $r['start_date'] ?? null, 'status' => (string) ($r['status'] ?? 'active'),
+            'internal_note' => $reveal ? (string) ($r['internal_note'] ?? '') : '', 'updated_by' => $r['updated_by'] ?? null, 'updated_at' => $r['updated_at'] ?? null,
+            'missing' => $missing, 'complete' => $missing === [], 'revealed' => $reveal,
+        ];
+    }
+
+    /** يحفظ الحقول اللي اتبعتت بس. الموظف بيعدّل حقوله، ومالك المنصة بيعدّل الباقي (المسمى والتعيين والحالة وملاحظة داخلية). فاضي = مسح */
+    public function staffProfileSet(int $userId, array $in, bool $isOwner, string $by): array
+    {
+        if (!$this->q('SELECT 1 FROM users WHERE id=?', [$userId])->fetchColumn()) {
+            throw new InvalidArgumentException('الموظف مش موجود');
+        }
+        $allowed = array_merge(self::PROFILE_SELF, $isOwner ? self::PROFILE_OWNER : []);
+        $vals = [];
+        foreach ($allowed as $k) {
+            if (!array_key_exists($k, $in)) {
+                continue;
+            }
+            $v = trim((string) $in[$k]);
+            $len = ['full_name' => 150, 'phone' => 40, 'address' => 255, 'emergency_name' => 120, 'emergency_phone' => 40, 'job_title' => 100, 'internal_note' => 500, 'national_id' => 40, 'pay_account' => 80][$k] ?? 0;
+            if ($len && mb_strlen($v) > $len) {
+                throw new InvalidArgumentException('النص أطول من المسموح: ' . (self::PROFILE_REQUIRED[$k] ?? $k));
+            }
+            if (in_array($k, ['phone', 'emergency_phone'], true) && $v !== '' && !preg_match('/^\+?[0-9 \-()]{6,20}$/', $v)) {
+                throw new InvalidArgumentException('رقم التليفون غير صحيح');
+            }
+            if ($k === 'national_id' && $v !== '' && !preg_match('/^[A-Za-z0-9]{6,30}$/', $v)) {
+                throw new InvalidArgumentException('الرقم القومي أو جواز السفر: حروف وأرقام بس من غير مسافات');
+            }
+            if ($k === 'pay_method' && $v !== '' && !in_array($v, self::PAY_METHODS, true)) {
+                throw new InvalidArgumentException('طريقة الاستلام غير معروفة');
+            }
+            if ($k === 'status' && !in_array($v, self::PROFILE_STATUSES, true)) {
+                throw new InvalidArgumentException('الحالة غير معروفة');
+            }
+            if ($k === 'start_date') {
+                if ($v !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) || !checkdate((int) substr($v, 5, 2), (int) substr($v, 8, 2), (int) substr($v, 0, 4)))) {
+                    throw new InvalidArgumentException('تاريخ التعيين غير صحيح');
+                }
+                $v = $v === '' ? null : $v;
+            }
+            if ($k === 'national_id') {
+                $vals['national_id_enc'] = $this->encField($v); // لو التشفير مش جاهز بيرمي استثناء ومابنخزّنش نص صريح
+            } elseif ($k === 'pay_account') {
+                $vals['pay_account_enc'] = $this->encField($v);
+            } else {
+                $vals[$k] = $v === '' ? null : $v;
+            }
+        }
+        $this->q('INSERT IGNORE INTO platform_staff_profile(user_id) VALUES(?)', [$userId]);
+        if ($vals) {
+            $set = implode(',', array_map(static fn ($c) => "`{$c}`=?", array_keys($vals)));
+            $this->q("UPDATE platform_staff_profile SET {$set},updated_by=? WHERE user_id=?", array_merge(array_values($vals), [mb_substr($by, 0, 120), $userId]));
+        }
+        return $this->staffProfile($userId, true);
+    }
+
     /** @return array{comp_type:string,commission_pct:float,monthly_salary:float,note:?string,updated_by:?string,updated_at:?string} */
     public function staffCompGet(int $userId): array
     {
@@ -2259,8 +2386,9 @@ class PlatformOutreachService
         } catch (Throwable $e) {
             $rows = $this->q(sprintf($sql, ''))->fetchAll(PDO::FETCH_ASSOC); // جدول فريق الأدمن لسه ما اتعملش
         }
-        return array_map(static fn ($r) => ['user_id' => (int) $r['user_id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'comp_type' => (string) $r['comp_type'],
-            'commission_pct' => (float) $r['commission_pct'], 'monthly_salary' => (float) $r['monthly_salary'], 'actions' => (int) $r['actions']], $rows);
+        return array_map(fn ($r) => ['user_id' => (int) $r['user_id'], 'name' => (string) $r['name'], 'email' => (string) $r['email'], 'comp_type' => (string) $r['comp_type'],
+            'commission_pct' => (float) $r['commission_pct'], 'monthly_salary' => (float) $r['monthly_salary'], 'actions' => (int) $r['actions'],
+            'profile_missing' => count($this->staffProfile((int) $r['user_id'], false)['missing'])], $rows);
     }
 
     /**
@@ -2308,7 +2436,7 @@ class PlatformOutreachService
      * النسبة = نسبة من قيمة الاشتراك الشهرية (السنوي ÷ 12) لكل عميل كان اشتراكه ساري في الشهر ده. حساب بس: مش دليل إن الدفع وصل.
      * العملات: جنيه، ودولار بسعر $usdEgp؛ غير كده بيظهر في الملاحظات ومابيتحسبش.
      */
-    public function staffReport(int $userId, string $month, float $usdEgp = 50.0): array
+    public function staffReport(int $userId, string $month, float $usdEgp = 50.0, bool $revealProfile = false): array
     {
         if (!preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
             $month = date('Y-m');
@@ -2355,6 +2483,7 @@ class PlatformOutreachService
         return [
             'staff' => ['user_id' => (int) $u['id'], 'name' => (string) $u['name'], 'email' => (string) $u['email']],
             'month' => $month,
+            'profile' => $this->staffProfile($userId, $revealProfile),
             'comp' => $comp,
             'summary' => $summary,
             'customers' => $customers,

@@ -130,13 +130,44 @@ class PlatformOutreachController extends Controller
         try {
             $s = $this->service();
             $rate = (float) (new SystemSettingsService())->get('staff_usd_egp', '50');
-            return $this->success(['report' => $s->staffReport($uid, (string) $this->get('month', date('Y-m')), $rate > 0 ? $rate : 50.0),
-                'staff' => $this->canSeeTeam() ? $s->staffList() : [], 'can_manage' => $this->canManageTeam(), 'is_self' => $uid === $me]);
+            // الرقم القومي ورقم الحساب بيظهروا كاملين لصاحب الملف ولمالك المنصة بس؛ باقي مين يشوف الفريق بيشوف آخر 4 أرقام
+            $own = $uid === $me;
+            return $this->success(['report' => $s->staffReport($uid, (string) $this->get('month', date('Y-m')), $rate > 0 ? $rate : 50.0, $own || $this->canManageTeam()),
+                'staff' => $this->canSeeTeam() ? $s->staffList() : [], 'can_manage' => $this->canManageTeam(), 'is_self' => $own, 'pay_methods' => PlatformOutreachService::PAY_METHODS]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {
             Logger::error('Staff report failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل الكشف', 503);
+        }
+    }
+
+    /** POST /api/admin/outreach-desk/staff-profile {user_id?, ...الحقول}: الموظف بيعدّل بياناته هو، ومالك المنصة بيعدّل أي موظف (والمسمى والتعيين والحالة) */
+    public function staffProfileSave(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        $me = (int) ($this->user['id'] ?? 0);
+        $uid = (int) $this->get('user_id', 0) ?: $me;
+        $owner = $this->canManageTeam();
+        if ($uid !== $me && !$owner) {
+            return $this->error('تقدري تعدّلي بياناتك إنتي بس', 403);
+        }
+        $in = [];
+        foreach (['full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account', 'job_title', 'start_date', 'status', 'internal_note'] as $k) {
+            $v = $this->get($k, null);
+            if ($v !== null) {
+                $in[$k] = $v;
+            }
+        }
+        try {
+            return $this->success(['profile' => $this->service()->staffProfileSet($uid, $in, $owner, $this->staffLabel())]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Staff profile save failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر الحفظ', 503);
         }
     }
 

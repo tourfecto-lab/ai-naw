@@ -255,6 +255,73 @@ final class OutreachDeskTest extends TestCase
         }
     }
 
+    public function testStaffProfileKeepsSensitiveFieldsEncryptedMaskedForOthersAndOwnerOnlyFieldsOwnerOnly(): void
+    {
+        [$staff] = $this->twoUsers();
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+        try {
+            $empty = $this->svc->staffProfile($staff, true);
+            $this->assertFalse($empty['complete']);
+            $this->assertContains('الرقم القومي أو جواز السفر', $empty['missing']);
+
+            try {
+                $p = $this->svc->staffProfileSet($staff, ['national_id' => '29901011234567', 'pay_account' => '01012345678'], false, 'Sara');
+            } catch (Throwable $e) {
+                $this->markTestSkipped('encryption is not configured in this environment: ' . $e->getMessage());
+            }
+            $this->assertSame('29901011234567', $p['national_id'], 'the owner of the profile sees it in full');
+
+            $row = $this->db->query('SELECT national_id_enc, pay_account_enc FROM platform_staff_profile WHERE user_id = ?', [$staff])[0];
+            $this->assertStringNotContainsString('29901011234567', (string) $row['national_id_enc'], 'stored encrypted, never as plain text');
+            $this->assertStringNotContainsString('01012345678', (string) $row['pay_account_enc']);
+
+            $other = $this->svc->staffProfile($staff, false);
+            $this->assertSame('••••••••••4567', $other['national_id'], 'anyone else sees only the last 4');
+            $this->assertSame('•••••••5678', $other['pay_account']);
+
+            $this->svc->staffProfileSet($staff, ['full_name' => 'Sara Ahmed', 'phone' => '+20 100 000 0000', 'address' => 'Cairo', 'emergency_name' => 'Mona', 'emergency_phone' => '01000000001', 'pay_method' => 'vodafone_cash', 'job_title' => 'CEO', 'status' => 'left'], false, 'Sara');
+            $mine = $this->svc->staffProfile($staff, true);
+            $this->assertSame('', $mine['job_title'], 'job title is owner-only: ignored when the employee sends it');
+            $this->assertSame('active', $mine['status']);
+            $this->assertTrue($mine['complete'], 'all required data is filled');
+            $this->assertSame([], $mine['missing']);
+
+            $owner = $this->svc->staffProfileSet($staff, ['job_title' => 'Sales', 'start_date' => '2026-11-01', 'status' => 'paused', 'internal_note' => 'trial month'], true, 'Owner');
+            $this->assertSame('Sales', $owner['job_title']);
+            $this->assertSame('2026-11-01', $owner['start_date']);
+            $this->assertSame('paused', $owner['status']);
+            $this->assertSame('', $this->svc->staffProfile($staff, false)['internal_note'], 'internal notes are hidden from non-owners');
+
+            $cleared = $this->svc->staffProfileSet($staff, ['address' => ''], false, 'Sara');
+            $this->assertContains('العنوان', $cleared['missing']);
+        } finally {
+            $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+        }
+    }
+
+    public function testStaffProfileInputIsValidated(): void
+    {
+        [$staff] = $this->twoUsers();
+        $bad = [['phone' => 'abc'], ['national_id' => '12 34'], ['pay_method' => 'bitcoin'], ['full_name' => str_repeat('x', 200)]];
+        foreach ($bad as $in) {
+            try {
+                $this->svc->staffProfileSet($staff, $in, false, 'Sara');
+                $this->fail('should reject ' . json_encode($in));
+            } catch (InvalidArgumentException $e) {
+                $this->assertNotSame('', $e->getMessage());
+            }
+        }
+        foreach ([['start_date' => '2026-13-40'], ['status' => 'gone']] as $in) {
+            try {
+                $this->svc->staffProfileSet($staff, $in, true, 'Owner');
+                $this->fail('should reject ' . json_encode($in));
+            } catch (InvalidArgumentException $e) {
+                $this->assertNotSame('', $e->getMessage());
+            }
+        }
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+    }
+
     public function testCompInputIsValidated(): void
     {
         [$staff] = $this->twoUsers();
