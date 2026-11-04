@@ -157,6 +157,27 @@ class PlatformOutreachService
             updated_by VARCHAR(120) NULL,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_docs (
+            user_id BIGINT NOT NULL,
+            side VARCHAR(5) NOT NULL,
+            mime VARCHAR(20) NOT NULL,
+            data_enc LONGTEXT NOT NULL,
+            uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, side)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_location (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            lat DECIMAL(9,6) NOT NULL,
+            lng DECIMAL(9,6) NOT NULL,
+            accuracy_m INT NULL,
+            is_first TINYINT NOT NULL DEFAULT 0,
+            address_lat DECIMAL(9,6) NULL,
+            address_lng DECIMAL(9,6) NULL,
+            address_for VARCHAR(40) NULL,
+            captured_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_psl_user (user_id)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $done = true;
     }
 
@@ -2372,6 +2393,200 @@ class PlatformOutreachService
         return $this->staffCompGet($userId);
     }
 
+    // ---- صورة البطاقة (مشفّرة) وقراءة بياناتها، وموقع الموظف مرة واحدة بإذنه
+    private const AR_DIGITS = ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9', '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9'];
+    private const EG_GOVERNORATES = ['01' => 'القاهرة', '02' => 'الإسكندرية', '03' => 'بورسعيد', '04' => 'السويس', '11' => 'دمياط', '12' => 'الدقهلية', '13' => 'الشرقية', '14' => 'القليوبية', '15' => 'كفر الشيخ', '16' => 'الغربية',
+        '17' => 'المنوفية', '18' => 'البحيرة', '19' => 'الإسماعيلية', '21' => 'الجيزة', '22' => 'بني سويف', '23' => 'الفيوم', '24' => 'المنيا', '25' => 'أسيوط', '26' => 'سوهاج', '27' => 'قنا', '28' => 'أسوان', '29' => 'الأقصر',
+        '31' => 'البحر الأحمر', '32' => 'الوادي الجديد', '33' => 'مطروح', '34' => 'شمال سيناء', '35' => 'جنوب سيناء', '88' => 'خارج الجمهورية'];
+    /** أقصى مسافة (كم) بين موقعه المسجّل وعنوانه قبل ما تتعلّم «بعيد عن العنوان» */
+    public const LOCATION_FAR_KM = 30;
+
+    /** الرقم القومي المصري (14 رقم): تاريخ الميلاد والنوع والمحافظة من الرقم نفسه. null لو مش بالصيغة دي */
+    public static function egyptianIdInfo(string $id): ?array
+    {
+        $id = preg_replace('/\s+/', '', strtr(trim($id), self::AR_DIGITS));
+        if (!preg_match('/^([23])(\d{2})(\d{2})(\d{2})(\d{2})(\d{3})(\d)(\d)$/', (string) $id, $m)) {
+            return null;
+        }
+        $year = ($m[1] === '2' ? 1900 : 2000) + (int) $m[2];
+        if (!checkdate((int) $m[3], (int) $m[4], $year) || strtotime(sprintf('%04d-%02d-%02d', $year, $m[3], $m[4])) > time()) {
+            return null;
+        }
+        return ['birth_date' => sprintf('%04d-%02d-%02d', $year, $m[3], $m[4]), 'gender' => ((int) $m[7]) % 2 === 1 ? 'male' : 'female', 'governorate' => self::EG_GOVERNORATES[$m[5]] ?? ('كود ' . $m[5])];
+    }
+
+    /** رد الذكاء الاصطناعي على قراءة البطاقة → اقتراحات منظّمة (الموظفة بتراجعها قبل الحفظ) */
+    public static function parseIdOcr(string $text): array
+    {
+        if (!preg_match('/\{.*\}/s', $text, $m) || !is_array($j = json_decode($m[0], true))) {
+            return [];
+        }
+        $out = ['full_name' => trim(mb_substr((string) ($j['full_name'] ?? ''), 0, 150)), 'national_id' => preg_replace('/\D/', '', strtr((string) ($j['national_id'] ?? ''), self::AR_DIGITS)),
+            'address' => trim(mb_substr(strtr((string) ($j['address'] ?? ''), self::AR_DIGITS), 0, 255))];
+        if ($out['national_id'] !== '') {
+            $info = self::egyptianIdInfo($out['national_id']);
+            $out += $info ?? ['warning' => 'الرقم اللي اتقرأ مش بصيغة الرقم القومي المصري (14 رقم): راجعيه بإيدك'];
+        }
+        return $out;
+    }
+
+    /** يحفظ صورة البطاقة مشفّرة بعد ما يتأكد إنها صورة حقيقية ويصغّرها ويشيل بياناتها الوصفية (EXIF) */
+    public function staffIdCardSave(int $userId, string $side, string $binary): void
+    {
+        if (!in_array($side, ['front', 'back'], true)) {
+            throw new InvalidArgumentException('وجه البطاقة غير معروف');
+        }
+        if ($binary === '' || strlen($binary) > 10 * 1024 * 1024) {
+            throw new InvalidArgumentException('الصورة فاضية أو أكبر من 10 ميجا');
+        }
+        $info = @getimagesizefromstring($binary);
+        if (!$info || !in_array($info['mime'] ?? '', ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            throw new InvalidArgumentException('الملف مش صورة (JPG أو PNG أو WebP)');
+        }
+        $mime = $info['mime'];
+        if (function_exists('imagecreatefromstring') && ($img = @imagecreatefromstring($binary))) {
+            $w = imagesx($img);
+            $h = imagesy($img);
+            if (max($w, $h) > 1600) {
+                $scale = 1600 / max($w, $h);
+                $img = imagescale($img, max(1, (int) round($w * $scale)), max(1, (int) round($h * $scale))) ?: $img;
+            }
+            ob_start();
+            imagejpeg($img, null, 82);
+            $binary = (string) ob_get_clean();
+            $mime = 'image/jpeg';
+        } elseif (strlen($binary) > 3 * 1024 * 1024) {
+            throw new InvalidArgumentException('الصورة كبيرة: صغّريها قبل الرفع');
+        }
+        $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
+    }
+
+    /** @return array{0:string,1:string}|null [mime, binary] */
+    public function staffIdCardGet(int $userId, string $side): ?array
+    {
+        $r = $this->q('SELECT mime,data_enc FROM platform_staff_docs WHERE user_id=? AND side=?', [$userId, $side])->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            return null;
+        }
+        $bin = base64_decode($this->decField((string) $r['data_enc']), true);
+        return $bin === false || $bin === '' ? null : [(string) $r['mime'], $bin];
+    }
+
+    /** @return array{front:?string,back:?string} وقت رفع كل وجه */
+    public function staffIdCardStatus(int $userId): array
+    {
+        $out = ['front' => null, 'back' => null];
+        foreach ($this->q('SELECT side,uploaded_at FROM platform_staff_docs WHERE user_id=?', [$userId])->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $out[$r['side']] = (string) $r['uploaded_at'];
+        }
+        return $out;
+    }
+
+    /**
+     * يقرا وش البطاقة بالذكاء الاصطناعي (Gemini) ويرجّع اقتراحات للاسم والرقم القومي والعنوان. مابيحفظش حاجة في الملف.
+     * @param callable|null $vision (binary, mime, prompt) => ['success'=>bool,'data'=>string]
+     */
+    public function staffIdCardExtract(int $userId, ?callable $vision = null): array
+    {
+        $card = $this->staffIdCardGet($userId, 'front');
+        if (!$card) {
+            return ['ok' => false, 'error' => 'ارفعي صورة وش البطاقة الأول'];
+        }
+        $prompt = 'This is the front of an Egyptian national ID card. Read the printed text exactly as written and answer with ONLY a JSON object: '
+            . '{"full_name": "the full name in Arabic as printed", "national_id": "the 14-digit national number", "address": "the address as printed"}. '
+            . 'If a field is not readable use an empty string. Do not guess or invent anything.';
+        try {
+            $vision ??= static fn (string $bin, string $mime, string $p) => (new GeminiClient())->describeImage($bin, $mime, $p, ['temperature' => 0]);
+            $r = $vision($card[1], $card[0], $prompt);
+        } catch (Throwable $e) {
+            Logger::warning('ID card OCR failed', ['error' => $e->getMessage()]);
+            return ['ok' => false, 'error' => 'القراءة الآلية مش متاحة دلوقتي: اكتبي البيانات بإيدك'];
+        }
+        $fields = !empty($r['success']) ? self::parseIdOcr((string) ($r['data'] ?? $r['text'] ?? '')) : [];
+        if (!$fields) {
+            return ['ok' => false, 'error' => 'ماقدرناش نقرا البطاقة بوضوح: صوّريها تاني في إضاءة كويسة، أو اكتبي البيانات بإيدك'];
+        }
+        return ['ok' => true, 'fields' => $fields];
+    }
+
+    private static function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $a = sin(deg2rad($lat2 - $lat1) / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin(deg2rad($lng2 - $lng1) / 2) ** 2;
+        return round(6371 * 2 * asin(min(1, sqrt($a))), 1);
+    }
+
+    /** عنوان → إحداثيات (Google Geocoding بمفتاح الخرائط اللي عندنا). null لو مش متاح */
+    private function geocodeAddress(string $address): ?array
+    {
+        $key = '';
+        try {
+            $s = new SystemSettingsService();
+            $key = $s->get('google_maps_api_key', '') ?: $s->get('integration_google_maps_api_key', '');
+        } catch (Throwable $e) {
+            Logger::warning('Geocode key unavailable', ['error' => $e->getMessage()]);
+        }
+        if ($key === '' && defined('GOOGLE_MAPS_API_KEY')) {
+            $key = (string) GOOGLE_MAPS_API_KEY;
+        }
+        if ($key === '' || trim($address) === '' || !function_exists('curl_init')) {
+            return null;
+        }
+        $ch = curl_init('https://maps.googleapis.com/maps/api/geocode/json?region=eg&address=' . rawurlencode($address) . '&key=' . rawurlencode($key));
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 12, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_SSL_VERIFYPEER => true]);
+        $body = curl_exec($ch);
+        curl_close($ch);
+        $loc = (is_string($body) ? json_decode($body, true) : null)['results'][0]['geometry']['location'] ?? null;
+        return is_array($loc) && isset($loc['lat'], $loc['lng']) ? ['lat' => (float) $loc['lat'], 'lng' => (float) $loc['lng']] : null;
+    }
+
+    /** الموظفة سمحت بالموقع: بنسجّله (أول مرة = الأساس). مرة واحدة بإذنها، مش تتبّع مستمر */
+    public function staffLocationSave(int $userId, float $lat, float $lng, ?int $accuracy): array
+    {
+        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 || (abs($lat) < 0.0001 && abs($lng) < 0.0001)) {
+            throw new InvalidArgumentException('الموقع غير صحيح');
+        }
+        $first = !$this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn();
+        $this->q('INSERT INTO platform_staff_location(user_id,lat,lng,accuracy_m,is_first) VALUES(?,?,?,?,?)', [$userId, round($lat, 6), round($lng, 6), $accuracy !== null && $accuracy >= 0 ? min($accuracy, 1000000) : null, $first ? 1 : 0]);
+        return $this->staffLocation($userId) ?? [];
+    }
+
+    /** الموقع الأساسي (أول مرة) وآخر موقع، وبعدهم عن العنوان المسجّل في الملف */
+    public function staffLocation(int $userId): ?array
+    {
+        $rows = $this->q('SELECT * FROM platform_staff_location WHERE user_id=? ORDER BY id', [$userId])->fetchAll(PDO::FETCH_ASSOC);
+        if (!$rows) {
+            return null;
+        }
+        $first = $rows[0];
+        $last = end($rows);
+        $address = trim((string) ($this->q('SELECT address FROM platform_staff_profile WHERE user_id=?', [$userId])->fetchColumn() ?: ''));
+        $addrGeo = null;
+        if ($address !== '') {
+            $tag = substr(md5($address), 0, 12);
+            if (($first['address_for'] ?? '') !== $tag) {
+                $g = $this->geocodeAddress($address); // مرة لكل عنوان (حتى لو فشلت: ماننادش جوجل كل مرة)
+                $this->q('UPDATE platform_staff_location SET address_lat=?,address_lng=?,address_for=? WHERE id=?', [$g['lat'] ?? null, $g['lng'] ?? null, $tag, $first['id']]);
+                $first['address_lat'] = $g['lat'] ?? null;
+                $first['address_lng'] = $g['lng'] ?? null;
+            }
+            if ($first['address_lat'] !== null && $first['address_lng'] !== null) {
+                $addrGeo = ['lat' => (float) $first['address_lat'], 'lng' => (float) $first['address_lng']];
+            }
+        }
+        $pt = static fn (array $r) => ['lat' => (float) $r['lat'], 'lng' => (float) $r['lng'], 'accuracy_m' => $r['accuracy_m'] !== null ? (int) $r['accuracy_m'] : null, 'at' => (string) $r['captured_at'],
+            'maps_url' => 'https://www.google.com/maps?q=' . (float) $r['lat'] . ',' . (float) $r['lng']];
+        $dist = $addrGeo ? self::distanceKm((float) $first['lat'], (float) $first['lng'], $addrGeo['lat'], $addrGeo['lng']) : null;
+        return ['first' => $pt($first), 'latest' => $pt($last), 'count' => count($rows), 'has_address' => $address !== '', 'address_located' => $addrGeo !== null,
+            'distance_km' => $dist, 'far' => $dist !== null && $dist > self::LOCATION_FAR_KM, 'far_km' => self::LOCATION_FAR_KM];
+    }
+
+    /** للموظفة نفسها: إيه الناقص عليها (موقع، بيانات، صورة بطاقة) عشان تتنبّه أول ما تدخل المكتب */
+    public function staffMe(int $userId): array
+    {
+        return ['location_recorded' => (bool) $this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn(),
+            'profile_missing' => count($this->staffProfile($userId, false)['missing']), 'id_card' => $this->staffIdCardStatus($userId)['front'] !== null];
+    }
+
     /** كل الموظفين اللي سجّلوا شغل على المكتب أو عندهم تعويض متسجّل، مع عدد إجراءاتهم */
     public function staffList(): array
     {
@@ -2484,6 +2699,9 @@ class PlatformOutreachService
             'staff' => ['user_id' => (int) $u['id'], 'name' => (string) $u['name'], 'email' => (string) $u['email']],
             'month' => $month,
             'profile' => $this->staffProfile($userId, $revealProfile),
+            // صورة البطاقة والموقع لصاحب الملف ولمالك المنصة بس (نفس شرط إظهار الرقم القومي)
+            'id_card' => $revealProfile ? $this->staffIdCardStatus($userId) : null,
+            'location' => $revealProfile ? $this->staffLocation($userId) : null,
             'comp' => $comp,
             'summary' => $summary,
             'customers' => $customers,

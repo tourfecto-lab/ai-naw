@@ -1968,6 +1968,9 @@ $router->get('/api/admin/outreach-desk/leads', 'PlatformOutreachController', 'de
 $router->get('/api/admin/outreach-desk/funnel', 'PlatformOutreachController', 'deskFunnel', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/staff-report', 'PlatformOutreachController', 'staffReport', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/staff-profile', 'PlatformOutreachController', 'staffProfileSave', ['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/outreach-desk/staff-id-card', 'PlatformOutreachController', 'staffIdCardUpload', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/outreach-desk/staff-id-card', 'PlatformOutreachController', 'staffIdCardView', ['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/outreach-desk/staff-location', 'PlatformOutreachController', 'staffLocationSave', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/staff-comp', 'PlatformOutreachController', 'staffCompSave', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/action', 'PlatformOutreachController', 'deskAction', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/social', 'PlatformOutreachController', 'deskSocial', ['AuthMiddleware','AdminMiddleware']);

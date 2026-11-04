@@ -95,7 +95,7 @@ class PlatformOutreachController extends Controller
         header('Cache-Control: private, no-store');
         try {
             $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'tier' => $this->get('tier', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName()]);
-            return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName()]);
+            return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName(), 'me' => $this->service()->staffMe((int) ($this->user['id'] ?? 0))]);
         } catch (Throwable $e) {
             Logger::error('Outreach desk failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل الشركات', 503);
@@ -168,6 +168,96 @@ class PlatformOutreachController extends Controller
         } catch (Throwable $e) {
             Logger::error('Staff profile save failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر الحفظ', 503);
+        }
+    }
+
+    /**
+     * POST /api/admin/outreach-desk/staff-id-card (multipart: front و/أو back، consent=1، user_id?)
+     * بيحفظ الصورة مشفّرة وبيقرا وش البطاقة بالذكاء الاصطناعي ويرجّع اقتراحات (مابتتحفظش في الملف غير لما الموظفة تأكّد)
+     */
+    public function staffIdCardUpload(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        $me = (int) ($this->user['id'] ?? 0);
+        $uid = (int) $this->get('user_id', 0) ?: $me;
+        if ($uid !== $me && !$this->canManageTeam()) {
+            return $this->error('تقدري ترفعي بطاقتك إنتي بس', 403);
+        }
+        if ((string) $this->get('consent', '') !== '1') {
+            return $this->error('لازم توافقي الأول على رفع البطاقة وقراءتها وتخزينها مشفّرة', 422);
+        }
+        $s = $this->service();
+        $saved = [];
+        try {
+            foreach (['front', 'back'] as $side) {
+                $f = $_FILES[$side] ?? null;
+                if (!$f || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                if (($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
+                    return $this->error('الرفع فشل: جرّبي صورة أصغر', 422);
+                }
+                $s->staffIdCardSave($uid, $side, (string) file_get_contents((string) $f['tmp_name']));
+                $saved[] = $side;
+            }
+            if (!$saved) {
+                return $this->error('اختاري صورة وش البطاقة أو ضهرها', 422);
+            }
+            Logger::info('Staff ID card uploaded', ['by' => $me, 'for' => $uid, 'sides' => $saved]);
+            return $this->success(['id_card' => $s->staffIdCardStatus($uid), 'extract' => in_array('front', $saved, true) ? $s->staffIdCardExtract($uid) : null]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Staff ID card upload failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر حفظ الصورة', 503);
+        }
+    }
+
+    /** GET /api/admin/outreach-desk/staff-id-card?side=front|back&user_id= : الصورة نفسها، لصاحبها ولمالك المنصة بس */
+    public function staffIdCardView(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        $me = (int) ($this->user['id'] ?? 0);
+        $uid = (int) $this->get('user_id', 0) ?: $me;
+        if ($uid !== $me && !$this->canManageTeam()) {
+            return $this->error('غير مصرح', 403);
+        }
+        $side = (string) $this->get('side', 'front');
+        $card = in_array($side, ['front', 'back'], true) ? $this->service()->staffIdCardGet($uid, $side) : null;
+        if (!$card) {
+            return $this->error('مفيش صورة', 404);
+        }
+        Logger::info('Staff ID card viewed', ['by' => $me, 'for' => $uid, 'side' => $side]);
+        header('Content-Type: ' . $card[0]);
+        header('Content-Disposition: inline; filename="id-' . $side . '.jpg"');
+        header('Cache-Control: private, no-store');
+        header('X-Content-Type-Options: nosniff');
+        echo $card[1];
+        exit;
+    }
+
+    /** POST /api/admin/outreach-desk/staff-location {lat, lng, accuracy, consent=1}: الموظفة بس وبإذنها، مرة بتتسجّل كأساس */
+    public function staffLocationSave(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        if ((string) $this->get('consent', '') !== '1') {
+            return $this->error('لازم توافقي على تسجيل موقعك', 422);
+        }
+        try {
+            $acc = $this->get('accuracy', null);
+            $r = $this->service()->staffLocationSave((int) ($this->user['id'] ?? 0), (float) $this->get('lat', 0), (float) $this->get('lng', 0), $acc !== null && $acc !== '' ? (int) round((float) $acc) : null);
+            return $this->success(['location' => $r]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Staff location save failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تسجيل الموقع', 503);
         }
     }
 

@@ -299,6 +299,113 @@ final class OutreachDeskTest extends TestCase
         }
     }
 
+    public function testEgyptianNationalIdGivesBirthDateGenderAndGovernorateAndOcrIsParsedSafely(): void
+    {
+        $i = PlatformOutreachService::egyptianIdInfo('29901011234567');
+        $this->assertSame(['birth_date' => '1999-01-01', 'gender' => 'female', 'governorate' => 'الدقهلية'], $i, 'digits: century 2, 99-01-01, governorate 12, even gender digit');
+        $this->assertSame('male', PlatformOutreachService::egyptianIdInfo('29901011234577')['gender'], 'odd gender digit');
+        $this->assertSame('الجيزة', PlatformOutreachService::egyptianIdInfo('30501152100128')['governorate']);
+        $this->assertSame('2005-01-15', PlatformOutreachService::egyptianIdInfo('٣٠٥٠١١٥٢١٠٠١٢٨')['birth_date'], 'Arabic-Indic digits are accepted');
+        $this->assertNull(PlatformOutreachService::egyptianIdInfo('29913011234567'), 'month 13');
+        $this->assertNull(PlatformOutreachService::egyptianIdInfo('1234'));
+
+        $p = PlatformOutreachService::parseIdOcr("```json\n{\"full_name\": \"سارة أحمد محمد\", \"national_id\": \"٢٩٩٠١٠١١٢٣٤٥٦٧\", \"address\": \"١٢ شارع النصر، مدينة نصر\"}\n```");
+        $this->assertSame('29901011234567', $p['national_id']);
+        $this->assertSame('1999-01-01', $p['birth_date']);
+        $this->assertSame('12 شارع النصر، مدينة نصر', $p['address'], 'Arabic-Indic digits in the address become normal digits');
+        $bad = PlatformOutreachService::parseIdOcr('{"full_name":"X","national_id":"12345","address":""}');
+        $this->assertArrayHasKey('warning', $bad, 'a number that is not a valid national ID is flagged for a manual check');
+        $this->assertSame([], PlatformOutreachService::parseIdOcr('I cannot read this image'));
+    }
+
+    public function testIdCardIsStoredEncryptedReEncodedAndReadBackAndOcrNeverSavesAnything(): void
+    {
+        if (!function_exists('imagecreatetruecolor')) {
+            $this->markTestSkipped('GD is not available');
+        }
+        [$staff] = $this->twoUsers();
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id = ?', [$staff]);
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+        try {
+            $img = imagecreatetruecolor(2400, 1500);
+            ob_start();
+            imagepng($img);
+            $png = (string) ob_get_clean();
+            try {
+                $this->svc->staffIdCardSave($staff, 'front', $png);
+            } catch (Throwable $e) {
+                $this->markTestSkipped('encryption is not configured here: ' . $e->getMessage());
+            }
+            [$mime, $bin] = $this->svc->staffIdCardGet($staff, 'front');
+            $this->assertSame('image/jpeg', $mime, 're-encoded: metadata is dropped');
+            $this->assertLessThanOrEqual(1600, getimagesizefromstring($bin)[0], 'resized');
+            $stored = (string) $this->db->query('SELECT data_enc FROM platform_staff_docs WHERE user_id = ? AND side = ?', [$staff, 'front'])[0]['data_enc'];
+            $this->assertStringNotContainsString(base64_encode(substr($bin, 0, 12)), $stored, 'the image is stored encrypted');
+            $this->assertNotNull($this->svc->staffIdCardStatus($staff)['front']);
+            $this->assertNull($this->svc->staffIdCardStatus($staff)['back']);
+
+            $r = $this->svc->staffIdCardExtract($staff, fn ($b, $m, $p) => ['success' => true, 'data' => '{"full_name":"سارة أحمد","national_id":"29901011234567","address":"القاهرة"}']);
+            $this->assertTrue($r['ok']);
+            $this->assertSame('سارة أحمد', $r['fields']['full_name']);
+            $this->assertSame('', $this->svc->staffProfile($staff, true)['full_name'], 'reading the card only suggests: nothing is saved until the employee confirms');
+            $this->assertFalse($this->svc->staffIdCardExtract($staff, fn ($b, $m, $p) => ['success' => false, 'error' => 'x'])['ok']);
+            $this->assertFalse($this->svc->staffIdCardExtract($staff, function () { throw new RuntimeException('down'); })['ok'], 'an AI outage falls back to manual entry');
+
+            foreach ([['front', 'not an image'], ['middle', $png], ['front', '']] as [$side, $data]) {
+                try {
+                    $this->svc->staffIdCardSave($staff, $side, $data);
+                    $this->fail("$side should be rejected");
+                } catch (InvalidArgumentException $e) {
+                    $this->assertNotSame('', $e->getMessage());
+                }
+            }
+        } finally {
+            $this->db->query('DELETE FROM platform_staff_docs WHERE user_id = ?', [$staff]);
+        }
+    }
+
+    public function testFirstLocationIsTheBaselineAndTheDistanceToTheAddressFlagsFarOnes(): void
+    {
+        [$staff] = $this->twoUsers();
+        $this->db->query('DELETE FROM platform_staff_location WHERE user_id = ?', [$staff]);
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+        try {
+            $this->assertNull($this->svc->staffLocation($staff));
+            $this->assertFalse($this->svc->staffMe($staff)['location_recorded']);
+            $loc = $this->svc->staffLocationSave($staff, 30.0444, 31.2357, 25); // Cairo
+            $this->assertSame(1, $loc['count']);
+            $this->assertSame(25, $loc['first']['accuracy_m']);
+            $this->assertStringContainsString('30.0444,31.2357', $loc['first']['maps_url']);
+            $this->assertNull($loc['distance_km'], 'no address in the profile yet');
+            $this->assertTrue($this->svc->staffMe($staff)['location_recorded']);
+
+            // العنوان اتحوّل لإحداثيات (بنحطها مباشرة من غير نداء جوجل): الإسكندرية ≈ 180 كم من القاهرة
+            $this->svc->staffProfileSet($staff, ['address' => '10 Corniche, Alexandria'], false, 'Sara');
+            $this->db->query('UPDATE platform_staff_location SET address_lat = 31.2001, address_lng = 29.9187, address_for = ? WHERE user_id = ? AND is_first = 1', [substr(md5('10 Corniche, Alexandria'), 0, 12), $staff]);
+            $far = $this->svc->staffLocation($staff);
+            $this->assertEqualsWithDelta(180, $far['distance_km'], 15);
+            $this->assertTrue($far['far']);
+
+            $this->svc->staffLocationSave($staff, 30.0500, 31.2400, null);
+            $again = $this->svc->staffLocation($staff);
+            $this->assertSame(2, $again['count']);
+            $this->assertSame(30.0444, $again['first']['lat'], 'the first capture stays the baseline');
+            $this->assertSame(30.05, $again['latest']['lat']);
+
+            foreach ([[91, 0], [0, 181], [0, 0]] as [$la, $ln]) {
+                try {
+                    $this->svc->staffLocationSave($staff, (float) $la, (float) $ln, null);
+                    $this->fail("$la,$ln should be rejected");
+                } catch (InvalidArgumentException $e) {
+                    $this->assertNotSame('', $e->getMessage());
+                }
+            }
+        } finally {
+            $this->db->query('DELETE FROM platform_staff_location WHERE user_id = ?', [$staff]);
+            $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$staff]);
+        }
+    }
+
     public function testStaffProfileInputIsValidated(): void
     {
         [$staff] = $this->twoUsers();

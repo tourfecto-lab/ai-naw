@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null;
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {};
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -122,7 +122,11 @@
         const c = cur();
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
         const tabs = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l}${key ? ` <b>${c[key] || 0}</b>` : ` <b>${c.total || 0}</b>`}</button>`).join('');
-        root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>
+        // أول دخول: موقعها مرة واحدة بإذنها (عشان نتأكد من العنوان)، وتنبيه لو بياناتها ناقصة
+        const meBanner = (me.location_recorded === false ? `<div class="dk-banner">📍 محتاجين موقعك <b>مرة واحدة</b> عشان نتأكد من عنوانك. المتصفح هيسألك عن الإذن، ومفيش تتبّع مستمر.
+                <button class="dk-btn primary" data-loc-first>اسمحي وسجّلي موقعي</button></div>` : '')
+            + (me.profile_missing > 0 ? `<div class="dk-banner">📋 بيانات ملفك ناقصة (${me.profile_missing}). افتحي «كشف الشغل» وكمّلي بياناتك وارفعي صورة البطاقة.</div>` : '');
+        root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip">اختاري الدولة، وانسخي الرقم والرسالة وابعتيها على واتساب، وبعدها سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
             <div><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button></div>
@@ -136,7 +140,7 @@
     const load = async (keepScroll) => {
         const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
+        csrf = r.csrf_token || csrf; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
@@ -195,6 +199,19 @@
             <button class="dk-btn primary" data-pf-save>حفظ البيانات</button>
             <small class="dk-muted">الرقم القومي ورقم الحساب بيتخزّنوا مشفّرين، ومايظهروش كاملين غير لصاحب الملف ولمالك المنصة (الباقي بيشوف آخر 4 أرقام).</small></div>`
             : `<div class="dk-comp"><b>بيانات الموظف:</b> ${esc(p.full_name || '—')} · ${esc(p.phone || '—')} · ${esc(p.job_title || '—')}${p.start_date ? ' · تعيين ' + esc(p.start_date) : ''} · ${esc(PAY[p.pay_method] || 'طريقة الاستلام غير مسجّلة')} ${esc(p.pay_account || '')}</div>`;
+        const ic = r.id_card, loc = r.location, uid = r.staff.user_id;
+        const idView = side => ic && ic[side] ? ` · <a href="/api/admin/outreach-desk/staff-id-card?side=${side}&user_id=${uid}" target="_blank" rel="noopener noreferrer">عرض</a> (${esc(String(ic[side]).slice(0, 10))})` : '';
+        const idBox = canEdit ? `<div class="dk-comp dk-id"><b>🪪 صورة البطاقة</b>
+            <label>الوش${idView('front')}<input type="file" accept="image/*" capture="environment" data-id-file="front"></label>
+            <label>الضهر${idView('back')}<input type="file" accept="image/*" capture="environment" data-id-file="back"></label>
+            <label class="dk-consent"><input type="checkbox" data-id-consent> أوافق على رفع صورة البطاقة وقراءة بياناتها بالذكاء الاصطناعي (Google Gemini) وتخزينها مشفّرة، ومايشوفهاش غير مالك المنصة.</label>
+            <button class="dk-btn primary" data-id-upload>ارفع واقرا البيانات</button>
+            <small class="dk-muted">البيانات اللي بتتقرا بتتحط في الخانات تحت كاقتراح: راجعيها وصحّحيها واضغطي «حفظ البيانات». مفيش حاجة بتتحفظ لوحدها.</small>
+            <p class="dk-id-note"></p></div>` : '';
+        const locLine = !loc ? 'لسه ماتسجّلش' : `<a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">أول موقع على الخريطة ↗</a> · ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
+            <br>${!loc.has_address ? '⚠️ مفيش عنوان في الملف عشان نقارنه' : (!loc.address_located ? '⚠️ ماقدرناش نحوّل العنوان لموقع على الخريطة: قارنيه بإيدك' : (loc.far ? `🚨 الموقع بعيد <b>${num(loc.distance_km)} كم</b> عن العنوان المسجّل (الحد ${loc.far_km} كم)` : `✅ الموقع قريب من العنوان (${num(loc.distance_km)} كم)`))}`;
+        const locBox = loc !== null || d.is_self ? `<div class="dk-comp dk-loc"><b>📍 الموقع</b><span>${locLine}</span>
+            ${d.is_self ? '<button class="dk-btn" data-loc-save>' + (loc ? 'حدّثي موقعي' : 'سجّلي موقعي (بإذنك)') + '</button><small class="dk-muted">بيتسجّل موقعك مرة واحدة وقت ما تضغطي، ومفيش تتبّع مستمر. المتصفح هيسألك عن الإذن.</small>' : ''}</div>` : '';
         const profBanner = (p.missing || []).length ? `<p class="dk-st-msg bad">⚠️ بيانات ناقصة: ${p.missing.map(esc).join('، ')}</p>` : '<p class="dk-st-msg">✅ بيانات الموظف كاملة</p>';
         const tile = (n, l) => `<div class="dk-fn"><b>${n}</b><span>${l}</span></div>`;
         const custs = r.customers.length ? `<table class="dk-tbl"><thead><tr><th>العميل</th><th>الباقة</th><th>اشترك من</th><th>الشهر ده</th><th>قيمة الشهر</th><th>النسبة</th></tr></thead><tbody>${r.customers.map(x => `<tr><td>${esc(x.company)}</td><td>${esc(x.plan)} (${x.cycle === 'yearly' ? 'سنوي' : 'شهري'})</td><td>${esc(String(x.since).slice(0, 10))}</td><td>${x.active_in_month ? '✅ ساري' : '— مش ساري'}</td><td>${x.monthly_egp == null ? '؟' : egp(x.monthly_egp)}</td><td><b>${egp(x.commission_egp)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="dk-muted">لسه مفيش عملاء مدفوعين منسوبين لها (العميل بيتنسب لأول موظفة سجّلت إرسال واتساب ليه).</p>';
@@ -202,12 +219,51 @@
         return `<div class="dk-modal-box"><button class="dk-btn" data-st-close>✕ إغلاق</button><h2>كشف ${esc(r.staff.name)}</h2><p class="dk-st-msg"></p>
             <div class="dk-st-bar">${picker}<label>الشهر <input type="month" data-st-month value="${esc(r.month)}"></label></div>
             <div class="dk-fn-row">${tile(num(s.sent), 'شركات بعتلها')}${tile(num(s.replied), 'ردّوا')}${tile(num(s.trial), 'جرّبوا')}${tile(num(s.subscribed), 'اشتركوا')}${tile(num(r.customers_active), 'عملاء مدفوعين سارين')}</div>
-            ${profBanner}${profile}${compForm}
+            ${profBanner}${idBox}${profile}${locBox}${compForm}
             <div class="dk-totals"><span>نسبة الشهر: <b>${egp(t.commission_egp)}</b></span><span>الراتب: <b>${egp(t.salary_egp)}</b></span><span class="tot">الإجمالي المستحق: <b>${egp(t.total_egp)}</b></span></div>
             <h3>العملاء اللي جابتهم</h3>${custs}<h3>سجل الشغل (${r.log.length})</h3><div class="dk-scroll">${log}</div>
             <ul class="dk-notes">${(r.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>`;
     };
     const stMsg = (m, bad) => { const el = staffUi.el && staffUi.el.querySelector('.dk-st-msg'); if (el) { el.textContent = m; el.className = 'dk-st-msg' + (bad ? ' bad' : ''); } };
+    // الموقع: مرة واحدة بإذن الموظفة (المتصفح بيسألها)، ومفيش تتبّع مستمر
+    const doLocation = () => new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('المتصفح ده مش بيدعم تحديد الموقع'));
+        navigator.geolocation.getCurrentPosition(async pos => {
+            try { resolve(await api('/api/admin/outreach-desk/staff-location', { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy, consent: '1' })); } catch (e) { reject(e); }
+        }, err => reject(new Error(err.code === 1 ? 'إذن الموقع اتمنع: فعّليه من القفل اللي جنب رابط الموقع وجرّبي تاني' : 'مقدرناش نحدد موقعك: جرّبي تاني')), { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+    });
+    // الصورة بتتصغّر في المتصفح قبل الرفع (أسرع وأخف على الموبايل)، والسيرفر بيعيد ترميزها كمان
+    const shrinkImage = file => new Promise((res, rej) => {
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+            const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+            c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+            c.toBlob(b => b ? res(b) : rej(new Error('الصورة مش مقروءة')), 'image/jpeg', 0.85);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('الصورة مش مقروءة')); };
+        img.src = url;
+    });
+    const uploadIdCard = async () => {
+        const q = s => staffUi.el.querySelector(s), note = q('.dk-id-note');
+        if (!q('[data-id-consent]').checked) throw new Error('وافقي الأول على رفع البطاقة وقراءتها وتخزينها');
+        const fd = new FormData(); fd.append('consent', '1'); fd.append('csrf_token', csrf); fd.append('user_id', staffUi.userId);
+        let n = 0;
+        for (const side of ['front', 'back']) { const f = q(`[data-id-file="${side}"]`).files[0]; if (f) { fd.append(side, await shrinkImage(f), side + '.jpg'); n++; } }
+        if (!n) throw new Error('اختاري صورة وش البطاقة (وضهرها لو عايزة)');
+        note.textContent = 'بيترفع ويتقرا… (ممكن ياخد 10 ثواني)';
+        const resp = await fetch('/api/admin/outreach-desk/staff-id-card', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
+        const r = await resp.json().catch(() => null);
+        if (!r?.success) throw new Error(r?.error || 'الرفع فشل');
+        const ex = r.data.extract;
+        if (ex && ex.ok) {
+            const f = ex.fields;
+            [['full_name', f.full_name], ['national_id', f.national_id], ['address', f.address]].forEach(([k, v]) => { const el = q(`[data-pf="${k}"]`); if (el && v) el.value = v; });
+            const extra = f.birth_date ? ` · ميلاد ${f.birth_date} · ${f.gender === 'male' ? 'ذكر' : 'أنثى'} · ${f.governorate}` : '';
+            note.innerHTML = '✅ اتقرت البطاقة وبياناتها اتحطت في الخانات تحت' + esc(extra) + (f.warning ? '<br>⚠️ ' + esc(f.warning) : '') + '<br><b>راجعيها بعينك وصحّحي أي غلط، وبعدين اضغطي «حفظ البيانات».</b>';
+        } else {
+            note.textContent = n && ex ? '✅ الصورة اتحفظت. ' + (ex.error || '') : '✅ الصورة اتحفظت';
+        }
+    };
     const openStaff = async () => {
         if (!staffUi.el) {
             staffUi.el = document.createElement('div'); staffUi.el.className = 'dk-modal'; staffUi.el.dir = 'rtl'; document.body.appendChild(staffUi.el);
@@ -215,6 +271,8 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
+                    if (t.dataset.idUpload !== undefined) { t.disabled = true; try { await uploadIdCard(); } finally { t.disabled = false; } return; }
+                    if (t.dataset.locSave !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; await loadStaff(); stMsg('اتسجّل موقعك ✅'); } finally { t.disabled = false; } return; }
                     if (t.dataset.pfSave !== undefined) {
                         const body = { user_id: staffUi.userId };
                         staffUi.el.querySelectorAll('[data-pf]').forEach(el => { body[el.dataset.pf] = el.value; });
@@ -258,6 +316,7 @@
                     toast('اتسجّل، والرسالة اتحدّثت ✅'); return;
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
+                if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
                 if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }
                 if (t.dataset.country) { state.country = t.dataset.country; state.view = 'todo'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); }
