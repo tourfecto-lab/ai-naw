@@ -87,6 +87,7 @@ final class AiVisibilityController extends Controller
     public function llms(array $params=[]): array
     {
         if(!$this->isAuthenticated())return $this->error('Unauthorized',401);
+        if($err=$this->verifyCsrf())return $err;
         if($err=$this->rateLimitGuard('user','ai_visibility_llms',20,3600))return $err;
         try{$site=(new SeoMarketService($this->db))->site((int)$this->get('website_id'),(int)$this->user['id']);$ctx=(new SeoExpertPageContext())->fresh($site['main_url']);if(empty($ctx['ok']))throw new RuntimeException('page_unavailable');return $this->success(['draft'=>(new GeoLlmsBuilder())->build($site['main_url']),'status'=>'draft_requires_review','note'=>'راجع البيانات؛ النشر من خلال دورة الموصل الحالية مع موافقة وتحقق وإمكانية رجوع. مفيش ضمان ترتيب.']);}catch(Throwable $e){return $this->error('تعذر قراءة الصفحات العامة',422);}
     }
