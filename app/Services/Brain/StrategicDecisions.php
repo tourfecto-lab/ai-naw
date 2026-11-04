@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/BrainPlanner.php';
 /**
  * Tourfecto - العقل الاستراتيجي: القرارات (منطق نقي من غير قاعدة بيانات)
  *
@@ -18,9 +19,10 @@ final class StrategicDecisions
      * @param array $s صورة الشركة
      * @param array<string,float> $learned أوزان المجالات من نتايج القرارات السابقة (1 = محايد)
      * @param array<string,array{companies:int,measured:int,improved_rate:float}> $shared نتايج أنواع القرارات عند الشركات المشارِكة (SharedIntelligence)
+     * @param array<int,array> $goals أهداف الشركة النشطة بتقدمها (BrainControl::goals): الهدف المتأخر بيتحول لقرار
      * @return array<int,array<string,mixed>>
      */
-    public static function decide(array $s, array $learned = [], array $shared = []): array
+    public static function decide(array $s, array $learned = [], array $shared = [], array $goals = []): array
     {
         $out = [];
         $add = static function (array $d) use (&$out): void { $out[] = $d; };
@@ -162,6 +164,8 @@ final class StrategicDecisions
         foreach (self::marketDecisions($s['market'] ?? null) as $d) $add($d);
         // 9) النمو: متابعة العملاء المحتملين، أسواق جديدة، باقات، وتسعير قدام المنافسين (GrowthAdvisor)
         foreach (self::growthDecisions($s) as $d) $add($d);
+        // 10) الأهداف: هدف نشط متأخر عن المسار بقرار يوجّه للخدمة اللي بتأثر على مقياسه
+        foreach (self::goalDecisions($goals) as $d) $add($d);
 
         // الأولوية: الأثر × وزن الهدف × وزن التعلّم × وزن نتايج الشركات التانية (لو فيه 5 شركات أو أكتر)
         $goal = self::goalWeights((string) ($u['goal'] ?? ''));
@@ -344,6 +348,43 @@ final class StrategicDecisions
             'requires_spend' => false,
             'metric' => $metric === null ? null : ['key' => $metric, 'value' => $value === null ? null : (float) $value, 'direction' => $direction],
         ];
+    }
+
+    /** الخدمة اللي بتأثر على كل مجال، لما هدف يتأخر */
+    private const GOAL_URL = ['acquisition' => '/crm', 'reputation' => '/reputation/reviews', 'seo' => '/seo-expert', 'social' => '/social#plan', 'whatsapp' => '/chat'];
+    private const GOAL_NAME = [
+        'bookings.last_30' => ['حجوزات آخر 30 يوم', 'Bookings, last 30 days'], 'bookings.revenue_30' => ['إيراد آخر 30 يوم', 'Revenue, last 30 days'],
+        'reputation.avg_rating' => ['متوسط التقييمات', 'Average rating'], 'reputation.unanswered_negative' => ['تقييمات سلبية من غير رد', 'Unanswered negative reviews'],
+        'scores.seo_score' => ['درجة الموقع', 'Site score'], 'social.published_30' => ['منشورات آخر 30 يوم', 'Posts, last 30 days'], 'chat.pending_approval' => ['ردود شات مستنية', 'Chat replies waiting'],
+    ];
+
+    /**
+     * قرار لكل هدف نشط متأخر عن المسار: الأرقام كلها من تقدم الهدف الحقيقي، والقرار بيوجّه للخدمة المناسبة
+     * ومقياسه هو مقياس الهدف نفسه (فبيتقاس قبل وبعد زي أي قرار). الهدف على المسار أو المتحقق مايطلعش له قرار.
+     * @param array<int,array> $goals من BrainControl::goals
+     * @return array<int,array<string,mixed>>
+     */
+    public static function goalDecisions(array $goals): array
+    {
+        $out = [];
+        foreach ($goals as $g) {
+            $p = $g['progress'] ?? [];
+            if (($g['status'] ?? '') !== 'active' || ($p['status'] ?? '') !== 'behind' || ($p['current'] ?? null) === null) continue;
+            $metric = (string) $g['metric_key'];
+            $m = BrainPlanner::metric($metric);
+            if (!$m) continue;
+            $area = $m[1][0];
+            $name = self::GOAL_NAME[$metric] ?? [$metric, $metric];
+            $fmt = static fn ($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.');
+            $ev = [[$name[0] . ': ' . $fmt($p['current']) . ' من ' . $fmt($g['target']) . ' (وصلت ' . $fmt($p['pct']) . '% والمفروض ' . $fmt($p['expected_pct']) . '% دلوقتي)',
+                $name[1] . ': ' . $fmt($p['current']) . ' of ' . $fmt($g['target']) . ' (' . $fmt($p['pct']) . '% done, ' . $fmt($p['expected_pct']) . '% expected by now)']];
+            if (($p['needed_per_week'] ?? null) !== null) $ev[] = ['المطلوب كل أسبوع: ' . $fmt($p['needed_per_week']) . ' · فاضل ' . (int) $p['weeks_left'] . ' أسبوع', 'Needed per week: ' . $fmt($p['needed_per_week']) . ' · ' . (int) $p['weeks_left'] . ' weeks left'];
+            $out[] = self::d('goal_behind_' . preg_replace('/[^a-z0-9]+/', '_', $metric), $area, 3,
+                ['هدفك متأخر: ' . $name[0], 'Your goal is behind: ' . $name[1]],
+                ['الوقت بيعدّي أسرع من التقدم. القرار ده بيوجّهك للخدمة اللي بتأثر على الرقم ده مباشرة.', 'Time is passing faster than progress. This points you to the service that moves this number most directly.'],
+                $ev, self::GOAL_URL[$area] ?? '/brain', ['افتح الخدمة', 'Open the service'], $metric, $p['current'], $m[0]);
+        }
+        return $out;
     }
 
     /** قيمة مقياس من الصورة (زي "reputation.unanswered_negative" أو "trip.12.recent") */

@@ -233,4 +233,21 @@ final class BrainControlIntegrationTest extends TestCase
         foreach (['approved', 'marked_done', 'measured'] as $e) $this->assertContains($e, $events);
         $this->assertSame([], $store->control()->recent(self::OTHER_USER_ID, self::WEBSITE_ID));
     }
+
+    public function testBehindGoalBecomesADecisionAndOnTrackDoesNot(): void
+    {
+        $store = $this->store();
+        $store->control()->createGoal(self::USER_ID, self::WEBSITE_ID, 'bookings.last_30', 20, $this->deadline(10), $this->snapshot(0, 10));
+        // الهدف اتعمل من 20 يوم، والمطلوب 20 والحالي 10.5: متأخر جدًا عن المسار
+        $this->db->query('UPDATE brain_goals SET created_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 20 DAY) WHERE user_id = ?', [self::USER_ID]);
+        $keys = array_column($store->sync(self::USER_ID, self::WEBSITE_ID, $this->snapshot(0, 10)), 'key');
+        $this->assertContains('goal_behind_bookings_last_30', $keys);
+        // شركة تانية ماعندهاش الهدف ده
+        $this->assertNotContains('goal_behind_bookings_last_30', array_column($store->sync(self::OTHER_USER_ID, self::WEBSITE_ID, $this->snapshot(0, 10)), 'key'));
+        // الهدف اتحقق: القرار بيتقفل "اتحل" ومابيرجعش
+        $list = $store->sync(self::USER_ID, self::WEBSITE_ID, $this->snapshot(0, 25));
+        $row = array_values(array_filter($list, static fn ($d) => $d['key'] === 'goal_behind_bookings_last_30'))[0];
+        $this->assertSame('resolved', $row['status']);
+        $this->assertSame('improved', $row['outcome']);
+    }
 }

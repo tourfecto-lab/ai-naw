@@ -149,4 +149,33 @@ final class BrainPlannerTest extends TestCase
         $ar = BrainDigest::build('', $plan, [], [], $ds, 'ar');
         $this->assertStringContainsString('dir="rtl"', $ar['html']);
     }
+
+    private function goalWith(string $status, array $o = []): array
+    {
+        return ['status' => 'active', 'metric_key' => 'reputation.avg_rating', 'target' => 4.8, 'progress' => $o + ['status' => $status, 'current' => 4.2, 'pct' => 30.0, 'expected_pct' => 70.0, 'weeks_left' => 3, 'needed_per_week' => 0.2]];
+    }
+
+    public function testOnlyBehindActiveGoalsBecomeDecisions(): void
+    {
+        require_once __DIR__ . '/../../app/Services/Brain/StrategicDecisions.php';
+        $this->assertSame([], StrategicDecisions::goalDecisions([$this->goalWith('on_track'), $this->goalWith('achieved'), $this->goalWith('unknown', ['current' => null]), ['status' => 'cancelled'] + $this->goalWith('behind')]));
+        $d = StrategicDecisions::goalDecisions([$this->goalWith('behind')]);
+        $this->assertCount(1, $d);
+        $this->assertSame('goal_behind_reputation_avg_rating', $d[0]['key']);
+        $this->assertSame('reputation', $d[0]['area']);
+        $this->assertSame('/reputation/reviews', $d[0]['action_url']);
+        $this->assertSame('reputation.avg_rating', $d[0]['metric']['key']);
+        $this->assertSame('up', $d[0]['metric']['direction']);
+        $this->assertSame(4.2, $d[0]['metric']['value']);
+        $this->assertStringContainsString('30%', $d[0]['evidence'][0]['en']);
+    }
+
+    public function testGoalDecisionJoinsDecideAndGetsAPriority(): void
+    {
+        require_once __DIR__ . '/../../app/Services/Brain/StrategicDecisions.php';
+        $snap = ['understanding' => ['profile_confirmed' => true, 'goal' => 'x', 'audience' => 'x', 'offers' => 'x', 'markets' => ['countries' => ['UK']]], 'seo' => ['autopilot' => true], 'competitors' => ['tracked' => 1], 'social' => ['published_30' => 3, 'scheduled' => 1]];
+        $keys = array_column(StrategicDecisions::decide($snap, [], [], [$this->goalWith('behind')]), 'key');
+        $this->assertContains('goal_behind_reputation_avg_rating', $keys);
+        $this->assertNotContains('goal_behind_reputation_avg_rating', array_column(StrategicDecisions::decide($snap), 'key'));
+    }
 }

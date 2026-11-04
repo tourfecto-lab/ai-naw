@@ -84,7 +84,8 @@ final class BrainDecisionStore
     public function sync(int $uid, int $wid, array $snapshot, array $shared = [], ?bool $autonomy = null, string $lang = 'ar'): array
     {
         $now = gmdate('Y-m-d H:i:s');
-        $fresh = StrategicDecisions::decide($snapshot, $this->learnedWeights($uid, $wid), $shared);
+        // الهدف المتأخر بيتحول لقرار (لو جداول الأهداف مش متاحة: من غير أهداف)
+        $fresh = StrategicDecisions::decide($snapshot, $this->learnedWeights($uid, $wid), $shared, $this->control()->goals($uid, $wid, $snapshot));
         $existing = [];
         foreach ($this->db->query('SELECT * FROM brain_decisions WHERE user_id = ? AND website_id = ?', [$uid, $wid]) ?: [] as $row) $existing[$row['decision_key']] = $row;
 
