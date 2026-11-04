@@ -195,6 +195,22 @@
       return `<li class="sg-task"><div><b dir="auto">${esc(title)}</b>${text ? `<p dir="auto">${esc(text)}</p>` : ''}${chips}</div>${btn}</li>`;
     }
 
+    // إيه اللي شغال دلوقتي وإيه اللي محتاجه عشان باقي الوظايف تتفتح (من غير ما نقول "مفيش بيانات" لو المشكلة في الربط)
+    function capabilityCard() {
+      if (!health || !Object.keys(health).length) return '';
+      const conn = health.connector?.state === 'publicly_observed' || health.publishing?.state === 'authenticated';
+      const gsc = health.metrics?.gsc?.state, ga = health.metrics?.analytics?.state;
+      const row = (ok, name, okText, fixText, go) => `<li class="${ok ? 'sg-ok' : 'sg-warn'}"><b>${ok ? '✓' : '○'} ${esc(name)}</b> — ${ok ? esc(okText) : esc(fixText)}${!ok && go ? ` <a href="${go}">${t('افتح', 'Open')}</a>` : ''}</li>`;
+      const gscText = gsc === 'measured' ? t('الظهور والنقرات بتتقرا من جوجل.', 'Impressions and clicks are read from Google.') : '';
+      const gaText = ga === 'measured' ? t('الزيارات والحجوزات بتتقرا من Analytics.', 'Visits and bookings are read from Analytics.') : '';
+      const gscFix = gsc === 'needs_connection_review' ? t('ربط جوجل انتهى أو ناقص صلاحية: اربطه تاني عشان نشوف الظهور والنقرات.', 'Your Google link expired or lacks permission: reconnect it to see impressions and clicks.') : t('اربط جوجل عشان نشوف الظهور والنقرات (الفحص شغال من غيره).', 'Connect Google to see impressions and clicks (the check works without it).');
+      const gaFix = ga === 'needs_connection_review' ? t('ربط Analytics انتهى أو ناقص صلاحية: اربطه تاني.', 'Your Analytics link expired or lacks permission: reconnect it.') : t('اربط Analytics عشان نقيس الاستفسارات والحجوزات.', 'Connect Analytics to measure enquiries and bookings.');
+      return `<section class="sg-card"><h3>${t('إيه اللي شغال دلوقتي', 'What works right now')}</h3><ul class="sg-todo">
+        ${row(true, t('فحص الصفحات وخطة التحسين', 'Page checks and the improvement plan'), t('شغال من غير أي ربط.', 'works without any connection.'), '')}
+        ${row(conn, t('تطبيق التحسينات على موقعك', 'Applying improvements to your site'), t('الموصل شغال.', 'the connector is working.'), t('اربط موقعك (إضافة ووردبريس أو ملف الربط لمواقع PHP). لحد ما تربطه هتطبّق التحسينات بنفسك من القايمة.', 'Connect your site (WordPress plugin or the PHP connector). Until then you apply changes yourself from the list.'), '')}
+        ${row(gsc === 'measured', t('الظهور والنقرات (جوجل)', 'Impressions and clicks (Google)'), gscText, gscFix, '/integrations')}
+        ${row(ga === 'measured', t('الزيارات والحجوزات (Analytics)', 'Visits and bookings (Analytics)'), gaText, gaFix, '/integrations')}</ul></section>`;
+    }
     // الدورة شغالة بس واقفة؟ بنقول للعميل هي فين بالظبط، وزرار الاستكمال بيكمل من النقطة المحفوظة (من غير دورة جديدة ولا خصم)
     function stallNotice() {
       const h = run?.cycle_health, st = run?.run?.status; if (!h || !['queued', 'scanning', 'scanned'].includes(st)) return '';
@@ -261,7 +277,7 @@
         ${!sites.length ? `<section class="sg-card"><h3>${t('ضيف موقعك الأول', 'Add your website first')}</h3><p>${t('اكتب رابط موقعك عشان نبدأ.', 'Enter your website link to start.')}</p><a class="p-btn" href="/websites">${t('ضيف موقع', 'Add website')}</a></section>` : `
         ${allDone ? `<details class="sg-card sg-setup"><summary>✓ ${t('كل خطوات الإعداد خلصت', 'All setup steps are done')}</summary>` : ''}<ol class="sg-steps">${list.map((s, i) => `<li class="sg-step ${s.done ? 'done' : (i === firstOpen ? 'current' : 'later')}"><span class="sg-num">${s.done ? '✓' : i + 1}</span><div><h3>${esc(s.title)}</h3>${s.done ? '' : `<p>${esc(s.text)}</p>`}${s.form && !s.done && i === firstOpen ? factsForm() : ''}
           ${s.checking ? `<span class="sg-muted">${t('بنتأكد من ربط موقعك…', 'Checking your website connection…')}</span>` : ''}${!s.done && !s.checking && i === firstOpen && !(s.form && !factsDraft) ? `<button type="button" class="p-btn" data-step="${s.key}" ${busy || loading ? 'disabled' : ''}>${busy ? t('لحظة…', 'One moment…') : esc(s.action)}</button>` : ''}${s.done ? `<span class="sg-ok">${t('تم', 'Done')}</span>` : ''}</div></li>`).join('')}</ol>${allDone ? '</details>' : ''}
-        ${alertsHtml}${rankCard()}${summary()}${reportCard()}${marketsCard()}`}`;
+        ${alertsHtml}${rankCard()}${summary()}${capabilityCard()}${reportCard()}${marketsCard()}`}`;
       const sel = root.querySelector('#sgSite'); if (sel && sites.length) { const want = String(params.get('website_id') || store.get('tf-seo-site') || ''); if (sites.some(s => String(s.id) === want)) sel.value = want; sel.onchange = () => { store.set('tf-seo-site', sel.value); const legacy = document.getElementById('seWebsite'); if (legacy) { legacy.value = sel.value; legacy.dispatchEvent(new Event('change')); } health = null; run = null; overview = null; readiness = null; markets = null; keywords = null; schedules = []; runError = false; loading = true; factsDraft = null; autoTried = false; note = null; render(); load(); }; }
       showNote();
       root.querySelectorAll('[data-fact]').forEach(el => { el.oninput = () => { if (factsDraft) factsDraft[el.dataset.fact] = el.value; }; });
