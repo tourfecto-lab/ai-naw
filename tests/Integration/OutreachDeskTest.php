@@ -826,4 +826,30 @@ final class OutreachDeskTest extends TestCase
         $this->svc->staffProfileSet(self::STAFF_ID, ['sign_name' => ''], false, 'self');
         $this->assertSame('', $this->svc->staffSignName(self::STAFF_ID), 'empty clears it');
     }
+
+    public function testShortIdClipsAreStoredEncryptedAsVideoOnlyAndShowInTheStatus(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-clip@tourfecto.test']);
+        $webm = "\x1A\x45\xDF\xA3" . str_repeat('v', 5000);
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', $webm);
+        $got = $this->svc->staffIdCardGet(self::STAFF_ID, 'fclip');
+        $this->assertSame('video/webm', $got[0]);
+        $this->assertSame($webm, $got[1]);
+        $raw = (string) $this->db->query('SELECT data_enc FROM platform_staff_docs WHERE user_id=? AND side=?', [self::STAFF_ID, 'fclip'])[0]['data_enc'];
+        $this->assertStringNotContainsString(base64_encode($webm), $raw, 'stored encrypted');
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'pclip', "\x00\x00\x00\x18ftypmp42" . str_repeat('m', 100));
+        $this->assertSame('video/mp4', $this->svc->staffIdCardGet(self::STAFF_ID, 'pclip')[0]);
+        $st = $this->svc->staffIdCardStatus(self::STAFF_ID);
+        $this->assertNotNull($st['fclip']);
+        $this->assertNull($st['bclip']);
+        foreach ([['fclip', 'not a video at all'], ['fclip', ''], ['fclip', "\x1A\x45\xDF\xA3" . str_repeat('x', 6 * 1024 * 1024)], ['front', $webm]] as [$side, $bin]) {
+            try {
+                $this->svc->staffIdCardClipSave(self::STAFF_ID, $side, $bin);
+                $this->fail('should be rejected: ' . $side);
+            } catch (InvalidArgumentException $e) {
+                $this->assertTrue(true);
+            }
+        }
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+    }
 }

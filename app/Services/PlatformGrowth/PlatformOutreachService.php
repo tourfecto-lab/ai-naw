@@ -2664,6 +2664,22 @@ class PlatformOutreachService
         $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
     }
 
+    /** مقطع فيديو قصير (ثواني) بيتسجّل مع كل لقطة: وش البطاقة (fclip) وضهرها (bclip) والصورة الشخصية (pclip). WebM أو MP4 بس وبحد 6 ميجا */
+    public function staffIdCardClipSave(int $userId, string $side, string $binary): void
+    {
+        if (!in_array($side, ['fclip', 'bclip', 'pclip'], true)) {
+            throw new InvalidArgumentException('نوع المقطع غير معروف');
+        }
+        if ($binary === '' || strlen($binary) > 6 * 1024 * 1024) {
+            throw new InvalidArgumentException('المقطع فاضي أو أكبر من 6 ميجا');
+        }
+        $mime = str_starts_with($binary, "\x1A\x45\xDF\xA3") ? 'video/webm' : (substr($binary, 4, 4) === 'ftyp' ? 'video/mp4' : '');
+        if ($mime === '') {
+            throw new InvalidArgumentException('المقطع مش فيديو (WebM أو MP4)');
+        }
+        $this->q('REPLACE INTO platform_staff_docs(user_id,side,mime,data_enc) VALUES(?,?,?,?)', [$userId, $side, $mime, $this->encField(base64_encode($binary))]);
+    }
+
     /** @return array{0:string,1:string}|null [mime, binary] */
     public function staffIdCardGet(int $userId, string $side): ?array
     {
@@ -2692,7 +2708,7 @@ class PlatformOutreachService
     /** @return array{front:?string,back:?string,photo:?string} وقت رفع كل صورة (وش البطاقة وضهرها والصورة الشخصية) */
     public function staffIdCardStatus(int $userId): array
     {
-        $out = ['front' => null, 'back' => null, 'photo' => null];
+        $out = ['front' => null, 'back' => null, 'photo' => null, 'fclip' => null, 'bclip' => null, 'pclip' => null];
         foreach ($this->q('SELECT side,uploaded_at FROM platform_staff_docs WHERE user_id=?', [$userId])->fetchAll(PDO::FETCH_ASSOC) as $r) {
             $out[$r['side']] = (string) $r['uploaded_at'];
         }

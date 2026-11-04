@@ -212,6 +212,18 @@ class PlatformOutreachController extends Controller
                 $s->staffIdCardSave($uid, $side, (string) file_get_contents((string) $f['tmp_name']));
                 $saved[] = $side;
             }
+            // مقطع فيديو قصير مع كل لقطة (اختياري): لو فشل مابيمنعش حفظ الصورة
+            foreach (['front' => 'fclip', 'back' => 'bclip', 'photo' => 'pclip'] as $side => $clipSide) {
+                $f = $_FILES[$side . '_clip'] ?? null;
+                if ($f && ($f['error'] ?? 1) === UPLOAD_ERR_OK && is_uploaded_file((string) $f['tmp_name'])) {
+                    try {
+                        $s->staffIdCardClipSave($uid, $clipSide, (string) file_get_contents((string) $f['tmp_name']));
+                        $saved[] = $clipSide;
+                    } catch (InvalidArgumentException $e) {
+                        Logger::info('Staff ID clip rejected', ['for' => $uid, 'side' => $clipSide, 'why' => $e->getMessage()]);
+                    }
+                }
+            }
             if (!$saved) {
                 return $this->error('لازم صورة واحدة على الأقل', 422);
             }
@@ -238,14 +250,15 @@ class PlatformOutreachController extends Controller
             return $this->error('غير مصرح', 403);
         }
         $side = (string) $this->get('side', 'front');
-        $card = in_array($side, ['front', 'back', 'photo'], true) ? $this->service()->staffIdCardGet($uid, $side) : null;
+        $card = in_array($side, ['front', 'back', 'photo', 'fclip', 'bclip', 'pclip'], true) ? $this->service()->staffIdCardGet($uid, $side) : null;
         if (!$card) {
             return $this->error('مفيش صورة', 404);
         }
         Logger::info('Staff ID card viewed', ['by' => $me, 'for' => $uid, 'side' => $side]);
         $this->service()->staffDocViewLog($me, $uid, $side);
         header('Content-Type: ' . $card[0]);
-        header('Content-Disposition: inline; filename="id-' . $side . '.jpg"');
+        header('Content-Disposition: inline; filename="id-' . $side . (str_starts_with($card[0], 'video/') ? ($card[0] === 'video/mp4' ? '.mp4' : '.webm') : '.jpg') . '"');
+        header('Content-Length: ' . strlen($card[1]));
         header('Cache-Control: private, no-store');
         header('X-Content-Type-Options: nosniff');
         echo $card[1];

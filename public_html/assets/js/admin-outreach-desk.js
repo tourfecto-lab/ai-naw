@@ -234,7 +234,10 @@
             : `<div class="dk-comp"><b>بيانات الموظف:</b> ${esc(p.full_name || '—')} · ${esc(p.phone || '—')} · ${esc(p.job_title || '—')}${p.start_date ? ' · تعيين ' + esc(p.start_date) : ''} · ${esc(PAY[p.pay_method] || 'طريقة الاستلام غير مسجّلة')} ${esc(p.pay_account || '')}</div>`;
         const ic = r.id_card, loc = r.location, uid = r.staff.user_id, mgr = !!d.can_manage;
         const docUrl = side => `/api/admin/outreach-desk/staff-id-card?side=${side}&user_id=${uid}`;
-        const thumb = (side, label) => ic && ic[side]
+        const CLIP = { front: 'fclip', back: 'bclip', photo: 'pclip' };
+        const thumb = (side, label) => ic && ic[side] && ic[CLIP[side]]
+            ? `<div class="dk-doc"><video controls preload="none" playsinline poster="${docUrl(side)}" src="${docUrl(CLIP[side])}"></video><span>🎥 ${label} · ${esc(String(ic[CLIP[side]]).slice(0, 10))} · <a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer">الصورة الثابتة</a></span></div>`
+            : ic && ic[side]
             ? `<a class="dk-doc" href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"><span>${label} · ${esc(String(ic[side]).slice(0, 10))}</span></a>`
             : `<div class="dk-doc none"><span>${label}: لسه</span></div>`;
         // الصور (الشخصية ووش البطاقة وضهرها) للأدمن بس؛ الموظف بيشوف حالة الرفع من غير الصور
@@ -284,10 +287,31 @@
     // مفيش زرار تصوير: الكاميرا بتصوّر لوحدها لما الصورة تبقى واضحة وثابتة، وبتكرر لحد ما القراءة تطلع صح
     const wiz = { el: null, stream: null, userId: 0, step: 'front', fields: null, partial: null, timer: null, busy: false, t0: 0, still: 0, prev: null, frontGray: null, fails: 0, mirror: false, best: 0, seen: 0 };
     const WIZ = { sharpMin: 90, sharpMinFace: 25, steadyMax: 8, flipMin: 14, graceMs: 9000, tickMs: 400, w: 320 };
-    const wizStop = () => { clearInterval(wiz.timer); wiz.timer = null; if (wiz.stream) { wiz.stream.getTracks().forEach(t => t.stop()); wiz.stream = null; } };
+    const wizStop = () => { clearInterval(wiz.timer); wiz.timer = null; clearInterval(wiz.recTimer); if (wiz.rec) { try { if (wiz.rec.mr.state !== 'inactive') wiz.rec.mr.stop(); } catch (e) { /* خلص */ } wiz.rec = null; } if (wiz.stream) { wiz.stream.getTracks().forEach(t => t.stop()); wiz.stream = null; } };
     const wizClose = () => { wizStop(); if (wiz.el) wiz.el.hidden = true; };
-    const wizUpload = async (side, blob) => {
+    // مقطع فيديو قصير لكل لقطة: بيتسجّل من أول الخطوة، وبيتجدّد كل 8 ثواني (بنحتفظ بآخر مقطع بس)، وبيكمّل ثانية وشوية بعد اللقطة الناجحة
+    const wizRecStart = () => {
+        clearInterval(wiz.recTimer); wiz.rec = null;
+        if (!window.MediaRecorder || !wiz.stream) return;
+        const mime = ['video/webm;codecs=vp8', 'video/webm', 'video/mp4'].find(m => MediaRecorder.isTypeSupported(m)); if (!mime) return;
+        const begin = () => {
+            const chunks = []; let mr; try { mr = new MediaRecorder(wiz.stream, { mimeType: mime, videoBitsPerSecond: 1000000 }); } catch (e) { return; }
+            mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+            wiz.rec = { mr, done: new Promise(res => { mr.onstop = () => res(chunks.length ? new Blob(chunks, { type: mime.split(';')[0] }) : null); }) };
+            try { mr.start(1000); } catch (e) { wiz.rec = null; }
+        };
+        begin();
+        wiz.recTimer = setInterval(() => { const old = wiz.rec; if (!old || wiz.busy) return; old.mr.onstop = () => {}; try { old.mr.stop(); } catch (e) { /* خلص */ } begin(); }, 8000);
+    };
+    const wizClip = async () => {
+        const r = wiz.rec; if (!r || r.mr.state === 'inactive') return null;
+        await new Promise(res => setTimeout(res, 1200));
+        try { r.mr.stop(); } catch (e) { return null; }
+        return Promise.race([r.done, new Promise(res => setTimeout(() => res(null), 3000))]);
+    };
+    const wizUpload = async (side, blob, clip) => {
         const fd = new FormData(); fd.append('consent', '1'); fd.append('csrf_token', csrf); if (wiz.userId) fd.append('user_id', wiz.userId); fd.append(side, blob, side + '.jpg');
+        if (clip && clip.size > 0 && clip.size < 6 * 1024 * 1024) fd.append(side + '_clip', clip, side + (clip.type === 'video/mp4' ? '.mp4' : '.webm'));
         const resp = await fetch('/api/admin/outreach-desk/staff-id-card', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
         const r = await resp.json().catch(() => null);
         if (!r?.success) throw new Error(r?.error || 'الرفع فشل');
@@ -342,7 +366,7 @@
             wiz.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: st.cam }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
             const v = wiz.el.querySelector('video'); v.srcObject = wiz.stream;
             try { await wiz.stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) { /* مش كل الكاميرات بتدعم ضبط الفوكس */ }
-            wiz.timer = setInterval(wizTick, WIZ.tickMs);
+            wiz.timer = setInterval(wizTick, WIZ.tickMs); wizRecStart();
         } catch (e) {
             wizMsg('الكاميرا مش متاحة أو الإذن اتمنع: اختيار صورة من الجهاز', true);
             wiz.el.querySelector('.dk-cam-view').hidden = true;
@@ -368,7 +392,7 @@
     };
     const wizShoot = async cur => {
         wiz.busy = true;
-        try { await wizProcess(await wizBlob(), cur); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
+        try { const blob = await wizBlob(); wizMsg('🎥 ثواني وبنسجّل…'); const clip = await wizClip(); await wizProcess(blob, cur, clip); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
     };
     const wizReview = () => {
         wizStop(); const f = wiz.fields || wiz.partial || {};
@@ -385,10 +409,10 @@
             <label>رقم المحفظة / الحساب<input data-wz-f="pay_account" value=""></label></div>
             <p class="dk-cam-msg bad" data-wz-err></p><div class="dk-cam-actions"><button class="dk-btn primary" data-wz-save>✅ حفظ</button></div></div>`;
     };
-    const wizProcess = async (blob, gray) => {
+    const wizProcess = async (blob, gray, clip) => {
         const step = wiz.step; wiz.busy = true; wizMsg(step === 'front' ? '📖 بنقرا البطاقة…' : '⬆️ بيترفع…');
         try {
-            const d = await wizUpload(step, blob);
+            const d = await wizUpload(step, blob, clip);
             if (step === 'photo') return wizReview();
             if (step === 'back') return wizStart('photo');
             const ex = d.extract, f = ex && ex.ok ? ex.fields : null;
