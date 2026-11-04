@@ -5,6 +5,7 @@ require_once __DIR__.'/SeoDiscoveryService.php';
 require_once __DIR__.'/SeoOpportunityService.php';
 require_once __DIR__.'/SeoPagePolicy.php';
 require_once __DIR__.'/SeoLinkHealth.php';
+require_once __DIR__.'/SeoNextCycle.php';
 require_once __DIR__.'/SeoPageIdentity.php';
 require_once __DIR__.'/SeoScanState.php';
 require_once __DIR__.'/SeoWorkWindow.php';
@@ -885,9 +886,9 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
     private function scheduleNext(int $uid,int $wid): void{
         $cfg=$this->config($uid,$wid);if($cfg['status']!=='active'||!self::autoMode(json_decode($cfg['policy_json'],true)?:[]))return;
         $payload=json_encode(['website_id'=>$wid,'user_id'=>$uid]);if($this->q("SELECT id FROM jobs WHERE job_class='SeoExpertCycleJob' AND payload=? AND status='pending' LIMIT 1",[$payload])->fetchColumn())return;
-        $next=gmdate('Y-m-d H:i:s',time()+7*86400);$job=(new QueueManager($this->db))->push(SeoExpertCycleJob::class,['website_id'=>$wid,'user_id'=>$uid],'seo',7*86400);if(!$job)throw new RuntimeException('Could not schedule next cycle');$this->q('UPDATE jobs SET available_at=? WHERE id=?',[$next,$job]);$this->q('UPDATE seo_expert_sites SET next_due_at=? WHERE website_id=?',[$next,$wid]);
+        $pol=json_decode($cfg['policy_json'],true)?:[];$plan=SeoNextCycle::dueAt(time(),(string)$cfg['budget_month'],(int)$cfg['cycles_used'],(int)($pol['max_cycles']??4),SeoPlanLimits::forUser($uid,$this->db)['cycles'],(int)($pol['frequency_days']??7));$next=$plan['due_at'];$job=(new QueueManager($this->db))->push(SeoExpertCycleJob::class,['website_id'=>$wid,'user_id'=>$uid],'seo',max(0,strtotime($next.' UTC')-time()));if(!$job)throw new RuntimeException('Could not schedule next cycle');$this->q('UPDATE jobs SET available_at=? WHERE id=?',[$next,$job]);$this->q('UPDATE seo_expert_sites SET next_due_at=? WHERE website_id=?',[$next,$wid]);
     }
-    public function recurring(int $uid,int $wid): void{$this->requireReady();$cfg=$this->config($uid,$wid);if($cfg['status']!=='active'||!self::autoMode(json_decode($cfg['policy_json'],true)?:[]))return;try{$this->enqueue($uid,$wid,'weekly_'.$wid.'_'.gmdate('Ymd'));}catch(Throwable $e){try{Notification::notify($uid,'seo_expert_attention','SEO cycle needs attention','Review the worker, budget or balance in SEO Expert.','/seo-expert');}catch(Throwable $ignored){error_log('[SeoExpertService] ignored error: ' . $ignored->getMessage());}$this->scheduleNext($uid,$wid);}}
+    public function recurring(int $uid,int $wid): void{$this->requireReady();$cfg=$this->config($uid,$wid);if($cfg['status']!=='active'||!self::autoMode(json_decode($cfg['policy_json'],true)?:[]))return;try{$this->enqueue($uid,$wid,'weekly_'.$wid.'_'.gmdate('Ymd'));}catch(Throwable $e){if($e instanceof InvalidArgumentException&&$e->getMessage()==='Monthly cycle budget reached'){$this->scheduleNext($uid,$wid);return;}try{Notification::notify($uid,'seo_expert_attention','SEO cycle needs attention','Review the worker, budget or balance in SEO Expert.','/seo-expert');}catch(Throwable $ignored){error_log('[SeoExpertService] ignored error: ' . $ignored->getMessage());}$this->scheduleNext($uid,$wid);}}
     /** رابط مقروء للمقال: discover-egypts-treasures-with-tourfecto-travel */
     public static function articleSlug(string $title): string{$slug=strtolower(trim((string)preg_replace('/[^A-Za-z0-9]+/','-',iconv('UTF-8','ASCII//TRANSLIT//IGNORE',str_replace(["'",'’','`'],'',$title))?:''),'-'));$slug=substr($slug,0,80);return trim($slug,'-')?:'article';}
     public static function contentHtml(string $body,array $sources): string

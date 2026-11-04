@@ -111,8 +111,11 @@
         auto_missing_metadata: true, autopilot: true, facts_confirmed: true,
       });
       const busyRun = (overview.runs || []).find(r => ['queued', 'scanning', 'scanned', 'planning', 'executing'].includes(r.status));
-      if (!busyRun) await req(base + '/sites/' + wid() + '/start', { request_key: 'guide_' + wid() + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10), quote_hash: overview.quote.hash, research_wallet_cap: 0 });
+      // الإعداد اتحفظ خلاص؛ لو أول فحص فشل نقول كده بوضوح ونسيب زرار "ابدأ الفحص" من غير ما نعيد الإعداد
+      let startError = '';
+      if (!busyRun) { try { await req(base + '/sites/' + wid() + '/start', { request_key: 'guide_' + wid() + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10), quote_hash: overview.quote.hash, research_wallet_cap: 0 }); } catch (e) { startError = e.message; } }
       await load();
+      if (startError) { message(t('الطيار الآلي اتفعّل ✓ لكن أول فحص ماتبدأش: ', 'Autopilot is on ✓ but the first check did not start: ') + startError + t(' — اضغط "ابدأ الفحص" لما المشكلة تتحل.', ' — press "Start the check" once it is resolved.'), true); return; }
       message(silent ? t('خلصت الإعداد ✓ الطيار الآلي اشتغل لوحده (الفحوصات من ضمن باقتك) والمنصة بدأت تفحص موقعك. هيوصلك إيميل بالملخص بعد كل دورة، وتقدر توقفه من الإعدادات.', 'Setup complete ✓ Autopilot turned on (checks are included in your plan) and the platform started checking your website. You will get an email summary after each cycle; pause anytime in settings.') : t('الطيار الآلي اشتغل ✓ المنصة بدأت تفحص موقعك دلوقتي، وهتشوف النتيجة هنا خلال دقايق.', 'Autopilot is on ✓ The platform started checking your website; results appear here in a few minutes.'));
     }
 
@@ -129,6 +132,7 @@
       const planCycles = Number(overview?.plan_limits?.cycles || 0);
       if (u && u.max && u.used >= u.max && planCycles && u.max >= planCycles) out.push([t('مش عايز تستنى الشهر الجاي؟ باقات السيو الأعلى فيها فحص كل أسبوع وأسواق أكتر.', 'Don\'t want to wait until next month? Higher SEO plans include weekly checks and more markets.'), t('شوف باقات السيو', 'See SEO plans'), () => { location.href = '/plans#seo'; }]);
       else if (u && u.max && u.used >= u.max) out.push([t('وصلت لحد الفحوصات اللي اخترته (' + u.used + ' من ' + u.max + '). الطيار الآلي هيكمل أول الشهر الجاي، أو زوّد الحد من الإعدادات.', 'You reached the check limit you chose (' + u.used + ' of ' + u.max + '). Autopilot resumes next month, or raise it in settings.'), t('زوّد الحد', 'Raise limit'), () => setAdvanced(true, 'settings', false)]);
+      else if (overview?.config && !(overview.runs || []).length && !loading) out.push([t('الطيار الآلي متفعّل لكن لسه ماتعملش أول فحص.', 'Autopilot is on but the first check has not run yet.'), t('ابدأ الفحص', 'Start the check'), act(retryCycle)]);
       else if (failed) out.push([t('آخر فحص ماكملش. ده مش بيتخصم منك، وتقدر تجرب تاني دلوقتي.', 'The last check did not finish. It was not charged; you can try again now.'), t('حاول تاني', 'Try again'), act(retryCycle)]);
       if (snap.tech?.sitemap_auto?.state === 'permission_required') out.push([t('اسمح للمنصة تبعت صفحاتك الجديدة لجوجل أول بأول: اربط جوجل تاني ووافق على صلاحية "خريطة الموقع".', 'Let the platform send your new pages to Google: reconnect Google and allow sitemap access.'), t('اربط جوجل', 'Reconnect Google'), () => { location.href = '/search-console/connect/' + wid() + '?return_to=%2Fseo-expert'; }]);
       if (snap.content_brief_state === 'research_budget_or_source_review') {
