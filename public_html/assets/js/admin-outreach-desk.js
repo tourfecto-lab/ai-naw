@@ -122,10 +122,8 @@
         const c = cur();
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
         const tabs = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l}${key ? ` <b>${c[key] || 0}</b>` : ` <b>${c.total || 0}</b>`}</button>`).join('');
-        // أول دخول: موقعها مرة واحدة بإذنها (عشان نتأكد من العنوان)، وتنبيه لو بياناتها ناقصة
-        const meBanner = (me.location_recorded === false ? `<div class="dk-banner">📍 تسجيل الموقع
-                <button class="dk-btn primary" data-loc-first>تسجيل موقعي</button></div>` : '')
-            + (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
+        // الموقع مالوش تنبيه ولا زرار: بيتطلب مع إذن الكاميرا لما التصوير يفتح (openWizard)، عشان الموظف مايتفاجأش بإذنين منفصلين
+        const meBanner = (me.id_card === false ? `<div class="dk-banner">🪪 تصوير البطاقة والصورة الشخصية <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
@@ -214,7 +212,7 @@
         // الموقع للأدمن بس (الإحداثيات والمسافة من العنوان)؛ الموظف بيشوف إنه اتسجّل ومش أكتر
         const locLine = !loc ? 'لسه ماتسجّلش' : `<a href="${esc(loc.first.maps_url)}" target="_blank" rel="noopener noreferrer">أول موقع على الخريطة ↗</a> · ${esc(loc.first.at)}${loc.first.accuracy_m != null ? ' · دقة ±' + num(loc.first.accuracy_m) + ' متر' : ''}${loc.count > 1 ? ` · آخر تحديث ${esc(loc.latest.at)}` : ''}
             <br>${!loc.has_address ? '⚠️ مفيش عنوان في الملف عشان نقارنه' : (!loc.address_located ? '⚠️ ماقدرناش نحوّل العنوان لموقع على الخريطة: المقارنة تتعمل يدويًا' : (loc.far ? `🚨 الموقع بعيد <b>${num(loc.distance_km)} كم</b> عن العنوان المسجّل (الحد ${loc.far_km} كم)` : `✅ الموقع قريب من العنوان (${num(loc.distance_km)} كم)`))}`;
-        const locBtn = d.is_self && (mgr || !r.location_recorded) ? `<button class="dk-btn" data-loc-save>${r.location_recorded ? 'تحديث موقعي' : 'تسجيل موقعي'}</button>` : '';
+        const locBtn = ''; // مفيش زرار موقع: بيتسجّل مع إذن الكاميرا في تصوير البطاقة
         const locBox = mgr ? `<div class="dk-comp dk-loc"><b>📍 الموقع</b><span>${locLine}</span>${locBtn}</div>`
             : (d.is_self ? `<div class="dk-comp dk-loc"><b>📍 الموقع</b><span>${r.location_recorded ? '✅ تم تسجيل الموقع' : 'لسه ماتسجّلش'}</span>${locBtn}</div>` : '');
         const profBanner = (p.missing || []).length ? `<p class="dk-st-msg bad">⚠️ بيانات ناقصة: ${p.missing.map(esc).join('، ')}</p>` : '<p class="dk-st-msg">✅ بيانات الموظف كاملة</p>';
@@ -385,7 +383,10 @@
                 wiz.busy = true; try { await wizProcess(await shrinkImage(f), null); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
             });
         }
-        wiz.userId = userId || 0; wiz.fields = null; wiz.partial = null; wiz.frontGray = null; wiz.fails = 0; wiz.el.hidden = false; wizStart('front');
+        wiz.userId = userId || 0; wiz.fields = null; wiz.partial = null; wiz.frontGray = null; wiz.fails = 0; wiz.el.hidden = false;
+        // الموقع بيتطلب في نفس اللحظة مع الكاميرا (المتصفح بيعرض الإذنين مع بعض). للموظف نفسه بس، ومرة واحدة، وفشله مابيوقفش التصوير
+        if (!wiz.userId && me.location_recorded !== true) doLocation().then(() => { me.location_recorded = true; }).catch(() => { /* الموقع اختياري هنا */ });
+        wizStart('front');
     };
     const openStaff = async () => {
         if (!staffUi.el) {
@@ -394,7 +395,7 @@
                 const t = e.target.closest('button'); if (!t) return;
                 try {
                     if (t.dataset.stClose !== undefined) { staffUi.el.hidden = true; return; }
-                    if (t.dataset.idWizard !== undefined) { openWizard(staffUi.userId); return; }
+                    if (t.dataset.idWizard !== undefined) { openWizard(staffUi.isSelf ? 0 : staffUi.userId); return; }
                     if (t.dataset.locSave !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; await loadStaff(); stMsg('اتسجّل موقعك ✅'); } finally { t.disabled = false; } return; }
                     if (t.dataset.pfSave !== undefined) {
                         const body = { user_id: staffUi.userId };
@@ -420,7 +421,7 @@
     };
     const loadStaff = async () => {
         const d = await api('/api/admin/outreach-desk/staff-report?month=' + encodeURIComponent(staffUi.month) + (staffUi.userId ? '&user_id=' + staffUi.userId : ''));
-        staffUi.userId = d.report.staff.user_id;
+        staffUi.userId = d.report.staff.user_id; staffUi.isSelf = !!d.is_self;
         staffUi.el.innerHTML = staffHtml(d);
     };
 
