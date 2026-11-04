@@ -128,7 +128,7 @@
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
             <section class="dk-top"><div class="dk-tip">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
-            <div><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button></div>
+            <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             <div class="dk-prio"><span class="dk-label">ابدئي بالأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
@@ -159,16 +159,44 @@
         funnelFor = null; loadFunnel();
     };
 
-    // دوست «افتح واتساب»: بنسجّل إنها بعتت باسمها (إلا لو الشركة عليها نتيجة أحسن زي «ردّوا»)، واللينك بيفتح الشات بالرسالة جاهزة
-    const autoLogSend = async el => {
-        const id = Number(el.dataset.id), row = rows.find(x => x.id === id);
+    const refreshTabs = () => { const c = cur(), tabs = root.querySelector('.dk-tabs'); if (tabs) tabs.innerHTML = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l} <b>${key ? (c[key] || 0) : (c.total || 0)}</b></button>`).join(''); };
+    // شركة اتبعتلها موظف تاني (أو ألغت الاشتراك): بتتشال من القايمة في لحظتها
+    const dropRows = (ids, msg) => {
+        const c = cur();
+        ids.forEach(id => {
+            const row = rows.find(x => x.id === id);
+            if (row && !row.desk?.action) c.todo = Math.max(0, (c.todo || 0) - 1);
+            rows = rows.filter(x => x.id !== id); total = Math.max(0, total - 1);
+            const el = root.querySelector(`.dk-card[data-id="${id}"]`); if (el) el.remove();
+        });
+        refreshTabs(); if (msg) toast(msg, true);
+    };
+    // تحديث كل 8 ثواني: اللي اتبعتلها موظف تاني بيختفي من قايمتي
+    const poll = async () => {
+        if (document.hidden || !['todo', 'weak'].includes(state.view)) return;
+        const ids = rows.filter(r => !r.desk?.action).map(r => r.id); if (!ids.length) return;
+        try {
+            const d = await api('/api/admin/outreach-desk/claimed?ids=' + ids.join(','));
+            if ((d.claimed || []).length) dropRows(d.claimed.map(x => x.id), 'اتشالت ' + d.claimed.length + ' شركة من القايمة: اتبعتلها موظف تاني');
+        } catch (e) { /* التحديث التلقائي مش حرج */ }
+    };
+
+    // دوس «افتح واتساب»: الشركة بتتحجز باسم الموظف في اللحظة دي (لو موظف تاني حجزها قبله الشات مابيفتحش وبتتشال من القايمة)، وبعدها الشات بيفتح بالرسالة جاهزة
+    const claimAndOpen = async (a, e) => {
+        const el = a.closest('.dk-card'), id = Number(el.dataset.id), row = rows.find(x => x.id === id);
         // في «محتاجة متابعة» فتح واتساب تاني = متابعة جديدة: بنسجّلها عشان المهلة تبدأ من جديد
         const skip = ['replied', 'interested', 'trial', 'subscribed', 'not_interested', 'wrong_number'].concat(state.view === 'followup' ? [] : ['contacted']);
-        if (!row || skip.includes(row.desk?.action)) return;
+        if (!row || skip.includes(row.desk?.action)) return; // اللينك بيفتح عادي
+        e.preventDefault();
+        const w = window.open('about:blank', '_blank'); // بنفتح النافذة في نفس الضغطة (عشان المتصفح مايمنعهاش) ونكمّل بعد الحجز
         try {
-            await mark(id, 'contacted', el.querySelector('.dk-note')?.value || 'فتحت واتساب بالرسالة');
-            toast('اتسجّل إرسال واتساب ✅ لو الرسالة ماتبعتتش، زرار «تراجع» بيمسح التسجيل');
-        } catch (err) { toast(err.message, true); }
+            await mark(id, 'contacted', el.querySelector('.dk-note')?.value || 'فتح واتساب بالرسالة');
+            if (w) { w.opener = null; w.location.href = a.href; } else toast('المتصفح منع فتح النافذة: الزرار بيتضغط مرة تانية', true);
+        } catch (err) {
+            if (w) w.close();
+            toast(err.message, true);
+            if (/اتبعتلها/.test(err.message)) dropRows([id]);
+        }
     };
 
     // كشف الموظفة: شغلها بالتاريخ والتفاصيل، والعملاء اللي جابتهم ونسبتها الشهرية، والراتب، وإجمالي الشهر
@@ -428,7 +456,7 @@
     const bind = () => {
         root.addEventListener('click', async e => {
             const wa = e.target.closest('a[data-wa]');
-            if (wa) { autoLogSend(wa.closest('.dk-card')); return; } // اللينك نفسه بيفتح واتساب (من غير preventDefault)
+            if (wa) { claimAndOpen(wa, e); return; }
             const t = e.target.closest('button'); if (!t) return;
             const cardEl = t.closest('.dk-card');
             try {
@@ -465,7 +493,7 @@
         init: async panel => {
             P = panel; root = document.getElementById('deskRoot'); if (!root || !P) return;
             state.country = store.get('dk-country') || '';
-            try { bind(); await load(true); } catch (e) { root.innerHTML = `<p class="dk-msg bad">${esc(e.message)}</p>`; }
+            try { bind(); await load(true); setInterval(poll, 8000); } catch (e) { root.innerHTML = `<p class="dk-msg bad">${esc(e.message)}</p>`; }
         },
     };
 })();

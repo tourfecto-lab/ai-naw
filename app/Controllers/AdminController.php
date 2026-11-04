@@ -4140,6 +4140,7 @@ HTML;
                 'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), 'flask', '/admin/onboarding-funnel'],
                 'platform-growth' => [$L('تسويق المنصة (إيميل)', 'Platform outreach (email)'), 'send', '/admin/growth'],
                 'outreach-desk' => [$L('مكتب التواصل (واتساب)', 'Outreach desk (WhatsApp)'), 'phone', '/admin/outreach-desk'],
+                'outreach-sent' => [$L('المرسول لهم (واتساب)', 'Sent (WhatsApp)'), 'send', '/admin/outreach-sent'],
                 'voice' => [$L('مساعد الصوت (تحكم)', 'AI Voice control'), 'phone', '/admin/voice'],
                 'email-reputation' => [$L('سمعة التسويق بالبريد', 'Email reputation'), 'mail', '/admin/email-reputation'],
                 'reputation-limits' => [$L('حدود السمعة والمراجعات', 'Reputation limits'), 'star', '/admin/reputation-limits'],

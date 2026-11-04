@@ -440,6 +440,7 @@ $router->get('/admin/ai-ceo', 'AiCeoController', 'index', ['AuthMiddleware','Adm
 $router->get('/admin/meta-review', 'MetaReviewController', 'index', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/growth', 'PlatformOutreachController', 'index', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/outreach-desk', 'PlatformOutreachController', 'desk', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/admin/outreach-sent', 'PlatformOutreachController', 'sentPage', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/plans-studio', 'PlansStudioController', 'adminPage', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/email-reputation', 'AdminEmailReputationController', 'page', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/admin/reputation-limits', 'AdminReputationLimitsController', 'page', ['AuthMiddleware','AdminMiddleware']);

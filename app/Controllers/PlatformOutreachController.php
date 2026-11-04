@@ -94,7 +94,7 @@ class PlatformOutreachController extends Controller
         }
         header('Cache-Control: private, no-store');
         try {
-            $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'tier' => $this->get('tier', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName()]);
+            $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'tier' => $this->get('tier', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName(), 'user_id' => (int) ($this->user['id'] ?? 0), 'all' => $this->canSeeTeam()]);
             return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName(), 'me' => $this->service()->staffMe((int) ($this->user['id'] ?? 0))]);
         } catch (Throwable $e) {
             Logger::error('Outreach desk failed', ['error' => $e->getMessage()]);
@@ -319,10 +319,56 @@ class PlatformOutreachController extends Controller
             return $e;
         }
         try {
-            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffLabel());
+            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffLabel(), $this->canSeeTeam());
             return $this->success($r);
         } catch (InvalidArgumentException $e) {
-            return $this->error($e->getMessage(), 422);
+            return $this->error($e->getMessage(), $e->getCode() === 409 ? 409 : 422); // 409 = الشركة اتبعتلها موظف تاني
+        }
+    }
+
+    /** GET /api/admin/outreach-desk/claimed?ids=1,2,3 : أي من الشركات دي اتبعتلها موظف تاني دلوقتي (عشان تتشال من القايمة في لحظتها) */
+    public function deskClaimed(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        $ids = array_map('intval', array_filter(explode(',', (string) $this->get('ids', '')), 'strlen'));
+        try {
+            return $this->success(['claimed' => $this->service()->deskClaimed($ids, (int) ($this->user['id'] ?? 0))]);
+        } catch (Throwable $e) {
+            Logger::error('Outreach desk claimed failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر التحديث', 503);
+        }
+    }
+
+    /** GET /admin/outreach-sent - المرسول لهم حسب اليوم (الموظف: اللي بعتهم هو، ومالك المنصة: كل الموظفين وتفاصيلهم) */
+    public function sentPage(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        $css = htmlspecialchars(asset_v('/assets/css/admin-outreach-desk.css'), ENT_QUOTES, 'UTF-8');
+        $js = htmlspecialchars(asset_v('/assets/js/admin-outreach-sent.js'), ENT_QUOTES, 'UTF-8');
+        $body = '<link rel="stylesheet" href="' . $css . '"><section id="sentRoot" class="dk" dir="rtl"><p>جاري التحميل…</p></section><script src="' . $js . '"></script>';
+        echo $this->renderPanelPage('outreach-sent', 'المرسول لهم', 'كل شركة اتبعتلها واتساب: مين بعت ومتى والنتيجة، حسب اليوم', $body, 'window.OutreachSent&&window.OutreachSent.init(window.Panel);');
+        exit;
+    }
+
+    /** GET /api/admin/outreach-desk/sent?from=&to=&staff_id=&country=&q= */
+    public function deskSent(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            $all = $this->canSeeTeam();
+            $r = $this->service()->deskSent(['from' => $this->get('from', ''), 'to' => $this->get('to', ''), 'staff_id' => $this->get('staff_id', 0), 'country' => strtoupper((string) $this->get('country', '')), 'q' => $this->get('q', '')], (int) ($this->user['id'] ?? 0), $all);
+            return $this->success($r + ['all' => $all]);
+        } catch (Throwable $e) {
+            Logger::error('Outreach desk sent failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل المرسول لهم', 503);
         }
     }
 

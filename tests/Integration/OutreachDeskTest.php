@@ -207,7 +207,12 @@ final class OutreachDeskTest extends TestCase
         $a = $this->lead('Attrib One Tours', 'EG', '+201000000041');
         $b = $this->lead('Attrib Two Tours', 'EG', '+201000000042');
         $this->svc->deskAction($a, 'contacted', '', $s1, 'Sara');
-        $this->svc->deskAction($a, 'contacted', '', $s2, 'Mona');
+        try {
+            $this->svc->deskAction($a, 'contacted', '', $s2, 'Mona');
+            $this->fail('a second employee must not be able to take a company that was already sent');
+        } catch (InvalidArgumentException $e) {
+            $this->assertSame(409, $e->getCode());
+        }
         $this->svc->deskAction($b, 'contacted', '', $s1, 'Sara');
         $this->svc->deskAction($b, 'undo', '', $s1, 'Sara');
         $this->svc->deskAction($b, 'contacted', '', $s2, 'Mona');
@@ -485,6 +490,94 @@ final class OutreachDeskTest extends TestCase
             }
         }
         $this->cleanStaff($staff, 0);
+    }
+
+    public function testFirstEmployeeToSendClaimsTheCompanyOthersAreRejectedButTheOwnerOfTheTeamCanStillRecordAResult(): void
+    {
+        [$sara, $mona] = $this->twoUsers();
+        $id = $this->lead('Claimrace Tours', 'EG', '+201000000061');
+        $this->svc->deskAction($id, 'contacted', '', $sara, 'Sara');
+        $row = $this->db->query('SELECT desk_user_id, desk_by FROM platform_leads WHERE id = ?', [$id])[0];
+        $this->assertSame($sara, (int) $row['desk_user_id']);
+        foreach (['contacted', 'replied', 'undo'] as $act) {
+            try {
+                $this->svc->deskAction($id, $act, '', $mona, 'Mona');
+                $this->fail("$act by another employee must be rejected");
+            } catch (InvalidArgumentException $e) {
+                $this->assertSame(409, $e->getCode());
+                $this->assertStringContainsString('Sara', $e->getMessage(), 'the message says who already has it');
+            }
+        }
+        $this->assertSame('contacted', $this->db->query('SELECT desk_action FROM platform_leads WHERE id = ?', [$id])[0]['desk_action']);
+
+        $this->svc->deskAction($id, 'replied', 'owner saw the reply', $mona, 'Mona', true); // مدير بيسجّل نتيجة
+        $after = $this->db->query('SELECT desk_action, desk_user_id, desk_by FROM platform_leads WHERE id = ?', [$id])[0];
+        $this->assertSame('replied', $after['desk_action']);
+        $this->assertSame($sara, (int) $after['desk_user_id'], 'the company stays attributed to the one who sent it');
+        $this->assertSame('Sara', $after['desk_by']);
+
+        $this->svc->deskAction($id, 'interested', '', $sara, 'Sara'); // صاحبها يكمّل عادي
+    }
+
+    public function testOtherEmployeesDoNotSeeAClaimedCompanyAndTheListsAreScopedPerEmployee(): void
+    {
+        [$sara, $mona] = $this->twoUsers();
+        $a = $this->lead('Scope Alpha Tours', 'EG', '+201000000071');
+        $b = $this->lead('Scope Beta Tours', 'EG', '+201000000072');
+        $this->svc->deskAction($a, 'contacted', '', $sara, 'Sara');
+        $names = fn (int $uid, string $view, bool $all = false) => array_column($this->svc->deskLeads(['country' => 'EG', 'view' => $view, 'q' => 'Scope '], ['user_id' => $uid, 'all' => $all])['rows'], 'company');
+
+        $this->assertSame(['Scope Beta Tours'], $names($mona, 'todo'), 'claimed by Sara: gone from everyone else\'s to-do');
+        $this->assertSame([], $names($mona, 'contacted'), 'and not in their contacted list');
+        $this->assertSame(['Scope Alpha Tours'], $names($sara, 'contacted'));
+        $this->assertSame(['Scope Beta Tours'], $names($mona, 'all'), 'the all view hides other people\'s companies');
+        $this->assertEqualsCanonicalizing(['Scope Alpha Tours', 'Scope Beta Tours'], $names($mona, 'all', true), 'the team owner sees everything');
+
+        $counts = fn (int $uid, bool $all) => array_values(array_filter($this->svc->deskLeads(['country' => 'EG', 'q' => 'Scope '], ['user_id' => $uid, 'all' => $all])['counts'], fn ($c) => $c['country'] === 'EG'))[0];
+        $this->assertSame(0, (int) $counts($mona, false)['contacted'], 'counters are scoped too');
+        $this->assertGreaterThanOrEqual(1, (int) $counts($sara, false)['contacted']);
+
+        $claimed = $this->svc->deskClaimed([$a, $b], $mona);
+        $this->assertSame([$a], array_column($claimed, 'id'), 'the live check reports only what someone else took');
+        $this->assertSame('Sara', $claimed[0]['by']);
+        $this->assertSame([], $this->svc->deskClaimed([$a], $sara), 'not what I took myself');
+        $this->assertSame([], $this->svc->deskClaimed([], $mona));
+    }
+
+    public function testSentListGroupsByDayShowsWhoSentAndSkipsUndoneSends(): void
+    {
+        [$sara, $mona] = $this->twoUsers();
+        $a = $this->lead('Sentlist One Tours', 'EG', '+201000000081');
+        $b = $this->lead('Sentlist Two Tours', 'EG', '+201000000082');
+        $c = $this->lead('Sentlist Three Tours', 'EG', '+201000000083');
+        $this->svc->deskAction($a, 'contacted', 'first', $sara, 'Sara');
+        $this->svc->deskAction($b, 'contacted', '', $mona, 'Mona');
+        $this->svc->deskAction($c, 'contacted', '', $sara, 'Sara');
+        $this->svc->deskAction($c, 'undo', '', $sara, 'Sara'); // اتراجع عنها: مش مرسولة
+        $this->svc->deskAction($a, 'replied', '', $sara, 'Sara');
+        $this->db->query("UPDATE platform_desk_actions SET created_at = created_at - INTERVAL 1 DAY WHERE lead_id = ? AND action = 'contacted'", [$b]);
+        $this->svc->deskAction($a, 'contacted', 'follow-up', $sara, 'Sara'); // متابعة لنفس الشركة
+
+        $mine = $this->svc->deskSent(['from' => date('Y-m-d', strtotime('-3 days')), 'to' => date('Y-m-d'), 'q' => 'Sentlist'], $sara, false);
+        $companies = array_merge(...array_map(fn ($d) => array_column($d['items'], 'company'), $mine['days']));
+        $this->assertEqualsCanonicalizing(['Sentlist One Tours', 'Sentlist One Tours'], $companies, 'an employee sees only her own sends, the undone one excluded');
+        $kinds = array_column($mine['days'][0]['items'], 'kind');
+        $this->assertContains('first', $kinds);
+        $this->assertContains('followup', $kinds, 'a second send to the same company is a follow-up');
+        $this->assertSame('followup', $mine['days'][0]['items'][0]['kind'], 'newest first');
+        $this->assertSame('contacted', $mine['days'][0]['items'][0]['result'], 'a new send puts the company back to "sent, no reply yet"');
+        $this->assertSame('Sara', $mine['days'][0]['items'][0]['staff']);
+
+        $all = $this->svc->deskSent(['from' => date('Y-m-d', strtotime('-3 days')), 'to' => date('Y-m-d'), 'q' => 'Sentlist'], $sara, true);
+        $this->assertSame(3, $all['total'], 'the owner sees everyone: two from Sara and one from Mona');
+        $this->assertCount(2, $all['days'], 'grouped by day: today and yesterday');
+        $this->assertGreaterThan($all['days'][1]['date'], $all['days'][0]['date'], 'newest day first');
+        $this->assertSame(['Mona'], array_column($all['days'][1]['items'], 'staff'));
+        $onlyMona = $this->svc->deskSent(['from' => date('Y-m-d', strtotime('-3 days')), 'to' => date('Y-m-d'), 'q' => 'Sentlist', 'staff_id' => $mona], $sara, true);
+        $this->assertSame(1, $onlyMona['total']);
+        $this->assertContains($mona, array_column($all['staff'], 'staff_id'));
+        $this->assertSame([], $this->svc->deskSent(['q' => 'Sentlist', 'staff_id' => $mona], $sara, false)['staff'], 'the staff filter list is for the owner only');
+        $this->assertSame(0, $this->svc->deskSent(['from' => '2020-01-01', 'to' => '2020-01-02'], $sara, false)['total']);
     }
 
     public function testTrialAndSubscribedAreWinsAndStopTheEmailSequence(): void

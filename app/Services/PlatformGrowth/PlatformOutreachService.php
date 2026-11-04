@@ -119,7 +119,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -2049,16 +2049,18 @@ class PlatformOutreachService
     }
 
     /** الدول اللي فيها شركات ليها رقم، وعدّاد التواصل لكل دولة */
-    public function deskCountries(): array
+    public function deskCountries(?int $uid = null): array
     {
+        // الموظف العادي بيشوف عدّادات شغله هو بس (اللي بعتلهم وردّوا...)؛ اللي لسه ماتبعتلهمش مشتركين
+        $own = $uid !== null ? ' AND desk_user_id=' . (int) $uid : '';
         $rows = $this->q("SELECT COALESCE(country,'?') country, COUNT(*) total,
                 SUM(desk_action IS NULL AND status<>'unsubscribed' AND COALESCE(desk_weak,0)=0) todo,
                 SUM(desk_action IS NULL AND status<>'unsubscribed' AND desk_weak=1) weak,
-                SUM(desk_action IN ('contacted','call_back')) contacted,
-                SUM(" . self::followupSql() . ") followup,
-                SUM(desk_action IN ('replied','interested')) hot,
-                SUM(desk_action IN ('trial','subscribed')) won,
-                SUM(desk_action IN ('not_interested','wrong_number')) closed
+                SUM(desk_action IN ('contacted','call_back'){$own}) contacted,
+                SUM((" . self::followupSql() . "){$own}) followup,
+                SUM(desk_action IN ('replied','interested'){$own}) hot,
+                SUM(desk_action IN ('trial','subscribed'){$own}) won,
+                SUM(desk_action IN ('not_interested','wrong_number'){$own}) closed
             FROM platform_leads WHERE phone IS NOT NULL AND phone<>'' AND status<>'invalid'
             GROUP BY COALESCE(country,'?') ORDER BY total DESC")->fetchAll(PDO::FETCH_ASSOC);
         return array_map(static fn ($r) => ['country' => $r['country']] + array_map('intval', array_diff_key($r, ['country' => 1])), $rows);
@@ -2135,10 +2137,102 @@ class PlatformOutreachService
         $this->settings->set('outreach_weak_v2', date('Y-m-d H:i:s'));
     }
 
+    /** الشركات اللي اتبعتلها قبل ما «صاحب الشركة» يتسجّل: بتتنسب لآخر موظف سجّل نفس النتيجة (من سجل الإجراءات) مرة واحدة */
+    private function ensureDeskOwner(): void
+    {
+        if ($this->settings->get('outreach_desk_uid_v1', '') !== '') {
+            return;
+        }
+        $this->q('UPDATE platform_leads l SET l.desk_user_id=(SELECT a.user_id FROM platform_desk_actions a WHERE a.lead_id=l.id AND a.action=l.desk_action AND a.user_id IS NOT NULL ORDER BY a.id DESC LIMIT 1) WHERE l.desk_action IS NOT NULL AND l.desk_user_id IS NULL');
+        $this->settings->set('outreach_desk_uid_v1', date('Y-m-d H:i:s'));
+    }
+
+    /**
+     * من الشركات اللي في قايمة الموظف دلوقتي، مين اتبعتلها (أو ألغت الاشتراك) في الأثناء من موظف تاني: عشان تتشال من قايمته في لحظتها
+     * @return array<int,array{id:int,by:string,reason:string}>
+     */
+    public function deskClaimed(array $ids, int $me): array
+    {
+        $ids = array_slice(array_values(array_unique(array_filter(array_map('intval', $ids)))), 0, 200);
+        if (!$ids) {
+            return [];
+        }
+        $rows = $this->q('SELECT id, desk_by, status, desk_action FROM platform_leads WHERE id IN (' . implode(',', $ids) . ") AND ((desk_action IS NOT NULL AND COALESCE(desk_user_id,0)<>?) OR status='unsubscribed')", [$me])->fetchAll(PDO::FETCH_ASSOC);
+        return array_map(static fn ($r) => ['id' => (int) $r['id'], 'by' => (string) ($r['desk_by'] ?? ''), 'reason' => $r['status'] === 'unsubscribed' ? 'unsubscribed' : 'sent'], $rows);
+    }
+
+    /**
+     * «المرسول لهم»: كل رسايل الواتساب اللي اتبعتت (من سجل الإجراءات، من غير اللي اتعمل لها تراجع)، مجمّعة حسب اليوم.
+     * $all = true (مين عنده صلاحية الفريق): كل الموظفين وفلتر بالموظف؛ غير كده: اللي بعتهم الموظف نفسه بس
+     * $f: from, to (YYYY-MM-DD، الافتراضي النهارده)، staff_id، country، q
+     */
+    public function deskSent(array $f, int $viewerId, bool $all): array
+    {
+        $date = static fn ($v, $d) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v) && strtotime((string) $v) !== false ? (string) $v : $d;
+        $from = $date($f['from'] ?? '', date('Y-m-d'));
+        $to = $date($f['to'] ?? '', date('Y-m-d'));
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+        if (strtotime($to) - strtotime($from) > 92 * 86400) {
+            $from = date('Y-m-d', strtotime($to . ' -92 days'));
+        }
+        $w = ["a.action='contacted'", 'a.created_at BETWEEN ? AND ?', "NOT EXISTS (SELECT 1 FROM platform_desk_actions u WHERE u.lead_id=a.lead_id AND u.action='undo' AND u.id>a.id)"];
+        $args = [$from . ' 00:00:00', $to . ' 23:59:59'];
+        $staffId = $all ? (int) ($f['staff_id'] ?? 0) : $viewerId;
+        if ($staffId > 0) {
+            $w[] = 'a.user_id=?';
+            $args[] = $staffId;
+        } elseif (!$all) {
+            $w[] = '1=0';
+        }
+        if (!empty($f['country']) && preg_match('/^[A-Z]{2}$/', (string) $f['country'])) {
+            $w[] = 'l.country=?';
+            $args[] = $f['country'];
+        }
+        if (!empty($f['q'])) {
+            $w[] = '(l.company LIKE ? OR l.phone LIKE ?)';
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
+            array_push($args, $like, $like);
+        }
+        $rows = $this->q('SELECT a.id log_id, a.lead_id, a.user_id, a.user_name, a.created_at, a.note, l.company, l.country, l.city, l.phone, l.status, l.step email_step, l.report_viewed_at, l.token, l.desk_action, l.desk_note
+            FROM platform_desk_actions a JOIN platform_leads l ON l.id=a.lead_id WHERE ' . implode(' AND ', $w) . ' ORDER BY a.id DESC LIMIT 2000', $args)->fetchAll(PDO::FETCH_ASSOC);
+        $first = [];
+        if ($rows) {
+            $ids = implode(',', array_unique(array_map(static fn ($r) => (int) $r['lead_id'], $rows)));
+            foreach ($this->q("SELECT lead_id, MIN(id) mid FROM platform_desk_actions WHERE action='contacted' AND lead_id IN ({$ids}) GROUP BY lead_id")->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $first[(int) $r['lead_id']] = (int) $r['mid'];
+            }
+        }
+        $labels = ['contacted' => 'اتبعتلها', 'replied' => 'ردّت', 'interested' => 'مهتمة', 'trial' => 'جرّبت المنصة', 'subscribed' => 'اشتركت', 'call_back' => 'هنكلمها تاني', 'not_interested' => 'مش مهتمة', 'wrong_number' => 'الرقم غلط'];
+        $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
+        $days = [];
+        $byStaff = [];
+        foreach ($rows as $r) {
+            $day = substr((string) $r['created_at'], 0, 10);
+            $res = (string) ($r['desk_action'] ?? '');
+            $days[$day][] = ['lead_id' => (int) $r['lead_id'], 'company' => (string) $r['company'], 'country' => (string) ($r['country'] ?? ''), 'city' => (string) ($r['city'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''),
+                'staff_id' => (int) ($r['user_id'] ?? 0), 'staff' => (string) $r['user_name'], 'at' => substr((string) $r['created_at'], 11, 5), 'kind' => ($first[(int) $r['lead_id']] ?? 0) === (int) $r['log_id'] ? 'first' : 'followup',
+                'result' => $res, 'result_label' => $labels[$res] ?? '', 'note' => (string) ($r['note'] ?: ($r['desk_note'] ?? '')), 'email_step' => (int) $r['email_step'], 'report_viewed' => !empty($r['report_viewed_at']),
+                'report_url' => $base . '/p/r/pv-' . $r['token']];
+            $k = (int) ($r['user_id'] ?? 0);
+            $byStaff[$k] = ['staff_id' => $k, 'name' => (string) $r['user_name'], 'count' => ($byStaff[$k]['count'] ?? 0) + 1];
+        }
+        krsort($days);
+        $out = [];
+        foreach ($days as $d => $items) {
+            $out[] = ['date' => $d, 'count' => count($items), 'items' => $items];
+        }
+        usort($byStaff, static fn ($a, $b) => $b['count'] <=> $a['count']);
+        $staffList = $all ? array_map(static fn ($r) => ['staff_id' => (int) $r['user_id'], 'name' => (string) $r['name']], $this->q("SELECT user_id, MAX(user_name) name FROM platform_desk_actions WHERE action='contacted' AND user_id IS NOT NULL GROUP BY user_id ORDER BY name")->fetchAll(PDO::FETCH_ASSOC)) : [];
+        return ['from' => $from, 'to' => $to, 'total' => count($rows), 'days' => $out, 'by_staff' => array_values($byStaff), 'staff' => $staffList, 'truncated' => count($rows) >= 2000];
+    }
+
     public function deskLeads(array $f, array $staff = []): array
     {
         $this->ensurePriority();
         $this->ensureWeak();
+        $this->ensureDeskOwner();
         $where = ["phone IS NOT NULL", "phone<>''", "status<>'invalid'"];
         $args = [];
         if (($f['country'] ?? '') === '?') {
@@ -2159,6 +2253,16 @@ class PlatformOutreachService
         ];
         if (isset($views[$view])) {
             $where[] = $views[$view];
+        }
+        // الموظف العادي مابيشوفش شغل زمايله: الشركات اللي بعتلها غيره بتختفي من قايمته، ويشوف اللي بعتلهم هو بس. مين عنده صلاحية الفريق بيشوف الكل
+        $me = (int) ($staff['user_id'] ?? 0);
+        $mineOnly = $me > 0 && empty($staff['all']);
+        if ($mineOnly) {
+            if (in_array($view, ['contacted', 'followup', 'hot', 'won', 'closed'], true)) {
+                $where[] = 'desk_user_id=' . $me;
+            } elseif (!isset($views[$view])) {
+                $where[] = '(desk_action IS NULL OR desk_user_id=' . $me . ')';
+            }
         }
         // أولوية الإرسال: high = محتاجة فعلًا وشغّالة، medium، low = قليلة الاحتياج (مش لازم نتعب فيها الأول)
         // المستويات نسبية جوّه الدولة (أعلى 30% = عالية، اللي بعدهم 35% = متوسطة): عشان التدريج يفرّق مهما كانت الأرقام
@@ -2256,7 +2360,7 @@ class PlatformOutreachService
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
             ];
         }
-        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries(), 'tiers' => $this->deskTiers((string) ($f['country'] ?? ''))];
+        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? ''))];
     }
 
     // ------------------------------------------------------------------ كشف الموظفين: الشغل والعملاء والنسبة والراتب
@@ -2790,7 +2894,7 @@ class PlatformOutreachService
     /**
      * الموظفة بتسجّل نتيجة التواصل مع شركة. الرد/الاهتمام/الرفض بيوقّفوا رسايل الإيميل للشركة دي، وإلغاء الاشتراك والتسجيل والراجع مابيتغيروش.
      */
-    public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName): array
+    public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName, bool $manager = false): array
     {
         if ($action !== 'undo' && !in_array($action, self::DESK_ACTIONS, true)) {
             throw new InvalidArgumentException('نتيجة غير معروفة');
@@ -2804,16 +2908,35 @@ class PlatformOutreachService
         }
         $note = mb_substr(trim($note), 0, 500);
         $by = mb_substr($userName, 0, 120);
+        // أول موظف يبعت للشركة بياخدها: غيره مايقدرش يبعتلها ولا يسجّل عليها (409)، ومين عنده صلاحية الفريق يقدر
+        $owner = (int) ($l['desk_user_id'] ?? 0);
+        $claimed = (string) ($l['desk_action'] ?? '') !== '';
+        $foreign = $claimed && $owner > 0 && $owner !== $userId;
+        if ($foreign && !$manager) {
+            throw new InvalidArgumentException('الشركة دي اتبعتلها ' . ((string) ($l['desk_by'] ?? '') ?: 'موظف تاني') . ' قبل كده', 409);
+        }
         if ($action === 'undo') {
             // فتحت واتساب وماضغطتش إرسال: التراجع بيمسح "اتبعتت" بس، ومابيلمسش الرد أو الاهتمام
             if (!in_array((string) ($l['desk_action'] ?? ''), ['contacted', 'call_back'], true)) {
-                throw new InvalidArgumentException('مفيش إرسال تتراجعي عنه');
+                throw new InvalidArgumentException('مفيش إرسال للتراجع عنه');
             }
-            $this->q('UPDATE platform_leads SET desk_action=NULL, desk_note=NULL, desk_at=NULL, desk_by=NULL WHERE id=?', [$leadId]);
+            $this->q('UPDATE platform_leads SET desk_action=NULL, desk_note=NULL, desk_at=NULL, desk_by=NULL, desk_user_id=NULL WHERE id=?', [$leadId]);
             $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, 'undo', null]);
             return ['action' => null, 'note' => null, 'at' => null, 'by' => null];
         }
-        $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $leadId]);
+        if (!$claimed) {
+            // مطالبة ذرّية: لو موظفين اتنين داسوا في نفس اللحظة، واحد بس يكسب (التاني بياخد 409 ويتشال من قايمته)
+            $n = $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=?, desk_user_id=? WHERE id=? AND desk_action IS NULL', [$action, $note !== '' ? $note : null, $by, $userId ?: null, $leadId])->rowCount();
+            if ($n !== 1) {
+                $now = $this->q('SELECT desk_by FROM platform_leads WHERE id=?', [$leadId])->fetchColumn();
+                throw new InvalidArgumentException('الشركة دي اتبعتلها ' . ($now ?: 'موظف تاني') . ' قبل كده', 409);
+            }
+        } elseif ($foreign) {
+            // مدير بيسجّل نتيجة على شركة موظف: النتيجة بس، والشركة تفضل منسوبة للي بعتلها
+            $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW() WHERE id=?', [$action, $note !== '' ? $note : null, $leadId]);
+        } else {
+            $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=?, desk_user_id=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $userId ?: null, $leadId]);
+        }
         $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, $action, $note !== '' ? $note : null]);
         // اللي ردّ أو اهتم أو رفض مايفضلش يوصله إيميل تلقائي
         $map = ['replied' => 'replied', 'interested' => 'interested', 'not_interested' => 'paused', 'trial' => 'interested'];

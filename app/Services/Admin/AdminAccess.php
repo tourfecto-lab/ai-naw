@@ -242,6 +242,7 @@ class AdminAccess
                 '#^/admin/emails$#' => 'system.view',
                 '#^/admin/growth$#' => 'settings.manage',
                 '#^/admin/outreach-desk$#' => 'outreach.desk',
+                '#^/admin/outreach-sent$#' => 'outreach.desk',
                 '#^/admin/plans-studio$#' => 'billing.view',
                 '#^/admin/metrics$#' => 'billing.view',
                 '#^/admin/customers-health$#' => 'users.view',
