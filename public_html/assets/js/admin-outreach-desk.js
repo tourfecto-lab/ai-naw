@@ -452,7 +452,8 @@
             });
             wiz.el.addEventListener('change', async e => {
                 const f = e.target.files && e.target.files[0]; if (!f || e.target.dataset.wzFile === undefined) return;
-                wiz.busy = true; try { await wizProcess(await shrinkImage(f), null); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
+                // اختيار صورة من الجهاز برضو بياخد المقطع اللي كان بيتسجّل من الكاميرا المفتوحة قدامه (نفس المعاينة الحية اللي شايفها)
+                wiz.busy = true; try { const clip = await wizClip(); await wizProcess(await shrinkImage(f), null, clip); } catch (err) { wiz.busy = false; wizMsg(err.message, true); }
             });
         }
         wiz.userId = userId || 0; wiz.fields = null; wiz.partial = null; wiz.frontGray = null; wiz.fails = 0; wiz.el.hidden = false;
