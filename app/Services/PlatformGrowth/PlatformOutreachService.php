@@ -121,7 +121,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -133,6 +133,7 @@ class PlatformOutreachService
             KEY idx_pda_lead (lead_id),
             KEY idx_pda_created (created_at)
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->addColumns('platform_desk_actions', ['reason' => 'VARCHAR(20) NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_comp (
             user_id BIGINT NOT NULL PRIMARY KEY,
             comp_type VARCHAR(12) NOT NULL DEFAULT 'none',
@@ -159,7 +160,7 @@ class PlatformOutreachService
             updated_by VARCHAR(120) NULL,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        $this->addColumns('platform_staff_profile', ['sign_name' => 'VARCHAR(40) NULL', 'recapture_at' => 'DATETIME NULL']);
+        $this->addColumns('platform_staff_profile', ['sign_name' => 'VARCHAR(40) NULL', 'recapture_at' => 'DATETIME NULL', 'daily_goal' => 'SMALLINT UNSIGNED NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_docs (
             user_id BIGINT NOT NULL,
             side VARCHAR(5) NOT NULL,
@@ -2084,13 +2085,17 @@ class PlatformOutreachService
     /** نتايج التواصل اللي الموظفة بتسجّلها */
     public const DESK_ACTIONS = ['contacted', 'replied', 'interested', 'not_interested', 'wrong_number', 'call_back', 'trial', 'subscribed'];
 
-    /** بعد كام يوم من آخر رسالة واتساب بدون رد الشركة تظهر في «محتاجة متابعة» */
+    /** سبب الرفض لما النتيجة «مش مهتمين»: بيتسجّل عشان نعرف أكتر سبب بيرفض عليه السوق كله */
+    public const LOST_REASONS = ['price' => 'السعر غالي عليهم', 'competitor' => 'عندهم حل بديل/منافس', 'timing' => 'مش الوقت المناسب دلوقتي', 'no_need' => 'مش حاسّين إنهم محتاجين الخدمة', 'no_reply' => 'اتجاهلت من غير رد', 'other' => 'سبب تاني'];
+
+    /** بعد كام يوم من آخر رسالة واتساب بدون رد الشركة تظهر في «محتاجة متابعة» (لو مفيش موعد مخصّص) */
     public const FOLLOWUP_AFTER_DAYS = 2;
 
     /** «محتاجة متابعة»: اتبعتلها واتساب من يومين أو أكتر ومفيش نتيجة بعدها، أو الموظفة قالت «أكلمهم تاني» */
     private static function followupSql(): string
     {
-        return "(desk_action='call_back' OR (desk_action='contacted' AND desk_at <= NOW() - INTERVAL " . (int) self::FOLLOWUP_AFTER_DAYS . ' DAY))';
+        // موعد مخصّص (desk_followup_at) بيغلب القاعدة التلقائية لما يكون متسجّل: مستحق لما وقته يوصل، أيًا كان النتيجة المسجّلة
+        return "((desk_followup_at IS NOT NULL AND desk_followup_at <= NOW()) OR (desk_followup_at IS NULL AND (desk_action='call_back' OR (desk_action='contacted' AND desk_at <= NOW() - INTERVAL " . (int) self::FOLLOWUP_AFTER_DAYS . ' DAY))))';
     }
 
     /** رقم الواتساب بالصيغة الدولية (أرقام بس) من الرقم المتخزّن: +20 / 0020 / أو محلي بيبدأ بصفر. '' لو مش واضح */
@@ -2299,7 +2304,11 @@ class PlatformOutreachService
         return ['from' => $from, 'to' => $to, 'total' => count($rows), 'days' => $out, 'by_staff' => array_values($byStaff), 'staff' => $staffList, 'truncated' => count($rows) >= 2000];
     }
 
-    public function deskLeads(array $f, array $staff = []): array
+    /**
+     * شروط WHERE المشتركة بين قايمة المكتب والتصدير: الدولة والعرض (todo/contacted/...) ونطاق الموظف (شخصي/الكل) والأولوية والبحث.
+     * @return array{where:string[],args:array,me:int,mineOnly:bool,onboardingBlocked:bool,view:string}
+     */
+    private function deskWhere(array $f, array $staff): array
     {
         $this->ensurePriority();
         $this->ensureWeak();
@@ -2353,6 +2362,19 @@ class PlatformOutreachService
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
             array_push($args, $like, $like, $like, $like, $like);
         }
+        return ['where' => $where, 'args' => $args, 'me' => $me, 'mineOnly' => $mineOnly, 'onboardingBlocked' => $onboardingBlocked, 'view' => $view, 'thr' => $thr];
+    }
+
+    public function deskLeads(array $f, array $staff = []): array
+    {
+        $b = $this->deskWhere($f, $staff);
+        $where = $b['where'];
+        $args = $b['args'];
+        $me = $b['me'];
+        $mineOnly = $b['mineOnly'];
+        $onboardingBlocked = $b['onboardingBlocked'];
+        $view = $b['view'];
+        $thr = $b['thr'];
         $page = max(1, (int) ($f['page'] ?? 1));
         $per = 25;
         $w = implode(' AND ', $where);
@@ -2438,10 +2460,44 @@ class PlatformOutreachService
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
                 'report_views' => (int) ($l['report_views'] ?? 0), 'report_first_at' => $l['report_viewed_at'] ?? null, 'report_last_at' => $l['report_last_at'] ?? ($l['report_viewed_at'] ?? null),
-                'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
+                'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null, 'reason' => $l['desk_reason'] ?? null, 'followup_at' => $l['desk_followup_at'] ?? null],
             ];
         }
-        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? '')), 'onboarding_blocked' => $onboardingBlocked];
+        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? '')), 'onboarding_blocked' => $onboardingBlocked, 'lost_reasons' => self::LOST_REASONS];
+    }
+
+    /**
+     * تصدير القايمة الحالية (نفس فلتر الدولة والعرض والأولوية والبحث) CSV: كل الشركات المطابقة، مش صفحة واحدة بس.
+     * حد أقصى 5000 صف عشان ما يثقّلش السيرفر.
+     */
+    public function deskExportCsv(array $f, array $staff = []): string
+    {
+        $b = $this->deskWhere($f, $staff);
+        if ($b['onboardingBlocked']) {
+            return "company,phone,email,website,city,country,rating,reviews,score,priority,tier,status,desk_action,desk_reason,desk_note,desk_at,desk_by,followup_at\n";
+        }
+        $w = implode(' AND ', $b['where']);
+        $rows = $this->q("SELECT company,phone,email,website,city,country,rating,reviews,score,priority,status,desk_action,desk_reason,desk_note,desk_at,desk_by,desk_followup_at
+            FROM platform_leads WHERE {$w} ORDER BY (desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC LIMIT 5000", $b['args'])->fetchAll(PDO::FETCH_ASSOC);
+        $thr = $b['thr'];
+        $tier = static function ($p) use ($thr) {
+            $p = (int) $p;
+            return $p >= $thr['high'] ? 'high' : ($p >= $thr['medium'] ? 'medium' : 'low');
+        };
+        $esc = static function ($v) {
+            $v = (string) ($v ?? '');
+            return '"' . str_replace('"', '""', $v) . '"';
+        };
+        $head = ['company', 'phone', 'email', 'website', 'city', 'country', 'rating', 'reviews', 'score', 'priority', 'tier', 'status', 'desk_action', 'desk_reason', 'desk_note', 'desk_at', 'desk_by', 'followup_at'];
+        $lines = [implode(',', $head)];
+        foreach ($rows as $r) {
+            $lines[] = implode(',', [
+                $esc($r['company']), $esc($r['phone']), $esc($r['email']), $esc($r['website']), $esc($r['city']), $esc($r['country']),
+                $esc($r['rating']), $esc($r['reviews']), $esc($r['score']), $esc($r['priority']), $esc($tier($r['priority'])), $esc($r['status']),
+                $esc($r['desk_action']), $esc($r['desk_reason']), $esc($r['desk_note']), $esc($r['desk_at']), $esc($r['desk_by']), $esc($r['desk_followup_at']),
+            ]);
+        }
+        return "\xEF\xBB\xBF" . implode("\n", $lines) . "\n";
     }
 
     // ------------------------------------------------------------------ كشف الموظفين: الشغل والعملاء والنسبة والراتب
@@ -2457,7 +2513,7 @@ class PlatformOutreachService
     /** الموظف يعدّل بيانات نفسه دي */
     private const PROFILE_SELF = ['sign_name', 'full_name', 'phone', 'address', 'emergency_name', 'emergency_phone', 'national_id', 'pay_method', 'pay_account'];
     /** مالك المنصة بس */
-    private const PROFILE_OWNER = ['job_title', 'start_date', 'status', 'internal_note'];
+    private const PROFILE_OWNER = ['job_title', 'start_date', 'status', 'internal_note', 'daily_goal'];
 
     private function encField(string $v): string
     {
@@ -2501,7 +2557,7 @@ class PlatformOutreachService
         }
         $shown = ['national_id' => $reveal ? $nid : self::maskTail($nid), 'pay_account' => $reveal ? $acc : self::maskTail($acc)] + $raw; // المخفي الأول عشان يغلب الأصلي
         return $shown + [
-            'job_title' => (string) ($r['job_title'] ?? ''), 'start_date' => $r['start_date'] ?? null, 'status' => (string) ($r['status'] ?? 'active'),
+            'job_title' => (string) ($r['job_title'] ?? ''), 'start_date' => $r['start_date'] ?? null, 'status' => (string) ($r['status'] ?? 'active'), 'daily_goal' => isset($r['daily_goal']) ? (int) $r['daily_goal'] : null,
             'recapture_at' => $r['recapture_at'] ?? null, 'internal_note' => $reveal ? (string) ($r['internal_note'] ?? '') : '', 'updated_by' => $r['updated_by'] ?? null, 'updated_at' => $r['updated_at'] ?? null,
             'missing' => $missing, 'complete' => $missing === [], 'revealed' => $reveal,
         ];
@@ -2544,6 +2600,13 @@ class PlatformOutreachService
                     throw new InvalidArgumentException('تاريخ التعيين غير صحيح');
                 }
                 $v = $v === '' ? null : $v;
+            }
+            if ($k === 'daily_goal') {
+                if ($v !== '' && (!ctype_digit($v) || (int) $v < 1 || (int) $v > 1000)) {
+                    throw new InvalidArgumentException('الهدف اليومي لازم يكون رقم من 1 لـ 1000');
+                }
+                $vals['daily_goal'] = $v === '' ? null : (int) $v;
+                continue;
             }
             if ($k === 'national_id') {
                 $vals['national_id_enc'] = $this->encField($v); // لو التشفير مش جاهز بيرمي استثناء ومابنخزّنش نص صريح
@@ -2952,9 +3015,17 @@ class PlatformOutreachService
     /** للموظفة نفسها: إيه الناقص عليها (موقع، بيانات، صورة بطاقة) عشان تتنبّه أول ما تدخل المكتب */
     public function staffMe(int $userId): array
     {
+        $goal = $this->q('SELECT daily_goal FROM platform_staff_profile WHERE user_id=?', [$userId])->fetchColumn();
         return ['location_recorded' => (bool) $this->q('SELECT 1 FROM platform_staff_location WHERE user_id=? LIMIT 1', [$userId])->fetchColumn(),
             'profile_missing' => count($this->staffProfile($userId, false)['missing']), 'recapture' => $recap = (bool) $this->q('SELECT recapture_at FROM platform_staff_profile WHERE user_id=?', [$userId])->fetchColumn(),
-            'id_card' => !$recap && ($docs = $this->staffIdCardStatus($userId))['front'] !== null && $docs['photo'] !== null];
+            'id_card' => !$recap && ($docs = $this->staffIdCardStatus($userId))['front'] !== null && $docs['photo'] !== null,
+            'daily_goal' => $goal !== false && $goal !== null ? (int) $goal : null, 'sent_today' => $this->staffSentToday($userId)];
+    }
+
+    /** عدد الرسايل اللي الموظف بعتها النهارده (contacted) - أساس شريط «هدفك النهارده» */
+    public function staffSentToday(int $userId): int
+    {
+        return (int) $this->q("SELECT COUNT(*) FROM platform_desk_actions WHERE user_id=? AND action='contacted' AND DATE(created_at)=CURDATE()", [$userId])->fetchColumn();
     }
 
     /** كل الموظفين اللي سجّلوا شغل على المكتب أو عندهم تعويض متسجّل، مع عدد إجراءاتهم */
@@ -3240,11 +3311,20 @@ class PlatformOutreachService
     /**
      * الموظفة بتسجّل نتيجة التواصل مع شركة. الرد/الاهتمام/الرفض بيوقّفوا رسايل الإيميل للشركة دي، وإلغاء الاشتراك والتسجيل والراجع مابيتغيروش.
      */
-    public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName, bool $manager = false): array
+    public function deskAction(int $leadId, string $action, string $note, int $userId, string $userName, bool $manager = false, string $reason = '', ?string $followupAt = null): array
     {
         if ($action !== 'undo' && !in_array($action, self::DESK_ACTIONS, true)) {
             throw new InvalidArgumentException('نتيجة غير معروفة');
         }
+        // سبب الرفض معناه بس مع «مش مهتمين»، ومطلوب (مش اختياري) عشان نعرف فعلًا السوق بيرفض ليه
+        if ($action === 'not_interested') {
+            if ($reason === '' || !isset(self::LOST_REASONS[$reason])) {
+                throw new InvalidArgumentException('لازم تختار سبب الرفض');
+            }
+        } else {
+            $reason = '';
+        }
+        $followupAt = $this->normalizeFollowupAt($followupAt);
         $l = self::tidyOrNull($this->q('SELECT * FROM platform_leads WHERE id=?', [$leadId])->fetch(PDO::FETCH_ASSOC) ?: null);
         if (!$l) {
             throw new InvalidArgumentException('الشركة مش موجودة');
@@ -3266,24 +3346,24 @@ class PlatformOutreachService
             if (!in_array((string) ($l['desk_action'] ?? ''), ['contacted', 'call_back'], true)) {
                 throw new InvalidArgumentException('مفيش إرسال للتراجع عنه');
             }
-            $this->q('UPDATE platform_leads SET desk_action=NULL, desk_note=NULL, desk_at=NULL, desk_by=NULL, desk_user_id=NULL WHERE id=?', [$leadId]);
+            $this->q('UPDATE platform_leads SET desk_action=NULL, desk_note=NULL, desk_at=NULL, desk_by=NULL, desk_user_id=NULL, desk_reason=NULL, desk_followup_at=NULL WHERE id=?', [$leadId]);
             $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, 'undo', null]);
-            return ['action' => null, 'note' => null, 'at' => null, 'by' => null];
+            return ['action' => null, 'note' => null, 'at' => null, 'by' => null, 'reason' => null, 'followup_at' => null];
         }
         if (!$claimed) {
             // مطالبة ذرّية: لو موظفين اتنين داسوا في نفس اللحظة، واحد بس يكسب (التاني بياخد 409 ويتشال من قايمته)
-            $n = $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=?, desk_user_id=? WHERE id=? AND desk_action IS NULL', [$action, $note !== '' ? $note : null, $by, $userId ?: null, $leadId])->rowCount();
+            $n = $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=?, desk_user_id=?, desk_reason=?, desk_followup_at=? WHERE id=? AND desk_action IS NULL', [$action, $note !== '' ? $note : null, $by, $userId ?: null, $reason !== '' ? $reason : null, $followupAt, $leadId])->rowCount();
             if ($n !== 1) {
                 $now = $this->q('SELECT desk_by FROM platform_leads WHERE id=?', [$leadId])->fetchColumn();
                 throw new InvalidArgumentException('الشركة دي اتبعتلها ' . ($now ?: 'موظف تاني') . ' قبل كده', 409);
             }
         } elseif ($foreign) {
             // مدير بيسجّل نتيجة على شركة موظف: النتيجة بس، والشركة تفضل منسوبة للي بعتلها
-            $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW() WHERE id=?', [$action, $note !== '' ? $note : null, $leadId]);
+            $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_reason=?, desk_followup_at=? WHERE id=?', [$action, $note !== '' ? $note : null, $reason !== '' ? $reason : null, $followupAt, $leadId]);
         } else {
-            $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=?, desk_user_id=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $userId ?: null, $leadId]);
+            $this->q('UPDATE platform_leads SET desk_action=?, desk_note=?, desk_at=NOW(), desk_by=?, desk_user_id=?, desk_reason=?, desk_followup_at=? WHERE id=?', [$action, $note !== '' ? $note : null, $by, $userId ?: null, $reason !== '' ? $reason : null, $followupAt, $leadId]);
         }
-        $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note) VALUES(?,?,?,?,?)', [$leadId, $userId ?: null, $by, $action, $note !== '' ? $note : null]);
+        $this->q('INSERT INTO platform_desk_actions(lead_id,user_id,user_name,action,note,reason) VALUES(?,?,?,?,?,?)', [$leadId, $userId ?: null, $by, $action, $note !== '' ? $note : null, $reason !== '' ? $reason : null]);
         // اللي ردّ أو اهتم أو رفض مايفضلش يوصله إيميل تلقائي
         $map = ['replied' => 'replied', 'interested' => 'interested', 'not_interested' => 'paused', 'trial' => 'interested'];
         if ($action === 'subscribed') {
@@ -3292,7 +3372,27 @@ class PlatformOutreachService
         if (isset($map[$action]) && in_array($l['status'], ['new', 'no_email', 'contacted', 'finished', 'interested', 'replied', 'paused'], true)) {
             $this->setLeadStatus($leadId, $map[$action], 'مكتب التواصل: ' . $action . ($note !== '' ? ' - ' . $note : ''));
         }
-        return ['action' => $action, 'note' => $note !== '' ? $note : null, 'at' => date('Y-m-d H:i:s'), 'by' => $by];
+        return ['action' => $action, 'note' => $note !== '' ? $note : null, 'at' => date('Y-m-d H:i:s'), 'by' => $by, 'reason' => $reason !== '' ? $reason : null, 'followup_at' => $followupAt];
+    }
+
+    /** موعد متابعة مخصّص من الموظفة ("كلّمهم الخميس الساعة 4") بدل القاعدة التلقائية (يومين من غير رد). لازم يكون في المستقبل. null/فاضي = مفيش موعد مخصّص */
+    private function normalizeFollowupAt(?string $v): ?string
+    {
+        $v = trim((string) $v);
+        if ($v === '') {
+            return null;
+        }
+        $ts = strtotime($v);
+        if ($ts === false) {
+            throw new InvalidArgumentException('موعد المتابعة غير صحيح');
+        }
+        if ($ts < time() - 60) {
+            throw new InvalidArgumentException('موعد المتابعة لازم يكون في المستقبل');
+        }
+        if ($ts > time() + 90 * 86400) {
+            throw new InvalidArgumentException('موعد المتابعة بعيد أوي (أكتر من 3 شهور)');
+        }
+        return date('Y-m-d H:i:s', $ts);
     }
 
     /**

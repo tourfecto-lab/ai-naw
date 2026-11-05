@@ -111,7 +111,7 @@ final class OutreachDeskTest extends TestCase
         $d = $this->lead('Delta Tours', 'EG', '+201000000004');
         $this->svc->deskAction($a, 'replied', 'replied on whatsapp', 5, 'Sara');
         $this->svc->deskAction($b, 'interested', '', 5, 'Sara');
-        $this->svc->deskAction($c, 'not_interested', '', 5, 'Sara');
+        $this->svc->deskAction($c, 'not_interested', '', 5, 'Sara', false, 'other');
         $this->svc->deskAction($d, 'wrong_number', '', 5, 'Sara');
         $st = fn (int $id) => $this->db->query('SELECT status FROM platform_leads WHERE id = ?', [$id])[0]['status'];
         $this->assertSame('replied', $st($a));
@@ -770,7 +770,7 @@ final class OutreachDeskTest extends TestCase
     public function testSignedUpIsNotDowngradedAndBadInputIsRejected(): void
     {
         $id = $this->lead('Alpha Tours', 'EG', '+201000000001', ['status' => 'signed_up']);
-        $this->svc->deskAction($id, 'not_interested', '', 5, 'Sara');
+        $this->svc->deskAction($id, 'not_interested', '', 5, 'Sara', false, 'other');
         $this->assertSame('signed_up', $this->db->query('SELECT status FROM platform_leads WHERE id = ?', [$id])[0]['status']);
         $this->expectException(InvalidArgumentException::class);
         $this->svc->deskAction($id, 'delete_everything', '', 5, 'Sara');
@@ -1024,6 +1024,130 @@ final class OutreachDeskTest extends TestCase
         $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-onboard2@tourfecto.test']);
         $this->db->query("INSERT INTO admin_staff (user_id, staff_role, created_at) VALUES (?, 'support', NOW() - INTERVAL 48 HOUR) ON DUPLICATE KEY UPDATE staff_role='support', created_at=VALUES(created_at)", [self::STAFF_ID]);
         $this->assertFalse($this->svc->staffOnboardingBlocked(self::STAFF_ID), 'support role: not a sales employee, never blocked');
+        $this->db->query('DELETE FROM admin_staff WHERE user_id=?', [self::STAFF_ID]);
+    }
+
+    public function testNotInterestedRequiresAValidLostReasonStoresItAndClearsItOnUndo(): void
+    {
+        $id = $this->lead('Reason Tours', 'EG', '+201000000061');
+        try {
+            $this->svc->deskAction($id, 'not_interested', '', 5, 'Sara');
+            $this->fail('reason required');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('سبب الرفض', $e->getMessage());
+        }
+        try {
+            $this->svc->deskAction($id, 'not_interested', '', 5, 'Sara', false, 'made_up_reason');
+            $this->fail('unknown reason rejected');
+        } catch (InvalidArgumentException $e) {
+            $this->assertTrue(true);
+        }
+        $r = $this->svc->deskAction($id, 'not_interested', 'too pricey', 5, 'Sara', false, 'price');
+        $this->assertSame('price', $r['reason']);
+        $row = $this->db->query('SELECT desk_reason FROM platform_leads WHERE id=?', [$id])[0];
+        $this->assertSame('price', $row['desk_reason']);
+        $log = $this->db->query("SELECT reason FROM platform_desk_actions WHERE lead_id=? AND action='not_interested' ORDER BY id DESC LIMIT 1", [$id])[0];
+        $this->assertSame('price', $log['reason']);
+        // reason on other actions is ignored (only means something with not_interested)
+        $this->db->query('UPDATE platform_leads SET desk_action=NULL WHERE id=?', [$id]);
+        $r2 = $this->svc->deskAction($id, 'replied', '', 5, 'Sara', false, 'price');
+        $this->assertNull($r2['reason']);
+        $r3 = $this->svc->deskAction($id, 'contacted', '', 5, 'Sara', false, 'price');
+        $this->assertNull($r3['reason']);
+    }
+
+    public function testCustomFollowupDateOverridesTheDefaultTwoDayRuleAndIsValidated(): void
+    {
+        $due = $this->lead('Followup Due Tours', 'EG', '+201000000062');
+        $notYet = $this->lead('Followup Not Yet Tours', 'EG', '+201000000063');
+        $this->svc->deskAction($due, 'contacted', '', 5, 'Sara');
+        $this->svc->deskAction($notYet, 'contacted', '', 5, 'Sara');
+        // a custom date 1 hour from now on a freshly-contacted lead: NOT due yet even though the 2-day default hasn't passed anyway
+        $this->svc->deskAction($notYet, 'call_back', '', 5, 'Sara', false, '', date('Y-m-d H:i:s', strtotime('+1 hour')));
+        // a custom date in the past (simulated by setting it 1 second ago via direct SQL, since the API rejects past dates)
+        $this->svc->deskAction($due, 'call_back', '', 5, 'Sara');
+        $this->db->query('UPDATE platform_leads SET desk_followup_at = NOW() - INTERVAL 1 MINUTE WHERE id = ?', [$due]);
+        $rows = $this->svc->deskLeads(['country' => 'EG', 'view' => 'followup', 'q' => 'desk.test'])['rows'];
+        $ids = array_column($rows, 'id');
+        $this->assertContains($due, $ids, 'a passed custom follow-up date is due');
+        $this->assertNotContains($notYet, $ids, 'a future custom follow-up date is not due yet, overriding the default rule');
+
+        try {
+            $this->svc->deskAction($due, 'call_back', '', 5, 'Sara', false, '', date('Y-m-d H:i:s', strtotime('-1 hour')));
+            $this->fail('past date rejected');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('المستقبل', $e->getMessage());
+        }
+        try {
+            $this->svc->deskAction($due, 'call_back', '', 5, 'Sara', false, '', date('Y-m-d H:i:s', strtotime('+200 days')));
+            $this->fail('too-far date rejected');
+        } catch (InvalidArgumentException $e) {
+            $this->assertTrue(true);
+        }
+
+        // undo clears the custom follow-up date too
+        $this->svc->deskAction($due, 'contacted', '', 5, 'Sara');
+        $r = $this->svc->deskAction($due, 'undo', '', 5, 'Sara');
+        $this->assertNull($r['followup_at']);
+        $this->assertNull($this->db->query('SELECT desk_followup_at FROM platform_leads WHERE id=?', [$due])[0]['desk_followup_at']);
+    }
+
+    public function testDailyGoalIsOwnerOnlyValidatedAndStaffMeReportsTodaysSentCount(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-goal@tourfecto.test']);
+        $this->assertNull($this->svc->staffMe(self::STAFF_ID)['daily_goal']);
+        $p = $this->svc->staffProfileSet(self::STAFF_ID, ['daily_goal' => '15'], true, 'Owner');
+        $this->assertSame(15, $p['daily_goal']);
+        $this->assertSame(15, $this->svc->staffMe(self::STAFF_ID)['daily_goal']);
+        // not the owner: can't set it (silently ignored since it's not in PROFILE_SELF)
+        $p2 = $this->svc->staffProfileSet(self::STAFF_ID, ['daily_goal' => '999'], false, 'Self');
+        $this->assertSame(15, $p2['daily_goal'], 'daily_goal is owner-only');
+        foreach (['0', '1001', 'abc', '-5'] as $bad) {
+            try {
+                $this->svc->staffProfileSet(self::STAFF_ID, ['daily_goal' => $bad], true, 'Owner');
+                $this->fail("should reject $bad");
+            } catch (InvalidArgumentException $e) {
+                $this->assertStringContainsString('الهدف اليومي', $e->getMessage());
+            }
+        }
+        $cleared = $this->svc->staffProfileSet(self::STAFF_ID, ['daily_goal' => ''], true, 'Owner');
+        $this->assertNull($cleared['daily_goal']);
+
+        $a = $this->lead('Goal Tours A', 'EG', '+201000000064');
+        $b = $this->lead('Goal Tours B', 'EG', '+201000000065');
+        $this->assertSame(0, $this->svc->staffSentToday(self::STAFF_ID));
+        $this->svc->deskAction($a, 'contacted', '', self::STAFF_ID, 'Goal Staff');
+        $this->svc->deskAction($b, 'contacted', '', self::STAFF_ID, 'Goal Staff');
+        $this->assertSame(2, $this->svc->staffSentToday(self::STAFF_ID));
+        $this->assertSame(2, $this->svc->staffMe(self::STAFF_ID)['sent_today']);
+    }
+
+    public function testDeskLeadsStillComputesTierCorrectlyAfterTheWhereBuildingRefactor(): void
+    {
+        $this->lead('Tier Guard Tours', 'EG', '+201000000066', ['reviews' => 500]);
+        $r = $this->svc->deskLeads(['country' => 'EG', 'q' => 'desk.test'], ['name' => 'X']);
+        $this->assertNotEmpty($r['rows']);
+        foreach ($r['rows'] as $row) {
+            $this->assertContains($row['tier'], ['high', 'medium', 'low'], 'tier must be a real bucket, not corrupted by an undefined $thr');
+        }
+    }
+
+    public function testExportCsvRespectsTheCurrentFilterIncludesTierAndReasonAndRejectsNothingForAnOnboardingBlockedStaff(): void
+    {
+        $a = $this->lead('Export Tours A', 'EG', '+201000000071', ['reviews' => 900]);
+        $b = $this->lead('Export Tours B', 'TR', '+901000000072');
+        $this->svc->deskAction($a, 'not_interested', 'too slow to answer', 5, 'Sara', false, 'timing');
+        $csv = $this->svc->deskExportCsv(['country' => 'EG', 'view' => 'all', 'q' => 'desk.test'], ['name' => 'X']);
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $csv, 'UTF-8 BOM so Excel reads Arabic correctly');
+        $this->assertStringContainsString('Export Tours A', $csv);
+        $this->assertStringNotContainsString('Export Tours B', $csv, 'TR company excluded by the EG filter');
+        $this->assertStringContainsString('timing', $csv, 'lost reason column');
+        $this->assertStringContainsString('company,phone,email,website,city,country,rating,reviews,score,priority,tier,status,desk_action,desk_reason,desk_note,desk_at,desk_by,followup_at', $csv);
+
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-export@tourfecto.test']);
+        $this->db->query("INSERT INTO admin_staff (user_id, staff_role, created_at) VALUES (?, 'sales', NOW() - INTERVAL 48 HOUR) ON DUPLICATE KEY UPDATE staff_role='sales', created_at=VALUES(created_at)", [self::STAFF_ID]);
+        $blockedCsv = $this->svc->deskExportCsv(['country' => 'EG', 'view' => 'all', 'q' => 'desk.test'], ['name' => 'X', 'user_id' => self::STAFF_ID]);
+        $this->assertStringNotContainsString('Export Tours A', $blockedCsv, 'an onboarding-blocked employee exports nothing');
         $this->db->query('DELETE FROM admin_staff WHERE user_id=?', [self::STAFF_ID]);
     }
 }

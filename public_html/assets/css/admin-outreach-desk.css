@@ -96,3 +96,9 @@
 
 .dk-del{border-color:#c0504d;color:#e08a85}.dk-delrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}.dk-hist .dk-del{padding:1px 6px}
 .dk-banner.bad{border-color:#c0504d;background:rgba(192,80,77,.15)}
+.dk-reason{width:100%;padding:8px 12px;margin-top:6px;border-radius:10px;border:1px solid var(--panel-border);background:transparent;color:inherit;font:inherit;font-size:13px}
+.dk-followup-l{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--panel-text-muted);margin-top:6px}
+.dk-followup-l input{padding:7px 10px;border-radius:10px;border:1px solid var(--panel-border);background:transparent;color:inherit;font:inherit;font-size:13px;width:fit-content}
+.dk-goal{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-radius:10px;background:rgba(47,158,106,.08);border:1px solid rgba(47,158,106,.3)}
+.dk-goal-track{flex:1;min-width:120px;height:8px;border-radius:999px;background:rgba(128,128,128,.2);overflow:hidden}
+.dk-goal-fill{height:100%;background:#2f9e6a;border-radius:999px;transition:width .3s}

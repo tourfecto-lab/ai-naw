@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false;
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {};
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -71,7 +71,7 @@
         const OPEN = window.matchMedia && window.matchMedia('(max-width:640px)').matches ? '' : ' open';
         const dir = r.language === 'ar' ? 'rtl' : 'ltr';
         const d = r.desk || {};
-        const last = d.action ? `<div class="dk-last">آخر نتيجة: <b>${esc(ACTION_LABEL[d.action] || d.action)}</b> · ${esc(d.at || '')} · ${esc(d.by || '')}${d.note ? ' · ' + esc(d.note) : ''}${state.view === 'followup' ? ' · 💡 المتابعة بالرسالة التانية (الخدمات)' : ''}</div>` : '';
+        const last = d.action ? `<div class="dk-last">آخر نتيجة: <b>${esc(ACTION_LABEL[d.action] || d.action)}</b> · ${esc(d.at || '')} · ${esc(d.by || '')}${d.reason ? ' · السبب: ' + esc(lostReasons[d.reason] || d.reason) : ''}${d.note ? ' · ' + esc(d.note) : ''}${d.followup_at ? ' · ⏰ متابعة ' + esc(String(d.followup_at).slice(0, 16)) : ''}${state.view === 'followup' ? ' · 💡 المتابعة بالرسالة التانية (الخدمات)' : ''}</div>` : '';
         const emailInfo = r.email_step > 0 ? `اتبعتلها إيميل ${r.email_step} (${esc(r.email_sent_at || '')})${r.email_clicked ? ' · ضغطت على اللينك' : ''}${r.report_viewed ? ' · فتحت التقرير' : ''}` : 'ماتبعتلهاش إيميل لسه';
         const meta = [r.city, r.category && String(r.category).split(',')[0]].filter(Boolean).map(esc).join(' · ');
         const rating = r.rating ? `⭐ ${Number(r.rating).toFixed(1)}${r.reviews ? ' (' + Number(r.reviews).toLocaleString('en') + ')' : ''}` : '';
@@ -97,8 +97,11 @@
             <details class="dk-more"${OPEN}><summary>عرض نص الرسالة</summary><textarea class="dk-msgbox" readonly rows="10" dir="${dir}">${esc(r.message)}</textarea></details>
             <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
             ${r.message2 ? `<details class="dk-msg2"><summary>📨 رسالة 2 (بعد ما يردّوا): خدمات المنصة ولينك التسجيل</summary><textarea class="dk-msgbox" readonly rows="9" dir="${dir}">${esc(r.message2)}</textarea><div class="dk-actions"><button class="dk-btn primary" data-copy-msg2>📋 نسخ رسالة الخدمات</button>${r.wa_url2 ? `<a class="dk-btn green" href="${esc(r.wa_url2)}" target="_blank" rel="noopener noreferrer">💬 افتح واتساب بالرسالة 2</a>` : ''}</div></details>` : ''}</div>`;
+        const reasonOpts = Object.entries(lostReasons).map(([k, l]) => `<option value="${k}" ${d.reason === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
         const acts = `<div class="dk-result"><div class="dk-actions">${ACTIONS.map(([k, l]) => `<button class="dk-btn ${d.action === k ? 'on' : ''}" data-act="${k}">${l}</button>`).join('')}</div>
-            <input class="dk-note" placeholder="ملاحظة (اختياري): مين ردّ، هنكلمه إمتى..." maxlength="500" value="${esc(d.note || '')}">${last}</div>`;
+            <select class="dk-reason" data-reason ${d.action === 'not_interested' ? '' : 'hidden'}><option value="">سبب الرفض…</option>${reasonOpts}</select>
+            <input class="dk-note" placeholder="ملاحظة (اختياري): مين ردّ، هنكلمه إمتى..." maxlength="500" value="${esc(d.note || '')}">
+            <label class="dk-followup-l">📅 موعد متابعة مخصّص (اختياري)<input type="datetime-local" class="dk-followup" data-followup value="${d.followup_at ? esc(String(d.followup_at).replace(' ', 'T').slice(0, 16)) : ''}"></label>${last}</div>`;
         return `<article class="dk-card" data-id="${r.id}">${head}<div class="dk-body">${details}${msg}</div>${acts}</article>`;
     };
 
@@ -119,6 +122,7 @@
         const el = root.querySelector('.dk-funnel-slot'); if (el) el.innerHTML = funnelHtml();
     };
 
+    const exportUrl = () => '/api/admin/outreach-desk/export?' + new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q });
     const render = () => {
         const c = cur();
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
@@ -131,11 +135,13 @@
             + (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
             + (me.id_card === false ? `<div class="dk-banner">🪪 ${me.recapture ? 'مطلوب إعادة تصوير البطاقة والصورة الشخصية' : 'تصوير البطاقة والصورة الشخصية'} <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
+        const goalPct = me.daily_goal ? Math.min(100, Math.round(100 * (me.sent_today || 0) / me.daily_goal)) : 0;
+        const goalBar = me.daily_goal ? `<div class="dk-goal"><span class="dk-label">🎯 هدفك النهارده: <b>${num(me.sent_today || 0)}</b> من <b>${num(me.daily_goal)}</b></span><div class="dk-goal-track"><div class="dk-goal-fill" style="width:${goalPct}%"></div></div>${goalPct >= 100 ? '<span class="dk-b green">خلصتي الهدف 🎉</span>' : ''}</div>` : '';
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
-            <section class="dk-top"><div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
+            <section class="dk-top">${goalBar}<div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
             <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
-            <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a></div>
+            <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
@@ -146,16 +152,16 @@
     const load = async (keepScroll) => {
         const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked;
+        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked; lostReasons = r.lost_reasons || lostReasons;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
         if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const mark = async (id, action, note) => {
+    const mark = async (id, action, note, reason, followupAt) => {
         const row = rows.find(x => x.id === id); if (!row) return;
-        const r = await api('/api/admin/outreach-desk/leads/' + id + '/action', { action, note });
+        const r = await api('/api/admin/outreach-desk/leads/' + id + '/action', { action, note, reason: reason || '', followup_at: followupAt || '' });
         const c = cur(), prev = row.desk?.action ? BUCKET[row.desk.action] : 'todo', next = action === 'undo' ? 'todo' : BUCKET[action];
         if (prev !== next) { c[prev] = Math.max(0, (c[prev] || 0) - 1); c[next] = (c[next] || 0) + 1; }
         row.desk = r;
@@ -224,7 +230,7 @@
         const PAY = { vodafone_cash: 'فودافون كاش', instapay: 'إنستاباي', bank: 'تحويل بنكي', cash: 'كاش' };
         const inp = (k, l, type) => `<label>${l}<input data-pf="${k}" type="${type || 'text'}" value="${esc(p[k] || '')}"></label>`;
         const ownerFields = d.can_manage ? inp('job_title', 'المسمى الوظيفي') + inp('start_date', 'تاريخ التعيين', 'date')
-            + `<label>الحالة <select data-pf="status">${[['active', 'شغّال'], ['paused', 'موقوف مؤقتًا'], ['left', 'ساب الشغل']].map(([k, l]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` + inp('internal_note', 'ملاحظة داخلية (للمالك بس)') : '';
+            + `<label>الحالة <select data-pf="status">${[['active', 'شغّال'], ['paused', 'موقوف مؤقتًا'], ['left', 'ساب الشغل']].map(([k, l]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>` + inp('internal_note', 'ملاحظة داخلية (للمالك بس)') + inp('daily_goal', 'الهدف اليومي (عدد رسايل)', 'number') : '';
         const profile = canEdit ? `<div class="dk-comp dk-prof"><b>ملف الموظف</b>
             ${inp('sign_name', 'الاسم في توقيع الرسايل')}${inp('full_name', 'الاسم بالكامل')}${inp('phone', 'رقم التليفون / واتساب', 'tel')}${inp('national_id', 'الرقم القومي أو جواز السفر')}${inp('address', 'العنوان')}
             ${inp('emergency_name', 'شخص للطوارئ')}${inp('emergency_phone', 'تليفون الطوارئ', 'tel')}
@@ -541,7 +547,17 @@
                 if (t.dataset.copyPhone !== undefined) { toast(await copy(t.dataset.copyPhone) ? 'اتنسخ ✅' : 'النسخ التلقائي مش متاح: النص بيتظلّل وبيتنسخ يدويًا', false); return; }
                 if (t.dataset.copyLink !== undefined) { toast(await copy(t.dataset.copyLink) ? 'اتنسخ لينك التقرير ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.copyMsg !== undefined) { const box = cardEl.querySelector('.dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت الرسالة ✅' : 'النسخ التلقائي مش متاح: الرسالة بتتظلّل وبتتنسخ يدويًا', false); return; }
-                if (t.dataset.act) { t.disabled = true; await mark(Number(cardEl.dataset.id), t.dataset.act, cardEl.querySelector('.dk-note')?.value || ''); }
+                if (t.dataset.act) {
+                    const note = cardEl.querySelector('.dk-note')?.value || '', followupAt = (cardEl.querySelector('[data-followup]')?.value || '').replace('T', ' ');
+                    let reason = '';
+                    if (t.dataset.act === 'not_interested') {
+                        const sel = cardEl.querySelector('[data-reason]');
+                        if (sel.hidden) { sel.hidden = false; toast('اختاري سبب الرفض وبعدين دوسي تاني', true); return; }
+                        reason = sel.value;
+                        if (!reason) { toast('لازم تختاري سبب الرفض', true); return; }
+                    }
+                    t.disabled = true; await mark(Number(cardEl.dataset.id), t.dataset.act, note, reason, followupAt);
+                }
             } catch (err) { toast(err.message, true); if (t) t.disabled = false; }
         });
         let timer;

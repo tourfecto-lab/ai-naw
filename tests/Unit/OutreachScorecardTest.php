@@ -310,7 +310,7 @@ final class OutreachScorecardTest extends TestCase
         $this->assertStringContainsString('العقل الاستراتيجي', $m);
         $this->assertStringContainsString('إنتم اللي بتوافقوا', $m, 'the brain proposes, they approve');
         // الخدمات اللي شغّالة دلوقتي بس: السمعة والسوشيال بيعتمدوا على مراجعة Meta وجوجل فمش في الرسالة
-        foreach (['السيو', 'حجز ودفع أونلاين', 'مراقبة المنافسين', 'CRM', 'Starter', 'مكالمة 15 دقيقة'] as $service) {
+        foreach (['السيو', 'موقع وحجز', 'مراقبة المنافسين', 'CRM', 'Starter', 'مكالمة 15 دقيقة'] as $service) {
             $this->assertStringContainsString($service, $m);
         }
         $this->assertStringContainsString('https://tourfecto.pro/p/c/abc/1', $m);

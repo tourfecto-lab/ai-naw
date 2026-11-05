@@ -112,6 +112,25 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** GET /api/admin/outreach-desk/export?country=&view=&tier=&q= : نفس فلتر القايمة الحالية، CSV لكل الشركات المطابقة (مش صفحة واحدة بس) */
+    public function deskExport(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        try {
+            $csv = $this->service()->deskExportCsv(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'tier' => $this->get('tier', ''), 'q' => $this->get('q', '')], ['name' => $this->staffName(), 'user_id' => (int) ($this->user['id'] ?? 0), 'all' => $this->canSeeTeam()]);
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="outreach-desk-' . date('Y-m-d_His') . '.csv"');
+            header('Cache-Control: private, no-store');
+            echo $csv;
+            exit;
+        } catch (Throwable $e) {
+            Logger::error('Outreach desk export failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر التصدير', 503);
+        }
+    }
+
     private function canSeeTeam(): bool
     {
         return AdminAccess::can($this->user, 'team.view');
@@ -402,7 +421,7 @@ class PlatformOutreachController extends Controller
             return $e;
         }
         try {
-            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffLabel(), $this->canSeeTeam());
+            $r = $this->service()->deskAction((int) ($params['id'] ?? 0), (string) $this->get('action', ''), (string) $this->get('note', ''), (int) ($this->user['id'] ?? 0), $this->staffLabel(), $this->canSeeTeam(), (string) $this->get('reason', ''), $this->get('followup_at') !== null ? (string) $this->get('followup_at') : null);
             return $this->success($r);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), $e->getCode() === 409 ? 409 : 422); // 409 = الشركة اتبعتلها موظف تاني
