@@ -2068,6 +2068,7 @@ return [
     'crm.deal_items.deleted' => 'تم حذف البند',
     'crm.deal_items.not_found' => 'البند غير موجود',
     'crm.deal_items.empty' => 'لا توجد بنود لهذه الصفقة',
+    'crm.routing.active' => 'مفعّلة',
     'crm.routing.title' => 'قواعد توجيه العملاء المحتملين',
     'crm.routing.subtitle' => 'وزّع الـLeads تلقائيًا على فريقك حسب المصدر/الدولة/القيمة',
     'crm.routing.new' => 'قاعدة جديدة',

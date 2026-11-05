@@ -193,6 +193,18 @@ JS;
             ]);
             $lead = $this->leadService->createLead((int) $contact->getAttribute('id'), (int) $this->user['id']);
 
+            // توجيه تلقائي إن وُجدت قاعدة مطابقة (نفس منطق نموذج الويب) - الفشل لا يمنع الإنشاء
+            try {
+                $routed = (new CrmLeadRoutingService())->routeLead($this->tenantId(), (int) $lead->getAttribute('id'), [
+                    'source' => $this->get('source', 'manual'),
+                ]);
+                if (!empty($routed['assigned'])) {
+                    $lead->setAttribute('owner_user_id', $routed['assignee_user_id']);
+                }
+            } catch (Exception $e) {
+                Logger::error('createLead routing skipped', ['message' => $e->getMessage()]);
+            }
+
             return $this->success(['contact' => $contact->toArray(), 'lead' => $lead->toArray()], 'تم الإنشاء', 201);
         } catch (Exception $e) {
             Logger::error('createLead Error', ['message' => $e->getMessage()]);
@@ -2126,8 +2138,76 @@ HTML;
             </tr>`).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.team.none_yet']}</td></tr>`;
         html += `</tbody></table></div></div>`;
 
+        if (d.is_tenant_owner) {
+            const rr = await fetchJSON('/api/crm/routing-rules');
+            const rules = rr.success ? (rr.data.rules || []) : [];
+            const people = [{ id: d.owner_user_id, label: I18N['crm.team.my_role'] }]
+                .concat(d.members.map(m => ({ id: m.member_user_id, label: ((m.first_name || '') + ' ' + (m.last_name || '')).trim() || m.email })));
+            const who = id => { const p = people.find(x => Number(x.id) === Number(id)); return p ? p.label : '-'; };
+            html += `<div class="p-card" style="padding:18px;margin-top:16px;">
+                <h3 style="margin-top:0;">${I18N['crm.routing.title']}</h3>
+                <p class="p-cell-muted" style="font-size:12.5px;">${I18N['crm.routing.subtitle']}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                    <input type="text" id="ruleName" class="form-control" style="width:170px;" placeholder="${I18N['crm.routing.name']}" maxlength="150">
+                    <input type="text" id="ruleSource" class="form-control" style="width:170px;" placeholder="${I18N['crm.routing.match_source']}" maxlength="50">
+                    <input type="text" id="ruleCountry" class="form-control" style="width:150px;" placeholder="${I18N['crm.routing.match_country']}" maxlength="100">
+                    <input type="number" id="ruleMin" class="form-control" style="width:130px;" min="0" step="0.01" placeholder="${I18N['crm.routing.match_min_value']}">
+                    <input type="number" id="ruleMax" class="form-control" style="width:130px;" min="0" step="0.01" placeholder="${I18N['crm.routing.match_max_value']}">
+                    <select id="ruleMode" class="form-control" style="width:170px;" onchange="document.getElementById('ruleAssignee').style.display = this.value === 'fixed' ? '' : 'none'">
+                        <option value="fixed">${I18N['crm.routing.assignment_mode.fixed']}</option>
+                        <option value="round_robin">${I18N['crm.routing.assignment_mode.round_robin']}</option>
+                    </select>
+                    <select id="ruleAssignee" class="form-control" style="width:170px;">
+                        ${people.map(p => `<option value="${Number(p.id)}">${esc(p.label)}</option>`).join('')}
+                    </select>
+                    <button class="p-btn primary" onclick="addRoutingRule()">${I18N['crm.routing.new']}</button>
+                </div>
+                <div class="p-table-scroll"><table class="p-table">
+                    <thead><tr><th>${I18N['crm.routing.name']}</th><th>${I18N['crm.routing.match_source']}</th><th>${I18N['crm.routing.match_country']}</th>
+                    <th>${I18N['crm.routing.match_min_value']} / ${I18N['crm.routing.match_max_value']}</th><th>${I18N['crm.routing.assignment_mode']}</th><th>${I18N['crm.routing.active']}</th><th></th></tr></thead>
+                    <tbody>`;
+            html += rules.length ? rules.map(r => `<tr>
+                <td>${esc(r.name)}</td><td>${esc(r.match_source || '*')}</td><td>${esc(r.match_country || '*')}</td>
+                <td>${esc(r.match_min_value ?? '-')} / ${esc(r.match_max_value ?? '-')}</td>
+                <td>${r.assignment_mode === 'round_robin' ? I18N['crm.routing.assignment_mode.round_robin'] : esc(who(r.assignee_user_id))}</td>
+                <td><input type="checkbox" ${Number(r.is_active) ? 'checked' : ''} onchange="toggleRoutingRule(${Number(r.id)}, this.checked)"></td>
+                <td><button class="p-btn xs" onclick="deleteRoutingRule(${Number(r.id)})">${I18N['common.delete']}</button></td>
+            </tr>`).join('') : `<tr><td colspan="7" class="p-cell-muted text-center">${I18N['crm.routing.empty']}</td></tr>`;
+            html += `</tbody></table></div></div>`;
+        }
+
         root.innerHTML = html;
+        const modeEl = document.getElementById('ruleMode');
+        if (modeEl) modeEl.dispatchEvent(new Event('change'));
     }
+
+    const jsonCall = (url, method, body) => fetchJSON(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+
+    window.addRoutingRule = async function () {
+        const name = document.getElementById('ruleName').value.trim();
+        if (!name) { toast(I18N['crm.routing.name_required'], 'error'); return; }
+        const res = await jsonCall('/api/crm/routing-rules', 'POST', {
+            name,
+            match_source: document.getElementById('ruleSource').value.trim(),
+            match_country: document.getElementById('ruleCountry').value.trim(),
+            match_min_value: document.getElementById('ruleMin').value,
+            match_max_value: document.getElementById('ruleMax').value,
+            assignment_mode: document.getElementById('ruleMode').value,
+            assignee_user_id: document.getElementById('ruleAssignee').value,
+        });
+        if (res.success) { toast(I18N['crm.routing.created'], 'success'); load(); }
+        else toast(res.error || I18N['crm.leads.add_failed'], 'error');
+    };
+
+    window.toggleRoutingRule = async function (id, active) {
+        const res = await jsonCall('/api/crm/routing-rules/' + id, 'PUT', { is_active: active ? 1 : 0 });
+        if (res.success) toast(I18N['crm.routing.updated'], 'success'); else toast(res.error || '-', 'error');
+    };
+
+    window.deleteRoutingRule = async function (id) {
+        const res = await jsonCall('/api/crm/routing-rules/' + id, 'DELETE');
+        if (res.success) { toast(I18N['crm.routing.deleted'], 'success'); load(); } else toast(res.error || '-', 'error');
+    };
     load();
 })();
 JS;

@@ -1426,6 +1426,7 @@ class CrmApiController extends Controller
                 'my_role' => $this->permissionService->roleFor($this->uid()),
                 'my_permissions' => $this->permissionService->permissionsFor($this->uid()),
                 'is_tenant_owner' => $this->tenantId() === $this->uid(),
+                'owner_user_id' => $this->tenantId(),
             ]);
         } catch (Exception $e) {
             return $this->handleException($e, 'listTeam');
