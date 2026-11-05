@@ -1994,6 +1994,8 @@ return [
     'crm.templates.var.deal_value' => 'قيمة الصفقة',
     'crm.templates.var.currency' => 'العملة',
     'crm.templates.var.signature' => 'توقيع الفريق',
+    'crm.reports.win_loss.from' => 'من',
+    'crm.reports.win_loss.to' => 'إلى',
     'crm.reports.win_loss.title' => 'تحليل الفوز/الخسارة',
     'crm.reports.win_loss.won_deals' => 'صفقات مكسبة',
     'crm.reports.win_loss.lost_deals' => 'صفقات خاسرة',

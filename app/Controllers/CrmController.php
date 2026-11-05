@@ -1561,6 +1561,29 @@ JS;
         </div>
 
         <div class="p-card" style="padding:18px;margin-top:18px;">
+            <h3 style="margin-top:0;">{$this->tr('crm.reports.win_loss.title')}</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+                <label for="wlFrom" class="p-cell-muted">{$this->tr('crm.reports.win_loss.from')}</label>
+                <input type="date" id="wlFrom" class="form-control" style="width:auto;">
+                <label for="wlTo" class="p-cell-muted">{$this->tr('crm.reports.win_loss.to')}</label>
+                <input type="date" id="wlTo" class="form-control" style="width:auto;">
+                <button class="p-btn xs" onclick="loadWinLoss()">OK</button>
+            </div>
+            <div id="winLossBox" class="p-cell-muted">{$this->tr('common.loading')}</div>
+        </div>
+
+        <div class="p-card" style="padding:18px;margin-top:18px;">
+            <h3 style="margin-top:0;">{$this->tr('crm.goals.title')}</h3>
+            <p class="p-cell-muted" style="margin-top:-6px;">{$this->tr('crm.goals.subtitle')}</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <input type="text" id="goalPeriod" class="form-control" style="width:160px;" placeholder="{$this->tr('crm.goals.period')}" maxlength="7">
+                <input type="number" id="goalTarget" class="form-control" style="width:160px;" min="0" step="0.01" placeholder="{$this->tr('crm.goals.target')}">
+                <button class="p-btn primary" onclick="saveGoal()">{$this->tr('crm.goals.set')}</button>
+            </div>
+            <div id="goalsBox" class="p-cell-muted">{$this->tr('common.loading')}</div>
+        </div>
+
+        <div class="p-card" style="padding:18px;margin-top:18px;">
             <h3 style="margin-top:0;">{$this->tr('crm.ai.assistant_title')}</h3>
             <p class="p-cell-muted" style="margin-top:-6px;">{$this->tr('crm.ai.assistant_hint')}</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -1612,6 +1635,70 @@ HTML;
         box.innerHTML = html;
     }
 
+    window.loadWinLoss = async function () {
+        const from = document.getElementById('wlFrom').value;
+        const to = document.getElementById('wlTo').value;
+        const qs = new URLSearchParams();
+        if (from) qs.set('from', from);
+        if (to) qs.set('to', to);
+        const box = document.getElementById('winLossBox');
+        const res = await fetchJSON('/api/crm/reports/win-loss' + (qs.toString() ? '?' + qs.toString() : ''));
+        if (!res.success) { box.textContent = res.error || '-'; return; }
+        const w = res.data;
+        const tile = (val, label) => `<div><strong>${val}</strong><div class="p-cell-muted" style="font-size:12px;">${label}</div></div>`;
+        let html = `<div class="p-cell-muted" style="font-size:12px;margin-bottom:8px;">${esc(w.from)} → ${esc(w.to)}</div>`;
+        html += `<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:14px;">
+            ${tile(esc(w.won_deals), I18N['crm.reports.win_loss.won_deals'])}
+            ${tile(esc(w.lost_deals), I18N['crm.reports.win_loss.lost_deals'])}
+            ${tile(esc(w.total_closed), I18N['crm.reports.win_loss.total_closed'])}
+            ${tile(dash(w.win_rate, '%'), I18N['crm.reports.win_loss.win_rate'])}
+            ${tile(esc(w.won_value), I18N['crm.reports.win_loss.won_value'])}
+            ${tile(esc(w.lost_value), I18N['crm.reports.win_loss.lost_value'])}
+            ${tile(esc(w.net_value), I18N['crm.reports.win_loss.net_value'])}
+            ${tile(dash(w.average_won_value), I18N['crm.reports.win_loss.average_won_value'])}
+        </div>`;
+        const reasons = Object.entries(w.loss_reasons || {}).sort((a, b) => b[1] - a[1]);
+        html += `<h4 style="margin:0 0 6px;">${I18N['crm.reports.win_loss.loss_reasons']}</h4>`;
+        html += reasons.length
+            ? reasons.map(([r, n]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border,#eee);"><span>${esc(r)}</span><strong>${esc(n)}</strong></div>`).join('')
+            : `<div class="p-cell-muted">${I18N['crm.reports.win_loss.no_reasons']}</div>`;
+        box.innerHTML = html;
+    };
+
+    async function loadGoals() {
+        const box = document.getElementById('goalsBox');
+        const res = await fetchJSON('/api/crm/reports/sales-goals');
+        if (!res.success) { box.textContent = res.error || '-'; return; }
+        const goals = res.data.goals || [];
+        if (!goals.length) { box.textContent = I18N['crm.goals.empty']; return; }
+        box.innerHTML = `<table class="p-table"><thead><tr>
+            <th>${I18N['crm.goals.period']}</th><th>${I18N['crm.goals.target']}</th><th>${I18N['crm.goals.achieved']}</th><th>${I18N['crm.goals.progress']}</th><th></th>
+        </tr></thead><tbody>` + goals.map(g => `<tr>
+            <td>${esc(g.period)}</td><td>${esc(g.target_value)}</td><td>${esc(g.achieved_value)}</td>
+            <td>${dash(g.progress_percent, '%')}</td>
+            <td><button class="p-btn xs" onclick="deleteGoal(${Number(g.id)})">×</button></td>
+        </tr>`).join('') + '</tbody></table>';
+    }
+
+    window.saveGoal = async function () {
+        const period = document.getElementById('goalPeriod').value.trim();
+        const target = parseFloat(document.getElementById('goalTarget').value);
+        if (!/^\d{4}-\d{2}$/.test(period)) { toast(I18N['crm.goals.period_invalid'], 'error'); return; }
+        if (!(target >= 0)) { toast(I18N['crm.goals.period_invalid'], 'error'); return; }
+        const res = await fetchJSON('/api/crm/reports/sales-goals', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ period, target_value: target }),
+        });
+        if (res.success) { toast(I18N['crm.goals.saved'], 'success'); loadGoals(); }
+        else toast(res.error || '-', 'error');
+    };
+
+    window.deleteGoal = async function (id) {
+        const res = await fetchJSON('/api/crm/reports/sales-goals/' + id, { method: 'DELETE' });
+        if (res.success) { toast(I18N['crm.goals.deleted'], 'success'); loadGoals(); }
+        else toast(res.error || '-', 'error');
+    };
+
     async function load() {
         const res = await fetchJSON('/api/crm/dashboard/stats');
         if (!res.success) return;
@@ -1638,6 +1725,8 @@ HTML;
     }
     load();
     loadForecast();
+    loadWinLoss();
+    loadGoals();
 })();
 JS;
 

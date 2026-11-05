@@ -2006,6 +2006,8 @@ return [
     'crm.templates.var.deal_value' => 'Deal value',
     'crm.templates.var.currency' => 'Currency',
     'crm.templates.var.signature' => 'Team signature',
+    'crm.reports.win_loss.from' => 'From',
+    'crm.reports.win_loss.to' => 'To',
     'crm.reports.win_loss.title' => 'Win/Loss Analysis',
     'crm.reports.win_loss.won_deals' => 'Won deals',
     'crm.reports.win_loss.lost_deals' => 'Lost deals',
