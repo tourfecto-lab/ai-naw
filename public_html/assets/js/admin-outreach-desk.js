@@ -239,10 +239,11 @@
         const thumb = (side, label) => {
             const still = ic && ic[side], clip = ic && ic[CLIP[side]];
             if (!still && !clip) return `<div class="dk-doc none"><span>${label}: لسه</span></div>`;
-            const media = clip
-                ? `<video controls preload="none" playsinline ${still ? `poster="${docUrl(side)}"` : ''} src="${docUrl(CLIP[side])}"></video>`
-                : `<a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"></a>`;
-            return `<div class="dk-doc">${media}<span>${clip ? '🎥 ' : ''}${label} · ${esc(String(clip || still).slice(0, 10))}${clip && still ? ` · <a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer">الصورة الثابتة</a>` : ''}</span><span class="dk-delrow">${clip ? del(`data-del-side="${CLIP[side]}"`, 'الفيديو') : ''}${still ? del(`data-del-side="${side}"`, 'الصورة') : ''}</span></div>`;
+            // الصورة دايمًا هي اللي بتبان أول حاجة (الوش واضح على طول يتأكّد منه نظرة واحدة)؛ الفيديو زرار منفصل جنبها، مش بيغطّيها بعلامة التشغيل
+            const media = still
+                ? `<a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"></a>`
+                : `<video controls preload="none" playsinline src="${docUrl(CLIP[side])}"></video>`;
+            return `<div class="dk-doc">${media}<span>${label} · ${esc(String(clip || still).slice(0, 10))}${clip && still ? ` · <a href="${docUrl(CLIP[side])}" target="_blank" rel="noopener noreferrer">🎥 الفيديو</a>` : ''}</span><span class="dk-delrow">${clip ? del(`data-del-side="${CLIP[side]}"`, 'الفيديو') : ''}${still ? del(`data-del-side="${side}"`, 'الصورة') : ''}</span></div>`;
         };
         // الصور (الشخصية ووش البطاقة وضهرها) للأدمن بس؛ الموظف بيشوف حالة الرفع من غير الصور
         const SIDE_LABEL = { front: 'وش البطاقة', back: 'ضهر البطاقة', photo: 'الصورة الشخصية', fclip: 'فيديو الوش', bclip: 'فيديو الضهر', pclip: 'فيديو الشخصية' };
