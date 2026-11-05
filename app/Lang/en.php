@@ -2081,6 +2081,7 @@ return [
     'crm.deal_items.not_found' => 'Item not found',
     'crm.deal_items.empty' => 'No line items for this deal',
     'crm.routing.active' => 'Active',
+    'crm.routing.owner' => 'Account owner',
     'crm.routing.title' => 'Lead Routing Rules',
     'crm.routing.subtitle' => 'Automatically assign leads to your team by source/country/value',
     'crm.routing.new' => 'New Rule',

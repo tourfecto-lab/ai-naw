@@ -2182,7 +2182,7 @@ HTML;
         if (d.is_tenant_owner) {
             const rr = await fetchJSON('/api/crm/routing-rules');
             const rules = rr.success ? (rr.data.rules || []) : [];
-            const people = [{ id: d.owner_user_id, label: I18N['crm.team.my_role'] }]
+            const people = [{ id: d.owner_user_id, label: I18N['crm.routing.owner'] }]
                 .concat(d.members.map(m => ({ id: m.member_user_id, label: ((m.first_name || '') + ' ' + (m.last_name || '')).trim() || m.email })));
             const who = id => { const p = people.find(x => Number(x.id) === Number(id)); return p ? p.label : '-'; };
             html += `<div class="p-card" style="padding:18px;margin-top:16px;">
