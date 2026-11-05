@@ -888,7 +888,7 @@ final class OutreachDeskTest extends TestCase
         $this->svc->staffRecaptureRequest(99999999, 'Owner');
     }
 
-    public function testNewCaptureKeepsTheOldOneInAnOwnerOnlyHistoryAndQuickRetriesDoNotFillIt(): void
+    public function testNewCaptureAlwaysArchivesTheOldOneEvenSecondsLater(): void
     {
         $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-hist@tourfecto.test']);
         $mk = static function (int $w): string {
@@ -897,15 +897,9 @@ final class OutreachDeskTest extends TestCase
             imagejpeg($img);
             return (string) ob_get_clean();
         };
-        $old = $mk(40);
-        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $old);
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $mk(40));
         $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('o', 200));
-        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $mk(50));
-        $this->assertSame([], $this->svc->staffIdCardHistory(self::STAFF_ID), 'a retry within 10 minutes just replaces (no history noise)');
-
-        $this->db->query("UPDATE platform_staff_docs SET uploaded_at = NOW() - INTERVAL 2 DAY WHERE user_id = ?", [self::STAFF_ID]);
-        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('o', 200));
-        $this->db->query("UPDATE platform_staff_docs SET uploaded_at = NOW() - INTERVAL 2 DAY WHERE user_id = ?", [self::STAFF_ID]);
+        // إعادة محاولة فورية (نفس الدقيقة): لازم تتأرشف برضو، من غير مهلة سماح
         $newStill = $mk(60);
         $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $newStill);
 
@@ -914,12 +908,12 @@ final class OutreachDeskTest extends TestCase
         $h = $this->svc->staffIdCardHistory(self::STAFF_ID);
         $sides = array_column($h, 'side');
         sort($sides);
-        $this->assertSame(['fclip', 'front'], $sides);
+        $this->assertSame(['fclip', 'front'], $sides, 'archived immediately, no grace period');
         $this->assertCount(2, $h, 'the old still and the old clip are both kept');
         foreach ($h as $row) {
             $this->assertNotNull($this->svc->staffIdCardHistoryGet(self::STAFF_ID, (int) $row['id']));
             if ($row['side'] === 'front') {
-                $this->assertSame(50, getimagesizefromstring($this->svc->staffIdCardHistoryGet(self::STAFF_ID, (int) $row['id'])[1])[0], 'the old still is the one kept');
+                $this->assertSame(40, getimagesizefromstring($this->svc->staffIdCardHistoryGet(self::STAFF_ID, (int) $row['id'])[1])[0], 'the old still is the one kept');
             }
         }
         $this->assertNull($this->svc->staffIdCardHistoryGet(self::STAFF_ID + 1, (int) $h[0]['id']), 'history is per employee');

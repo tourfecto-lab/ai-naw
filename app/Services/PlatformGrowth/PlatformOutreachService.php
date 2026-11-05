@@ -2683,12 +2683,12 @@ class PlatformOutreachService
 
     /**
      * التصوير الجديد مابيمسحش القديم: القديم بيتنقل لسجل منفصل (للمالك بس) والجديد بيبقى الحالي.
-     * لو القديم اتصوّر من أقل من 10 دقايق (إعادة محاولة في نفس الجلسة لأن القراءة فشلت مثلًا) بيتبدّل من غير ما يتأرشف، عشان السجل مايتملاش لقطات فاشلة.
+     * بنأرشف دايمًا، حتى لو اللقطة الجديدة جت بعد القديمة بثواني أو في نفس الدقيقة.
      * بنحتفظ بآخر 10 نسخ قديمة لكل خطوة.
      */
     private function archiveDoc(int $userId, string $side): void
     {
-        $this->q('INSERT INTO platform_staff_docs_history(user_id,side,mime,data_enc,uploaded_at) SELECT user_id,side,mime,data_enc,uploaded_at FROM platform_staff_docs WHERE user_id=? AND side=? AND uploaded_at < NOW() - INTERVAL 10 MINUTE', [$userId, $side]);
+        $this->q('INSERT INTO platform_staff_docs_history(user_id,side,mime,data_enc,uploaded_at) SELECT user_id,side,mime,data_enc,uploaded_at FROM platform_staff_docs WHERE user_id=? AND side=?', [$userId, $side]);
         $this->q('DELETE FROM platform_staff_docs_history WHERE user_id=? AND side=? AND id NOT IN (SELECT id FROM (SELECT id FROM platform_staff_docs_history WHERE user_id=? AND side=? ORDER BY id DESC LIMIT 10) k)', [$userId, $side, $userId, $side]);
     }
 
