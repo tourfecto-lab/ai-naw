@@ -55,7 +55,7 @@ class CrmController extends Controller
             $activeClass = $key === $active ? ' active' : '';
             $html .= "<a href=\"{$url}\" class=\"p-tab{$activeClass}\" style=\"text-decoration:none;\">{$label}</a>";
         }
-        return $html . '</div>';
+        return $html . '</div><script src="' . htmlspecialchars(asset_v('/assets/js/crm-custom-fields.js'), ENT_QUOTES) . '"></script>';
     }
 
     /** GET /crm */
@@ -536,7 +536,7 @@ HTML;
         if (res.success && res.data.items && res.data.items.length) {
             tbody.innerHTML = res.data.items.map(l => `
                 <tr>
-                    <td>${esc(l.contact_name || '-')}</td>
+                    <td>${esc(l.contact_name || '-')} <button type="button" class="p-btn xs" title="${esc(I18N['crm.custom_fields.title'])}" aria-label="${esc(I18N['crm.custom_fields.title'])}" onclick="CrmCustomFields.open('lead', ${Number(l.id)}, ${esc(JSON.stringify(l.contact_name || ''))})">⚙</button></td>
                     <td style="direction:ltr;text-align:left;">${esc(l.contact_email || '-')}</td>
                     <td style="direction:ltr;text-align:left;">${esc(l.contact_phone || '-')}</td>
                     <td><select class="p-select xs" onchange="changeLeadStatus(${l.id}, this.value)">${statusOptions.replace(`value="${l.status}"`, `value="${l.status}" selected`)}</select></td>
@@ -690,7 +690,7 @@ HTML;
                 </div>
                 ${stageDeals.map(d => `
                     <div class="p-card" draggable="true" ondragstart="onDealDragStart(${d.id})" style="padding:12px;margin-bottom:8px;cursor:grab;">
-                        <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;">${esc(d.title)}</div>
+                        <div style="font-weight:700;font-size:13.5px;margin-bottom:4px;">${esc(d.title)} <button type="button" class="p-btn xs" title="${esc(I18N['crm.custom_fields.title'])}" aria-label="${esc(I18N['crm.custom_fields.title'])}" onclick="CrmCustomFields.open('deal', ${Number(d.id)}, ${esc(JSON.stringify(d.title || ''))})">⚙</button></div>
                         <div class="p-cell-muted" style="font-size:12.5px;">${esc(d.value || 0)} ${esc(d.currency || '')}</div>
                     </div>`).join('') || `<p class="p-cell-muted" style="font-size:12.5px;">${I18N['crm.deals.empty_column']}</p>`}
             </div>`;
@@ -740,7 +740,7 @@ HTML;
         const list = res.success ? res.data.items : [];
         tbody.innerHTML = list.length ? list.map(d => `
             <tr>
-                <td>${esc(d.title)}</td>
+                <td>${esc(d.title)} <button type="button" class="p-btn xs" title="${esc(I18N['crm.custom_fields.title'])}" aria-label="${esc(I18N['crm.custom_fields.title'])}" onclick="CrmCustomFields.open('deal', ${Number(d.id)}, ${esc(JSON.stringify(d.title || ''))})">⚙</button></td>
                 <td><span class="p-badge" style="background:${esc(d.stage_color || '#6366f1')};color:#fff;">${esc(d.stage_name)}</span></td>
                 <td>${esc(d.value)} ${esc(d.currency)}</td>
                 <td><span class="p-badge">${esc(d.status)}</span></td>
@@ -1317,7 +1317,7 @@ HTML;
         const tbody = document.querySelector('#companiesTable tbody');
         const list = res.success ? res.data.items : [];
         tbody.innerHTML = list.length ? list.map(c => `
-            <tr><td>${esc(c.name)}</td><td>${esc(c.industry || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.website || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.phone || '-')}</td></tr>
+            <tr><td>${esc(c.name)} <button type="button" class="p-btn xs" title="${esc(I18N['crm.custom_fields.title'])}" aria-label="${esc(I18N['crm.custom_fields.title'])}" onclick="CrmCustomFields.open('company', ${Number(c.id)}, ${esc(JSON.stringify(c.name || ''))})">⚙</button></td><td>${esc(c.industry || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.website || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.phone || '-')}</td></tr>
         `).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.companies.none_yet']}</td></tr>`;
 
         if (res.success) {
