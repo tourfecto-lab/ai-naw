@@ -2271,7 +2271,7 @@ class PlatformOutreachService
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
             array_push($args, $like, $like);
         }
-        $rows = $this->q('SELECT a.id log_id, a.lead_id, a.user_id, a.user_name, a.created_at, a.note, l.company, l.country, l.city, l.phone, l.status, l.step email_step, l.report_viewed_at, l.token, l.desk_action, l.desk_note
+        $rows = $this->q('SELECT a.id log_id, a.lead_id, a.user_id, a.user_name, a.created_at, a.note, l.company, l.country, l.city, l.phone, l.status, l.step email_step, l.report_viewed_at, l.token, l.desk_action, l.desk_note, l.desk_reason, l.desk_followup_at
             FROM platform_desk_actions a JOIN platform_leads l ON l.id=a.lead_id WHERE ' . implode(' AND ', $w) . ' ORDER BY a.id DESC LIMIT 2000', $args)->fetchAll(PDO::FETCH_ASSOC);
         $first = [];
         if ($rows) {
@@ -2287,9 +2287,11 @@ class PlatformOutreachService
         foreach ($rows as $r) {
             $day = substr((string) $r['created_at'], 0, 10);
             $res = (string) ($r['desk_action'] ?? '');
-            $days[$day][] = ['lead_id' => (int) $r['lead_id'], 'company' => (string) $r['company'], 'country' => (string) ($r['country'] ?? ''), 'city' => (string) ($r['city'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''),
+            $digits = self::deskPhone((string) ($r['phone'] ?? ''), (string) ($r['country'] ?? ''));
+            $days[$day][] = ['lead_id' => (int) $r['lead_id'], 'company' => (string) $r['company'], 'country' => (string) ($r['country'] ?? ''), 'city' => (string) ($r['city'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''), 'phone_intl' => $digits !== '' ? '+' . $digits : '',
                 'staff_id' => (int) ($r['user_id'] ?? 0), 'staff' => (string) $r['user_name'], 'at' => substr((string) $r['created_at'], 11, 5), 'kind' => ($first[(int) $r['lead_id']] ?? 0) === (int) $r['log_id'] ? 'first' : 'followup',
-                'result' => $res, 'result_label' => $labels[$res] ?? '', 'note' => (string) ($r['note'] ?: ($r['desk_note'] ?? '')), 'email_step' => (int) $r['email_step'], 'report_viewed' => !empty($r['report_viewed_at']),
+                'result' => $res, 'result_label' => $labels[$res] ?? '', 'reason' => $r['desk_reason'] ?? null, 'followup_at' => $r['desk_followup_at'] ?? null,
+                'note' => (string) ($r['note'] ?: ($r['desk_note'] ?? '')), 'email_step' => (int) $r['email_step'], 'report_viewed' => !empty($r['report_viewed_at']),
                 'report_url' => $base . '/p/r/pv-' . $r['token']];
             $k = (int) ($r['user_id'] ?? 0);
             $byStaff[$k] = ['staff_id' => $k, 'name' => (string) $r['user_name'], 'count' => ($byStaff[$k]['count'] ?? 0) + 1];
@@ -2301,7 +2303,7 @@ class PlatformOutreachService
         }
         usort($byStaff, static fn ($a, $b) => $b['count'] <=> $a['count']);
         $staffList = $all ? array_map(static fn ($r) => ['staff_id' => (int) $r['user_id'], 'name' => (string) $r['name']], $this->q("SELECT user_id, MAX(user_name) name FROM platform_desk_actions WHERE action='contacted' AND user_id IS NOT NULL GROUP BY user_id ORDER BY name")->fetchAll(PDO::FETCH_ASSOC)) : [];
-        return ['from' => $from, 'to' => $to, 'total' => count($rows), 'days' => $out, 'by_staff' => array_values($byStaff), 'staff' => $staffList, 'truncated' => count($rows) >= 2000];
+        return ['from' => $from, 'to' => $to, 'total' => count($rows), 'days' => $out, 'by_staff' => array_values($byStaff), 'staff' => $staffList, 'truncated' => count($rows) >= 2000, 'lost_reasons' => self::LOST_REASONS];
     }
 
     /**

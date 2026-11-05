@@ -697,6 +697,20 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame(0, $this->svc->deskSent(['from' => '2020-01-01', 'to' => '2020-01-02'], $sara, false)['total']);
     }
 
+    public function testSentListCarriesThePhoneInternationalFormatLostReasonAndFollowupSoTheSentPageCanRecordAResultInline(): void
+    {
+        [$sara] = $this->twoUsers();
+        $a = $this->lead('Sentlist Reason Tours', 'EG', '+20 101 560 2770');
+        $this->svc->deskAction($a, 'contacted', '', $sara, 'Sara');
+        $this->svc->deskAction($a, 'not_interested', 'too pricey', $sara, 'Sara', false, 'price', date('Y-m-d H:i:s', strtotime('+1 day')));
+        $r = $this->svc->deskSent(['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'q' => 'Sentlist Reason'], $sara, false);
+        $item = $r['days'][0]['items'][0];
+        $this->assertSame('+201015602770', $item['phone_intl']);
+        $this->assertSame('price', $item['reason']);
+        $this->assertNotNull($item['followup_at']);
+        $this->assertArrayHasKey('price', $r['lost_reasons']);
+    }
+
     public function testLeadsAlreadyEmailedGetTheirGoogleDataRefreshedWithoutChangingTheirEmailTrack(): void
     {
         $id = $this->lead('Refresh Sent Tours', 'EG', '+201000000091', ['step' => 1, 'track' => 'seo']);

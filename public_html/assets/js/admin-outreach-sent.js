@@ -6,15 +6,25 @@
     const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
     const KIND = { first: 'أول رسالة', followup: 'متابعة' };
+    const ACTIONS = [
+        ['contacted', '✅ بعتّ تاني'], ['replied', '💬 ردّوا'], ['interested', '🔥 مهتمين'], ['trial', '🧪 جرّبوا المنصة'], ['subscribed', '🎉 اشتركوا'],
+        ['call_back', '⏰ أكلمهم تاني'], ['not_interested', '🚫 مش مهتمين'], ['wrong_number', '📵 الرقم غلط'],
+    ];
     const RESULT_CLS = { replied: 'green', interested: 'green', trial: 'green', subscribed: 'green', not_interested: 'dim', wrong_number: 'dim' };
-    let P, root, data = null, busy = false;
+    const RESULT_LABEL = { contacted: 'اتبعتلها', replied: 'ردّت', interested: 'مهتمة', trial: 'جرّبت المنصة', subscribed: 'اشتركت', call_back: 'هنكلمها تاني', not_interested: 'مش مهتمة', wrong_number: 'الرقم غلط' };
+    let P, root, data = null, busy = false, csrf = '', canManage = false, lostReasons = {}, openRow = null;
     const today = () => ymd(new Date());
     const f = { from: today(), to: today(), staff_id: '', country: '', q: '' };
 
-    const api = async url => {
-        const r = await P.fetchJSON(url);
+    const api = async (url, body) => {
+        const r = await P.fetchJSON(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, csrf_token: csrf }) } : undefined);
         if (!r?.success) throw new Error(r?.error || 'حصلت مشكلة');
         return r.data;
+    };
+    const toast = (msg, bad) => {
+        const el = root.querySelector('#snMsg'); if (!el) return;
+        el.textContent = msg; el.className = 'dk-msg' + (bad ? ' bad' : ''); el.hidden = !msg;
+        clearTimeout(toast.t); if (msg) toast.t = setTimeout(() => { el.hidden = true; }, 2600);
     };
     const dayLabel = d => {
         const t = new Date(d + 'T00:00:00'), diff = Math.round((new Date(today() + 'T00:00:00') - t) / 86400000);
@@ -26,11 +36,21 @@
         return [['اليوم', today(), today()], ['أمس', ymd(addDays(t, -1)), ymd(addDays(t, -1))], ['آخر 7 أيام', ymd(addDays(t, -6)), today()], ['آخر 30 يوم', ymd(addDays(t, -29)), today()]];
     };
 
+    const actPanel = x => {
+        const reasonOpts = Object.entries(lostReasons).map(([k, l]) => `<option value="${k}" ${x.reason === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
+        return `<div class="dk-result"><div class="dk-phone"><b dir="ltr">${esc(x.phone_intl || x.phone)}</b>${x.phone_intl ? `<a class="dk-btn green" href="https://wa.me/${esc(x.phone_intl.replace('+', ''))}" target="_blank" rel="noopener noreferrer">💬 افتح واتساب</a>` : ''}</div>
+            <div class="dk-actions">${ACTIONS.map(([k, l]) => `<button class="dk-btn ${x.result === k ? 'on' : ''}" data-sn-act="${k}">${l}</button>`).join('')}</div>
+            <select class="dk-reason" data-sn-reason ${x.result === 'not_interested' ? '' : 'hidden'}><option value="">سبب الرفض…</option>${reasonOpts}</select>
+            <input class="dk-note" data-sn-note placeholder="ملاحظة" maxlength="500" value="${esc(x.note || '')}">
+            <label class="dk-followup-l">📅 موعد متابعة مخصّص (اختياري)<input type="datetime-local" data-sn-followup value="${x.followup_at ? esc(String(x.followup_at).replace(' ', 'T').slice(0, 16)) : ''}"></label></div>`;
+    };
     const dayTable = (day, all) => `<section class="dk-day"><h3>${esc(dayLabel(day.date))} <small>(${num(day.count)} رسالة)</small></h3>
-        <div class="dk-scroll"><table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>البلد</th><th>الرقم</th>${all ? '<th>مين بعت</th>' : ''}<th>النوع</th><th>النتيجة</th><th>ملاحظة</th><th>تفاصيل</th></tr></thead><tbody>
-        ${day.items.map(x => `<tr><td data-l="الوقت">${esc(x.at)}</td><td data-l="الشركة"><b>${esc(x.company)}</b></td><td data-l="البلد">${esc([x.country, x.city].filter(Boolean).join(' · '))}</td><td data-l="الرقم" dir="ltr">${esc(x.phone)}</td>${all ? `<td data-l="مين بعت">${esc(x.staff)}</td>` : ''}
+        <div class="dk-scroll"><table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>البلد</th><th>الرقم</th>${all ? '<th>مين بعت</th>' : ''}<th>النوع</th><th>النتيجة</th><th>ملاحظة</th><th>تفاصيل</th><th></th></tr></thead><tbody>
+        ${day.items.map(x => `<tr data-row="${x.lead_id}"><td data-l="الوقت">${esc(x.at)}</td><td data-l="الشركة"><b>${esc(x.company)}</b></td><td data-l="البلد">${esc([x.country, x.city].filter(Boolean).join(' · '))}</td><td data-l="الرقم" dir="ltr">${esc(x.phone)}</td>${all ? `<td data-l="مين بعت">${esc(x.staff)}</td>` : ''}
             <td data-l="النوع"><span class="dk-b ${x.kind === 'followup' ? 'hot' : ''}">${KIND[x.kind]}</span></td><td data-l="النتيجة">${x.result && x.result !== 'contacted' ? `<span class="dk-b ${RESULT_CLS[x.result] || ''}">${esc(x.result_label)}</span>` : '<span class="dk-muted">لسه من غير رد</span>'}</td>
-            <td data-l="ملاحظة">${esc(x.note)}</td><td data-l="تفاصيل" class="dk-sm">${x.email_step > 0 ? 'اتبعتلها إيميل ' + x.email_step : 'من غير إيميل'}${x.report_viewed ? ' · فتحت التقرير' : ''} · <a href="${esc(x.report_url)}" target="_blank" rel="noopener noreferrer">التقرير ↗</a></td></tr>`).join('')}
+            <td data-l="ملاحظة">${esc(x.note)}</td><td data-l="تفاصيل" class="dk-sm">${x.email_step > 0 ? 'اتبعتلها إيميل ' + x.email_step : 'من غير إيميل'}${x.report_viewed ? ' · فتحت التقرير' : ''} · <a href="${esc(x.report_url)}" target="_blank" rel="noopener noreferrer">التقرير ↗</a></td>
+            <td><button class="dk-btn xs" data-sn-toggle="${x.lead_id}">▾ تسجيل نتيجة</button></td></tr>
+            <tr class="dk-act-row" data-act-row="${x.lead_id}" ${openRow === x.lead_id ? '' : 'hidden'}><td colspan="20">${actPanel(x)}</td></tr>`).join('')}
         </tbody></table></div></section>`;
 
     const render = () => {
@@ -62,15 +82,38 @@
         try {
             const q = new URLSearchParams({ from: f.from, to: f.to, staff_id: f.staff_id, country: f.country, q: f.q });
             data = await api('/api/admin/outreach-desk/sent?' + q.toString());
-            f.from = data.from; f.to = data.to;
+            f.from = data.from; f.to = data.to; csrf = data.csrf_token || csrf; canManage = !!data.can_manage; lostReasons = data.lost_reasons || lostReasons;
             render();
         } catch (e) { const m = root.querySelector('#snMsg'); if (m) { m.textContent = e.message; m.hidden = false; } else root.innerHTML = `<p class="dk-msg bad">${esc(e.message)}</p>`; }
         finally { busy = false; }
     };
 
+    const findItem = id => { for (const d of data.days) { const x = d.items.find(i => i.lead_id === id); if (x) return x; } return null; };
+    const mark = async (id, action, note, reason, followupAt) => {
+        const r = await api('/api/admin/outreach-desk/leads/' + id + '/action', { action, note, reason: reason || '', followup_at: followupAt || '' });
+        const x = findItem(id); if (!x) return;
+        x.result = r.action || ''; x.result_label = r.action ? (RESULT_LABEL[r.action] || r.action) : ''; x.note = r.note || ''; x.reason = r.reason || null; x.followup_at = r.followup_at || null;
+        openRow = id; render();
+        toast('اتسجّل ✅');
+    };
     const bind = () => {
         root.addEventListener('click', async e => {
             const t = e.target.closest('button'); if (!t) return;
+            if (t.dataset.snToggle !== undefined) { const id = Number(t.dataset.snToggle); openRow = openRow === id ? null : id; return render(); }
+            if (t.dataset.snAct) {
+                const action = t.dataset.snAct, row = t.closest('[data-act-row]'), id = Number(row.dataset.actRow);
+                const note = row.querySelector('[data-sn-note]')?.value || '', followupAt = (row.querySelector('[data-sn-followup]')?.value || '').replace('T', ' ');
+                let reason = '';
+                if (action === 'not_interested') {
+                    const sel = row.querySelector('[data-sn-reason]');
+                    if (sel.hidden) { sel.hidden = false; toast('اختاري سبب الرفض وبعدين دوسي تاني', true); return; }
+                    reason = sel.value;
+                    if (!reason) { toast('لازم تختاري سبب الرفض', true); return; }
+                }
+                t.disabled = true;
+                try { await mark(id, action, note, reason, followupAt); } catch (err) { toast(err.message, true); } finally { t.disabled = false; }
+                return;
+            }
             if (t.dataset.preset) { [f.from, f.to] = t.dataset.preset.split('|'); return load(); }
             if (t.dataset.staff !== undefined) { f.staff_id = String(f.staff_id) === t.dataset.staff ? '' : t.dataset.staff; return load(); }
             if (t.dataset.export !== undefined) return csv();

@@ -467,7 +467,7 @@ class PlatformOutreachController extends Controller
         try {
             $all = $this->canSeeTeam();
             $r = $this->service()->deskSent(['from' => $this->get('from', ''), 'to' => $this->get('to', ''), 'staff_id' => $this->get('staff_id', 0), 'country' => strtoupper((string) $this->get('country', '')), 'q' => $this->get('q', '')], (int) ($this->user['id'] ?? 0), $all);
-            return $this->success($r + ['all' => $all]);
+            return $this->success($r + ['all' => $all, 'csrf_token' => Csrf::token(), 'can_manage' => $all]);
         } catch (Throwable $e) {
             Logger::error('Outreach desk sent failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل المرسول لهم', 503);

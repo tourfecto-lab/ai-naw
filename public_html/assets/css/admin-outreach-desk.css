@@ -102,3 +102,7 @@
 .dk-goal{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-radius:10px;background:rgba(47,158,106,.08);border:1px solid rgba(47,158,106,.3)}
 .dk-goal-track{flex:1;min-width:120px;height:8px;border-radius:999px;background:rgba(128,128,128,.2);overflow:hidden}
 .dk-goal-fill{height:100%;background:#2f9e6a;border-radius:999px;transition:width .3s}
+.dk-act-row td{background:var(--panel-card-bg-2,rgba(128,128,128,.06));padding:12px}
+.dk-act-row .dk-result{margin-top:0;padding-top:0;border-top:0}
+.dk-act-row .dk-phone{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+@media (max-width:640px){.dk-act-row td{display:table-cell!important}.dk-act-row td::before{content:none!important}}
