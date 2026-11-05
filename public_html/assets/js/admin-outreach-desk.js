@@ -368,7 +368,7 @@
             <div class="dk-cam-view ${wiz.mirror ? 'mirror' : ''}"><video autoplay playsinline muted></video><div class="dk-cam-frame ${step === 'photo' ? 'oval' : ''}"></div></div>
             <p class="dk-cam-msg ${bad ? 'bad' : ''}">${esc(text || st.idle)}</p><p class="dk-cam-hint"></p>
             <div class="dk-cam-actions"><label class="dk-btn">🖼️ اختيار صورة من الجهاز<input type="file" accept="image/*" ${step === 'photo' ? 'capture="user"' : 'capture="environment"'} hidden data-wz-file></label>
-            ${step === 'front' ? '<button class="dk-btn" data-wz-manual>✍️ كتابة البيانات يدويًا</button>' : '<button class="dk-btn" data-wz-skip>تخطّي</button>'}</div></div>`;
+            ${step === 'front' ? '<button class="dk-btn" data-wz-manual>✍️ كتابة البيانات يدويًا</button>' : (step === 'back' ? '<button class="dk-btn" data-wz-skip>تخطّي</button>' : '')}</div></div>`;
         try {
             wiz.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: st.cam }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
             const v = wiz.el.querySelector('video'); v.srcObject = wiz.stream;
