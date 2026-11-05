@@ -241,7 +241,7 @@
             if (!still && !clip) return `<div class="dk-doc none"><span>${label}: لسه</span></div>`;
             // الصورة دايمًا هي اللي بتبان أول حاجة (الوش واضح على طول يتأكّد منه نظرة واحدة)؛ الفيديو زرار منفصل جنبها، مش بيغطّيها بعلامة التشغيل
             const media = still
-                ? `<a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}" loading="lazy"></a>`
+                ? `<a href="${docUrl(side)}" target="_blank" rel="noopener noreferrer"><img src="${docUrl(side)}" alt="${label}"></a>`
                 : `<video controls preload="none" playsinline src="${docUrl(CLIP[side])}"></video>`;
             return `<div class="dk-doc">${media}<span>${label} · ${esc(String(clip || still).slice(0, 10))}${clip && still ? ` · <a href="${docUrl(CLIP[side])}" target="_blank" rel="noopener noreferrer">🎥 الفيديو</a>` : ''}</span><span class="dk-delrow">${clip ? del(`data-del-side="${CLIP[side]}"`, 'الفيديو') : ''}${still ? del(`data-del-side="${side}"`, 'الصورة') : ''}</span></div>`;
         };
@@ -365,7 +365,7 @@
     const wizStart = async (step, text, bad) => {
         wizStop(); wiz.step = step; wiz.busy = false; wiz.prev = null; wiz.still = 0; wiz.best = 0; wiz.seen = 0; wiz.t0 = Date.now(); wiz.mirror = STEPS[step].cam === 'user';
         const st = STEPS[step];
-        wiz.el.innerHTML = `<div class="dk-cam-box"><button class="dk-btn" data-wz-close>✕ إغلاق</button><h3>${esc(st.title)}</h3>
+        wiz.el.innerHTML = `<div class="dk-cam-box">${step === 'photo' ? '' : `<button class="dk-btn" data-wz-close>✕ إغلاق</button>`}<h3>${esc(st.title)}</h3>
             <div class="dk-cam-view ${wiz.mirror ? 'mirror' : ''}"><video autoplay playsinline muted></video><div class="dk-cam-frame ${step === 'photo' ? 'oval' : ''}"></div></div>
             <p class="dk-cam-msg ${bad ? 'bad' : ''}">${esc(text || st.idle)}</p><p class="dk-cam-hint"></p>
             <div class="dk-cam-actions">${step === 'photo' ? '' : `<label class="dk-btn">🖼️ اختيار صورة من الجهاز<input type="file" accept="image/*" capture="environment" hidden data-wz-file></label>`}
