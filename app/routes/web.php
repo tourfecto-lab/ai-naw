@@ -205,6 +205,7 @@ $router->get('/crm/automation', 'CrmController', 'showAutomation', ['AuthMiddlew
 $router->get('/crm/team', 'CrmController', 'showTeam', ['AuthMiddleware']);
 $router->get('/crm/reports', 'CrmController', 'showReports', ['AuthMiddleware']);
 $router->get('/crm/templates', 'CrmController', 'showTemplates', ['AuthMiddleware']);
+$router->get('/crm/custom-fields', 'CrmController', 'showCustomFields', ['AuthMiddleware']);
 $router->get('/gbp-content', 'GoogleBusinessContentController', 'index', ['AuthMiddleware']);
 $router->get('/review-requests', 'ReviewRequestController', 'index', ['AuthMiddleware']);
 // مركز الأتمتة: أوضاع الخدمات + صندوق الموافقات الموحّد

@@ -46,6 +46,7 @@ class CrmController extends Controller
             'automation' => [$this->tr('crm.tab.automation'), '/crm/automation'],
             'sequences'=>[(function_exists('current_lang')&&current_lang()!=='ar'?'Follow-up sequences':'تسلسلات المتابعة'),'/crm/sequences'],
             'templates' => [$this->tr('crm.templates.title'), '/crm/templates'],
+            'custom-fields' => [$this->tr('crm.custom_fields.title'), '/crm/custom-fields'],
             'team' => [$this->tr('crm.tab.team'), '/crm/team'],
             'reports' => [$this->tr('crm.tab.reports'), '/crm/reports'],
         ];
@@ -1103,6 +1104,36 @@ HTML;
         }
     };
 
+    async function loadCustomFields() {
+        const box = document.getElementById('cfValuesBox');
+        if (!box) return;
+        const res = await fetchJSON('/api/crm/entities/contact/' + contactId + '/custom-fields');
+        const list = res.success ? (res.data.fields || []) : [];
+        if (!list.length) { box.closest('.p-card').style.display = 'none'; return; }
+        box.innerHTML = list.map(f => {
+            const id = 'cf_' + esc(f.field_key);
+            const val = f.value === null || f.value === undefined ? '' : String(f.value);
+            let input;
+            if (f.field_type === 'select') {
+                input = `<select class="form-control cf-input" data-key="${esc(f.field_key)}" id="${id}"><option value=""></option>${(f.options || []).map(o => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+            } else {
+                const type = f.field_type === 'number' ? 'number' : (f.field_type === 'date' ? 'date' : 'text');
+                input = `<input type="${type}" ${type === 'number' ? 'step="any"' : ''} class="form-control cf-input" data-key="${esc(f.field_key)}" id="${id}" value="${esc(val)}">`;
+            }
+            return `<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;"><label for="${id}" style="min-width:160px;margin:0;">${esc(f.label)}</label>${input}</div>`;
+        }).join('');
+    }
+
+    window.saveCustomFieldValues = async function () {
+        const values = {};
+        document.querySelectorAll('#cfValuesBox .cf-input').forEach(el => { values[el.dataset.key] = el.value; });
+        const res = await fetchJSON('/api/crm/entities/contact/' + contactId + '/custom-fields', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values }),
+        });
+        if (res.success) toast(I18N['crm.custom_fields.values_saved'], 'success');
+        else toast(res.error || '-', 'error');
+    };
+
     async function loadCommStatus() {
         const res = await fetchJSON('/api/crm/communication/status');
         const note = document.getElementById('commStatusNote');
@@ -1128,6 +1159,14 @@ HTML;
             <h2 style="margin:0 0 6px;">${esc(c.name)}</h2>
             <div class="p-cell-muted">${esc(c.email || '-')} · ${esc(c.phone || '-')} · ${esc(c.country || '')}</div>
             <div style="margin-top:8px;"><span class="p-badge">${esc(c.status)}</span> <span class="p-badge">${esc(c.source || '')}</span> ${d.company ? '<span class="p-badge gold">' + esc(d.company.name) + '</span>' : ''}</div>
+        </div>`;
+
+        html += `<div class="p-card" style="margin-bottom:14px;padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h3 style="margin:0;">${I18N['crm.custom_fields.title']}</h3>
+                <button class="p-btn xs primary" onclick="saveCustomFieldValues()">${I18N['common.save']}</button>
+            </div>
+            <div id="cfValuesBox"></div>
         </div>`;
 
         html += `<div class="p-card" style="margin-bottom:14px;padding:20px;">
@@ -1180,6 +1219,7 @@ HTML;
 
         root.innerHTML = html;
         loadCommStatus();
+        loadCustomFields();
     }
     load();
 })();
@@ -2215,6 +2255,128 @@ JS;
 
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderPanelPage('crm', $this->tr('crm.team.title'), $this->tr('crm.team.subtitle'), $body, $script);
+        exit;
+    }
+
+    /** GET /crm/custom-fields - تعريف الحقول المخصصة لجهات الاتصال والعملاء والصفقات والشركات */
+    public function showCustomFields(array $params = []): array
+    {
+        $tabsHtml = $this->crmTabsHtml('custom-fields');
+        $body = <<<HTML
+        {$tabsHtml}
+        <div class="p-card" style="padding:18px;margin-bottom:16px;">
+            <h3 style="margin-top:0;" id="cfFormTitle">{$this->tr('crm.custom_fields.new')}</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                <select id="cfEntity" class="form-control" style="width:160px;" aria-label="{$this->tr('crm.custom_fields.entity_type')}">
+                    <option value="contact">{$this->tr('crm.custom_fields.entity_type.contact')}</option>
+                    <option value="lead">{$this->tr('crm.custom_fields.entity_type.lead')}</option>
+                    <option value="deal">{$this->tr('crm.custom_fields.entity_type.deal')}</option>
+                    <option value="company">{$this->tr('crm.custom_fields.entity_type.company')}</option>
+                </select>
+                <input type="text" id="cfKey" class="form-control" style="width:200px;direction:ltr;" placeholder="{$this->tr('crm.custom_fields.field_key')}" maxlength="60">
+                <input type="text" id="cfLabel" class="form-control" style="width:220px;" placeholder="{$this->tr('crm.custom_fields.label')}" maxlength="150">
+                <select id="cfType" class="form-control" style="width:160px;" aria-label="{$this->tr('crm.custom_fields.field_type')}" onchange="onCfType()">
+                    <option value="text">{$this->tr('crm.custom_fields.field_type.text')}</option>
+                    <option value="number">{$this->tr('crm.custom_fields.field_type.number')}</option>
+                    <option value="date">{$this->tr('crm.custom_fields.field_type.date')}</option>
+                    <option value="select">{$this->tr('crm.custom_fields.field_type.select')}</option>
+                </select>
+            </div>
+            <textarea id="cfOptions" class="form-control" rows="3" style="display:none;margin-bottom:10px;" placeholder="{$this->tr('crm.custom_fields.options')}"></textarea>
+            <button class="p-btn primary" onclick="saveCustomField()">{$this->tr('common.save')}</button>
+            <button class="p-btn" id="cfCancel" style="display:none;" onclick="resetCfForm()">{$this->tr('common.cancel')}</button>
+        </div>
+        <div class="p-card no-pad">
+            <div class="p-table-scroll"><table class="p-table" id="cfTable">
+                <thead><tr><th>{$this->tr('crm.custom_fields.entity_type')}</th><th>{$this->tr('crm.custom_fields.label')}</th><th>{$this->tr('crm.custom_fields.field_key')}</th><th>{$this->tr('crm.custom_fields.field_type')}</th><th></th></tr></thead>
+                <tbody><tr class="p-loading-row"><td colspan="5">{$this->tr('common.loading')}</td></tr></tbody>
+            </table></div>
+        </div>
+HTML;
+
+        $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    let fields = [];
+    let editingId = null;
+    const parseOptions = f => { try { return JSON.parse(f.options || '[]') || []; } catch (e) { return []; } };
+
+    window.onCfType = function () {
+        document.getElementById('cfOptions').style.display = document.getElementById('cfType').value === 'select' ? '' : 'none';
+    };
+
+    window.resetCfForm = function () {
+        editingId = null;
+        ['cfKey', 'cfLabel', 'cfOptions'].forEach(id => { document.getElementById(id).value = ''; });
+        ['cfEntity', 'cfKey', 'cfType'].forEach(id => { document.getElementById(id).disabled = false; });
+        document.getElementById('cfFormTitle').textContent = I18N['crm.custom_fields.new'];
+        document.getElementById('cfCancel').style.display = 'none';
+        onCfType();
+    };
+
+    window.saveCustomField = async function () {
+        const label = document.getElementById('cfLabel').value.trim();
+        const key = document.getElementById('cfKey').value.trim();
+        if (!label || (!editingId && !key)) { toast(I18N['crm.custom_fields.label'] + ' / ' + I18N['crm.custom_fields.field_key'], 'error'); return; }
+        const type = document.getElementById('cfType').value;
+        const payload = { label, options: type === 'select' ? document.getElementById('cfOptions').value : '' };
+        if (!editingId) {
+            payload.entity_type = document.getElementById('cfEntity').value;
+            payload.field_key = key;
+            payload.field_type = type;
+        }
+        const res = await fetchJSON(editingId ? '/api/crm/custom-fields/' + editingId : '/api/crm/custom-fields', {
+            method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        if (res.success) { toast(I18N[editingId ? 'crm.custom_fields.updated' : 'crm.custom_fields.created'], 'success'); resetCfForm(); load(); }
+        else toast(res.error || '-', 'error');
+    };
+
+    window.editCustomField = function (id) {
+        const f = fields.find(x => Number(x.id) === Number(id));
+        if (!f) return;
+        editingId = Number(f.id);
+        document.getElementById('cfEntity').value = f.entity_type;
+        document.getElementById('cfKey').value = f.field_key;
+        document.getElementById('cfLabel').value = f.label;
+        document.getElementById('cfType').value = f.field_type;
+        document.getElementById('cfOptions').value = parseOptions(f).join('\n');
+        ['cfEntity', 'cfKey', 'cfType'].forEach(i => { document.getElementById(i).disabled = true; });
+        document.getElementById('cfFormTitle').textContent = I18N['common.edit'] + ': ' + f.label;
+        document.getElementById('cfCancel').style.display = '';
+        onCfType();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.deleteCustomField = async function (id) {
+        const res = await fetchJSON('/api/crm/custom-fields/' + id, { method: 'DELETE' });
+        if (res.success) { toast(I18N['crm.custom_fields.deleted'], 'success'); if (editingId === id) resetCfForm(); load(); }
+        else toast(res.error || '-', 'error');
+    };
+
+    async function load() {
+        const res = await fetchJSON('/api/crm/custom-fields');
+        const tbody = document.querySelector('#cfTable tbody');
+        if (!res.success) { tbody.innerHTML = `<tr><td colspan="5" class="p-cell-muted">${esc(res.error || '-')}</td></tr>`; return; }
+        fields = res.data.fields || [];
+        tbody.innerHTML = fields.length ? fields.map(f => `<tr>
+            <td><span class="p-badge">${esc(I18N['crm.custom_fields.entity_type.' + f.entity_type] || f.entity_type)}</span></td>
+            <td>${esc(f.label)}</td>
+            <td style="direction:ltr;text-align:left;">${esc(f.field_key)}</td>
+            <td>${esc(I18N['crm.custom_fields.field_type.' + f.field_type] || f.field_type)}${f.field_type === 'select' ? ' (' + parseOptions(f).length + ')' : ''}</td>
+            <td style="white-space:nowrap;">
+                <button class="p-btn xs" onclick="editCustomField(${Number(f.id)})">${I18N['common.edit']}</button>
+                <button class="p-btn xs" onclick="deleteCustomField(${Number(f.id)})">${I18N['common.delete']}</button>
+            </td></tr>`).join('') : `<tr><td colspan="5" class="p-cell-muted text-center">${I18N['crm.custom_fields.empty']}</td></tr>`;
+    }
+    onCfType();
+    load();
+})();
+JS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('crm', $this->tr('crm.custom_fields.title'), $this->tr('crm.custom_fields.subtitle'), $body, $script);
         exit;
     }
 

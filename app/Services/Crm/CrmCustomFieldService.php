@@ -146,6 +146,7 @@ class CrmCustomFieldService
                 'field_key' => $field['field_key'],
                 'label' => $field['label'],
                 'field_type' => $field['field_type'],
+                'options' => $field['field_type'] === 'select' ? (json_decode((string) ($field['options'] ?? ''), true) ?: []) : [],
                 'value' => $values[$fieldId] ?? null,
             ];
         }
