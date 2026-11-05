@@ -367,7 +367,7 @@
         wiz.el.innerHTML = `<div class="dk-cam-box"><button class="dk-btn" data-wz-close>✕ إغلاق</button><h3>${esc(st.title)}</h3>
             <div class="dk-cam-view ${wiz.mirror ? 'mirror' : ''}"><video autoplay playsinline muted></video><div class="dk-cam-frame ${step === 'photo' ? 'oval' : ''}"></div></div>
             <p class="dk-cam-msg ${bad ? 'bad' : ''}">${esc(text || st.idle)}</p><p class="dk-cam-hint"></p>
-            <div class="dk-cam-actions"><label class="dk-btn">🖼️ اختيار صورة من الجهاز<input type="file" accept="image/*" ${step === 'photo' ? 'capture="user"' : 'capture="environment"'} hidden data-wz-file></label>
+            <div class="dk-cam-actions">${step === 'photo' ? '' : `<label class="dk-btn">🖼️ اختيار صورة من الجهاز<input type="file" accept="image/*" capture="environment" hidden data-wz-file></label>`}
             ${step === 'front' ? '<button class="dk-btn" data-wz-manual>✍️ كتابة البيانات يدويًا</button>' : (step === 'back' ? '<button class="dk-btn" data-wz-skip>تخطّي</button>' : '')}</div></div>`;
         try {
             wiz.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: st.cam }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
@@ -375,8 +375,9 @@
             try { await wiz.stream.getVideoTracks()[0].applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) { /* مش كل الكاميرات بتدعم ضبط الفوكس */ }
             wiz.timer = setInterval(wizTick, WIZ.tickMs); wizRecStart();
         } catch (e) {
-            wizMsg('الكاميرا مش متاحة أو الإذن اتمنع: اختيار صورة من الجهاز', true);
-            wiz.el.querySelector('.dk-cam-view').hidden = true;
+            // السلفي لازم يكون كاميرا حية فعلًا: لو اتمنعت، مفيش بديل باختيار صورة
+            wizMsg(step === 'photo' ? 'الكاميرا مش متاحة أو الإذن اتمنع: الصورة الشخصية لازم تتصوّر لايف، لازم تدّي إذن الكاميرا وتجرّب تاني' : 'الكاميرا مش متاحة أو الإذن اتمنع: اختيار صورة من الجهاز', true);
+            wiz.el.querySelector('.dk-cam-view').hidden = step !== 'photo';
         }
     };
     const wizTick = async () => {
