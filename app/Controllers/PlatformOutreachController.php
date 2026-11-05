@@ -228,7 +228,12 @@ class PlatformOutreachController extends Controller
                 return $this->error('لازم صورة واحدة على الأقل', 422);
             }
             Logger::info('Staff ID card uploaded', ['by' => $me, 'for' => $uid, 'sides' => $saved]);
-            return $this->success(['id_card' => $s->staffIdCardStatus($uid), 'extract' => in_array('front', $saved, true) ? $s->staffIdCardExtract($uid) : null]);
+            $status = $s->staffIdCardStatus($uid);
+            // رد الرفع بيوصل لمتصفح الموظف: مين عدا مالك المنصة ما يشوفش حتى في شبكة المتصفح إن فيديو اتسجّل
+            if (!$this->canManageTeam()) {
+                $status = array_intersect_key($status, array_flip(['front', 'back', 'photo']));
+            }
+            return $this->success(['id_card' => $status, 'extract' => in_array('front', $saved, true) ? $s->staffIdCardExtract($uid) : null]);
         } catch (InvalidArgumentException $e) {
             return $this->error($e->getMessage(), 422);
         } catch (Throwable $e) {

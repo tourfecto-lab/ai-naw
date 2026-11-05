@@ -3122,8 +3122,8 @@ class PlatformOutreachService
             'month' => $month,
             'profile' => $this->staffProfile($userId, $revealProfile),
             // حالة رفع البطاقة والصورة لصاحب الملف ولمالك المنصة. الموقع (الإحداثيات والمسافة من العنوان) لمالك المنصة بس:
-            // الموظف بيعرف إنه اتسجّل ومش أكتر
-            'id_card' => $revealProfile ? $this->staffIdCardStatus($userId) : null,
+            // الموظف بيعرف إنه اتسجّل ومش أكتر - وحتى في رد الـ API نفسه (مش بس الشاشة) مابيوصلوش وقت فيديوهات الكاميرا، عشان محدش يلاقي دليل عليها بفتح أدوات المطوّر
+            'id_card' => $revealProfile ? ($revealLocation ? $this->staffIdCardStatus($userId) : array_intersect_key($this->staffIdCardStatus($userId), array_flip(['front', 'back', 'photo']))) : null,
             'location' => $revealLocation ? $this->staffLocation($userId) : null,
             'doc_views' => $revealLocation ? $this->staffDocViews($userId) : [],
             'id_history' => $revealLocation ? $this->staffIdCardHistory($userId) : [],

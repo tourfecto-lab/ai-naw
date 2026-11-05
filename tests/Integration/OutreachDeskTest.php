@@ -965,4 +965,18 @@ final class OutreachDeskTest extends TestCase
             $this->assertTrue(true);
         }
     }
+
+    public function testCameraClipTimestampsNeverReachAnEmployeesOwnApiResponseOnlyTheOwners(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-noleak@tourfecto.test']);
+        $this->svc->staffIdCardClipSave(self::STAFF_ID, 'fclip', "\x1A\x45\xDF\xA3" . str_repeat('v', 200));
+        $self = $this->svc->staffReport(self::STAFF_ID, date('Y-m'), 50.0, true, false);
+        $this->assertArrayHasKey('id_card', $self);
+        $this->assertArrayNotHasKey('fclip', $self['id_card'], 'a non-manager self-view never sees clip timing, even in the raw API payload');
+        $this->assertArrayNotHasKey('bclip', $self['id_card']);
+        $this->assertArrayNotHasKey('pclip', $self['id_card']);
+        $owner = $this->svc->staffReport(self::STAFF_ID, date('Y-m'), 50.0, true, true);
+        $this->assertArrayHasKey('fclip', $owner['id_card'], 'the owner view still carries it (shown as a video player)');
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+    }
 }
