@@ -45,6 +45,7 @@ class CrmController extends Controller
             'appointments' => [$this->tr('crm.tab.appointments'), '/crm/appointments'],
             'automation' => [$this->tr('crm.tab.automation'), '/crm/automation'],
             'sequences'=>[(function_exists('current_lang')&&current_lang()!=='ar'?'Follow-up sequences':'تسلسلات المتابعة'),'/crm/sequences'],
+            'templates' => [$this->tr('crm.templates.title'), '/crm/templates'],
             'team' => [$this->tr('crm.tab.team'), '/crm/team'],
             'reports' => [$this->tr('crm.tab.reports'), '/crm/reports'],
         ];
@@ -2214,6 +2215,151 @@ JS;
 
         header('Content-Type: text/html; charset=utf-8');
         echo $this->renderPanelPage('crm', $this->tr('crm.team.title'), $this->tr('crm.team.subtitle'), $body, $script);
+        exit;
+    }
+
+    /** GET /crm/templates - مكتبة قوالب الرسائل (واتساب/إيميل/SMS) */
+    public function showTemplates(array $params = []): array
+    {
+        $tabsHtml = $this->crmTabsHtml('templates');
+        $body = <<<HTML
+        {$tabsHtml}
+        <div class="p-card" style="padding:18px;margin-bottom:16px;">
+            <h3 style="margin-top:0;" id="tplFormTitle">{$this->tr('crm.templates.new')}</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                <select id="tplChannel" class="form-control" style="width:150px;" onchange="onTplChannel()">
+                    <option value="whatsapp">{$this->tr('crm.templates.channel.whatsapp')}</option>
+                    <option value="email">{$this->tr('crm.templates.channel.email')}</option>
+                    <option value="sms">{$this->tr('crm.templates.channel.sms')}</option>
+                </select>
+                <input type="text" id="tplName" class="form-control" style="width:240px;" placeholder="{$this->tr('crm.templates.name')}" maxlength="150">
+                <input type="text" id="tplSubject" class="form-control" style="flex:1;min-width:200px;display:none;" placeholder="{$this->tr('crm.templates.subject')}" maxlength="250">
+            </div>
+            <textarea id="tplBody" class="form-control" rows="5" placeholder="{$this->tr('crm.templates.body')}"></textarea>
+            <div style="margin:10px 0;">
+                <span class="p-cell-muted" style="font-size:12.5px;">{$this->tr('crm.templates.variables')}:</span>
+                <span id="tplVars"></span>
+            </div>
+            <button class="p-btn primary" onclick="saveTemplate()">{$this->tr('common.save')}</button>
+            <button class="p-btn" id="tplCancel" style="display:none;" onclick="resetTplForm()">{$this->tr('common.cancel')}</button>
+        </div>
+        <div class="p-card no-pad">
+            <div class="p-table-scroll"><table class="p-table" id="tplTable">
+                <thead><tr><th>{$this->tr('crm.templates.channel')}</th><th>{$this->tr('crm.templates.name')}</th><th>{$this->tr('crm.templates.body')}</th><th></th></tr></thead>
+                <tbody><tr class="p-loading-row"><td colspan="4">{$this->tr('common.loading')}</td></tr></tbody>
+            </table></div>
+        </div>
+        <div class="p-card" id="tplPreviewCard" style="padding:18px;margin-top:16px;display:none;">
+            <h3 style="margin-top:0;">{$this->tr('crm.templates.preview')}</h3>
+            <div id="tplPreview" style="white-space:pre-line;line-height:1.8;"></div>
+        </div>
+HTML;
+
+        $script = <<<'JS'
+(function () {
+    const P = window.Panel;
+    const esc = P.esc, fetchJSON = P.fetchJSON, toast = P.toast;
+    const CHANNELS = {
+        whatsapp: I18N['crm.templates.channel.whatsapp'], email: I18N['crm.templates.channel.email'], sms: I18N['crm.templates.channel.sms'],
+    };
+    const SAMPLE = { name: 'Ahmed', phone: '+201000000000', email: 'ahmed@example.com', company: 'Nile Tours', deal_title: 'Luxor 3 days', deal_value: '1500', currency: 'USD', signature: '—' };
+    let templates = [];
+    let editingId = null;
+
+    window.onTplChannel = function () {
+        document.getElementById('tplSubject').style.display = document.getElementById('tplChannel').value === 'email' ? '' : 'none';
+    };
+
+    window.resetTplForm = function () {
+        editingId = null;
+        ['tplName', 'tplSubject', 'tplBody'].forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('tplFormTitle').textContent = I18N['crm.templates.new'];
+        document.getElementById('tplCancel').style.display = 'none';
+        onTplChannel();
+    };
+
+    window.insertTplVar = function (key) {
+        const ta = document.getElementById('tplBody');
+        const tag = '{{' + key + '}}';
+        const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? ta.value.length;
+        ta.value = ta.value.slice(0, s) + tag + ta.value.slice(e);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = s + tag.length;
+    };
+
+    window.saveTemplate = async function () {
+        const name = document.getElementById('tplName').value.trim();
+        const body = document.getElementById('tplBody').value.trim();
+        if (!name) { toast(I18N['crm.templates.name_required'], 'error'); return; }
+        if (!body) { toast(I18N['crm.templates.body_required'], 'error'); return; }
+        const channel = document.getElementById('tplChannel').value;
+        const payload = { channel, name, body, subject: channel === 'email' ? document.getElementById('tplSubject').value.trim() : '' };
+        const res = await fetchJSON(editingId ? '/api/crm/templates/' + editingId : '/api/crm/templates', {
+            method: editingId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        if (res.success) { toast(I18N[editingId ? 'crm.templates.updated' : 'crm.templates.created'], 'success'); resetTplForm(); load(); }
+        else toast(res.error || '-', 'error');
+    };
+
+    window.editTemplate = function (id) {
+        const t = templates.find(x => Number(x.id) === Number(id));
+        if (!t) return;
+        editingId = Number(t.id);
+        document.getElementById('tplChannel').value = t.channel;
+        document.getElementById('tplName').value = t.name;
+        document.getElementById('tplSubject').value = t.subject || '';
+        document.getElementById('tplBody').value = t.body;
+        document.getElementById('tplFormTitle').textContent = I18N['common.edit'] + ': ' + t.name;
+        document.getElementById('tplCancel').style.display = '';
+        onTplChannel();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.deleteTemplate = async function (id) {
+        const res = await fetchJSON('/api/crm/templates/' + id, { method: 'DELETE' });
+        if (res.success) { toast(I18N['crm.templates.deleted'], 'success'); if (editingId === id) resetTplForm(); load(); }
+        else toast(res.error || '-', 'error');
+    };
+
+    window.previewTemplate = async function (id) {
+        const res = await fetchJSON('/api/crm/templates/' + id + '/render', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ context: SAMPLE }),
+        });
+        if (!res.success) { toast(res.error || '-', 'error'); return; }
+        document.getElementById('tplPreview').textContent = (res.data.subject ? res.data.subject + '\n\n' : '') + res.data.body;
+        document.getElementById('tplPreviewCard').style.display = '';
+    };
+
+    async function loadVars() {
+        const res = await fetchJSON('/api/crm/templates/variables');
+        if (!res.success) return;
+        document.getElementById('tplVars').innerHTML = res.data.variables.map(v =>
+            `<button type="button" class="p-btn xs" style="margin:0 3px;" onclick="insertTplVar('${esc(v.key)}')">${esc(I18N[v.label] || v.key)}</button>`).join('');
+    }
+
+    async function load() {
+        const res = await fetchJSON('/api/crm/templates');
+        const tbody = document.querySelector('#tplTable tbody');
+        if (!res.success) { tbody.innerHTML = `<tr><td colspan="4" class="p-cell-muted">${esc(res.error || '-')}</td></tr>`; return; }
+        templates = res.data.templates || [];
+        tbody.innerHTML = templates.length ? templates.map(t => `<tr>
+            <td><span class="p-badge">${esc(CHANNELS[t.channel] || t.channel)}</span></td>
+            <td>${esc(t.name)}</td>
+            <td style="max-width:420px;white-space:pre-line;">${esc(String(t.body).slice(0, 160))}</td>
+            <td style="white-space:nowrap;">
+                <button class="p-btn xs" onclick="previewTemplate(${Number(t.id)})">${I18N['crm.templates.preview']}</button>
+                <button class="p-btn xs" onclick="editTemplate(${Number(t.id)})">${I18N['common.edit']}</button>
+                <button class="p-btn xs" onclick="deleteTemplate(${Number(t.id)})">${I18N['common.delete']}</button>
+            </td></tr>`).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.templates.empty']}</td></tr>`;
+    }
+    onTplChannel();
+    loadVars();
+    load();
+})();
+JS;
+
+        header('Content-Type: text/html; charset=utf-8');
+        echo $this->renderPanelPage('crm', $this->tr('crm.templates.title'), $this->tr('crm.templates.subtitle'), $body, $script);
         exit;
     }
 

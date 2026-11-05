@@ -1502,7 +1502,7 @@ class CrmApiController extends Controller
         }
         try {
             $templates = $this->templateService->listForUser($this->tenantId(), (string) $this->get('channel', ''));
-            return $this->success(['templates' => array_map(fn ($t) => $t->toArray(), $templates)]);
+            return $this->success(['templates' => array_map(fn ($t) => is_array($t) ? $t : $t->toArray(), $templates)]);
         } catch (Exception $e) {
             return $this->handleException($e, 'listTemplates');
         }
