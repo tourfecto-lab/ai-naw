@@ -23,6 +23,9 @@ class MarketingAssistantService
         'campaign_ideas' => 'اقترح 5 أفكار حملة تسويقية إبداعية لـ: "%s".',
     ];
 
+    /** أقصى طول لوصف المستخدم (حماية من إدخال ضخم بيستهلك رصيد الذكاء الاصطناعي) */
+    public const MAX_INPUT_CHARS = 1000;
+
     public function __construct(?GeminiClient $ai = null)
     {
         $this->ai = $ai ?? new GeminiClient();
@@ -37,6 +40,14 @@ class MarketingAssistantService
     {
         if (!isset(self::PROMPTS[$type])) {
             throw new InvalidArgumentException("أداة غير معروفة: {$type}");
+        }
+
+        $input = trim($input);
+        if ($input === '') {
+            throw new InvalidArgumentException('اكتب وصف موجز قبل التوليد');
+        }
+        if (mb_strlen($input) > self::MAX_INPUT_CHARS) {
+            throw new InvalidArgumentException('الوصف طويل جدًا (الحد الأقصى ' . self::MAX_INPUT_CHARS . ' حرف)');
         }
 
         $language = ContentLanguageService::forUser($userId, $websiteId);

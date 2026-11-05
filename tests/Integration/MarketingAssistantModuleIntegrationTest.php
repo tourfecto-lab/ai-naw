@@ -258,6 +258,28 @@ final class MarketingAssistantModuleIntegrationTest extends TestCase
         $this->assertCount(0, $fake->calls, 'لا يجب استدعاء محرك AI لأداة غير معروفة');
     }
 
+    public function testRunRejectsEmptyOrOversizedInputWithoutCallingAi(): void
+    {
+        $fake = new MarketingFakeGemini();
+        $service = new MarketingAssistantService($fake);
+
+        foreach (['   ', str_repeat('ح', MarketingAssistantService::MAX_INPUT_CHARS + 1)] as $bad) {
+            try {
+                $service->run(999900, 'ad_copy', $bad);
+                $this->fail('يجب رفض الإدخال الفارغ أو الأطول من الحد');
+            } catch (InvalidArgumentException $e) {
+                $this->assertNotSame('', $e->getMessage());
+            }
+        }
+
+        $this->assertCount(0, $fake->calls, 'لا يجب استدعاء محرك AI لإدخال مرفوض');
+        $this->assertSame(0, $this->countInteractions());
+
+        // الحد نفسه مقبول
+        $service->run(999900, 'ad_copy', str_repeat('ح', MarketingAssistantService::MAX_INPUT_CHARS));
+        $this->assertCount(1, $fake->calls);
+    }
+
     public function testRunTruncatesTitleTo100Chars(): void
     {
         $fake = new MarketingFakeGemini(['success' => true, 'data' => 'x']);

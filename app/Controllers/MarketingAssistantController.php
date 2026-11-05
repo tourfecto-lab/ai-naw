@@ -39,7 +39,7 @@ class MarketingAssistantController extends Controller
         <div class="p-grid cols-4" style="margin-bottom:20px;">{$toolCards}</div>
         <div class="p-card" id="toolPanel" style="display:none;">
             <div class="p-card-head"><h3 id="toolTitle"></h3></div>
-            <textarea id="toolInput" rows="3" style="width:100%;" class="p-select" placeholder="اكتب وصف موجز..."></textarea>
+            <textarea id="toolInput" rows="3" maxlength="1000" style="width:100%;" class="p-select" placeholder="اكتب وصف موجز..."></textarea>
             <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="p-btn" id="toolRunBtn" onclick="runTool()">توليد</button>
                 <button class="p-btn outline" onclick="copyOutput()">نسخ الناتج</button>
@@ -106,11 +106,26 @@ HTML;
         }
     };
 
+    let historyRows = [];
+
+    // فتح ناتج قديم من السجل في نفس لوحة الأداة (للنسخ أو المراجعة)
+    window.showHistoryItem = function (index) {
+        const h = historyRows[index];
+        if (!h) return;
+        currentTool = h.type;
+        document.getElementById('toolTitle').textContent = h.type;
+        document.getElementById('toolPanel').style.display = 'block';
+        document.getElementById('toolInput').value = h.title || '';
+        document.getElementById('toolOutput').textContent = h.output || '';
+        document.getElementById('toolPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
     async function loadHistory() {
         const res = await fetchJSON('/api/marketing-assistant/history');
         const tbody = document.querySelector('#historyTable tbody');
         if (res.success && res.data.history && res.data.history.length) {
-            tbody.innerHTML = res.data.history.map(h => `<tr><td>${esc(h.type)}</td><td>${esc(h.title)}</td><td class="p-cell-muted">${esc(h.created_at)}</td></tr>`).join('');
+            historyRows = res.data.history;
+            tbody.innerHTML = historyRows.map((h, i) => `<tr style="cursor:pointer;" tabindex="0" onclick="showHistoryItem(${i})" onkeydown="if(event.key==='Enter')showHistoryItem(${i})"><td>${esc(h.type)}</td><td>${esc(h.title)}</td><td class="p-cell-muted">${esc(h.created_at)}</td></tr>`).join('');
         } else {
             tbody.innerHTML = '<tr><td colspan="3" class="p-cell-muted text-center">لا يوجد سجل بعد</td></tr>';
         }
