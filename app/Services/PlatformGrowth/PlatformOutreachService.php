@@ -2810,6 +2810,31 @@ class PlatformOutreachService
         return ['ok' => true, 'fields' => $fields];
     }
 
+    /**
+     * يتأكد إن الصورة الشخصية فيها فعلًا وش إنسان ظاهر (مش حيطة أو باب اتصوّر غلط لأن الكاميرا كانت لسه بتتوجّه): بالذكاء الاصطناعي.
+     * لو خدمة الذكاء الاصطناعي مش متاحة بيرجّع true (مابنوقفش الموظف بسبب عطل خدمة خارجية، الفحص ده تحسين مش شرط أساسي).
+     * @param callable|null $vision (binary, mime, prompt) => ['success'=>bool,'data'=>string]
+     */
+    public function staffSelfieHasFace(int $userId, ?callable $vision = null): bool
+    {
+        $card = $this->staffIdCardGet($userId, 'photo');
+        if (!$card) {
+            return false;
+        }
+        $prompt = 'Does this photo clearly show a real human face looking toward the camera (not a wall, door, floor, ceiling, or an empty/blurry scene)? Answer with ONLY one word: yes or no.';
+        try {
+            $vision ??= static fn (string $bin, string $mime, string $p) => (new GeminiClient())->describeImage($bin, $mime, $p, ['temperature' => 0]);
+            $r = $vision($card[1], $card[0], $prompt);
+        } catch (Throwable $e) {
+            Logger::warning('Selfie face check failed', ['error' => $e->getMessage()]);
+            return true;
+        }
+        if (empty($r['success'])) {
+            return true;
+        }
+        return str_starts_with(strtolower(trim((string) ($r['data'] ?? $r['text'] ?? ''))), 'yes');
+    }
+
     private static function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $a = sin(deg2rad($lat2 - $lat1) / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin(deg2rad($lng2 - $lng1) / 2) ** 2;

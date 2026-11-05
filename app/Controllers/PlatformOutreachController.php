@@ -224,6 +224,15 @@ class PlatformOutreachController extends Controller
                     }
                 }
             }
+            // الصورة الشخصية لازم يبان فيها وش فعلًا (مش حيطة ولا باب اتصوّر غلط وهي لسه بتتوجّه): لو مفيهاش وش بنمسحها ونطلب إعادة
+            if (in_array('photo', $saved, true) && !$s->staffSelfieHasFace($uid)) {
+                $s->staffIdCardDelete($uid, 'photo');
+                $s->staffIdCardDelete($uid, 'pclip');
+                $saved = array_values(array_diff($saved, ['photo', 'pclip']));
+                if (!$saved) {
+                    return $this->error('مش واضح وش في الصورة: يتصوّر تاني والوش واضح قدام الكاميرا', 422);
+                }
+            }
             if (!$saved) {
                 return $this->error('لازم صورة واحدة على الأقل', 422);
             }

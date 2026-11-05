@@ -979,4 +979,19 @@ final class OutreachDeskTest extends TestCase
         $this->assertArrayHasKey('fclip', $owner['id_card'], 'the owner view still carries it (shown as a video player)');
         $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
     }
+
+    public function testSelfieFaceCheckAcceptsARealFaceRejectsAnEmptySceneAndFailsOpenOnAnAiOutage(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-face@tourfecto.test']);
+        $this->assertFalse($this->svc->staffSelfieHasFace(self::STAFF_ID), 'no photo at all: nothing to check');
+        $img = imagecreatetruecolor(40, 30);
+        ob_start();
+        imagejpeg($img);
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'photo', (string) ob_get_clean());
+        $this->assertTrue($this->svc->staffSelfieHasFace(self::STAFF_ID, fn ($b, $m, $p) => ['success' => true, 'data' => 'yes, a clear face']));
+        $this->assertFalse($this->svc->staffSelfieHasFace(self::STAFF_ID, fn ($b, $m, $p) => ['success' => true, 'data' => 'no']));
+        $this->assertTrue($this->svc->staffSelfieHasFace(self::STAFF_ID, function () { throw new RuntimeException('down'); }), 'an AI outage never blocks the employee');
+        $this->assertTrue($this->svc->staffSelfieHasFace(self::STAFF_ID, fn ($b, $m, $p) => ['success' => false]), 'a failed check also fails open');
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+    }
 }
