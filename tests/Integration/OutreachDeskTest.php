@@ -41,6 +41,7 @@ final class OutreachDeskTest extends TestCase
         $this->db->query('DELETE FROM platform_staff_comp WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
         $this->db->query('DELETE FROM platform_staff_docs WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
         $this->db->query('DELETE FROM platform_staff_docs_history WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
+        $this->db->query('DELETE FROM admin_staff WHERE user_id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
         $this->db->query('DELETE FROM users WHERE id IN (?, ?)', [self::STAFF_ID, self::CUSTOMER_ID]);
     }
 
@@ -987,5 +988,42 @@ final class OutreachDeskTest extends TestCase
         $this->assertTrue($this->svc->staffSelfieHasFace(self::STAFF_ID, function () { throw new RuntimeException('down'); }), 'an AI outage never blocks the employee');
         $this->assertTrue($this->svc->staffSelfieHasFace(self::STAFF_ID, fn ($b, $m, $p) => ['success' => false]), 'a failed check also fails open');
         $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+    }
+
+    public function testSalesStaffIsBlockedFromTheDeskAfter24HoursWithoutIdCaptureAndUnblocksOnceDone(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-onboard@tourfecto.test']);
+        $this->db->query("INSERT INTO admin_staff (user_id, staff_role, created_at) VALUES (?, 'sales', NOW()) ON DUPLICATE KEY UPDATE staff_role='sales', created_at=VALUES(created_at)", [self::STAFF_ID]);
+        $this->assertFalse($this->svc->staffOnboardingBlocked(self::STAFF_ID), 'fresh hire: still within the 24h grace period');
+
+        $this->db->query('UPDATE admin_staff SET created_at = NOW() - INTERVAL 25 HOUR WHERE user_id = ?', [self::STAFF_ID]);
+        $this->assertTrue($this->svc->staffOnboardingBlocked(self::STAFF_ID), '25h in and no ID capture at all');
+        $r = $this->svc->deskLeads(['country' => 'EG'], ['name' => 'X', 'user_id' => self::STAFF_ID]);
+        $this->assertTrue($r['onboarding_blocked']);
+        $this->assertSame([], $r['rows']);
+        $this->assertSame(0, $r['total']);
+
+        $img = imagecreatetruecolor(40, 30);
+        ob_start();
+        imagejpeg($img);
+        $jpg = (string) ob_get_clean();
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'front', $jpg);
+        $this->assertTrue($this->svc->staffOnboardingBlocked(self::STAFF_ID), 'front only: selfie still missing');
+        $this->svc->staffIdCardSave(self::STAFF_ID, 'photo', $jpg);
+        $this->assertFalse($this->svc->staffOnboardingBlocked(self::STAFF_ID), 'both done: unblocked');
+        $r2 = $this->svc->deskLeads(['country' => 'EG'], ['name' => 'X', 'user_id' => self::STAFF_ID]);
+        $this->assertFalse($r2['onboarding_blocked']);
+
+        $this->assertFalse($this->svc->staffOnboardingBlocked(0), 'no user: never blocked');
+        $this->db->query('DELETE FROM platform_staff_docs WHERE user_id=?', [self::STAFF_ID]);
+        $this->db->query('DELETE FROM admin_staff WHERE user_id=?', [self::STAFF_ID]);
+    }
+
+    public function testOnboardingBlockOnlyAppliesToSalesStaffNeverOwnersOrOtherRoles(): void
+    {
+        $this->db->query("INSERT INTO users (id, email, password, company_name, created_at) VALUES (?, ?, 'x', 'Desk test', NOW()) ON DUPLICATE KEY UPDATE email = VALUES(email)", [self::STAFF_ID, 'desk-test-onboard2@tourfecto.test']);
+        $this->db->query("INSERT INTO admin_staff (user_id, staff_role, created_at) VALUES (?, 'support', NOW() - INTERVAL 48 HOUR) ON DUPLICATE KEY UPDATE staff_role='support', created_at=VALUES(created_at)", [self::STAFF_ID]);
+        $this->assertFalse($this->svc->staffOnboardingBlocked(self::STAFF_ID), 'support role: not a sales employee, never blocked');
+        $this->db->query('DELETE FROM admin_staff WHERE user_id=?', [self::STAFF_ID]);
     }
 }

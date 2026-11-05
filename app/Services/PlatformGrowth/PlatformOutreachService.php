@@ -2328,6 +2328,8 @@ class PlatformOutreachService
         }
         // الموظف العادي مابيشوفش شغل زمايله: الشركات اللي بعتلها غيره بتختفي من قايمته، ويشوف اللي بعتلهم هو بس. مين عنده صلاحية الفريق بيشوف الكل
         $me = (int) ($staff['user_id'] ?? 0);
+        // مرّ 24 ساعة على تعيينه موظف مبيعات ولسه مصوّرش البطاقة والصورة الشخصية: يوقف عن شغل المكتب (الشركات مختفية) لحد ما يصوّر
+        $onboardingBlocked = $me > 0 && $this->staffOnboardingBlocked($me);
         $mineOnly = $me > 0 && empty($staff['all']);
         if ($mineOnly) {
             if ($view === 'opened') {
@@ -2354,10 +2356,10 @@ class PlatformOutreachService
         $page = max(1, (int) ($f['page'] ?? 1));
         $per = 25;
         $w = implode(' AND ', $where);
-        $total = (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
+        $total = $onboardingBlocked ? 0 : (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
         // المتابعة: الأقدم أولًا (اللي استنّت أكتر)
         $order = $view === 'opened' ? 'report_last_at DESC, id DESC' : ($view === 'followup' ? 'desk_at ASC, id' : '(desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC');
-        $rows = $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY {$order} LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $onboardingBlocked ? [] : $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY {$order} LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
 
         $set = $this->getSettings();
         $set['ai_opener'] = '0'; // الرسالة بتتعمل لكل شركة في القايمة: من غير مكالمة ذكاء صناعي لكل واحدة
@@ -2439,7 +2441,7 @@ class PlatformOutreachService
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null],
             ];
         }
-        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? ''))];
+        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? '')), 'onboarding_blocked' => $onboardingBlocked];
     }
 
     // ------------------------------------------------------------------ كشف الموظفين: الشغل والعملاء والنسبة والراتب
@@ -2808,6 +2810,27 @@ class PlatformOutreachService
             return ['ok' => false, 'error' => 'ماقدرناش نقرا البطاقة بوضوح: يتعاد التصوير في إضاءة كويسة أو تتكتب البيانات يدويًا'];
         }
         return ['ok' => true, 'fields' => $fields];
+    }
+
+    /**
+     * موظف مبيعات (outreach.desk) اتعيّن من أكتر من 24 ساعة ولسه مصوّرش وش بطاقته وصورته الشخصية: يوقف عن شغل المكتب
+     * (الشركات بتختفي من قايمته) لحد ما يصوّر. مالك المنصة ومين دوره مش مبيعات مابينطبقش عليهم.
+     */
+    public function staffOnboardingBlocked(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+        try {
+            $createdAt = $this->q("SELECT created_at FROM admin_staff WHERE user_id=? AND staff_role='sales'", [$userId])->fetchColumn();
+        } catch (Throwable $e) {
+            return false;
+        }
+        if (!$createdAt || strtotime((string) $createdAt) > time() - 24 * 3600) {
+            return false;
+        }
+        $st = $this->staffIdCardStatus($userId);
+        return !($st['front'] && $st['photo']);
     }
 
     /**

@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '';
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false;
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -126,7 +126,8 @@
         // الموقع مالوش تنبيه ولا زرار: بيتطلب مع إذن الكاميرا لما التصوير يفتح (openWizard)، عشان الموظف مايتفاجأش بإذنين منفصلين
         const due = counts.reduce((a, c) => a + (c.followup || 0), 0);
         const opened = counts.reduce((a, x) => a + (x.opened || 0), 0);
-        const meBanner = (opened > 0 ? `<div class="dk-banner">👀 ${num(opened)} شركة فتحت التقرير ومفيش نتيجة لسه: الأنسب التواصل معاها دلوقتي وهي لسه شايفاه <button class="dk-btn primary" data-go-opened>شوف مين فتح</button></div>` : '')
+        const meBanner = (onboardingBlocked ? `<div class="dk-banner bad">⛔ عدّى 24 ساعة من تعيينك ولسه مصوّرتش البطاقة والصورة الشخصية: مكتب التواصل موقوف لحد ما تصوّر <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
+            + (opened > 0 ? `<div class="dk-banner">👀 ${num(opened)} شركة فتحت التقرير ومفيش نتيجة لسه: الأنسب التواصل معاها دلوقتي وهي لسه شايفاه <button class="dk-btn primary" data-go-opened>شوف مين فتح</button></div>` : '')
             + (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
             + (me.id_card === false ? `<div class="dk-banner">🪪 ${me.recapture ? 'مطلوب إعادة تصوير البطاقة والصورة الشخصية' : 'تصوير البطاقة والصورة الشخصية'} <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
@@ -145,7 +146,7 @@
     const load = async (keepScroll) => {
         const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1;
+        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
