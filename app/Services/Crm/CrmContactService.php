@@ -56,6 +56,40 @@ class CrmContactService
         return $contact;
     }
 
+    /**
+     * حذف جهة اتصال مملوكة للحساب. حذف الجهة بيمسح الـLeads المرتبطة بها،
+     * والصفقات بتفضل موجودة بس بتتفك عن الجهة. لو فيه Leads أو صفقات مرتبطة بنرفض الحذف
+     * بـ409 إلا لو $confirmed = true (عشان الحذف العرضي ما يمسحش بيانات مبيعات).
+     * @return array {leads_deleted:int, deals_unlinked:int}
+     */
+    public function delete(int $userId, int $contactId, bool $confirmed = false): array
+    {
+        $contact = $this->findOwned($userId, $contactId);
+        $db = Database::getInstance();
+
+        $leads = (int) ($db->query('SELECT COUNT(*) AS n FROM crm_leads WHERE contact_id = ?', [$contactId])[0]['n'] ?? 0);
+        $deals = (int) ($db->query('SELECT COUNT(*) AS n FROM crm_deals WHERE contact_id = ? AND owner_user_id = ?', [$contactId, $userId])[0]['n'] ?? 0);
+
+        if (($leads > 0 || $deals > 0) && !$confirmed) {
+            throw new Exception("جهة الاتصال مرتبطة بـ {$leads} عميل محتمل و{$deals} صفقة. حذفها هيمسح العملاء المحتملين المرتبطين ويفك الصفقات عنها. أكّد الحذف للمتابعة.", 409);
+        }
+
+        $db->query('DELETE FROM crm_leads WHERE contact_id = ?', [$contactId]);
+        $db->query('UPDATE crm_deals SET contact_id = NULL WHERE contact_id = ? AND owner_user_id = ?', [$contactId, $userId]);
+        $db->query("DELETE FROM crm_custom_field_values WHERE user_id = ? AND entity_type = 'contact' AND entity_id = ?", [$userId, $contactId]);
+
+        if (!$contact->delete()) {
+            throw new Exception('تعذر حذف جهة الاتصال', 500);
+        }
+
+        ActivityLog::record('crm', 'contact.deleted', [
+            'user_id' => $userId, 'subject_type' => 'crm_contacts', 'subject_id' => $contactId,
+            'meta' => ['leads_deleted' => $leads, 'deals_unlinked' => $deals],
+        ]);
+
+        return ['leads_deleted' => $leads, 'deals_unlinked' => $deals];
+    }
+
     public function findOwned(int $userId, int $contactId): CrmContact
     {
         $contact = (new CrmContact())->find($contactId);

@@ -1366,6 +1366,7 @@ $router->get('/api/crm/companies', 'CrmApiController', 'listCompanies', ['AuthMi
 $router->get('/api/crm/companies/search', 'CrmApiController', 'searchCompanies', ['AuthMiddleware']);
 $router->post('/api/crm/companies', 'CrmApiController', 'createCompany', ['AuthMiddleware']);
 $router->put('/api/crm/companies/{id}', 'CrmApiController', 'updateCompany', ['AuthMiddleware']);
+$router->delete('/api/crm/companies/{id}', 'CrmApiController', 'deleteCompany', ['AuthMiddleware']);
 
 // Contacts
 $router->get('/api/crm/contacts', 'CrmApiController', 'listContacts', ['AuthMiddleware']);
@@ -1380,6 +1381,7 @@ $router->get('/api/crm/contacts/search', 'CrmApiController', 'searchContacts', [
 $router->get('/api/crm/contacts/{id}', 'CrmApiController', 'getContact', ['AuthMiddleware']);
 $router->post('/api/crm/contacts', 'CrmApiController', 'createContact', ['AuthMiddleware']);
 $router->put('/api/crm/contacts/{id}', 'CrmApiController', 'updateContact', ['AuthMiddleware']);
+$router->delete('/api/crm/contacts/{id}', 'CrmApiController', 'deleteContact', ['AuthMiddleware']);
 $router->get('/api/crm/contacts/{id}/duplicates', 'CrmApiController', 'contactDuplicates', ['AuthMiddleware']);
 $router->post('/api/crm/contacts/merge', 'CrmApiController', 'mergeContacts', ['AuthMiddleware']);
 $router->get('/api/crm/contacts/{id}/360', 'CrmApiController', 'customer360', ['AuthMiddleware']);

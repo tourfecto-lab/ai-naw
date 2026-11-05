@@ -183,6 +183,45 @@ class CrmApiController extends Controller
         }
     }
 
+    /** DELETE /api/crm/companies/{id} - جهات الاتصال والصفقات المرتبطة بتفضل وبتتفك عن الشركة */
+    public function deleteCompany(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
+        try {
+            $result = $this->companyService->delete($this->tenantId(), (int) ($params['id'] ?? 0));
+            return $this->success($result, 'تم حذف الشركة');
+        } catch (Exception $e) {
+            return $this->handleException($e, 'deleteCompany');
+        }
+    }
+
+    /** DELETE /api/crm/contacts/{id}?confirm=1 - لو مرتبطة بعملاء محتملين/صفقات بيرجع 409 إلا مع confirm=1 */
+    public function deleteContact(array $params = []): array
+    {
+        if (!$this->isAuthenticated()) {
+            return $this->error('Unauthorized', 401);
+        }
+        if ($denied = $this->requirePermission('delete')) {
+            return $denied;
+        }
+        try {
+            $confirmed = in_array((string) $this->get('confirm', ''), ['1', 'true'], true);
+            $result = $this->contactService->delete($this->tenantId(), (int) ($params['id'] ?? 0), $confirmed);
+            return $this->success($result, 'تم حذف جهة الاتصال');
+        } catch (Exception $e) {
+            if ($e->getCode() === 409) {
+                // رسالة التأكيد فيها عدد العملاء المحتملين/الصفقات - لازم توصل للواجهة زي ما هي
+                return $this->error($e->getMessage(), 409, ['requires_confirm' => true]);
+            }
+            return $this->handleException($e, 'deleteContact');
+        }
+    }
+
     // ============================================================
     // Contacts (بند 1، 2، 21، 22)
     // ============================================================

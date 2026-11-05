@@ -2068,6 +2068,8 @@ return [
     'crm.deal_items.deleted' => 'تم حذف البند',
     'crm.deal_items.not_found' => 'البند غير موجود',
     'crm.deal_items.empty' => 'لا توجد بنود لهذه الصفقة',
+    'crm.delete.confirm_contact' => 'تحذف جهة الاتصال دي نهائيًا؟',
+    'crm.delete.confirm_company' => 'تحذف الشركة دي نهائيًا؟ جهات الاتصال والصفقات المرتبطة بها هتفضل موجودة بدون شركة.',
     'crm.routing.active' => 'مفعّلة',
     'crm.routing.owner' => 'صاحب الحساب',
     'crm.routing.title' => 'قواعد توجيه العملاء المحتملين',

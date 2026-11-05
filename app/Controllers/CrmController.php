@@ -55,7 +55,7 @@ class CrmController extends Controller
             $activeClass = $key === $active ? ' active' : '';
             $html .= "<a href=\"{$url}\" class=\"p-tab{$activeClass}\" style=\"text-decoration:none;\">{$label}</a>";
         }
-        return $html . '</div><script src="' . htmlspecialchars(asset_v('/assets/js/crm-custom-fields.js'), ENT_QUOTES) . '"></script>';
+        return $html . '</div><script src="' . htmlspecialchars(asset_v('/assets/js/crm-custom-fields.js'), ENT_QUOTES) . '"></script><script src="' . htmlspecialchars(asset_v('/assets/js/crm-delete.js'), ENT_QUOTES) . '"></script>';
     }
 
     /** GET /crm */
@@ -936,7 +936,7 @@ HTML;
                     <td style="direction:ltr;text-align:left;">${esc(c.phone || '-')}</td>
                     <td>${esc(c.source || '-')}</td>
                     <td><span class="p-badge ${c.status === 'active' ? 'green' : ''}">${esc(c.status || '-')}</span></td>
-                    <td><a class="p-btn xs" href="/crm/contacts/${c.id}">${I18N['crm.contacts.view_360']}</a></td>
+                    <td><a class="p-btn xs" href="/crm/contacts/${c.id}">${I18N['crm.contacts.view_360']}</a> <button type="button" class="p-btn xs" title="${esc(I18N['common.delete'])}" aria-label="${esc(I18N['common.delete'])}" onclick="CrmDelete.contact(${Number(c.id)}, () => load())">🗑</button></td>
                 </tr>`).join('');
         } else {
             tbody.innerHTML = `<tr><td colspan="6" class="p-cell-muted text-center">${I18N['crm.contacts.none_yet']}</td></tr>`;
@@ -1187,6 +1187,7 @@ HTML;
         let html = `<div class="p-card" style="margin-bottom:14px;padding:20px;">
             <h2 style="margin:0 0 6px;">${esc(c.name)}</h2>
             <div class="p-cell-muted">${esc(c.email || '-')} · ${esc(c.phone || '-')} · ${esc(c.country || '')}</div>
+            <div style="margin-top:8px;"><button type="button" class="p-btn xs" onclick="CrmDelete.contact(${Number(contactId)}, () => { location.href = '/crm/contacts'; })">🗑 ${I18N['common.delete']}</button></div>
             <div style="margin-top:8px;"><span class="p-badge">${esc(c.status)}</span> <span class="p-badge">${esc(c.source || '')}</span> ${d.company ? '<span class="p-badge gold">' + esc(d.company.name) + '</span>' : ''}</div>
         </div>`;
 
@@ -1350,7 +1351,7 @@ HTML;
         const tbody = document.querySelector('#companiesTable tbody');
         const list = res.success ? res.data.items : [];
         tbody.innerHTML = list.length ? list.map(c => `
-            <tr><td>${esc(c.name)} <button type="button" class="p-btn xs" title="${esc(I18N['crm.custom_fields.title'])}" aria-label="${esc(I18N['crm.custom_fields.title'])}" onclick="CrmCustomFields.open('company', ${Number(c.id)}, ${esc(JSON.stringify(c.name || ''))})">⚙</button></td><td>${esc(c.industry || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.website || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.phone || '-')}</td></tr>
+            <tr><td>${esc(c.name)} <button type="button" class="p-btn xs" title="${esc(I18N['crm.custom_fields.title'])}" aria-label="${esc(I18N['crm.custom_fields.title'])}" onclick="CrmCustomFields.open('company', ${Number(c.id)}, ${esc(JSON.stringify(c.name || ''))})">⚙</button> <button type="button" class="p-btn xs" title="${esc(I18N['common.delete'])}" aria-label="${esc(I18N['common.delete'])}" onclick="CrmDelete.company(${Number(c.id)}, () => applyCompanyFilters())">🗑</button></td><td>${esc(c.industry || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.website || '-')}</td><td style="direction:ltr;text-align:left;">${esc(c.phone || '-')}</td></tr>
         `).join('') : `<tr><td colspan="4" class="p-cell-muted text-center">${I18N['crm.companies.none_yet']}</td></tr>`;
 
         if (res.success) {

@@ -59,6 +59,35 @@ class CrmCompanyService
         return $company;
     }
 
+    /**
+     * حذف شركة مملوكة للحساب. جهات الاتصال والصفقات المرتبطة بها بتفضل موجودة
+     * بس بتتفك عن الشركة (company_id = NULL)، وقيم الحقول المخصصة الخاصة بالشركة بتتمسح.
+     * @return array {contacts_unlinked:int, deals_unlinked:int}
+     */
+    public function delete(int $userId, int $companyId): array
+    {
+        $company = $this->findOwned($userId, $companyId);
+        $db = Database::getInstance();
+
+        $contacts = (int) ($db->query('SELECT COUNT(*) AS n FROM crm_contacts WHERE company_id = ? AND user_id = ?', [$companyId, $userId])[0]['n'] ?? 0);
+        $deals = (int) ($db->query('SELECT COUNT(*) AS n FROM crm_deals WHERE company_id = ? AND owner_user_id = ?', [$companyId, $userId])[0]['n'] ?? 0);
+
+        $db->query('UPDATE crm_contacts SET company_id = NULL WHERE company_id = ? AND user_id = ?', [$companyId, $userId]);
+        $db->query('UPDATE crm_deals SET company_id = NULL WHERE company_id = ? AND owner_user_id = ?', [$companyId, $userId]);
+        $db->query("DELETE FROM crm_custom_field_values WHERE user_id = ? AND entity_type = 'company' AND entity_id = ?", [$userId, $companyId]);
+
+        if (!$company->delete()) {
+            throw new Exception('تعذر حذف الشركة', 500);
+        }
+
+        ActivityLog::record('crm', 'company.deleted', [
+            'user_id' => $userId, 'subject_type' => 'crm_companies', 'subject_id' => $companyId,
+            'meta' => ['contacts_unlinked' => $contacts, 'deals_unlinked' => $deals],
+        ]);
+
+        return ['contacts_unlinked' => $contacts, 'deals_unlinked' => $deals];
+    }
+
     public function listForUser(int $userId, int $limit = 200): array
     {
         return (new CrmCompany())->allForUser($userId, $limit);

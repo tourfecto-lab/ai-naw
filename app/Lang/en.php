@@ -2080,6 +2080,8 @@ return [
     'crm.deal_items.deleted' => 'Item deleted',
     'crm.deal_items.not_found' => 'Item not found',
     'crm.deal_items.empty' => 'No line items for this deal',
+    'crm.delete.confirm_contact' => 'Permanently delete this contact?',
+    'crm.delete.confirm_company' => 'Permanently delete this company? Linked contacts and deals will stay, without a company.',
     'crm.routing.active' => 'Active',
     'crm.routing.owner' => 'Account owner',
     'crm.routing.title' => 'Lead Routing Rules',
