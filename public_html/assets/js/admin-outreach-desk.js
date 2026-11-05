@@ -294,7 +294,7 @@
     // تصوير تلقائي: وش البطاقة ← (لما البيانات تتقرا صح) قلب البطاقة ← ضهرها ← الصورة الشخصية ← صفحة مراجعة بالبيانات (تتعدّل وتتحفظ).
     // مفيش زرار تصوير: الكاميرا بتصوّر لوحدها لما الصورة تبقى واضحة وثابتة، وبتكرر لحد ما القراءة تطلع صح
     const wiz = { el: null, stream: null, userId: 0, step: 'front', fields: null, partial: null, timer: null, busy: false, t0: 0, still: 0, prev: null, frontGray: null, fails: 0, mirror: false, best: 0, seen: 0 };
-    const WIZ = { sharpMin: 90, sharpMinFace: 25, steadyMax: 8, flipMin: 14, graceMs: 9000, tickMs: 400, w: 320 };
+    const WIZ = { sharpMin: 90, sharpMinFace: 25, steadyMax: 8, flipMin: 14, graceMs: 9000, hardGraceMs: 18000, tickMs: 400, w: 320 };
     const wizStop = () => { clearInterval(wiz.timer); wiz.timer = null; clearInterval(wiz.recTimer); if (wiz.rec) { try { if (wiz.rec.mr.state !== 'inactive') wiz.rec.mr.stop(); } catch (e) { /* خلص */ } wiz.rec = null; } if (wiz.stream) { wiz.stream.getTracks().forEach(t => t.stop()); wiz.stream = null; } };
     const wizClose = () => { wizStop(); if (wiz.el) wiz.el.hidden = true; };
     // مقطع فيديو قصير لكل لقطة: بيتسجّل من أول الخطوة، وبيتجدّد كل 8 ثواني (بنحتفظ بآخر مقطع بس)، وبيكمّل ثانية وشوية بعد اللقطة الناجحة
@@ -389,6 +389,9 @@
         const sharp = wizSharp(cur), min = face ? WIZ.sharpMinFace : WIZ.sharpMin;
         const flipped = wiz.step !== 'back' || wizDiff(cur, wiz.frontGray) > WIZ.flipMin; // الضهر لازم يختلف عن الوش
         const waited = Date.now() - wiz.t0 > WIZ.graceMs;
+        // السلفي مفيهوش تخطّي ولا اختيار من الجهاز (لازم كاميرا حية): لو كاميرا الموظف ضعيفة ومستحملتش توصل للوضوح المطلوب أبدًا، بعد مهلة أطول بنصوّر أيًا كان الوضوح
+        // عشان الخطوة متقفلش للأبد، وفحص الوش بالذكاء الاصطناعي (بعد الرفع) هو اللي بيتأكد إن اللقطة فيها وش فعلًا
+        const hardWait = face && Date.now() - wiz.t0 > WIZ.hardGraceMs;
         // الفوكس التلقائي بياخد ثواني: مابنصوّرش غير لما الوضوح يوصل قريب من أحسن وضوح شفناه في الخطوة دي
         wiz.seen++; wiz.best = Math.max(wiz.best, sharp);
         const focused = wiz.seen >= 4 && sharp >= 0.75 * wiz.best;
@@ -397,7 +400,7 @@
         else if (sharp < min) hint.textContent = '🔍 الصورة لسه مش واضحة: تقريب أو تبعيد شوية';
         else hint.textContent = '✅ واضحة وثابتة… بنصوّر';
         // بنصوّر لما تبقى واضحة وثابتة، أو بعد مهلة لو الكاميرا نفسها مش بتديل أوضح من كده
-        if (flipped && wiz.still >= 2 && ((sharp >= min && focused) || (waited && sharp >= min / 2.5))) await wizShoot(cur);
+        if (flipped && wiz.still >= 2 && ((sharp >= min && focused) || (waited && sharp >= min / 2.5) || hardWait)) await wizShoot(cur);
     };
     const wizShoot = async cur => {
         wiz.busy = true;
