@@ -3032,6 +3032,32 @@ class PlatformOutreachService
     }
 
     /** كل الموظفين اللي سجّلوا شغل على المكتب أو عندهم تعويض متسجّل، مع عدد إجراءاتهم */
+    /** لوحة أداء يومية للمالك: كل موظف وهدفه اليومي وكام بعت وكام شركة ردّت عليه النهارده */
+    public function teamDailyStats(): array
+    {
+        $staff = $this->staffList();
+        if (!$staff) {
+            return ['staff' => [], 'totals' => ['sent' => 0, 'replied' => 0]];
+        }
+        $ids = implode(',', array_map(static fn ($s) => (int) $s['user_id'], $staff));
+        $sent = array_column($this->q("SELECT user_id, COUNT(*) n FROM platform_desk_actions WHERE user_id IN ($ids) AND action='contacted' AND DATE(created_at)=CURDATE() GROUP BY user_id")->fetchAll(PDO::FETCH_ASSOC), 'n', 'user_id');
+        $replied = array_column($this->q("SELECT user_id, COUNT(DISTINCT lead_id) n FROM platform_desk_actions WHERE user_id IN ($ids) AND action IN ('replied','interested') AND DATE(created_at)=CURDATE() GROUP BY user_id")->fetchAll(PDO::FETCH_ASSOC), 'n', 'user_id');
+        $goals = array_column($this->q("SELECT user_id, daily_goal FROM platform_staff_profile WHERE user_id IN ($ids)")->fetchAll(PDO::FETCH_ASSOC), 'daily_goal', 'user_id');
+        $out = [];
+        $totalSent = 0;
+        $totalReplied = 0;
+        foreach ($staff as $s) {
+            $uid = (int) $s['user_id'];
+            $sentN = (int) ($sent[$uid] ?? 0);
+            $repliedN = (int) ($replied[$uid] ?? 0);
+            $totalSent += $sentN;
+            $totalReplied += $repliedN;
+            $out[] = ['user_id' => $uid, 'name' => $s['name'], 'sent_today' => $sentN, 'replied_today' => $repliedN, 'daily_goal' => isset($goals[$uid]) && $goals[$uid] !== null ? (int) $goals[$uid] : null];
+        }
+        usort($out, static fn ($a, $b) => $b['sent_today'] <=> $a['sent_today']);
+        return ['staff' => $out, 'totals' => ['sent' => $totalSent, 'replied' => $totalReplied]];
+    }
+
     public function staffList(): array
     {
         $sql = "SELECT u.id user_id, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)),''), SUBSTRING_INDEX(u.email,'@',1)) name, u.email,

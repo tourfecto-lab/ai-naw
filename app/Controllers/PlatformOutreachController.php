@@ -105,7 +105,7 @@ class PlatformOutreachController extends Controller
         header('Cache-Control: private, no-store');
         try {
             $r = $this->service()->deskLeads(['country' => strtoupper((string) $this->get('country', '')), 'view' => $this->get('view', 'todo'), 'tier' => $this->get('tier', ''), 'q' => $this->get('q', ''), 'page' => $this->get('page', 1)], ['name' => $this->staffName(), 'user_id' => (int) ($this->user['id'] ?? 0), 'all' => $this->canSeeTeam()]);
-            return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName(), 'me' => $this->service()->staffMe((int) ($this->user['id'] ?? 0))]);
+            return $this->success($r + ['csrf_token' => Csrf::token(), 'staff_name' => $this->staffName(), 'me' => $this->service()->staffMe((int) ($this->user['id'] ?? 0)), 'can_see_team' => $this->canSeeTeam()]);
         } catch (Throwable $e) {
             Logger::error('Outreach desk failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل الشركات', 503);
@@ -471,6 +471,24 @@ class PlatformOutreachController extends Controller
         } catch (Throwable $e) {
             Logger::error('Outreach desk sent failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل المرسول لهم', 503);
+        }
+    }
+
+    /** GET /api/admin/outreach-desk/team-today : لوحة أداء يومية - لمين عنده صلاحية الفريق بس */
+    public function deskTeamToday(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        if (!$this->canSeeTeam()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success($this->service()->teamDailyStats());
+        } catch (Throwable $e) {
+            Logger::error('Outreach desk team-today failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل الأداء اليومي', 503);
         }
     }
 

@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {};
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false;
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -122,6 +122,26 @@
         const el = root.querySelector('.dk-funnel-slot'); if (el) el.innerHTML = funnelHtml();
     };
 
+    // لوحة أداء يومية للمالك: كل موظف، هدفه اليومي، كام بعت وكام ردّوا عليه النهارده - للمالك بس
+    const teamHtml = () => {
+        if (!teamStats || !teamStats.staff.length) return '';
+        const row = s => {
+            const pct = s.daily_goal ? Math.min(100, Math.round(100 * s.sent_today / s.daily_goal)) : null;
+            return `<div class="dk-team-row"><span class="dk-team-name">${esc(s.name)}</span>
+                <span class="dk-team-n">${num(s.sent_today)}${s.daily_goal ? ' / ' + num(s.daily_goal) : ''}</span>
+                ${pct !== null ? `<div class="dk-goal-track dk-team-track"><div class="dk-goal-fill" style="width:${pct}%"></div></div>` : (s.sent_today === 0 ? '<span class="dk-warn">لسه مابدأش</span>' : '')}
+                <span class="dk-b ${s.replied_today > 0 ? 'green' : ''}">💬 ${num(s.replied_today)}</span></div>`;
+        };
+        return `<div class="dk-team"><div class="dk-fn-row"><span class="dk-label">أداء النهارده</span><div class="dk-fn"><b>${num(teamStats.totals.sent)}</b><span>اتبعت</span></div><div class="dk-fn"><b>${num(teamStats.totals.replied)}</b><span>ردّوا</span></div></div>
+            ${teamStats.staff.map(row).join('')}</div>`;
+    };
+    const loadTeamToday = async () => {
+        if (!canSeeTeam || teamLoaded) return;
+        teamLoaded = true;
+        try { teamStats = (await api('/api/admin/outreach-desk/team-today')) || null; } catch (e) { teamStats = null; }
+        const el = root.querySelector('.dk-team-slot'); if (el) el.innerHTML = teamHtml();
+    };
+
     const exportUrl = () => '/api/admin/outreach-desk/export?' + new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q });
     const render = () => {
         const c = cur();
@@ -145,6 +165,7 @@
             <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
             <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
+            ${canSeeTeam ? `<div class="dk-team-slot">${teamLoaded ? teamHtml() : ''}</div>` : ''}
             <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
             <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
             <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
@@ -154,10 +175,11 @@
     const load = async (keepScroll) => {
         const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked; lostReasons = r.lost_reasons || lostReasons;
+        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked; lostReasons = r.lost_reasons || lostReasons; canSeeTeam = !!r.can_see_team;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
+        loadTeamToday();
         if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -172,6 +194,7 @@
         const tabs = root.querySelector('.dk-tabs'); if (tabs) tabs.innerHTML = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l} <b>${key ? (c[key] || 0) : (c.total || 0)}</b></button>`).join('');
         toast(action === 'undo' ? 'اتمسح تسجيل الإرسال ✅' : 'اتسجّل: ' + (ACTION_LABEL[action] || action) + ' ✅');
         funnelFor = null; loadFunnel();
+        teamLoaded = false; loadTeamToday();
     };
 
     const refreshTabs = () => { const c = cur(), tabs = root.querySelector('.dk-tabs'); if (tabs) tabs.innerHTML = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l} <b>${key ? (c[key] || 0) : (c.total || 0)}</b></button>`).join(''); };

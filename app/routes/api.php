@@ -1968,6 +1968,7 @@ $router->get('/api/admin/growth/messages', 'PlatformOutreachController', 'sentMe
 $router->get('/api/admin/growth/messages/{id}', 'PlatformOutreachController', 'messageDetail', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/leads', 'PlatformOutreachController', 'deskLeads', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/export', 'PlatformOutreachController', 'deskExport', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/outreach-desk/team-today', 'PlatformOutreachController', 'deskTeamToday', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/sent', 'PlatformOutreachController', 'deskSent', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/claimed', 'PlatformOutreachController', 'deskClaimed', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/funnel', 'PlatformOutreachController', 'deskFunnel', ['AuthMiddleware','AdminMiddleware']);

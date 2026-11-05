@@ -1177,4 +1177,33 @@ final class OutreachDeskTest extends TestCase
         $this->assertStringNotContainsString('Export Tours A', $blockedCsv, 'an onboarding-blocked employee exports nothing');
         $this->db->query('DELETE FROM admin_staff WHERE user_id=?', [self::STAFF_ID]);
     }
+
+    public function testTeamDailyStatsCountsTodaysSendsAndRepliesPerStaffAgainstTheirGoal(): void
+    {
+        [$sara, $mona] = $this->twoUsers();
+        $this->svc->staffProfileSet($sara, ['daily_goal' => '10'], true, 'Owner');
+        $a = $this->lead('Team Stat Tours A', 'EG', '+201000000091');
+        $b = $this->lead('Team Stat Tours B', 'EG', '+201000000092');
+        $c = $this->lead('Team Stat Tours C', 'EG', '+201000000093');
+        $this->svc->deskAction($a, 'contacted', '', $sara, 'Sara');
+        $this->svc->deskAction($b, 'contacted', '', $sara, 'Sara');
+        $this->svc->deskAction($a, 'replied', '', $sara, 'Sara');
+        $this->svc->deskAction($c, 'contacted', '', $mona, 'Mona');
+        // a send from yesterday must not count towards today
+        $old = $this->lead('Team Stat Tours Old', 'EG', '+201000000094');
+        $this->svc->deskAction($old, 'contacted', '', $sara, 'Sara');
+        $this->db->query("UPDATE platform_desk_actions SET created_at = created_at - INTERVAL 1 DAY WHERE lead_id = ?", [$old]);
+
+        $r = $this->svc->teamDailyStats();
+        $byId = [];
+        foreach ($r['staff'] as $s) { $byId[$s['user_id']] = $s; }
+        $this->assertSame(2, $byId[$sara]['sent_today']);
+        $this->assertSame(10, $byId[$sara]['daily_goal']);
+        $this->assertSame(1, $byId[$sara]['replied_today']);
+        $this->assertSame(1, $byId[$mona]['sent_today']);
+        $this->assertNull($byId[$mona]['daily_goal'], 'no goal set: null, not zero');
+        $this->assertGreaterThanOrEqual(3, $r['totals']['sent']);
+        $this->assertGreaterThanOrEqual(1, $r['totals']['replied']);
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$sara]);
+    }
 }

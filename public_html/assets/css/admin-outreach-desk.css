@@ -107,3 +107,9 @@
 .dk-act-row .dk-phone{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 @media (max-width:640px){.dk-act-row td{display:table-cell!important}.dk-act-row td::before{content:none!important}}
 .dk-banner.good{border-color:#2f9e6a;background:rgba(47,158,106,.15)}
+.dk-team{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--panel-border,rgba(128,128,128,.25));border-radius:10px;background:var(--panel-card-bg-2,rgba(128,128,128,.08))}
+.dk-team-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.dk-team-name{min-width:90px;font-weight:600}
+.dk-team-n{min-width:50px;color:var(--panel-text-muted)}
+.dk-team-track{flex:1;min-width:80px;max-width:160px}
+@media (max-width:640px){.dk-team-row{font-size:12px}.dk-team-name{min-width:70px}}
