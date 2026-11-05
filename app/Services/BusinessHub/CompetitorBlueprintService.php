@@ -5,7 +5,7 @@ require_once __DIR__.'/../SeoExpert/SeoExpertPageContext.php';
 class CompetitorBlueprintService
 {
     public static function publicUrl(string $url): string{
-        $url=trim($url);if(!preg_match('#^https?://#i',$url))$url='https://'.$url;
+        $url=trim($url);if(preg_match('#^[a-z][a-z0-9+.-]*://#i',$url)&&!preg_match('#^https?://#i',$url))throw new InvalidArgumentException('Enter a public competitor URL without login details or query parameters');if(!preg_match('#^https?://#i',$url))$url='https://'.$url;
         $p=parse_url($url);if(!$p||!in_array($p['scheme']??'', ['http','https'],true)||empty($p['host'])||isset($p['user'])||isset($p['pass'])||!empty($p['query'])||!empty($p['fragment'])||strlen($url)>500)throw new InvalidArgumentException('Enter a public competitor URL without login details or query parameters');
         return $url;
     }
