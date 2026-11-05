@@ -1134,6 +1134,34 @@ HTML;
         else toast(res.error || '-', 'error');
     };
 
+    let profileContext = {};
+
+    async function loadTemplatePickers() {
+        const res = await fetchJSON('/api/crm/templates');
+        const list = res.success ? (res.data.templates || []) : [];
+        document.querySelectorAll('.tpl-pick').forEach(sel => {
+            const mine = list.filter(t => t.channel === sel.dataset.channel);
+            if (!mine.length) return;
+            sel.innerHTML = `<option value="">${esc(I18N['crm.templates.title'])}</option>` + mine.map(t => `<option value="${Number(t.id)}">${esc(t.name)}</option>`).join('');
+            sel.style.display = '';
+            sel.onchange = () => applyTemplate(sel);
+        });
+    }
+
+    async function applyTemplate(sel) {
+        const id = Number(sel.value);
+        if (!id) return;
+        const res = await fetchJSON('/api/crm/templates/' + id + '/render', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ context: profileContext }),
+        });
+        sel.value = '';
+        if (!res.success) { toast(res.error || '-', 'error'); return; }
+        const ch = sel.dataset.channel;
+        if (ch === 'whatsapp') document.getElementById('waText').value = res.data.body;
+        else if (ch === 'sms') document.getElementById('smsText').value = res.data.body;
+        else { document.getElementById('emailSubject').value = res.data.subject || ''; document.getElementById('emailBody').value = res.data.body; }
+    }
+
     async function loadCommStatus() {
         const res = await fetchJSON('/api/crm/communication/status');
         const note = document.getElementById('commStatusNote');
@@ -1154,6 +1182,7 @@ HTML;
         if (!res.success) { root.innerHTML = `<div class="p-empty">${res.error || I18N['crm.contacts.load_failed']}</div>`; return; }
         const d = res.data;
         const c = d.contact;
+        profileContext = { name: c.name, phone: c.phone, email: c.email, company: d.company ? d.company.name : null };
 
         let html = `<div class="p-card" style="margin-bottom:14px;padding:20px;">
             <h2 style="margin:0 0 6px;">${esc(c.name)}</h2>
@@ -1182,16 +1211,19 @@ HTML;
             <div id="commStatusNote" class="p-cell-muted" style="margin-bottom:10px;font-size:12.5px;"></div>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
                 <select id="crmWaWebsite" class="form-control" aria-label="WhatsApp sender" style="max-width:220px;"><option value="">Select WhatsApp sender</option></select>
-                <input type="text" id="waText" class="form-control" placeholder="${I18N['crm.comm.whatsapp_placeholder']}">
+                <select id="tplPickWhatsapp" class="form-control tpl-pick" data-channel="whatsapp" aria-label="${I18N['crm.templates.title']}" style="max-width:170px;display:none;"></select>
+                <textarea id="waText" class="form-control" rows="2" placeholder="${I18N['crm.comm.whatsapp_placeholder']}"></textarea>
                 <button class="p-btn" onclick="sendWa()">${I18N['crm.comm.send_whatsapp']}</button>
             </div>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
-                <input type="text" id="smsText" class="form-control" placeholder="${I18N['crm.comm.sms_placeholder']}">
+                <select id="tplPickSms" class="form-control tpl-pick" data-channel="sms" aria-label="${I18N['crm.templates.title']}" style="max-width:170px;display:none;"></select>
+                <textarea id="smsText" class="form-control" rows="2" placeholder="${I18N['crm.comm.sms_placeholder']}"></textarea>
                 <button class="p-btn" onclick="sendSmsMsg()">${I18N['crm.comm.send_sms']}</button>
             </div>
             <div style="display:flex;gap:8px;">
+                <select id="tplPickEmail" class="form-control tpl-pick" data-channel="email" aria-label="${I18N['crm.templates.title']}" style="max-width:170px;display:none;"></select>
                 <input type="text" id="emailSubject" class="form-control" style="max-width:220px;" placeholder="${I18N['crm.comm.subject_placeholder']}">
-                <input type="text" id="emailBody" class="form-control" placeholder="${I18N['crm.comm.email_placeholder']}">
+                <textarea id="emailBody" class="form-control" rows="2" placeholder="${I18N['crm.comm.email_placeholder']}"></textarea>
                 <button class="p-btn" onclick="sendEmailMsg()">${I18N['crm.comm.send_email']}</button>
             </div>
             <div id="commResult" class="p-cell-muted" style="margin-top:8px;font-size:12.5px;"></div>
@@ -1220,6 +1252,7 @@ HTML;
         root.innerHTML = html;
         loadCommStatus();
         loadCustomFields();
+        loadTemplatePickers();
     }
     load();
 })();
