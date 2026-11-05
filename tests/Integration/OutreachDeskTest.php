@@ -103,6 +103,19 @@ final class OutreachDeskTest extends TestCase
         $this->assertSame(0, count($this->svc->deskLeads(['country' => 'EG', 'q' => 'NoPhone'])['rows']), 'a company without a phone is not on the desk');
     }
 
+    public function testHotViewShowsTheMostRecentReplyFirstAndCountsFeedTheNeedsReplyBanner(): void
+    {
+        $old = $this->lead('Old Reply Tours', 'EG', '+201000000051');
+        $new = $this->lead('New Reply Tours', 'EG', '+201000000052');
+        $this->svc->deskAction($old, 'replied', '', 5, 'Sara');
+        $this->db->query("UPDATE platform_leads SET desk_at = NOW() - INTERVAL 1 HOUR WHERE id = ?", [$old]);
+        $this->svc->deskAction($new, 'interested', '', 5, 'Sara');
+        $rows = $this->svc->deskLeads(['country' => 'EG', 'view' => 'hot', 'q' => 'Reply Tours'])['rows'];
+        $this->assertSame([$new, $old], array_column($rows, 'id'), 'the most recently engaged company is first, so nobody forgets to reply');
+        $eg = array_values(array_filter($this->svc->deskCountries(), static fn ($c) => $c['country'] === 'EG'))[0];
+        $this->assertGreaterThanOrEqual(2, $eg['hot'], 'feeds the needs-reply banner count');
+    }
+
     public function testRepliedInterestedAndRejectedStopTheEmailSequence(): void
     {
         $a = $this->lead('Alpha Tours', 'EG', '+201000000001');

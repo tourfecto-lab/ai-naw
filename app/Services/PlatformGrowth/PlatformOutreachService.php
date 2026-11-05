@@ -2382,7 +2382,8 @@ class PlatformOutreachService
         $w = implode(' AND ', $where);
         $total = $onboardingBlocked ? 0 : (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE {$w}", $args)->fetchColumn();
         // المتابعة: الأقدم أولًا (اللي استنّت أكتر)
-        $order = $view === 'opened' ? 'report_last_at DESC, id DESC' : ($view === 'followup' ? 'desk_at ASC, id' : '(desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC');
+        // ردّوا/مهتمين: الأحدث رد الأول، عشان محدش ينسى يردّ عليهم
+        $order = $view === 'opened' ? 'report_last_at DESC, id DESC' : ($view === 'followup' ? 'desk_at ASC, id' : ($view === 'hot' ? 'desk_at DESC, id DESC' : '(desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC'));
         $rows = $onboardingBlocked ? [] : $this->q("SELECT * FROM platform_leads WHERE {$w} ORDER BY {$order} LIMIT {$per} OFFSET " . (($page - 1) * $per), $args)->fetchAll(PDO::FETCH_ASSOC);
 
         $set = $this->getSettings();

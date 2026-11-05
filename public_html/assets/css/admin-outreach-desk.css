@@ -106,3 +106,4 @@
 .dk-act-row .dk-result{margin-top:0;padding-top:0;border-top:0}
 .dk-act-row .dk-phone{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 @media (max-width:640px){.dk-act-row td{display:table-cell!important}.dk-act-row td::before{content:none!important}}
+.dk-banner.good{border-color:#2f9e6a;background:rgba(47,158,106,.15)}

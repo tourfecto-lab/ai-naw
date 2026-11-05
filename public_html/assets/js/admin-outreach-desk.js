@@ -130,7 +130,9 @@
         // الموقع مالوش تنبيه ولا زرار: بيتطلب مع إذن الكاميرا لما التصوير يفتح (openWizard)، عشان الموظف مايتفاجأش بإذنين منفصلين
         const due = counts.reduce((a, c) => a + (c.followup || 0), 0);
         const opened = counts.reduce((a, x) => a + (x.opened || 0), 0);
+        const hot = counts.reduce((a, c) => a + (c.hot || 0), 0);
         const meBanner = (onboardingBlocked ? `<div class="dk-banner bad">⛔ عدّى 24 ساعة من تعيينك ولسه مصوّرتش البطاقة والصورة الشخصية: مكتب التواصل موقوف لحد ما تصوّر <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
+            + (hot > 0 ? `<div class="dk-banner good">👋 ${num(hot)} شركة ردّت أو مهتمة ومحتاجة ردّك: ماتسيبهاش تبرد <button class="dk-btn primary" data-go-hot>فتح الردود</button></div>` : '')
             + (opened > 0 ? `<div class="dk-banner">👀 ${num(opened)} شركة فتحت التقرير ومفيش نتيجة لسه: الأنسب التواصل معاها دلوقتي وهي لسه شايفاه <button class="dk-btn primary" data-go-opened>شوف مين فتح</button></div>` : '')
             + (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
             + (me.id_card === false ? `<div class="dk-banner">🪪 ${me.recapture ? 'مطلوب إعادة تصوير البطاقة والصورة الشخصية' : 'تصوير البطاقة والصورة الشخصية'} <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
@@ -535,6 +537,7 @@
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
                 if (t.dataset.signSave !== undefined) { const v = (root.querySelector('#dkSign') || {}).value || ''; await api('/api/admin/outreach-desk/staff-profile', { sign_name: v }); toast('اتحفظ اسمك في التوقيع ✅'); return await load(true); }
+                if (t.dataset.goHot !== undefined) { const c = counts.find(x => x.hot > 0); if (c) { state.country = c.country; state.view = 'hot'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.goOpened !== undefined) { const c = counts.find(x => x.opened > 0); if (c) { state.country = c.country; state.view = 'opened'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.goFollowup !== undefined) { const c = counts.find(x => x.followup > 0); if (c) { state.country = c.country; state.view = 'followup'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
