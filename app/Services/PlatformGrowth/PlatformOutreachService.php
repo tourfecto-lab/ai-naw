@@ -1768,7 +1768,7 @@ class PlatformOutreachService
     /**
      * بيقرا رسالة ارتداد (NDR) ويطلّع الإيميل اللي فشل وهل الفشل دايم.
      * بيرجّع null لو الرسالة مش ارتداد، وللفشل المؤقت (4xx) أو الصندوق الممتلئ permanent=false.
-     * @return array{email:string,permanent:bool,reason:string}|null
+     * @return array{email:string,emails:string[],permanent:bool,reason:string}|null
      */
     public static function parseBounce(string $raw): ?array
     {
@@ -1776,30 +1776,37 @@ class PlatformOutreachService
         if (!preg_match('/^(?:Content-Type:\s*multipart\/report|Subject:[^\n]*(?:undeliver|delivery (?:status|failed|failure)|returned mail|failure notice)|From:[^\n]*(?:mailer-daemon|postmaster))/im', $text)) {
             return null;
         }
-        $email = null;
+        // العنوان اللي فشل ممكن يبقى عنوان تحويل (forward) مش اللي بعتنا له: بنمسك الاتنين ("ultimately generated from")
+        $emails = [];
         foreach ([
             '/^X-Failed-Recipients:\s*<?([^\s<>,;]+@[^\s<>,;]+)>?/im',
             '/^Final-Recipient:\s*rfc822;\s*<?([^\s<>;]+@[^\s<>;]+)>?/im',
             '/^Original-Recipient:\s*rfc822;\s*<?([^\s<>;]+@[^\s<>;]+)>?/im',
             '/RCPT TO:\s*<([^\s<>]+@[^\s<>]+)>/i',
+            '/ultimately generated from\s+<?([^\s<>)]+@[^\s<>)]+)>?/i',
+            '/original(?:ly)? (?:addressed|sent) to:?\s*<?([^\s<>)]+@[^\s<>)]+)>?/i',
             '/^\s*\*\*\s*<?([^\s<>]+@[^\s<>]+?)>?\s+(?:host|SMTP|Unrouteable|Mailbox|Domain)/im',
             '/^\s*<([^\s<>]+@[^\s<>]+)>:\s/m',
+            '/failed:\s*\R\s*<?([^\s<>]+@[^\s<>]+?)>?\s*$/im',
         ] as $re) {
             if (preg_match($re, $text, $m)) {
-                $email = strtolower(trim($m[1], " \t<>.,;"));
-                break;
+                $e = strtolower(trim($m[1], " 	<>.,;()"));
+                if (filter_var($e, FILTER_VALIDATE_EMAIL) && !in_array($e, $emails, true)) {
+                    $emails[] = $e;
+                }
             }
         }
-        if ($email === null || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ($emails === []) {
             return null;
         }
+        $email = $emails[0];
         if (preg_match('/^Status:\s*4\./im', $text) || preg_match('/over quota|mailbox (?:is )?full|quota exceeded|5\.2\.2|temporar|will keep trying|delayed/i', $text)) {
-            return ['email' => $email, 'permanent' => false, 'reason' => 'temporary'];
+            return ['email' => $email, 'emails' => $emails, 'permanent' => false, 'reason' => 'temporary'];
         }
         $hard = preg_match('/^Status:\s*5\./im', $text)
             || preg_match('/\b(?:550|551|553|554|5\.1\.1|5\.1\.10|5\.4\.1)\b|user unknown|no such user|does not exist|unrouteable|address rejected|recipient rejected|domain not found/i', $text);
         $reason = preg_match('/\b5\.7\.\d+\b|spam|blocked|blacklist|reputation|policy/i', $text) ? 'blocked' : 'invalid_address';
-        return ['email' => $email, 'permanent' => (bool) $hard, 'reason' => $reason];
+        return ['email' => $email, 'emails' => $emails, 'permanent' => (bool) $hard, 'reason' => $reason];
     }
 
     /** بيقرا إشعارات الارتداد من صندوق المُرسِل عبر IMAP (من غير إضافة imap في PHP) ويرجّع نصوصها الخام */
@@ -1886,10 +1893,12 @@ class PlatformOutreachService
         foreach ($raws as $raw) {
             $res['scanned']++;
             $b = self::parseBounce((string) $raw);
-            if (!$b || !$b['permanent'] || in_array($b['email'], $own, true)) {
+            $targets = $b ? array_values(array_diff($b['emails'], $own)) : [];
+            if (!$b || !$b['permanent'] || $targets === []) {
                 continue;
             }
-            $n = $this->q("UPDATE platform_leads SET status='bounced',next_send_at=NULL WHERE LOWER(email)=? AND status NOT IN ('bounced','signed_up','unsubscribed','replied','interested','invalid')", [$b['email']])->rowCount();
+            $in = implode(',', array_fill(0, count($targets), '?'));
+            $n = $this->q("UPDATE platform_leads SET status='bounced',next_send_at=NULL WHERE LOWER(email) IN ({$in}) AND status NOT IN ('bounced','signed_up','unsubscribed','replied','interested','invalid')", $targets)->rowCount();
             $res['bounced'] += $n;
             if ($b['reason'] === 'blocked') {
                 $res['blocked'] += $n;

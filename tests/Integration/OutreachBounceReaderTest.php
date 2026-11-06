@@ -51,6 +51,30 @@ final class OutreachBounceReaderTest extends TestCase
     private const GMAIL = "From: Mail Delivery Subsystem <mailer-daemon@googlemail.com>\nSubject: Delivery Status Notification (Failure)\nX-Failed-Recipients: nobody@nomail.test\n\nAddress not found. 550 5.1.1 The email account that you tried to reach does not exist.\n";
     private const SOFT = "From: Mail Delivery System <Mailer-Daemon@srv.example>\nSubject: Undelivered Mail Returned to Sender\n\nFinal-Recipient: rfc822; full@box.test\nAction: failed\nStatus: 5.2.2\nDiagnostic-Code: smtp; 552 mailbox full over quota\n";
 
+    private const FORWARDED = "From: Mail Delivery System <Mailer-Daemon@s4015.fra1.stableserver.net>
+Subject: Mail delivery failed: returning message to sender
+
+A message that you sent could not be delivered to one or more of its
+recipients. This is a permanent error. The following address(es) failed:
+
+  egyptdirecttours@gmail.com
+    (ultimately generated from info@egyptdirect.co)
+    host smtp.antispamcloud.com [154.59.104.24]
+    SMTP error from remote mail server after end of data:
+    550 Message rejected due to user rules.
+";
+
+    public function testForwardedAddressBounceMatchesOriginalLeadEmail(): void
+    {
+        $b = PlatformOutreachService::parseBounce(self::FORWARDED);
+        $this->assertTrue($b['permanent']);
+        $this->assertContains('info@egyptdirect.co', $b['emails']);
+        $this->lead('info@egyptdirect.co');
+        $r = $this->svc->checkBounces(static fn () => [self::FORWARDED]);
+        $this->assertSame(1, $r['bounced']);
+        $this->assertSame('bounced', $this->leadStatus('info@egyptdirect.co'));
+    }
+
     public function testParserReadsPermanentAndIgnoresSoftAndNonBounce(): void
     {
         $a = PlatformOutreachService::parseBounce(self::EXIM);
