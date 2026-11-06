@@ -248,8 +248,9 @@ class CustomerJourneyService
     public static function stageMessage(string $stage, string $lang, string $name, string $domain, ?int $daysLeft, bool $triedAi, bool $neverReturned): string
     {
         $site = $domain !== '' ? $domain : ($lang === 'ar' ? 'موقعكم' : 'your website');
+        $anon = strpos($name, '@') !== false || trim($name) === '';
         if ($lang === 'ar') {
-            $hi = 'أهلاً فريق ' . $name . ' 👋 معاكم من Tourfecto.';
+            $hi = ($anon ? 'أهلاً بحضراتكم' : 'أهلاً فريق ' . $name) . ' 👋 معاكم من Tourfecto.';
             $t = [
                 'trial_ending' => $hi . "\nالتجربة المجانية بتاعتكم قربت تخلص" . ($daysLeft !== null && $daysLeft > 0 ? ' (باقي ' . $daysLeft . ' يوم)' : '') . "، وماحبّيتش تضيع منكم قبل ما تشوفوا النتيجة الحقيقية.\nتحبوا أساعدكم نكمّل الإعداد دلوقتي في كام دقيقة؟",
                 'paid' => $hi . "\nشكراً إنكم معانا 🙏 حبيت أطمّن إن كل حاجة ماشية معاكم، وإن مفيش أي خطوة محتاجة مساعدة. أنا موجود لأي سؤال.",
@@ -261,7 +262,7 @@ class CustomerJourneyService
             ];
             return $t[$stage] ?? $t['check_in'];
         }
-        $hi = 'Hi ' . $name . ' team 👋 This is the Tourfecto team.';
+        $hi = ($anon ? 'Hi there' : 'Hi ' . $name . ' team') . ' 👋 This is the Tourfecto team.';
         $t = [
             'trial_ending' => $hi . "\nYour free trial is about to end" . ($daysLeft !== null && $daysLeft > 0 ? ' (' . $daysLeft . ' day(s) left)' : '') . ", and I would hate for you to miss seeing real results.\nWould you like me to help you finish the setup in a few minutes?",
             'paid' => $hi . "\nThank you for being with us 🙏 Just checking that everything is going well and nothing needs help. I'm here for any question.",

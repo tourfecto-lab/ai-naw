@@ -65,6 +65,13 @@ final class CustomerJourneyServiceTest extends TestCase
         }
     }
 
+    public function testEmailAsNameDoesNotBecomeATeamName(): void
+    {
+        $m = CustomerJourneyService::stageMessage('no_site', 'ar', 'Horustt@ehorus.org', '', null, false, false);
+        $this->assertStringNotContainsString('@', $m);
+        $this->assertStringContainsString('أهلاً بحضراتكم', $m);
+    }
+
     public function testAssistantContextFitsAndTellsItIsASignup(): void
     {
         $j = [

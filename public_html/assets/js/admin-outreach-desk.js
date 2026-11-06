@@ -147,7 +147,7 @@
     // مشتركون جدد بعد ما الموظف كلّمهم: كل واحد برسالة واتساب جاهزة حسب مرحلته + مساعد يرد على أي رد بسكرين
     const SU_STATE = { active: 'نشط', idle: 'ساكت', dormant: 'خامل', never_returned: 'دخل مرة ومرجعش' };
     const suHtml = () => {
-        if (!signups.length) return '';
+        if (!signups.length && !canSeeTeam) return '';
         const cards = signups.map(j => {
             const trial = j.plan && j.plan.trial_days_left !== null ? ` · تجربة باقي ${Math.max(0, j.plan.trial_days_left)} يوم` : '';
             const dir = j.language === 'ar' ? 'rtl' : 'ltr';
@@ -159,7 +159,7 @@
         }).join('');
         return `<section class="dk-su-box"><h3>🎉 شركات سجّلت في المنصة ${signupsAll ? '(كل الفريق)' : 'بعد ما كلّمتيها'} <b>${signups.length}</b></h3>
             <p class="dk-muted">الرسالة اتجهزت لوحدها حسب مرحلة كل شركة. انسخيها وابعتيها، ولو ردّوا ابعتي سكرين الرد للمساعد وهو يقترح ردّ.</p>
-            ${canSeeTeam ? `<button class="dk-btn xs" data-su-all>${signupsAll ? 'اعرض بتاعتي بس' : 'اعرض كل الفريق'}</button>` : ''}<div class="dk-su-list">${cards}</div></section>`;
+            ${canSeeTeam ? `<button class="dk-btn xs" data-su-all>${signupsAll ? 'اعرض بتاعتي بس' : 'اعرض كل الفريق'}</button>` : ''}${signups.length ? '' : '<p class="dk-muted">مفيش مشتركين جدد منسوبين ليكي لسه.</p>'}<div class="dk-su-list">${cards}</div></section>`;
     };
     const loadSignups = async () => {
         try { signups = (await api('/api/admin/outreach-desk/signups' + (signupsAll ? '?all=1' : ''))).signups || []; } catch (e) { signups = []; }
