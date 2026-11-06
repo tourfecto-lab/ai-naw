@@ -129,3 +129,19 @@
 .dk-su-box h3{margin:0 0 4px}.dk-su-box h3 b{background:#2f9e6a;color:#fff;border-radius:999px;padding:1px 9px;font-size:13px;margin-inline-start:6px}
 .dk-su-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:10px}
 .dk-su .dk-msgbox{width:100%}
+
+/* ===== ترتيب المكتب: 5 تبويبات + كروت مضغوطة ===== */
+.dk-mtabs{display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin:10px 0 6px;position:sticky;top:0;z-index:20;background:var(--panel-bg,var(--panel-card-bg,#111));border-bottom:1px solid var(--panel-border);-webkit-overflow-scrolling:touch}
+.dk-mtab{font:inherit;font-size:14px;cursor:pointer;padding:9px 16px;border-radius:999px;border:1px solid var(--panel-border);background:transparent;color:inherit;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.dk-mtab b{background:rgba(212,165,55,.25);border-radius:999px;padding:0 8px;font-size:12px}
+.dk-mtab.on{border-color:#d4a537;background:rgba(212,165,55,.18);font-weight:700}
+.dk-mtab:hover{border-color:var(--panel-accent,#3b82f6)}
+.dk-pane{margin-top:10px}
+.dk-card:not(.open) .dk-body,.dk-card:not(.open) .dk-result{display:none}
+.dk-quick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0 2px}
+.dk-quick .dk-toggle{margin-inline-start:auto}
+.dk-card:not(.open){padding-block:12px}
+@media (max-width:640px){.dk-mtab{padding:8px 12px;font-size:13px}.dk-quick .dk-btn{flex:1 1 auto;justify-content:center}.dk-quick .dk-toggle{flex:0 0 auto}}
+.dk-pane,.dk-top,.dk-bar,.dk-tabs,.dk-chips,.dk-prio,.dk-list,.dk-su-box{min-width:0;max-width:100%}
+.dk-bar{display:flex;flex-direction:column;gap:8px}
+@media (min-width:900px){.dk-bar{flex-direction:row;align-items:center;justify-content:space-between}.dk-bar .dk-search{flex:0 1 340px}}

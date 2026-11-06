@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let suAlerts = [], signups = [], signupsAll = false, P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
+    let suAlerts = [], dkTab = null, signups = [], signupsAll = false, P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -50,6 +50,8 @@
         get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
         set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* مش مهم */ } },
     };
+    const MTABS = [['today', '🏠 اليوم'], ['companies', '🏢 الشركات'], ['signups', '🎉 المشتركون'], ['perf', '📊 الأداء'], ['tools', '🧰 أدوات']];
+    const openCards = new Set();
     const api = async (url, body) => {
         const r = await P.fetchJSON(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, csrf_token: csrf }) } : undefined);
         if (!r?.success) throw new Error(r?.error || 'حصلت مشكلة');
@@ -104,7 +106,9 @@
             <input class="dk-note" placeholder="ملاحظة (اختياري): مين ردّ، هنكلمه إمتى..." maxlength="500" value="${esc(d.note || '')}">
             <label class="dk-followup-l">📅 موعد متابعة مخصّص (اختياري)<input type="datetime-local" class="dk-followup" data-followup value="${d.followup_at ? esc(String(d.followup_at).replace(' ', 'T').slice(0, 16)) : ''}"></label>
             <button class="dk-btn xs" data-asst-for="${r.id}">🤖 اسألي المساعد عن الشركة دي</button>${last}</div>`;
-        return `<article class="dk-card" data-id="${r.id}">${head}<div class="dk-body">${details}${msg}</div>${acts}</article>`;
+        const isOpen = openCards.has(r.id);
+        const quick = `<div class="dk-quick">${r.wa_url ? `<a class="dk-btn green" data-wa href="${esc(r.wa_url)}" target="_blank" rel="noopener noreferrer">💬 واتساب</a>` : ''}<button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button>${d.action ? `<span class="dk-sent ${BUCKET[d.action] === 'hot' ? 'hot' : ''}">${d.action === 'contacted' ? '✅' : '•'} ${esc(sentLabel)} · <b>${esc(d.by || '')}</b></span>` : ''}<button class="dk-btn xs dk-toggle" data-toggle-card>${isOpen ? '⌃ إخفاء' : '⌄ التفاصيل والنتيجة'}</button></div>`;
+        return `<article class="dk-card${isOpen ? ' open' : ''}" data-id="${r.id}">${head}${quick}<div class="dk-body">${details}${msg}</div>${acts}</article>`;
     };
 
     // نتايج التواصل للدولة المختارة: واتساب (اتبعتلهم ← ردّوا ← جرّبوا ← اشتركوا) وإيميل، وأداء كل موظفة آخر 7 أيام
@@ -163,7 +167,8 @@
     };
     const loadSignups = async () => {
         try { signups = (await api('/api/admin/outreach-desk/signups' + (signupsAll ? '?all=1' : ''))).signups || []; } catch (e) { signups = []; }
-        const el = root.querySelector('.dk-su-slot'); if (el) el.innerHTML = suHtml();
+        const el = root.querySelector('.dk-su-slot'); if (el) el.innerHTML = suHtml() || (dkTab === 'signups' ? '<p class="dk-muted">مفيش مشتركين جدد لسه.</p>' : '');
+        const tb = root.querySelector('.dk-mtab[data-tab="signups"]'); if (tb) tb.innerHTML = '🎉 المشتركون' + (signups.length ? ` <b>${num(signups.length)}</b>` : '');
     };
 
     // تنبيه فوري: شركة اتنسبت للموظفة (أو أي مشترك جديد للمدير) سجّلت في المنصة ولسه ماحدش بعتلها الرسالة
@@ -199,6 +204,7 @@
 
     const exportUrl = () => '/api/admin/outreach-desk/export?' + new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q });
     const render = () => {
+        if (!dkTab) { const t = store.get('dk-tab'); dkTab = MTABS.some(x => x[0] === t) ? t : 'companies'; }
         const c = cur();
         const countries = counts.map(x => `<button class="dk-chip ${x.country === state.country ? 'on' : ''}" data-country="${esc(x.country)}">${flag(x.country)} ${esc(countryName(x.country))} <b>${x.total}</b>${x.todo ? `<small>${x.todo} لسه</small>` : ''}</button>`).join('');
         const tabs = VIEWS.map(([k, l, key]) => `<button class="dk-tab ${state.view === k ? 'on' : ''}" data-view="${k}">${l}${key ? ` <b>${c[key] || 0}</b>` : ` <b>${c.total || 0}</b>`}</button>`).join('');
@@ -206,26 +212,34 @@
         const due = counts.reduce((a, c) => a + (c.followup || 0), 0);
         const opened = counts.reduce((a, x) => a + (x.opened || 0), 0);
         const hot = counts.reduce((a, c) => a + (c.hot || 0), 0);
-        const meBanner = (onboardingBlocked ? `<div class="dk-banner bad">⛔ عدّى 24 ساعة من تعيينك ولسه مصوّرتش البطاقة والصورة الشخصية: مكتب التواصل موقوف لحد ما تصوّر <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
-            + (hot > 0 ? `<div class="dk-banner good">👋 ${num(hot)} شركة ردّت أو مهتمة ومحتاجة ردّك: ماتسيبهاش تبرد <button class="dk-btn primary" data-go-hot>فتح الردود</button></div>` : '')
+        // تنبيهات لازم تتشاف في أي تبويب (الموقوف والبطاقة)، والباقي في «اليوم»
+        const critical = (onboardingBlocked ? `<div class="dk-banner bad">⛔ عدّى 24 ساعة من تعيينك ولسه مصوّرتش البطاقة والصورة الشخصية: مكتب التواصل موقوف لحد ما تصوّر <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
+            + (me.id_card === false ? `<div class="dk-banner">🪪 ${me.recapture ? 'مطلوب إعادة تصوير البطاقة والصورة الشخصية' : 'تصوير البطاقة والصورة الشخصية'} <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '');
+        const urgent = (hot > 0 ? `<div class="dk-banner good">👋 ${num(hot)} شركة ردّت أو مهتمة ومحتاجة ردّك: ماتسيبهاش تبرد <button class="dk-btn primary" data-go-hot>فتح الردود</button></div>` : '')
             + (opened > 0 ? `<div class="dk-banner">👀 ${num(opened)} شركة فتحت التقرير ومفيش نتيجة لسه: الأنسب التواصل معاها دلوقتي وهي لسه شايفاه <button class="dk-btn primary" data-go-opened>شوف مين فتح</button></div>` : '')
             + (due > 0 ? `<div class="dk-banner">⏰ ${num(due)} شركة محتاجة متابعة (اتبعتلها واتساب من يومين أو أكتر من غير نتيجة) <button class="dk-btn primary" data-go-followup>فتح المتابعة</button></div>` : '')
-            + (me.id_card === false ? `<div class="dk-banner">🪪 ${me.recapture ? 'مطلوب إعادة تصوير البطاقة والصورة الشخصية' : 'تصوير البطاقة والصورة الشخصية'} <button class="dk-btn primary" data-id-wizard-main>📷 تصوير</button></div>` : '')
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         const goalPct = me.daily_goal ? Math.min(100, Math.round(100 * (me.sent_today || 0) / me.daily_goal)) : 0;
         const goalBar = me.daily_goal ? `<div class="dk-goal"><span class="dk-label">🎯 هدفك النهارده: <b>${num(me.sent_today || 0)}</b> من <b>${num(me.daily_goal)}</b></span><div class="dk-goal-track"><div class="dk-goal-fill" style="width:${goalPct}%"></div></div>${goalPct >= 100 ? '<span class="dk-b green">خلصتي الهدف 🎉</span>' : ''}</div>` : '';
-        root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div><div class="dk-su-alert-slot">${suAlertHtml()}</div>${meBanner}
-            <section class="dk-top">${goalBar}<div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
-            <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
-            <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
-            <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a> <button class="dk-btn primary" data-asst-open>🤖 المساعد الذكي</button></div>
-            <div class="dk-su-slot">${suHtml()}</div>
-            <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
-            ${canSeeTeam ? `<div class="dk-team-slot">${teamLoaded ? teamHtml() : ''}</div>` : ''}
-            <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
-            <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
-            <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
-            <div class="dk-pager"><span class="dk-muted">${total} شركة · صفحة ${state.page} من ${pages || 1}</span>${state.page > 1 ? '<button class="dk-btn" data-page="-1">السابق</button>' : ''}${state.page < pages ? '<button class="dk-btn" data-page="1">التالي</button>' : ''}</div>`;
+        const tabN = { today: hot + opened + due, companies: c.total || 0, signups: signups.length };
+        const tabBar = `<nav class="dk-mtabs" aria-label="أقسام المكتب">${MTABS.map(([k, l]) => `<button class="dk-mtab ${dkTab === k ? 'on' : ''}" data-tab="${k}">${l}${tabN[k] ? ` <b>${num(tabN[k])}</b>` : ''}</button>`).join('')}</nav>`;
+        const sec = {
+            today: `${goalBar}${urgent || '<div class="dk-banner good">✅ مفيش حاجة عاجلة دلوقتي. افتحي «الشركات» وكمّلي الإرسال.</div>'}${signups.length ? `<div class="dk-su-slot">${suHtml()}</div>` : ''}
+                <div class="dk-tip">الشغل اليومي: «الشركات» ← انسخي الرسالة وابعتيها على واتساب ← سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>`,
+            companies: `<section class="dk-top"><div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
+                <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">القايمة مترتّبة بالأولوية: الشركات اللي محتاجة فعلًا وشغّالة فعلًا.</span></div>
+                <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
+                <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
+                <div class="dk-pager"><span class="dk-muted">${total} شركة · صفحة ${state.page} من ${pages || 1}</span>${state.page > 1 ? '<button class="dk-btn" data-page="-1">السابق</button>' : ''}${state.page < pages ? '<button class="dk-btn" data-page="1">التالي</button>' : ''}</div>`,
+            signups: `<div class="dk-su-slot">${suHtml() || '<p class="dk-muted">مفيش مشتركين جدد لسه.</p>'}</div>`,
+            perf: `${goalBar}<div class="dk-links"><button class="dk-btn primary" data-staff-open>📋 كشف الشغل والعمولة والراتب</button></div>
+                <div class="dk-chips">${countries}</div>
+                <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
+                ${canSeeTeam ? `<div class="dk-team-slot">${teamLoaded ? teamHtml() : ''}</div>` : ''}`,
+            tools: `<div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
+                <div class="dk-links"><button class="dk-btn primary" data-asst-open>🤖 المساعد الذكي</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a> <button class="dk-btn" data-id-wizard-main>🪪 تصوير البطاقة والصورة</button></div>`,
+        };
+        root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div><div class="dk-su-alert-slot">${suAlertHtml()}</div>${critical}${tabBar}<div class="dk-pane">${sec[dkTab] || sec.companies}</div>`;
     };
 
     const load = async (keepScroll) => {
@@ -721,6 +735,8 @@
             const t = e.target.closest('button'); if (!t) return;
             const cardEl = t.closest('.dk-card');
             try {
+                if (t.dataset.tab) { dkTab = t.dataset.tab; store.set('dk-tab', dkTab); render(); window.scrollTo({ top: 0 }); if (dkTab === 'perf') { loadFunnel(); loadTeamToday(); } return; }
+                if (t.dataset.toggleCard !== undefined && cardEl) { const id = Number(cardEl.dataset.id); if (openCards.has(id)) openCards.delete(id); else openCards.add(id); cardEl.classList.toggle('open', openCards.has(id)); t.textContent = openCards.has(id) ? '⌃ إخفاء' : '⌄ التفاصيل والنتيجة'; return; }
                 if (t.dataset.seen !== undefined) {
                     const [net, state] = t.dataset.seen.split(':');
                     t.disabled = true;
@@ -736,7 +752,7 @@
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.suDismiss !== undefined) { suSeenAdd(suAlerts.map(x => x.id)); suAlerts = []; document.title = document.title.replace(/^🎉 /, ''); const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = ''; return; }
-                if (t.dataset.suOpen !== undefined) { const first = suAlerts[0]; suSeenAdd(suAlerts.map(x => x.id)); suAlerts = []; document.title = document.title.replace(/^🎉 /, ''); const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = ''; await loadSignups(); const card = first && root.querySelector('.dk-su[data-su="' + first.id + '"]'); (card || root.querySelector('.dk-su-box'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+                if (t.dataset.suOpen !== undefined) { const first = suAlerts[0]; suSeenAdd(suAlerts.map(x => x.id)); suAlerts = []; document.title = document.title.replace(/^🎉 /, ''); const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = ''; dkTab = 'signups'; store.set('dk-tab', dkTab); render(); await loadSignups(); const card = first && root.querySelector('.dk-su[data-su="' + first.id + '"]'); (card || root.querySelector('.dk-su-box'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
                 if (t.dataset.suPerm !== undefined) { try { await Notification.requestPermission(); } catch (e) { /* مش متاح */ } const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = suAlertHtml(); return; }
                 if (t.dataset.suCopy !== undefined) { const box = t.closest('.dk-su').querySelector('[data-su-msg]'); toast(await copy(box.value) ? 'اتنسخت الرسالة ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.suAll !== undefined) { signupsAll = !signupsAll; return await loadSignups(); }
@@ -745,9 +761,9 @@
                 if (t.dataset.asstFor !== undefined) { return openAssistant(Number(t.dataset.asstFor)); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
                 if (t.dataset.signSave !== undefined) { const v = (root.querySelector('#dkSign') || {}).value || ''; await api('/api/admin/outreach-desk/staff-profile', { sign_name: v }); toast('اتحفظ اسمك في التوقيع ✅'); return await load(true); }
-                if (t.dataset.goHot !== undefined) { const c = counts.find(x => x.hot > 0); if (c) { state.country = c.country; state.view = 'hot'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
-                if (t.dataset.goOpened !== undefined) { const c = counts.find(x => x.opened > 0); if (c) { state.country = c.country; state.view = 'opened'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
-                if (t.dataset.goFollowup !== undefined) { const c = counts.find(x => x.followup > 0); if (c) { state.country = c.country; state.view = 'followup'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
+                if (t.dataset.goHot !== undefined) { const c = counts.find(x => x.hot > 0); if (c) { state.country = c.country; dkTab = 'companies'; store.set('dk-tab', dkTab); state.view = 'hot'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
+                if (t.dataset.goOpened !== undefined) { const c = counts.find(x => x.opened > 0); if (c) { state.country = c.country; dkTab = 'companies'; store.set('dk-tab', dkTab); state.view = 'opened'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
+                if (t.dataset.goFollowup !== undefined) { const c = counts.find(x => x.followup > 0); if (c) { state.country = c.country; dkTab = 'companies'; store.set('dk-tab', dkTab); state.view = 'followup'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
                 if (t.dataset.locFirst !== undefined) { t.disabled = true; try { await doLocation(); me.location_recorded = true; render(); toast('اتسجّل موقعك ✅ شكرًا'); } finally { t.disabled = false; } return; }
                 if (t.dataset.copyMsg2 !== undefined) { const box = cardEl.querySelector('.dk-msg2 .dk-msgbox'); toast(await copy(box.value) ? 'اتنسخت رسالة الخدمات ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.undo !== undefined) { t.disabled = true; await mark(Number(cardEl.dataset.id), 'undo', ''); return; }
