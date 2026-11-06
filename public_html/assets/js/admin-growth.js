@@ -33,6 +33,19 @@
     const v = id => root.querySelector('#' + id);
     const tested = () => { try { return !!localStorage.getItem('gr-tested'); } catch (e) { return false; } };
 
+    const STATE_TXT = { active: 'نشط', idle: 'ساكت', dormant: 'خامل', never_returned: 'دخل مرة ومرجعش' };
+    const loadSignups = async () => {
+        const el = root.querySelector('#grSignups'); if (!el) return;
+        try {
+            const r = await P.fetchJSON('/api/admin/insights/signups?days=14');
+            const list = (r && r.data && r.data.signups) || [];
+            if (!list.length) { el.querySelector('p').textContent = 'مفيش مشتركين جدد في آخر 14 يوم.'; return; }
+            el.innerHTML = '<h3>🆕 المشتركون الجدد (آخر 14 يوم)</h3><p class="gr-muted">الأولى بالمتابعة فوق: تجربة بتخلص، أو دخل مرة ومرجعش، أو موقعه مش مربوط. اضغط الاسم لتشوف رحلته كاملة.</p>' +
+                '<div class="gr-scroll"><table class="gr-table"><thead><tr><th>العميل</th><th>الباقة</th><th>الحالة</th><th>آخر ظهور</th><th>التفعيل</th><th>صفحات</th><th></th></tr></thead><tbody>' +
+                list.map(j => `<tr><td><b>${esc(j.user.name)}</b><div class="gr-muted">${esc(j.user.email)}</div></td><td>${esc((j.plan && j.plan.name) || '—')}${j.plan && j.plan.trial_days_left !== null ? `<div class="gr-muted">تجربة · باقي ${Math.max(0, j.plan.trial_days_left)} يوم</div>` : ''}</td><td>${esc(STATE_TXT[j.state] || j.state)}</td><td class="gr-muted">منذ ${j.hours_since_last_seen} ساعة</td><td>${j.activation.done}/${j.activation.total}</td><td>${j.visits}</td><td>${j.contact && j.contact.wa_url ? `<a class="p-btn outline xs" target="_blank" rel="noopener" href="${esc(j.contact.wa_url)}">واتساب</a>` : ''}</td></tr>`).join('') + '</tbody></table></div>';
+        } catch (e) { el.querySelector('p').textContent = 'تعذّر تحميل المشتركين الجدد.'; }
+    };
+
     const render = () => {
         const s = data.stats, st = data.settings, by = s.by_status || {};
         const cs = s.country_stats || [];
@@ -68,6 +81,7 @@
    step('ردّوا / مهتمين', f.replied || 0, pct(f.replied, f.reached) + ' ممن وصلنا لهم') +
    step('سجّلوا 🎉', f.signed_up || 0, pct(f.signed_up, f.reached) + ' ممن وصلنا لهم'); })()}
 </section>
+<section class="gr-box" id="grSignups"><h3>🆕 المشتركون الجدد (آخر 14 يوم)</h3><p class="gr-muted">جاري التحميل…</p></section>
 <section class="gr-box gr-chan"><h3>القنوات</h3>
  ${(() => { const ch = (s.funnel || {}).channels || {}; const em = ch.email || {}; const wa = ch.whatsapp || {};
   return `<table class="gr-table"><thead><tr><th>القناة</th><th>وصلنا لها</th><th>فتحوا التقرير</th><th>ردّوا</th><th>سجّلوا / جرّبوا</th></tr></thead><tbody>
@@ -141,6 +155,7 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
         preview();
         loadLeads();
         loadCampaigns();
+        loadSignups();
     };
     const f = (k, label, type = 'text') => `<label class="gr-f">${label}<input id="s_${k}" type="${type}" class="p-select" value="${esc(data.settings[k])}" ${['from_email', 'reply_to', 'smtp_host', 'smtp_username', 'signup_url', 'timezone'].includes(k) ? 'dir="ltr"' : ''}></label>`;
 

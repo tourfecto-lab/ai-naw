@@ -725,6 +725,8 @@ $router->group('/api/admin', function ($router) {
     $router->post('/insights/trials/{id}/extend', 'AdminInsightsController', 'extendTrial', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/insights/errors', 'AdminInsightsController', 'errors', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/insights/customers/{id}', 'AdminInsightsController', 'customer', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->get('/insights/customers/{id}/journey', 'AdminInsightsController', 'journey', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->get('/insights/signups', 'AdminInsightsController', 'signups', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/insights/users/{id}/verify-email', 'AdminInsightsController', 'verifyUserEmail', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/insights/accounts/{id}', 'AdminAccountsController', 'show', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/insights/accounts/{id}/update', 'AdminAccountsController', 'update', ['AuthMiddleware', 'AdminMiddleware']);

@@ -596,6 +596,39 @@
         if (r.success) after();
     }
 
+    // رحلة العميل: عمل إيه في المنصة، دخل أنهي صفحات، قعد قد إيه، ووصل لفين في التفعيل
+    const cjDur = sec => { sec = Math.round(+sec || 0); if (sec < 60) return sec + ' ث'; const m = Math.floor(sec / 60); return m < 60 ? m + ' د' : Math.floor(m / 60) + ' س ' + (m % 60) + ' د'; };
+    const CJ_STATE = { active: ['green', 'نشط'], idle: ['gray', 'ساكت 1-3 أيام'], dormant: ['red', 'خامل'], never_returned: ['red', 'دخل مرة ومرجعش'] };
+    const CJ_LEVEL = { high: '#e5484d', medium: '#f5a524', low: '#8a8f98', info: '#3b82f6' };
+    const cjStyle = () => {
+        if (document.getElementById('cjStyle')) return;
+        const st = document.createElement('style'); st.id = 'cjStyle';
+        st.textContent = '.cj-box{margin:12px 0;padding:14px;border:1px solid var(--panel-border,#2a2f3a);border-radius:12px}.cj-box h4{margin:0 0 8px}.cj-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:8px 0}.cj-grid div{padding:8px 10px;border:1px solid var(--panel-border,#2a2f3a);border-radius:10px}.cj-grid b{display:block;font-size:18px}.cj-ms{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.cj-ms span{padding:3px 10px;border-radius:999px;border:1px solid var(--panel-border,#2a2f3a);font-size:12px}.cj-ms .done{background:#1f9d5520;border-color:#1f9d55}.cj-next{margin:8px 0;padding:0;list-style:none}.cj-next li{padding:6px 10px;margin:4px 0;border-inline-start:3px solid;background:#ffffff08;border-radius:6px;font-size:13px}.cj-tbl{width:100%;border-collapse:collapse;font-size:13px}.cj-tbl th,.cj-tbl td{padding:4px 6px;text-align:start;border-bottom:1px solid var(--panel-border,#2a2f3a)}';
+        document.head.appendChild(st);
+    };
+    document.addEventListener('ap:user-rendered', async e => {
+        const { uid, body } = e.detail || {};
+        if (!body || !can('users.view')) return;
+        const r = await api('/api/admin/insights/customers/' + uid + '/journey');
+        if (!r.success || !document.body.contains(body)) return;
+        cjStyle();
+        const j = r.data, st = CJ_STATE[j.state] || ['gray', j.state];
+        const box = document.createElement('div');
+        box.className = 'cj-box';
+        box.innerHTML = '<h4>🧭 رحلة العميل في المنصة</h4>' +
+            '<div>' + pill(st[1], st[0]) + ' <span class="ap-sub">آخر ظهور: ' + esc(dt(j.last_seen)) + ' (من ' + j.hours_since_last_seen + ' ساعة)</span>' +
+            (j.plan ? ' · <span class="ap-sub">' + esc(j.plan.name || '') + ' (' + esc(j.plan.status) + ')' + (j.plan.trial_days_left !== null ? ' — باقي ' + Math.max(0, j.plan.trial_days_left) + ' يوم' : '') + '</span>' : '') + '</div>' +
+            '<div class="cj-grid"><div><span class="ap-sub">زيارات صفحات</span><b>' + j.visits + '</b></div><div><span class="ap-sub">جلسات</span><b>' + j.session_count + '</b></div><div><span class="ap-sub">وقت نشط</span><b>' + cjDur(j.active_seconds) + '</b></div><div><span class="ap-sub">مرات الدخول</span><b>' + j.logins + '</b></div><div><span class="ap-sub">استدعاءات AI</span><b>' + j.ai_calls + '</b></div></div>' +
+            '<div class="ap-sub">التفعيل: ' + j.activation.done + ' من ' + j.activation.total + '</div>' +
+            '<div class="cj-ms">' + j.milestones.map(m => '<span class="' + (m.done ? 'done' : '') + '">' + (m.done ? '✓ ' : '○ ') + esc(m.label) + '</span>').join('') + '</div>' +
+            (j.source ? '<div class="ap-sub">جه من حملة التسويق: ' + esc(j.source.company || '') + (j.source.emailed ? ' · اتبعتله إيميل' : '') + (j.source.whatsapp ? ' · اتكلم معاه واتساب' : '') + (j.source.report_viewed ? ' · فتح تقرير موقعه' : '') + '</div>' : '') +
+            (j.next_steps.length ? '<ul class="cj-next">' + j.next_steps.map(n => '<li style="border-color:' + (CJ_LEVEL[n.level] || '#888') + '">' + esc(n.text) + '</li>').join('') + '</ul>' : '') +
+            (j.contact.wa_url ? '<a class="p-btn primary xs" target="_blank" rel="noopener" href="' + esc(j.contact.wa_url) + '">💬 كلّمه على واتساب (الرسالة جاهزة)</a>' : '<span class="ap-sub">مفيش رقم تليفون متسجّل ليه.</span>') +
+            (j.top_pages.length ? '<h4 style="margin-top:14px">أكتر الصفحات اللي دخلها</h4><table class="cj-tbl"><thead><tr><th>الصفحة</th><th>مرات</th><th>وقت تقريبي</th></tr></thead><tbody>' + j.top_pages.map(p => '<tr><td>' + esc(p.label) + (p.label !== p.path ? ' <span class="ap-sub">' + esc(p.path) + '</span>' : '') + '</td><td>' + p.views + '</td><td>' + (p.seconds ? cjDur(p.seconds) : '—') + '</td></tr>').join('') + '</tbody></table>' : '<div class="ap-sub" style="margin-top:10px">مفيش زيارات صفحات متسجّلة للعميل ده لسه.</div>') +
+            (j.sessions.length ? '<h4 style="margin-top:14px">آخر الجلسات</h4><table class="cj-tbl"><thead><tr><th>البداية</th><th>صفحات</th><th>المدة</th><th>الجهاز</th></tr></thead><tbody>' + j.sessions.slice(0, 6).map(x => '<tr><td>' + esc(dt(x.start)) + '</td><td>' + x.pages + '</td><td>' + (x.seconds ? cjDur(x.seconds) : '—') + '</td><td>' + esc(x.device || '') + '</td></tr>').join('') + '</tbody></table><div class="ap-sub">وقت الصفحة تقديري: الفرق بين زيارتها والصفحة اللي بعدها (آخر صفحة في الجلسة مش بتتحسب).</div>' : '');
+        const anchor = $('.ap-ustats', body); if (anchor) anchor.after(box); else body.appendChild(box);
+    });
+
     // ملف العميل 360: الصحة والربحية والتاجات
     document.addEventListener('ap:user-rendered', async e => {
         const { uid, body } = e.detail || {};

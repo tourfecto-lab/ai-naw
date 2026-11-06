@@ -217,6 +217,20 @@ class AdminInsightsController extends Controller
         return $this->success(['health' => $h]);
     }
 
+    /** GET /api/admin/insights/customers/{id}/journey - عمل إيه في المنصة، دخل أنهي صفحات وقعد قد إيه، ووصل لفين */
+    public function journey(array $params = []): array
+    {
+        $j = (new CustomerJourneyService())->forUser((int) ($params['id'] ?? 0));
+        return $j ? $this->success($j) : $this->error('العميل مش موجود', 404);
+    }
+
+    /** GET /api/admin/insights/signups?days=14 - أحدث المشتركين مرتبين بالأولى بالمتابعة */
+    public function signups(array $params = []): array
+    {
+        $days = (int) $this->get('days', 14);
+        return $this->success(['signups' => (new CustomerJourneyService())->recentSignups($days, 30)]);
+    }
+
     /** GET /api/admin/insights/trials - التجارب الشغّالة واللي خلصت واللي مابدأوش */
     public function trials(array $params = []): array
     {

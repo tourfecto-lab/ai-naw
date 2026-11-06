@@ -442,6 +442,7 @@ return [
     'CustomDomainService' => dirname(__DIR__,2).'/app/Services/Website/CustomDomainService.php',
     'CustomerError' => dirname(__DIR__,2).'/app/Services/Support/CustomerError.php',
     'CustomerHealthService' => dirname(__DIR__,2).'/app/Services/Admin/CustomerHealthService.php',
+    'CustomerJourneyService' => dirname(__DIR__,2).'/app/Services/Admin/CustomerJourneyService.php',
     'CustomerRevenueService' => dirname(__DIR__,2).'/app/Services/RevenueIntelligence/CustomerRevenueService.php',
     'DashboardController' => dirname(__DIR__,2).'/app/Controllers/DashboardController.php',
     'DataEncryption' => dirname(__DIR__,2).'/app/Services/Security/DataEncryption.php',

@@ -320,6 +320,7 @@ class AdminAccess
                 '#^/insights/emails/\d+/resend$#' => ['system.manage', 'system.manage'],
                 '#^/insights/metrics$#' => ['billing.view', 'billing.view'],
                 '#^/insights/customers(/\d+)?$#' => ['users.view', 'users.view'],
+                '#^/insights/(customers/\d+/journey|signups)$#' => ['users.view', 'users.view'],
                 '#^/insights/adoption$#' => ['users.view', 'users.view'],
                 '#^/insights/billing$#' => ['billing.view', 'billing.view'],
                 '#^/insights/coupons(/\d+)?$#' => ['billing.view', 'billing.settings'],
