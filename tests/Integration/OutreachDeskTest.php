@@ -1159,6 +1159,7 @@ final class OutreachDeskTest extends TestCase
         $this->svc->deskAction($b, 'contacted', '', self::STAFF_ID, 'Goal Staff');
         $this->assertSame(2, $this->svc->staffSentToday(self::STAFF_ID));
         $this->assertSame(2, $this->svc->staffMe(self::STAFF_ID)['sent_today']);
+        $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [self::STAFF_ID]);
     }
 
     public function testDeskLeadsStillComputesTierCorrectlyAfterTheWhereBuildingRefactor(): void
@@ -1278,5 +1279,20 @@ final class OutreachDeskTest extends TestCase
         $badDate = $this->svc->assistantDraftReply('hi', null, 5, fn ($img, $p) => ['success' => true, 'data' => '{"summary":"s","suggested_reply":"r","followup_date":"not a date"}']);
         $this->assertTrue($badDate['ok']);
         $this->assertNull($badDate['followup_date'], 'a garbled AI date is dropped, not fatal');
+    }
+
+    public function testAssistantIncludesTheLeadContextInThePromptSoItDoesNotRepeatWhatIsAlreadyKnown(): void
+    {
+        $r = $this->svc->assistantDraftReply('قالت تمام', null, 5, function ($img, $prompt) {
+            $this->assertStringContainsString('مفيهوش حجز أونلاين', $prompt);
+            $this->assertStringContainsString('آخر ملاحظة متسجّلة: اتبعتلها قبل كده', $prompt);
+            return ['success' => true, 'data' => '{"summary":"s","suggested_reply":"r"}'];
+        }, "الاسم: Nile Tours\nالنواقص اللي عندها: مفيهوش حجز أونلاين\nآخر ملاحظة متسجّلة: اتبعتلها قبل كده");
+        $this->assertTrue($r['ok']);
+        $noContext = $this->svc->assistantDraftReply('قالت تمام', null, 5, function ($img, $prompt) {
+            $this->assertStringNotContainsString('معلومات معروفة عن الشركة', $prompt);
+            return ['success' => true, 'data' => '{"summary":"s","suggested_reply":"r"}'];
+        });
+        $this->assertTrue($noContext['ok']);
     }
 }

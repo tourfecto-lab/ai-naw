@@ -447,7 +447,7 @@ class PlatformOutreachController extends Controller
             $image = ['binary' => $binary, 'mime' => (string) $info['mime']];
         }
         try {
-            $r = $this->service()->assistantDraftReply((string) $this->get('message', ''), $image, (int) ($this->user['id'] ?? 0));
+            $r = $this->service()->assistantDraftReply((string) $this->get('message', ''), $image, (int) ($this->user['id'] ?? 0), null, (string) $this->get('lead_context', ''));
             if (!$r['ok']) {
                 return $this->error($r['error'] ?? 'تعذر الرد', 422);
             }

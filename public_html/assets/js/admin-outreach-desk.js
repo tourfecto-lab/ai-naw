@@ -501,14 +501,14 @@
         wizStart('front');
     };
     // المساعد الذكي: بيقترح ردّ احترافي من سكرين شات أو رسالة، ومايحفظش حاجة لحد ما الموظفة تراجع وتدوس «تسجيل»
-    const asst = { el: null, result: null, matches: [], matchId: 0, fixedId: 0, fixedLabel: '' };
+    const asst = { el: null, result: null, matches: [], matchId: 0, fixedId: 0, fixedLabel: '', context: '' };
     const asstRender = () => {
         const r = asst.result;
         const matchOpts = asst.matches.map(m => `<option value="${m.id}">${esc(m.company)} · ${esc(m.phone_intl || m.phone)}</option>`).join('');
         asst.el.innerHTML = `<div class="dk-modal-box"><button class="dk-btn" data-asst-close>✕ إغلاق</button>
             <h2>🤖 المساعد الذكي</h2>
             <p class="dk-muted">اكتبي اللي قالته الشركة أو ارفعي سكرين شات واتساب، والمساعد بيقترح ردّ احترافي بنفس اللغة. هو بيقترح بس، إنتِ اللي بتبعتي وبتسجّلي.</p>
-            ${asst.fixedId ? `<p class="dk-b">📌 عن شركة: ${esc(asst.fixedLabel)}</p>` : ''}
+            ${asst.fixedId ? `<p class="dk-b">📌 عن شركة: ${esc(asst.fixedLabel)}</p><p class="dk-muted">✅ واخد باله من نواقصها وآخر تواصل معاها، مش لازم تشرحيله من الأول</p>` : ''}
             <div class="dk-comp"><textarea class="dk-msgbox" data-asst-msg rows="3" placeholder="مثلًا: قالت هتكلمنا بعد 3 أيام، أو سيبي الخانة دي فاضية لو هترفعي سكرين بس"></textarea>
             <label class="dk-btn">📷 رفع سكرين شات (اختياري)<input type="file" accept="image/*" hidden data-asst-img></label><span class="dk-muted" data-asst-imgname></span>
             <button class="dk-btn primary" data-asst-send>📨 ابعتي للمساعد</button></div>
@@ -556,7 +556,7 @@
                         const msg = asst.el.querySelector('[data-asst-msg]')?.value || '', file = (asst.el.querySelector('[data-asst-img]') || {}).files?.[0];
                         if (!msg.trim() && !file) { status('اكتبي حاجة أو ارفعي سكرين الأول', true); return; }
                         t.disabled = true; status('⏳ المساعد بيقرا…');
-                        const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file);
+                        const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file); if (asst.context) fd.append('lead_context', asst.context);
                         try {
                             const resp = await fetch('/api/admin/outreach-desk/assistant', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
                             const r = await resp.json().catch(() => null);
@@ -581,6 +581,13 @@
         asst.result = null; asst.matches = []; asst.searched = false;
         const row = leadId ? rows.find(x => x.id === leadId) : null;
         asst.fixedId = row ? leadId : 0; asst.fixedLabel = row ? row.company + ' · ' + (row.phone_intl || row.phone) : '';
+        asst.context = row ? [
+            'الاسم: ' + row.company, row.score != null ? 'درجة الفحص: ' + row.score + '/100' : '',
+            (row.gaps || []).length ? 'النواقص اللي عندها: ' + row.gaps.join(' · ') : '',
+            row.desk && row.desk.note ? 'آخر ملاحظة متسجّلة: ' + row.desk.note : '',
+            row.desk && row.desk.action ? 'آخر نتيجة متسجّلة: ' + (ACTION_LABEL[row.desk.action] || row.desk.action) + (row.desk.at ? ' بتاريخ ' + row.desk.at : '') : '',
+            row.email_step > 0 ? 'اتبعتلها إيميل قبل كده (خطوة ' + row.email_step + ')' : '',
+        ].filter(Boolean).join('\n') : '';
         asstRender(); asst.el.hidden = false;
     };
     const openStaff = async () => {
