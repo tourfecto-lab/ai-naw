@@ -313,7 +313,7 @@
             if (!r.success) { root.innerHTML = failedBox(r.error); return; }
             const d = r.data, c = d.counts;
             sel.forEach(id => { if (!d.items.some(i => i.id === id)) sel.delete(id); });
-            const segs = [['at_risk', 'في خطر', c.at_risk], ['watch', 'تحت المتابعة', c.watch], ['healthy', 'كويسين', c.healthy], ['unprofitable', 'بيخسّروا', null], ['paying', 'بيدفعوا', null], ['all', 'الكل', null]];
+            const segs = [['at_risk', 'في خطر', d.at_risk_listed != null ? d.at_risk_listed : c.at_risk], ['watch', 'تحت المتابعة', c.watch], ['healthy', 'كويسين', c.healthy], ['unprofitable', 'بيخسّروا', null], ['paying', 'بيدفعوا', null], ['all', 'الكل', null]];
             const rows = d.items.map(i => '<tr data-user="' + i.id + '" class="ai-click"><td class="ai-sel"><input type="checkbox" data-sel="' + i.id + '"' + (sel.has(i.id) ? ' checked' : '') + ' aria-label="اختيار"></td>' +
                 '<td><b>' + esc(i.name) + '</b><br><span class="p-cell-muted">' + esc(i.email) + '</span>' + (i.tags && i.tags.length ? '<div class="ai-tags">' + i.tags.map(t => '<span class="ai-tag">' + esc(t) + '</span>').join('') + '</div>' : '') + '</td>' +
                 '<td><div class="ai-score"><div class="ai-score-bar ' + i.band + '" style="width:' + i.score + '%"></div></div><span class="ap-mono">' + i.score + '</span> ' + pill(BAND[i.band][1], BAND[i.band][0]) + '</td>' +
@@ -323,7 +323,7 @@
                 '<td class="ap-mono"><span class="' + (i.margin_30d < 0 ? 'ai-neg' : '') + ' is-money">' + money(i.margin_30d) + '</span><br><small class="p-cell-muted">AI ' + money(i.ai_cost_30d) + '</small></td></tr>');
             const p = d.profit;
             root.innerHTML =
-                (d.mrr_at_risk > 0 ? '<div class="ai-banner warn"><div class="ai-banner-ico">!</div><div><b>' + money(d.mrr_at_risk) + ' إيراد شهري في خطر</b><div>' + c.at_risk + ' عميل درجتهم أقل من 40. كلّمهم قبل ما يلغوا - السبب مكتوب جنب كل واحد.</div></div></div>' : '') +
+                (d.mrr_at_risk > 0 ? '<div class="ai-banner warn"><div class="ai-banner-ico">!</div><div><b>' + money(d.mrr_at_risk) + ' إيراد شهري في خطر</b><div>' + (d.at_risk_listed != null ? d.at_risk_listed : c.at_risk) + ' عميل درجتهم أقل من 40. كلّمهم قبل ما يلغوا - السبب مكتوب جنب كل واحد.</div></div></div>' : '') +
                 '<div class="ap-bar"><div class="ap-seg">' + segs.map(s => '<button data-seg="' + s[0] + '" aria-pressed="' + (st.segment === s[0]) + '">' + s[1] + (s[2] !== null ? ' <span class="ap-mono">' + s[2] + '</span>' : '') + '</button>').join('') + '</div>' +
                 '<input type="search" class="p-input" data-q placeholder="ابحث بالاسم أو الإيميل…" value="' + esc(st.q) + '" style="max-width:240px"><span class="ap-spacer"></span>' +
                 views.map(v => '<span class="ai-view"><button class="p-btn outline xs" data-view="' + v.id + '">' + esc(v.name) + '</button><button class="ai-view-x" data-delview="' + v.id + '" aria-label="مسح">×</button></span>').join('') +

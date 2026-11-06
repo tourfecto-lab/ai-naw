@@ -43,6 +43,8 @@ class CustomerHealthService
         foreach ($out as $o) {
             $counts[$o['band']]++;
         }
+        // العدّاد اللي بيتعرض في صفحة الأدمن لازم يطابق القايمة: بيدفعوا أو متأخرين بس (counts['at_risk'] لسه بيعدّ الكل لـ AI CEO)
+        $atRiskListed = count(array_filter($out, fn ($o) => $o['band'] === 'at_risk' && ($o['paying'] || $o['status'] === 'past_due')));
         $mrrAtRisk = array_sum(array_map(fn ($o) => $o['band'] === 'at_risk' && $o['paying'] ? $o['mrr'] : 0, $out));
 
         $out = array_values(array_filter($out, function ($o) use ($segment) {
@@ -75,6 +77,7 @@ class CustomerHealthService
         return [
             'items' => array_slice($out, 0, $limit),
             'counts' => $counts,
+            'at_risk_listed' => $atRiskListed,
             'mrr_at_risk' => round($mrrAtRisk, 2),
             'profit' => $this->profitSummary(),
         ];
