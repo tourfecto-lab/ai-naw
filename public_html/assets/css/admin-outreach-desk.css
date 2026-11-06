@@ -119,3 +119,7 @@
 .dk-b.tag{background:rgba(155,89,182,.2)}
 .dk-asst-result,.dk-asst-apply{flex-direction:column;align-items:stretch;background:var(--panel-card-bg-2,rgba(128,128,128,.06))}
 .dk-asst-apply select,.dk-asst-apply input{padding:8px 10px;border-radius:10px;border:1px solid var(--panel-border);background:transparent;color:inherit;font:inherit;font-size:13px}
+.dk-asst-thread{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;padding:8px;border:1px solid var(--panel-border,rgba(128,128,128,.25));border-radius:10px;background:var(--panel-card-bg-2,rgba(128,128,128,.05))}
+.dk-asst-msg{padding:7px 10px;border-radius:10px;font-size:13px;line-height:1.6;max-width:85%;white-space:pre-wrap}
+.dk-asst-msg.user{align-self:flex-end;background:rgba(47,158,106,.18)}
+.dk-asst-msg.assistant{align-self:flex-start;background:var(--panel-card-bg-2,rgba(128,128,128,.12))}

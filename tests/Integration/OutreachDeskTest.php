@@ -1295,4 +1295,21 @@ final class OutreachDeskTest extends TestCase
         });
         $this->assertTrue($noContext['ok']);
     }
+
+    public function testAssistantIncludesPriorConversationTurnsSoItCanRefineItsOwnEarlierReply(): void
+    {
+        $history = [['role' => 'user', 'text' => 'قالت هتكلمنا بعد 3 أيام'], ['role' => 'assistant', 'text' => 'تمام، هنستنى ردّكم']];
+        $r = $this->svc->assistantDraftReply('اختصريه', null, 5, function ($img, $prompt) {
+            $this->assertStringContainsString('[الموظفة]: قالت هتكلمنا بعد 3 أيام', $prompt);
+            $this->assertStringContainsString('[المساعد]: تمام، هنستنى ردّكم', $prompt);
+            $this->assertStringContainsString('رسالة الموظفة الجديدة دلوقتي: اختصريه', $prompt);
+            return ['success' => true, 'data' => '{"summary":"s","suggested_reply":"تمام"}'];
+        }, '', $history);
+        $this->assertTrue($r['ok']);
+        $noHistory = $this->svc->assistantDraftReply('hi', null, 5, function ($img, $prompt) {
+            $this->assertStringNotContainsString('المحادثة اللي بينك', $prompt);
+            return ['success' => true, 'data' => '{"summary":"s","suggested_reply":"r"}'];
+        });
+        $this->assertTrue($noHistory['ok']);
+    }
 }

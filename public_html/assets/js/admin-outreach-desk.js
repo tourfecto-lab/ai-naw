@@ -501,24 +501,27 @@
         wizStart('front');
     };
     // المساعد الذكي: بيقترح ردّ احترافي من سكرين شات أو رسالة، ومايحفظش حاجة لحد ما الموظفة تراجع وتدوس «تسجيل»
-    const asst = { el: null, result: null, matches: [], matchId: 0, fixedId: 0, fixedLabel: '', context: '' };
+    const asst = { el: null, result: null, matches: [], matchId: 0, fixedId: 0, fixedLabel: '', context: '', history: [] };
+    const ASST_QUICK = [['✂️ اختصريه', 'اختصري الردّ أكتر من غير ما تغيّري المعنى'], ['😊 خليها أرسمي', 'خليها رسمية أكتر'], ['🌐 English', 'rewrite the reply in English'], ['🇹🇷 Türkçe', 'rewrite the reply in Turkish']];
     const asstRender = () => {
         const r = asst.result;
         const matchOpts = asst.matches.map(m => `<option value="${m.id}">${esc(m.company)} · ${esc(m.phone_intl || m.phone)}</option>`).join('');
+        const thread = asst.history.length ? `<div class="dk-asst-thread">${asst.history.map(t => `<div class="dk-asst-msg ${t.role}">${t.role === 'assistant' ? '🤖 ' : '🙋 '}${esc(t.text)}</div>`).join('')}</div>` : '';
         asst.el.innerHTML = `<div class="dk-modal-box"><button class="dk-btn" data-asst-close>✕ إغلاق</button>
             <h2>🤖 المساعد الذكي</h2>
-            <p class="dk-muted">اكتبي اللي قالته الشركة أو ارفعي سكرين شات واتساب، والمساعد بيقترح ردّ احترافي بنفس اللغة. هو بيقترح بس، إنتِ اللي بتبعتي وبتسجّلي.</p>
+            <p class="dk-muted">اكتبي اللي قالته الشركة أو ارفعي سكرين شات واتساب، والمساعد بيقترح ردّ احترافي بنفس اللغة. هو بيقترح بس، إنتِ اللي بتبعتي وبتسجّلي. تقدري تكملي الكلام معاه («اختصريه»، «بالإنجليزي»...) وهو هيفتكر اللي قبله.</p>
             ${asst.fixedId ? `<p class="dk-b">📌 عن شركة: ${esc(asst.fixedLabel)}</p><p class="dk-muted">✅ واخد باله من نواقصها وآخر تواصل معاها، مش لازم تشرحيله من الأول</p>` : ''}
+            ${thread}
             <div class="dk-comp"><textarea class="dk-msgbox" data-asst-msg rows="3" placeholder="مثلًا: قالت هتكلمنا بعد 3 أيام، أو سيبي الخانة دي فاضية لو هترفعي سكرين بس"></textarea>
             <label class="dk-btn">📷 رفع سكرين شات (اختياري)<input type="file" accept="image/*" hidden data-asst-img></label><span class="dk-muted" data-asst-imgname></span>
-            <button class="dk-btn primary" data-asst-send>📨 ابعتي للمساعد</button></div>
+            <button class="dk-btn primary" data-asst-send>📨 ابعتي للمساعد</button>${asst.history.length ? '<button class="dk-btn" data-asst-reset>🔄 محادثة جديدة</button>' : ''}</div>
             <p class="dk-cam-msg" data-asst-status hidden></p>
             ${r ? `<div class="dk-comp dk-asst-result">
                 ${r.company_hint ? `<div class="dk-line"><span class="dk-label">🏢 شركة محتملة</span>${esc(r.company_hint)}</div>` : ''}
                 <div class="dk-line"><span class="dk-label">📝 ملخص</span>${esc(r.summary || '—')}</div>
                 <div class="dk-label">💬 الردّ المقترح (${esc({ ar: 'عربي', en: 'إنجليزي', tr: 'تركي' }[r.language] || r.language)})</div>
                 <textarea class="dk-msgbox" rows="5" readonly data-asst-reply>${esc(r.suggested_reply || '')}</textarea>
-                <div class="dk-actions"><button class="dk-btn primary" data-asst-copy>📋 نسخ الردّ</button></div>
+                <div class="dk-actions"><button class="dk-btn primary" data-asst-copy>📋 نسخ الردّ</button>${ASST_QUICK.map(([l, q]) => `<button class="dk-btn xs" data-asst-quick="${esc(q)}">${l}</button>`).join('')}</div>
                 <div class="dk-comp dk-asst-apply"><b>📌 ${asst.fixedId ? 'تسجيل على ' + esc(asst.fixedLabel) : 'تسجيل على شركة'}</b>
                     ${asst.fixedId ? '' : `<input class="dk-note" data-asst-search placeholder="دوّري على اسم الشركة أو الرقم…" value="${esc(r.company_hint || '')}">
                     ${asst.matches.length ? `<select data-asst-match>${matchOpts}</select>` : (asst.searched ? '<span class="dk-muted">مفيش نتيجة، جرّبي اسم تاني</span>' : '')}`}
@@ -552,20 +555,26 @@
                 try {
                     if (t.dataset.asstClose !== undefined) { asst.el.hidden = true; return; }
                     if (t.dataset.asstCopy !== undefined) { const box = asst.el.querySelector('[data-asst-reply]'); toast(await copy(box.value) ? 'اتنسخ الردّ ✅' : 'مقدرتش أنسخ'); return; }
-                    if (t.dataset.asstSend !== undefined) {
-                        const msg = asst.el.querySelector('[data-asst-msg]')?.value || '', file = (asst.el.querySelector('[data-asst-img]') || {}).files?.[0];
+                    if (t.dataset.asstSend !== undefined || t.dataset.asstQuick !== undefined) {
+                        const msg = t.dataset.asstQuick !== undefined ? t.dataset.asstQuick : (asst.el.querySelector('[data-asst-msg]')?.value || '');
+                        const file = t.dataset.asstQuick !== undefined ? null : (asst.el.querySelector('[data-asst-img]') || {}).files?.[0];
                         if (!msg.trim() && !file) { status('اكتبي حاجة أو ارفعي سكرين الأول', true); return; }
                         t.disabled = true; status('⏳ المساعد بيقرا…');
                         const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file); if (asst.context) fd.append('lead_context', asst.context);
+                        fd.append('history', JSON.stringify(asst.history.map(h => ({ role: h.role, text: h.text }))));
                         try {
                             const resp = await fetch('/api/admin/outreach-desk/assistant', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
                             const r = await resp.json().catch(() => null);
                             if (!r?.success) throw new Error(r?.error || 'المساعد مقدرش يرد');
+                            asst.history.push({ role: 'user', text: msg.trim() || '[سكرين مرفق]' });
+                            asst.history.push({ role: 'assistant', text: r.data.suggested_reply || '' });
                             asst.result = r.data; asst.matches = []; asst.searched = false; status(''); asstRender();
-                            if (r.data.company_hint) asst.el.querySelector('[data-asst-search]')?.dispatchEvent(new Event('input', { bubbles: true }));
+                            const box = asst.el.querySelector('[data-asst-msg]'); if (box) box.value = '';
+                            if (r.data.company_hint && !asst.fixedId) asst.el.querySelector('[data-asst-search]')?.dispatchEvent(new Event('input', { bubbles: true }));
                         } catch (err) { status(err.message, true); } finally { t.disabled = false; }
                         return;
                     }
+                    if (t.dataset.asstReset !== undefined) { asst.history = []; asst.result = null; status(''); asstRender(); return; }
                     if (t.dataset.asstApply !== undefined) {
                         const sel = asst.el.querySelector('[data-asst-match]'), id = asst.fixedId || (sel ? Number(sel.value) : 0);
                         if (!id) { toast('اختاري الشركة الأول من نتايج البحث', true); return; }
@@ -578,7 +587,7 @@
                 } catch (err) { status(err.message, true); }
             });
         }
-        asst.result = null; asst.matches = []; asst.searched = false;
+        asst.result = null; asst.matches = []; asst.searched = false; asst.history = [];
         const row = leadId ? rows.find(x => x.id === leadId) : null;
         asst.fixedId = row ? leadId : 0; asst.fixedLabel = row ? row.company + ' · ' + (row.phone_intl || row.phone) : '';
         asst.context = row ? [

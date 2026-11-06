@@ -2943,7 +2943,11 @@ class PlatformOutreachService
      * @param callable|null $ai (?array $image, string $prompt) => ['success'=>bool,'data'=>string]
      * @return array{ok:bool,error?:string,company_hint?:string,language?:string,summary?:string,suggested_reply?:string,followup_date?:?string}
      */
-    public function assistantDraftReply(string $message, ?array $image, int $userId, ?callable $ai = null, string $leadContext = ''): array
+    /**
+     * @param array<int,array{role:string,text:string}> $history آخر أدوار المحادثة (موظفة/مساعد)، من غير صور - عشان المساعد يفهم سياق اللي قبله
+     * ويقدر يعدّل على رده (زي "اختصريه" أو "بالإنجليزي") بدل ما يبدأ من الصفر كل مرة.
+     */
+    public function assistantDraftReply(string $message, ?array $image, int $userId, ?callable $ai = null, string $leadContext = '', array $history = []): array
     {
         $message = trim(mb_substr($message, 0, 1000));
         if ($message === '' && !$image) {
@@ -2951,12 +2955,21 @@ class PlatformOutreachService
         }
         $today = date('Y-m-d (l)');
         $leadContext = trim(mb_substr($leadContext, 0, 1000));
+        $historyText = '';
+        foreach (array_slice($history, -10) as $turn) {
+            $role = ($turn['role'] ?? '') === 'assistant' ? 'المساعد' : 'الموظفة';
+            $text = trim(mb_substr((string) ($turn['text'] ?? ''), 0, 600));
+            if ($text !== '') {
+                $historyText .= "[{$role}]: {$text}\n";
+            }
+        }
         $prompt = 'أنت خبير تسويق ومبيعات محترف، بتساعد موظفة مبيعات في شركة Tourfecto (منصة SaaS لشركات السياحة) تكمّل محادثة واتساب مع شركة سياحة محتملة. '
             . ($image ? 'دي صورة سكرين شات واتساب بين الموظفة والشركة: اقرا المحادثة كلها، وركّز على آخر رسالة من الشركة. ' : '')
             . 'حقايق حقيقية عن المنصة تقدر تستخدمها (ممنوع غيرها): ' . $this->assistantFacts() . "\n"
             . 'النهارده: ' . $today . ". لو الشركة ذكرت وقت للمتابعة (زي \"بعد 3 أيام\" أو \"الأسبوع الجاي\"), احسب التاريخ الفعلي بناء على النهارده واكتبه YYYY-MM-DD HH:MM (افتراضي الساعة 12 ظهرًا لو مفيش وقت محدد). لو مفيش موعد، سيبه فاضي.\n"
             . ($leadContext !== '' ? "معلومات معروفة عن الشركة دي من ملفها عندنا (استخدميها عشان الردّ يبقى مخصّص ليها، ومتكرريش حاجة هي عارفاها أو اتبعتلها قبل كده):\n" . $leadContext . "\n" : '')
-            . ($message !== '' ? 'ملاحظة إضافية من الموظفة: ' . $message . "\n" : '')
+            . ($historyText !== '' ? "المحادثة اللي بينك وبين الموظفة لحد دلوقتي (ردّك الجاي لازم يبني عليها، مش يتجاهلها):\n" . $historyText : '')
+            . ($message !== '' ? 'رسالة الموظفة الجديدة دلوقتي: ' . $message . "\n" : '')
             . 'ردّ بـ JSON بس من غير أي نص تاني: {"company_hint": "اسم الشركة لو ظاهر، وإلا فاضي", "language": "ar أو en أو tr حسب لغة المحادثة", "summary": "سطر واحد يلخّص آخر رد من الشركة (هيتسجل كملاحظة)", "suggested_reply": "الردّ المقترح، قصير (3-5 أسطر)، بنفس لغة المحادثة، احترافي ومقنع ومبني على الحقايق بس", "followup_date": "YYYY-MM-DD HH:MM أو فاضي"}';
         try {
             $ai ??= static function (?array $img, string $p) {

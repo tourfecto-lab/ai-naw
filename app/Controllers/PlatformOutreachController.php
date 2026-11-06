@@ -446,8 +446,17 @@ class PlatformOutreachController extends Controller
             }
             $image = ['binary' => $binary, 'mime' => (string) $info['mime']];
         }
+        $history = [];
+        $raw = json_decode((string) $this->get('history', '[]'), true);
+        if (is_array($raw)) {
+            foreach (array_slice($raw, -10) as $turn) {
+                if (is_array($turn) && isset($turn['role'], $turn['text'])) {
+                    $history[] = ['role' => (string) $turn['role'] === 'assistant' ? 'assistant' : 'user', 'text' => (string) $turn['text']];
+                }
+            }
+        }
         try {
-            $r = $this->service()->assistantDraftReply((string) $this->get('message', ''), $image, (int) ($this->user['id'] ?? 0), null, (string) $this->get('lead_context', ''));
+            $r = $this->service()->assistantDraftReply((string) $this->get('message', ''), $image, (int) ($this->user['id'] ?? 0), null, (string) $this->get('lead_context', ''), $history);
             if (!$r['ok']) {
                 return $this->error($r['error'] ?? 'تعذر الرد', 422);
             }
