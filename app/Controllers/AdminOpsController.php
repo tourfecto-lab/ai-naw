@@ -36,12 +36,15 @@ class AdminOpsController extends Controller
         $this->need('team.view');
         // قبل تشغيل TOURFECTO_ADMIN_PRO.sql مفيش جدول admin_staff: نعرض الفريق من users بس (من غير JOIN)
         $hasStaff = $this->tableExists('admin_staff');
+        $hasProfile = $this->tableExists('platform_staff_profile');
         $rows = $this->rows(
             "SELECT u.id, u.email, COALESCE(NULLIF(u.display_name,''), NULLIF(u.company_name,''), u.email) AS name,
                     u.role, u.status, u.two_factor_enabled, u.created_at,
                     " . ($hasStaff ? 's.staff_role, s.extra_permissions' : 'NULL AS staff_role, NULL AS extra_permissions') . ",
-                    (SELECT MAX(lh.created_at) FROM login_history lh WHERE lh.user_id = u.id AND lh.status = 'success') AS last_login_at
-               FROM users u " . ($hasStaff ? 'LEFT JOIN admin_staff s ON s.user_id = u.id' : '') . "
+                    " . ($hasProfile ? 'p.status AS profile_status' : 'NULL AS profile_status') . ",
+                    (SELECT MAX(lh.created_at) FROM login_history lh WHERE lh.user_id = u.id AND lh.status = 'success') AS last_login_at,
+                    (SELECT COUNT(*) FROM audit_logs al WHERE al.user_id = u.id AND al.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) AS actions_7d
+               FROM users u " . ($hasStaff ? 'LEFT JOIN admin_staff s ON s.user_id = u.id' : '') . ($hasProfile ? ' LEFT JOIN platform_staff_profile p ON p.user_id = u.id' : '') . "
               WHERE u.role IN ('admin','super_admin') AND u.deleted_at IS NULL
            ORDER BY (u.role = 'super_admin') DESC, u.created_at ASC"
         );
@@ -53,6 +56,9 @@ class AdminOpsController extends Controller
                 'staff_role' => $role, 'extra_permissions' => is_array($extra) ? $extra : [],
                 'two_factor' => (int) $r['two_factor_enabled'] === 1, 'last_login_at' => $r['last_login_at'],
                 'created_at' => $r['created_at'], 'is_self' => (int) $r['id'] === (int) $this->user['id'],
+                'work_status' => in_array((string) $r['profile_status'], ['paused', 'left'], true) ? (string) $r['profile_status'] : 'active',
+                'actions_7d' => (int) $r['actions_7d'],
+                'is_primary_owner' => (int) $r['id'] === AdminAccess::primaryOwnerId(),
             ];
         }, $rows);
 
@@ -67,6 +73,7 @@ class AdminOpsController extends Controller
         return $this->success([
             'members' => $members, 'roles' => $roles, 'catalog' => $catalog,
             'can_manage' => AdminAccess::can($this->user, 'team.manage'),
+            'can_activity' => AdminAccess::can($this->user, 'audit.view'),
             'staff_table_ready' => $hasStaff,
         ]);
     }
@@ -138,6 +145,73 @@ class AdminOpsController extends Controller
         $this->revokeSessions($id);
         AdminAccess::resetCache();
         return $this->success(['id' => $id, 'role' => $back], 'تمت إزالة العضو من فريق الأدمن وإنهاء جلساته');
+    }
+
+    /**
+     * POST /api/admin/ops/team/{id}/status  {status: active|paused}
+     * إيقاف الموظف مؤقتًا (بيفقد كل الصلاحيات وتنتهي جلساته) أو إعادة تفعيله. المالك الأساسي مابيتوقفش.
+     */
+    public function teamSetStatus(array $params = []): array
+    {
+        $this->need('team.manage');
+        $id = (int) ($params['id'] ?? 0);
+        $status = (string) $this->get('status', '');
+        if (!in_array($status, ['active', 'paused'], true)) {
+            return $this->error('الحالة لازم تكون active أو paused', 422);
+        }
+        if ($id === (int) $this->user['id']) {
+            return $this->error('لا يمكنك إيقاف نفسك', 403);
+        }
+        if ($id === AdminAccess::primaryOwnerId()) {
+            return $this->error('المالك الأساسي للمنصة لا يمكن إيقافه', 403);
+        }
+        $u = $this->rows("SELECT id FROM users WHERE id = ? AND role IN ('admin','super_admin') AND deleted_at IS NULL LIMIT 1", [$id]);
+        if (!$u) {
+            return $this->error('العضو غير موجود في فريق الأدمن', 404);
+        }
+        $by = (string) ($this->user['email'] ?? ('#' . (int) $this->user['id']));
+        try {
+            (new PlatformOutreachService())->staffProfileSet($id, ['status' => $status], true, $by);
+        } catch (\Throwable $e) {
+            Logger::error('AdminOps staff status failed', ['message' => $e->getMessage()]);
+            return $this->error('تعذر تغيير الحالة', 503);
+        }
+        $revoked = $status === 'paused' ? $this->revokeSessions($id) : 0;
+        AdminAccess::resetCache();
+        return $this->success(['id' => $id, 'work_status' => $status, 'sessions_revoked' => $revoked], $status === 'paused' ? 'تم إيقاف الموظف وإنهاء جلساته' : 'تم تفعيل الموظف');
+    }
+
+    /** GET /api/admin/ops/team/{id}/activity - ملخص نشاط موظف: إجراءاته ودخوله (للي معاه audit.view) */
+    public function teamActivity(array $params = []): array
+    {
+        $this->need('audit.view');
+        $id = (int) ($params['id'] ?? 0);
+        $u = $this->rows("SELECT id FROM users WHERE id = ? AND role IN ('admin','super_admin') AND deleted_at IS NULL LIMIT 1", [$id]);
+        if (!$u) {
+            return $this->error('العضو غير موجود في فريق الأدمن', 404);
+        }
+        $sum = $this->rows(
+            "SELECT SUM(created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)) d1, SUM(created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) d7,
+                    COUNT(*) d30, SUM(result = 'failed') failed30
+               FROM audit_logs WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+            [$id]
+        )[0] ?? [];
+        $recent = $this->rows(
+            'SELECT action, object_type, object_id, result, ip_address, created_at FROM audit_logs WHERE user_id = ? ORDER BY id DESC LIMIT 25',
+            [$id]
+        );
+        $logins = $this->rows(
+            'SELECT status, ip_address, created_at FROM login_history WHERE user_id = ? ORDER BY id DESC LIMIT 10',
+            [$id]
+        );
+        return $this->success([
+            'summary' => [
+                'last_24h' => (int) ($sum['d1'] ?? 0), 'last_7d' => (int) ($sum['d7'] ?? 0),
+                'last_30d' => (int) ($sum['d30'] ?? 0), 'failed_30d' => (int) ($sum['failed30'] ?? 0),
+            ],
+            'recent_actions' => $recent,
+            'recent_logins' => $logins,
+        ]);
     }
 
     private function applyRole(int $id, string $currentUserRole, string $staffRole, array $extra, bool $promote): array

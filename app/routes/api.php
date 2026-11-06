@@ -655,6 +655,8 @@ $router->group('/api/admin', function ($router) {
     $router->post('/ops/team/invite', 'AdminOpsController', 'teamInvite', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/ops/team/{id}/role', 'AdminOpsController', 'teamSetRole', ['AuthMiddleware', 'AdminMiddleware']);
     $router->post('/ops/team/{id}/remove', 'AdminOpsController', 'teamRemove', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->post('/ops/team/{id}/status', 'AdminOpsController', 'teamSetStatus', ['AuthMiddleware', 'AdminMiddleware']);
+    $router->get('/ops/team/{id}/activity', 'AdminOpsController', 'teamActivity', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/ops/audit', 'AdminOpsController', 'audit', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/ops/audit/export', 'AdminOpsController', 'auditExport', ['AuthMiddleware', 'AdminMiddleware']);
     $router->get('/ops/ai-usage', 'AdminOpsController', 'aiUsage', ['AuthMiddleware', 'AdminMiddleware']);

@@ -70,7 +70,10 @@
             '<td>' + (d.can_manage && !m.is_self ? '<select class="p-select" data-role>' + roleOpts(m.staff_role) + '</select>' : pill(roleLabel(m.staff_role), m.staff_role === 'owner' ? 'purple' : 'blue')) + (m.extra_permissions.length ? '<div class="ap-sub">+ ' + m.extra_permissions.length + ' صلاحية إضافية</div>' : '') + '</td>' +
             '<td>' + (m.two_factor ? pill('مفعّل', 'green') : pill('غير مفعّل', 'red')) + '</td>' +
             '<td class="p-cell-muted" data-sort="' + esc(m.last_login_at || '') + '">' + (m.last_login_at ? esc(ago(m.last_login_at)) : '—') + '</td>' +
-            '<td>' + (d.can_manage && !m.is_self ? '<button class="p-btn danger xs" data-remove>إزالة من الفريق</button>' : '') + '</td></tr>');
+            '<td>' + (m.work_status === 'paused' ? pill('موقوف', 'red') : m.work_status === 'left' ? pill('ساب الشغل', 'red') : pill('نشط', 'green')) + '<div class="ap-sub">' + (m.actions_7d || 0) + ' إجراء آخر 7 أيام</div></td>' +
+            '<td>' + (d.can_activity ? '<button class="p-btn outline xs" data-activity>النشاط</button> ' : '') +
+            (d.can_manage && !m.is_self && !m.is_primary_owner && m.work_status !== 'left' ? '<button class="p-btn outline xs" data-pause="' + (m.work_status === 'paused' ? 'active' : 'paused') + '">' + (m.work_status === 'paused' ? 'تفعيل' : 'إيقاف') + '</button> ' : '') +
+            (d.can_manage && !m.is_self && !m.is_primary_owner ? '<button class="p-btn danger xs" data-remove>إزالة من الفريق</button>' : '') + '</td></tr>');
 
         const matrix = (() => {
             const groups = {};
@@ -83,7 +86,7 @@
 
         root.innerHTML = head('الفريق والصلاحيات', 'كل عضو بيشوف ويعمل بس اللي دوره يسمح بيه. كل تغيير بيتسجّل في سجل التدقيق.', d.can_manage ? '<button class="p-btn primary" id="apInvite">+ إضافة عضو</button>' : '') +
             (!d.staff_table_ready ? '<div class="ap-note"><b>مطلوب خطوة واحدة:</b> شغّل ملف <span class="ap-mono">TOURFECTO_ADMIN_PRO.sql</span> على قاعدة البيانات عشان تقدر تضيف أعضاء وتغيّر أدوارهم. لحد ما تشغّله، كل الأدمن الحاليين بيشتغلوا بصلاحيات "مدير" والمالك (super_admin) بكل الصلاحيات.</div>' : '') +
-            '<section class="ap-panel"><div class="ap-panel-head"><h3>أعضاء الفريق (' + d.members.length + ')</h3></div>' + '<div class="ap-panel-body" style="padding:0">' + table(['العضو', 'الدور', 'التحقق بخطوتين', 'آخر دخول', ''], rows) + '</div></section>' +
+            '<section class="ap-panel"><div class="ap-panel-head"><h3>أعضاء الفريق (' + d.members.length + ')</h3></div>' + '<div class="ap-panel-body" style="padding:0">' + table(['العضو', 'الدور', 'التحقق بخطوتين', 'آخر دخول', 'الحالة', ''], rows) + '</div></section>' +
             '<section class="ap-panel" style="margin-top:14px"><div class="ap-panel-head"><h3>مصفوفة الصلاحيات</h3><span class="ap-sub">ما يقدر يعمله كل دور</span></div><div class="ap-panel-body" style="padding:0">' + matrix + '</div></section>';
 
         root.addEventListener('change', async e => {
@@ -95,9 +98,37 @@
         root.addEventListener('click', async e => {
             const rm = e.target.closest('[data-remove]');
             if (rm) { const tr = rm.closest('tr'); if (confirmBox('إزالة هذا العضو من فريق الأدمن؟ هيرجع لحساب عميل عادي وهتنتهي جلساته.')) await act('/api/admin/ops/team/' + tr.dataset.id + '/remove', {}, 'تمت الإزالة', () => pageTeam(root)); return; }
+            const ps = e.target.closest('[data-pause]');
+            if (ps) {
+                const to = ps.dataset.pause, tr = ps.closest('tr');
+                if (to === 'paused' && !confirmBox('إيقاف هذا الموظف؟ هيفقد كل الصلاحيات وهتنتهي جلساته لحد ما تفعّله تاني.')) return;
+                await act('/api/admin/ops/team/' + tr.dataset.id + '/status', { status: to }, to === 'paused' ? 'تم الإيقاف' : 'تم التفعيل', () => pageTeam(root));
+                return;
+            }
+            const ac = e.target.closest('[data-activity]');
+            if (ac) { openActivity(ac.closest('tr').dataset.id); return; }
             if (e.target.closest('#apInvite')) openInvite(d, () => pageTeam(root));
             if (e.target.closest('[data-reload]')) { e.preventDefault(); pageTeam(root); }
         });
+    }
+
+    async function openActivity(id) {
+        const bg = document.createElement('div'); bg.className = 'ap-modal-bg';
+        bg.innerHTML = '<div class="ap-modal" role="dialog" aria-modal="true" style="max-width:640px"><h3>نشاط الموظف</h3><div id="actBody">' + skeleton(160) + '</div><div class="ap-actions"><button class="p-btn outline" data-x>إغلاق</button></div></div>';
+        document.body.appendChild(bg);
+        const close = () => bg.remove();
+        bg.addEventListener('mousedown', e => { if (e.target === bg) close(); });
+        bg.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+        $('[data-x]', bg).onclick = close;
+        const r = await api('/api/admin/ops/team/' + id + '/activity');
+        const box = $('#actBody', bg);
+        if (!r.success) { box.innerHTML = failedBox(r.error); return; }
+        const s = r.data.summary;
+        box.innerHTML = '<div class="ap-sub">آخر 24 ساعة: <b>' + s.last_24h + '</b> · آخر 7 أيام: <b>' + s.last_7d + '</b> · آخر 30 يوم: <b>' + s.last_30d + '</b> · فاشلة (30 يوم): <b>' + s.failed_30d + '</b></div>' +
+            '<h4 style="margin:12px 0 6px">آخر الإجراءات</h4>' +
+            table(['الوقت', 'الإجراء', 'الكائن', 'النتيجة'], r.data.recent_actions.map(i => '<tr><td class="p-cell-muted">' + esc(ago(i.created_at)) + '</td><td><span class="ap-mono">' + esc(i.action) + '</span></td><td class="p-cell-muted">' + esc((i.object_type || '') + (i.object_id ? ' #' + i.object_id : '')) + '</td><td>' + (i.result === 'success' ? pill('نجح', 'green') : pill('فشل', 'red')) + '</td></tr>'), 'مفيش إجراءات مسجّلة') +
+            '<h4 style="margin:12px 0 6px">آخر عمليات الدخول</h4>' +
+            table(['الوقت', 'النتيجة', 'IP'], r.data.recent_logins.map(i => '<tr><td class="p-cell-muted">' + esc(ago(i.created_at)) + '</td><td>' + (i.status === 'success' ? pill('نجح', 'green') : pill('فشل', 'red')) + '</td><td class="p-cell-muted ap-mono">' + esc(i.ip_address || '') + '</td></tr>'), 'مفيش سجل دخول');
     }
 
     function openInvite(d, done) {

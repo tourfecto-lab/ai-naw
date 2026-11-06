@@ -61,6 +61,7 @@ class AdminAccess
         'admin'   => 'مدير',
         'finance' => 'مالية',
         'support' => 'دعم',
+        'support_lead' => 'مشرف دعم',
         'analyst' => 'محلل (قراءة فقط)',
         'sales'   => 'مبيعات (مكتب التواصل فقط)',
     ];
@@ -73,6 +74,13 @@ class AdminAccess
         'support' => [
             'analytics.view', 'users.view', 'users.edit', 'users.notes', 'users.reset_security',
             'subscriptions.view', 'billing.view', 'messages.view', 'messages.manage', 'security.view', 'team.view',
+        ],
+        // مشرف الدعم: كل صلاحيات الدعم + إيقاف/تفعيل العملاء وتصدير قائمتهم + فك الحظر + متابعة سجل نشاط الفريق.
+        // مفيش فلوس (billing.manage) ولا إعدادات ولا حذف ولا دخول بحساب العميل (ده بيتدّي كصلاحية إضافية بس).
+        'support_lead' => [
+            'analytics.view', 'users.view', 'users.edit', 'users.notes', 'users.reset_security', 'users.suspend', 'users.export',
+            'subscriptions.view', 'billing.view', 'messages.view', 'messages.manage', 'security.view', 'security.manage',
+            'audit.view', 'team.view',
         ],
         'analyst' => [
             'analytics.view', 'users.view', 'subscriptions.view', 'billing.view', 'messages.view',
@@ -340,6 +348,8 @@ class AdminAccess
         if (preg_match('#^/pro/user/\d+/notes(/\d+)?$#', $rel)) return $write ? 'users.notes' : 'users.view';
         if (preg_match('#^/usage-reservations(?:/[a-f0-9]{48}/resolve)?$#',$rel)) return $write ? 'billing.manage' : 'billing.view';
         if ($rel === '/ops/me') return 'analytics.view';
+        // نشاط موظف بعينه (إجراءات + دخول): لمن يملك سجل التدقيق
+        if (preg_match('#^/ops/team/\d+/activity$#', $rel)) return 'audit.view';
         if ($rel === '/ops/team' || $rel === '/ops/team/roles') return $write ? 'team.manage' : 'team.view';
         if (strpos($rel, '/ops/team/') === 0) return $write ? 'team.manage' : 'team.view';
         if (strpos($rel, '/ops/audit') === 0) return 'audit.view';
