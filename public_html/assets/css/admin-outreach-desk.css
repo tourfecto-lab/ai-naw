@@ -117,3 +117,5 @@
 .dk-tagrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
 .dk-tag-free{width:110px;padding:5px 8px;border-radius:8px;border:1px solid var(--panel-border);background:transparent;color:inherit;font:inherit;font-size:12px}
 .dk-b.tag{background:rgba(155,89,182,.2)}
+.dk-asst-result,.dk-asst-apply{flex-direction:column;align-items:stretch;background:var(--panel-card-bg-2,rgba(128,128,128,.06))}
+.dk-asst-apply select,.dk-asst-apply input{padding:8px 10px;border-radius:10px;border:1px solid var(--panel-border);background:transparent;color:inherit;font:inherit;font-size:13px}

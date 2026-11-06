@@ -1241,4 +1241,42 @@ final class OutreachDeskTest extends TestCase
             $this->assertTrue(true);
         }
     }
+
+    public function testAssistantDraftReplyRequiresInputParsesTheAiJsonComputesTheFollowupDateAndFailsOpenOnAnOutage(): void
+    {
+        $this->assertFalse($this->svc->assistantDraftReply('', null, 5)['ok'], 'nothing to work with');
+
+        $r = $this->svc->assistantDraftReply('ردّت وقالت هتكلمنا بعد 3 أيام', null, 5, function ($img, $prompt) {
+            $this->assertNull($img);
+            $this->assertStringContainsString('79', $prompt, 'the real Starter price is in the prompt');
+            $this->assertStringContainsString('3 أيام', $prompt, 'today\'s date context is there so the AI can compute a real follow-up date');
+            $date = date('Y-m-d', strtotime('+3 days'));
+            return ['success' => true, 'data' => '{"company_hint":"Nile Tours","language":"ar","summary":"هتكلمنا بعد 3 أيام","suggested_reply":"تمام، هكلمكم وقتها 🙌","followup_date":"' . $date . ' 12:00"}'];
+        });
+        $this->assertTrue($r['ok']);
+        $this->assertSame('Nile Tours', $r['company_hint']);
+        $this->assertSame('ar', $r['language']);
+        $this->assertNotNull($r['followup_date']);
+        $this->assertStringStartsWith(date('Y-m-d', strtotime('+3 days')), $r['followup_date']);
+
+        $withImage = $this->svc->assistantDraftReply('', ['binary' => 'x', 'mime' => 'image/jpeg'], 5, function ($img, $prompt) {
+            $this->assertNotNull($img);
+            return ['success' => true, 'data' => '{"summary":"s","suggested_reply":"r"}'];
+        });
+        $this->assertTrue($withImage['ok']);
+        $this->assertNull($withImage['followup_date'], 'none mentioned: stays empty');
+
+        $down = $this->svc->assistantDraftReply('hi', null, 5, function () { throw new RuntimeException('down'); });
+        $this->assertFalse($down['ok']);
+
+        $badJson = $this->svc->assistantDraftReply('hi', null, 5, fn ($img, $p) => ['success' => true, 'data' => 'not json at all']);
+        $this->assertFalse($badJson['ok']);
+
+        $failed = $this->svc->assistantDraftReply('hi', null, 5, fn ($img, $p) => ['success' => false, 'error' => 'quota']);
+        $this->assertFalse($failed['ok']);
+
+        $badDate = $this->svc->assistantDraftReply('hi', null, 5, fn ($img, $p) => ['success' => true, 'data' => '{"summary":"s","suggested_reply":"r","followup_date":"not a date"}']);
+        $this->assertTrue($badDate['ok']);
+        $this->assertNull($badDate['followup_date'], 'a garbled AI date is dropped, not fatal');
+    }
 }

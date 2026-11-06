@@ -427,6 +427,37 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** POST /api/admin/outreach-desk/assistant (multipart: message?, image?): مساعد مبيعات بالذكاء الاصطناعي - بيقترح بس، مابيحفظش حاجة */
+    public function deskAssistant(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        $image = null;
+        $f = $_FILES['image'] ?? null;
+        if ($f && ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            if (($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'])) {
+                return $this->error('رفع الصورة فشل: يتجرّب بصورة أصغر', 422);
+            }
+            $binary = (string) file_get_contents((string) $f['tmp_name']);
+            $info = @getimagesizefromstring($binary);
+            if (!$info || !in_array($info['mime'] ?? '', ['image/jpeg', 'image/png', 'image/webp'], true)) {
+                return $this->error('الملف مش صورة (JPG أو PNG أو WebP)', 422);
+            }
+            $image = ['binary' => $binary, 'mime' => (string) $info['mime']];
+        }
+        try {
+            $r = $this->service()->assistantDraftReply((string) $this->get('message', ''), $image, (int) ($this->user['id'] ?? 0));
+            if (!$r['ok']) {
+                return $this->error($r['error'] ?? 'تعذر الرد', 422);
+            }
+            return $this->success($r);
+        } catch (Throwable $e) {
+            Logger::error('Outreach assistant failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل المساعد', 503);
+        }
+    }
+
     /** POST /api/admin/outreach-desk/leads/{id}/action - {action, note} */
     public function deskAction(array $params = []): array
     {

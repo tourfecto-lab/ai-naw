@@ -2925,6 +2925,66 @@ class PlatformOutreachService
         return str_starts_with(strtolower(trim((string) ($r['data'] ?? $r['text'] ?? ''))), 'yes');
     }
 
+    /** حقايق حقيقية بس عن المنصة، تتحط في برومبت مساعد المبيعات عشان الذكاء الاصطناعي مايخترعش مميزات مش موجودة */
+    private function assistantFacts(): string
+    {
+        $usd = (float) $this->settings->get('outreach_starter_usd', '79') ?: 79.0;
+        $egp = (float) $this->settings->get('staff_usd_egp', '50') ?: 50.0;
+        return 'باقة Starter: $' . rtrim(rtrim(number_format($usd, 2), '0'), '.') . ' في الشهر (أو ' . number_format(round($usd * $egp), 0, '.', ',') . ' جنيه لمصر)، تجربة مجانية 3 أيام من غير كارت ائتمان. '
+            . 'الخدمات الشغّالة فعلًا: السيو والظهور في جوجل، موقع وحجز على موقع الشركة (الدفع بيوصّل لطريقة الشركة الخاصة PayPal أو إنستاباي أو تحويل بنكي، من غير عمولة من المنصة أبدًا)، مراقبة أسعار المنافسين، CRM وتسويق بالإيميل. '
+            . 'ممنوع تدّعي أي مميزة مش في القايمة دي، زي معالجة دفع مدمجة، أو رد تلقائي على واتساب، أو أي حاجة تانية.';
+    }
+
+    /**
+     * مساعد مبيعات ذكي للموظف: بيقرا سكرين شات واتساب (لو مرفق) أو رسالة الموظف، ويقترح ردّ احترافي ومقنع
+     * بنفس لغة المحادثة، ومبني على حقايق حقيقية بس عن المنصة. بيحاول كمان يستخرج اسم الشركة وملخص وموعد متابعة
+     * (لو اتقال زي "بعد 3 أيام")، لكن مابيحفظش حاجة في أي ملف - الموظف هو اللي بيراجع ويسجّل بنفسه.
+     * @param array{binary:string,mime:string}|null $image
+     * @param callable|null $ai (?array $image, string $prompt) => ['success'=>bool,'data'=>string]
+     * @return array{ok:bool,error?:string,company_hint?:string,language?:string,summary?:string,suggested_reply?:string,followup_date?:?string}
+     */
+    public function assistantDraftReply(string $message, ?array $image, int $userId, ?callable $ai = null): array
+    {
+        $message = trim(mb_substr($message, 0, 1000));
+        if ($message === '' && !$image) {
+            return ['ok' => false, 'error' => 'اكتب حاجة أو ارفق سكرين المحادثة'];
+        }
+        $today = date('Y-m-d (l)');
+        $prompt = 'أنت خبير تسويق ومبيعات محترف، بتساعد موظفة مبيعات في شركة Tourfecto (منصة SaaS لشركات السياحة) تكمّل محادثة واتساب مع شركة سياحة محتملة. '
+            . ($image ? 'دي صورة سكرين شات واتساب بين الموظفة والشركة: اقرا المحادثة كلها، وركّز على آخر رسالة من الشركة. ' : '')
+            . 'حقايق حقيقية عن المنصة تقدر تستخدمها (ممنوع غيرها): ' . $this->assistantFacts() . "\n"
+            . 'النهارده: ' . $today . ". لو الشركة ذكرت وقت للمتابعة (زي \"بعد 3 أيام\" أو \"الأسبوع الجاي\"), احسب التاريخ الفعلي بناء على النهارده واكتبه YYYY-MM-DD HH:MM (افتراضي الساعة 12 ظهرًا لو مفيش وقت محدد). لو مفيش موعد، سيبه فاضي.\n"
+            . ($message !== '' ? 'ملاحظة إضافية من الموظفة: ' . $message . "\n" : '')
+            . 'ردّ بـ JSON بس من غير أي نص تاني: {"company_hint": "اسم الشركة لو ظاهر، وإلا فاضي", "language": "ar أو en أو tr حسب لغة المحادثة", "summary": "سطر واحد يلخّص آخر رد من الشركة (هيتسجل كملاحظة)", "suggested_reply": "الردّ المقترح، قصير (3-5 أسطر)، بنفس لغة المحادثة، احترافي ومقنع ومبني على الحقايق بس", "followup_date": "YYYY-MM-DD HH:MM أو فاضي"}';
+        try {
+            $ai ??= static function (?array $img, string $p) {
+                $client = new GeminiClient();
+                return $img ? $client->describeImage($img['binary'], $img['mime'], $p, ['temperature' => 0.4]) : $client->generateContent($p, ['temperature' => 0.4, 'task' => 'outreach_assistant', 'user_id' => 0]);
+            };
+            $r = $ai($image, $prompt);
+        } catch (Throwable $e) {
+            Logger::warning('Outreach assistant failed', ['error' => $e->getMessage()]);
+            return ['ok' => false, 'error' => 'المساعد مش متاح دلوقتي، جرّبي تاني بعد شوية'];
+        }
+        if (empty($r['success'])) {
+            return ['ok' => false, 'error' => (string) ($r['error'] ?? 'المساعد مقدرش يرد دلوقتي')];
+        }
+        $text = (string) ($r['data'] ?? $r['text'] ?? '');
+        if (!preg_match('/\{.*\}/s', $text, $m) || !is_array($j = json_decode($m[0], true))) {
+            return ['ok' => false, 'error' => 'مقدرتش أفهم الرد، جرّبي تاني'];
+        }
+        $followup = trim((string) ($j['followup_date'] ?? ''));
+        try {
+            $followup = $followup !== '' ? $this->normalizeFollowupAt($followup) : null;
+        } catch (Throwable $e) {
+            $followup = null; // تاريخ غريب من الذكاء الاصطناعي: نسيبه للموظفة تحدده يدوي
+        }
+        return ['ok' => true, 'company_hint' => trim(mb_substr((string) ($j['company_hint'] ?? ''), 0, 150)),
+            'language' => in_array($j['language'] ?? '', ['ar', 'en', 'tr'], true) ? $j['language'] : 'ar',
+            'summary' => trim(mb_substr((string) ($j['summary'] ?? ''), 0, 300)), 'suggested_reply' => trim(mb_substr((string) ($j['suggested_reply'] ?? ''), 0, 1500)),
+            'followup_date' => $followup];
+    }
+
     private static function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $a = sin(deg2rad($lat2 - $lat1) / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin(deg2rad($lng2 - $lng1) / 2) ** 2;

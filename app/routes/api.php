@@ -1983,6 +1983,7 @@ $router->post('/api/admin/outreach-desk/staff-comp', 'PlatformOutreachController
 $router->post('/api/admin/outreach-desk/leads/{id}/action', 'PlatformOutreachController', 'deskAction', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/social', 'PlatformOutreachController', 'deskSocial', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/tag', 'PlatformOutreachController', 'deskTag', ['AuthMiddleware','AdminMiddleware']);
+$router->post('/api/admin/outreach-desk/assistant', 'PlatformOutreachController', 'deskAssistant', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing', 'AiRoutingAdminController', 'save', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing/check', 'AiRoutingAdminController', 'check', ['AuthMiddleware','AdminMiddleware']);
 

@@ -164,7 +164,7 @@
             <section class="dk-top">${goalBar}<div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
             <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
-            <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a></div>
+            <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a> <button class="dk-btn primary" data-asst-open>🤖 المساعد الذكي</button></div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             ${canSeeTeam ? `<div class="dk-team-slot">${teamLoaded ? teamHtml() : ''}</div>` : ''}
             <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
@@ -499,6 +499,85 @@
         if (!wiz.userId && me.location_recorded !== true) doLocation().then(() => { me.location_recorded = true; }).catch(() => { /* الموقع اختياري هنا */ });
         wizStart('front');
     };
+    // المساعد الذكي: بيقترح ردّ احترافي من سكرين شات أو رسالة، ومايحفظش حاجة لحد ما الموظفة تراجع وتدوس «تسجيل»
+    const asst = { el: null, result: null, matches: [], matchId: 0 };
+    const asstRender = () => {
+        const r = asst.result;
+        const matchOpts = asst.matches.map(m => `<option value="${m.id}">${esc(m.company)} · ${esc(m.phone_intl || m.phone)}</option>`).join('');
+        asst.el.innerHTML = `<div class="dk-modal-box"><button class="dk-btn" data-asst-close>✕ إغلاق</button>
+            <h2>🤖 المساعد الذكي</h2>
+            <p class="dk-muted">اكتبي اللي قالته الشركة أو ارفعي سكرين شات واتساب، والمساعد بيقترح ردّ احترافي بنفس اللغة. هو بيقترح بس، إنتِ اللي بتبعتي وبتسجّلي.</p>
+            <div class="dk-comp"><textarea class="dk-msgbox" data-asst-msg rows="3" placeholder="مثلًا: قالت هتكلمنا بعد 3 أيام، أو سيبي الخانة دي فاضية لو هترفعي سكرين بس"></textarea>
+            <label class="dk-btn">📷 رفع سكرين شات (اختياري)<input type="file" accept="image/*" hidden data-asst-img></label><span class="dk-muted" data-asst-imgname></span>
+            <button class="dk-btn primary" data-asst-send>📨 ابعتي للمساعد</button></div>
+            <p class="dk-cam-msg" data-asst-status hidden></p>
+            ${r ? `<div class="dk-comp dk-asst-result">
+                ${r.company_hint ? `<div class="dk-line"><span class="dk-label">🏢 شركة محتملة</span>${esc(r.company_hint)}</div>` : ''}
+                <div class="dk-line"><span class="dk-label">📝 ملخص</span>${esc(r.summary || '—')}</div>
+                <div class="dk-label">💬 الردّ المقترح (${esc({ ar: 'عربي', en: 'إنجليزي', tr: 'تركي' }[r.language] || r.language)})</div>
+                <textarea class="dk-msgbox" rows="5" readonly data-asst-reply>${esc(r.suggested_reply || '')}</textarea>
+                <div class="dk-actions"><button class="dk-btn primary" data-asst-copy>📋 نسخ الردّ</button></div>
+                <div class="dk-comp dk-asst-apply"><b>📌 تسجيل على شركة</b>
+                    <input class="dk-note" data-asst-search placeholder="دوّري على اسم الشركة أو الرقم…" value="${esc(r.company_hint || '')}">
+                    ${asst.matches.length ? `<select data-asst-match>${matchOpts}</select>` : (asst.searched ? '<span class="dk-muted">مفيش نتيجة، جرّبي اسم تاني</span>' : '')}
+                    <select data-asst-action>${ACTIONS.map(([k, l]) => `<option value="${k}" ${k === 'replied' ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                    <input class="dk-note" data-asst-note value="${esc(r.summary || '')}" placeholder="ملاحظة">
+                    <input type="datetime-local" data-asst-followup value="${r.followup_date ? esc(r.followup_date.replace(' ', 'T').slice(0, 16)) : ''}">
+                    <button class="dk-btn primary" data-asst-apply>📌 تسجيل</button></div>
+            </div>` : ''}</div>`;
+    };
+    const openAssistant = () => {
+        if (!asst.el) {
+            asst.el = document.createElement('div'); asst.el.className = 'dk-modal'; asst.el.dir = 'rtl'; document.body.appendChild(asst.el);
+            const status = (msg, bad) => { const el = asst.el.querySelector('[data-asst-status]'); if (!el) return; el.textContent = msg; el.hidden = !msg; el.classList.toggle('bad', !!bad); };
+            asst.el.addEventListener('change', e => {
+                if (e.target.dataset.asstImg !== undefined) { const n = asst.el.querySelector('[data-asst-imgname]'); if (n) n.textContent = e.target.files[0] ? '📎 ' + e.target.files[0].name : ''; }
+            });
+            let searchTimer;
+            asst.el.addEventListener('input', e => {
+                if (e.target.dataset.asstSearch === undefined) return;
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(async () => {
+                    const q = e.target.value.trim(); if (!q) { asst.matches = []; asst.searched = false; return asstRender(); }
+                    try { const r = await api('/api/admin/outreach-desk/leads?view=all&country=' + encodeURIComponent(state.country) + '&q=' + encodeURIComponent(q)); asst.matches = (r.rows || []).slice(0, 8); }
+                    catch (err) { asst.matches = []; }
+                    asst.searched = true; asstRender();
+                    const inp = asst.el.querySelector('[data-asst-search]'); if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+                }, 350);
+            });
+            asst.el.addEventListener('click', async e => {
+                const t = e.target.closest('button'); if (!t) return;
+                try {
+                    if (t.dataset.asstClose !== undefined) { asst.el.hidden = true; return; }
+                    if (t.dataset.asstCopy !== undefined) { const box = asst.el.querySelector('[data-asst-reply]'); toast(await copy(box.value) ? 'اتنسخ الردّ ✅' : 'مقدرتش أنسخ'); return; }
+                    if (t.dataset.asstSend !== undefined) {
+                        const msg = asst.el.querySelector('[data-asst-msg]')?.value || '', file = (asst.el.querySelector('[data-asst-img]') || {}).files?.[0];
+                        if (!msg.trim() && !file) { status('اكتبي حاجة أو ارفعي سكرين الأول', true); return; }
+                        t.disabled = true; status('⏳ المساعد بيقرا…');
+                        const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file);
+                        try {
+                            const resp = await fetch('/api/admin/outreach-desk/assistant', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
+                            const r = await resp.json().catch(() => null);
+                            if (!r?.success) throw new Error(r?.error || 'المساعد مقدرش يرد');
+                            asst.result = r.data; asst.matches = []; asst.searched = false; status(''); asstRender();
+                            if (r.data.company_hint) asst.el.querySelector('[data-asst-search]')?.dispatchEvent(new Event('input', { bubbles: true }));
+                        } catch (err) { status(err.message, true); } finally { t.disabled = false; }
+                        return;
+                    }
+                    if (t.dataset.asstApply !== undefined) {
+                        const sel = asst.el.querySelector('[data-asst-match]'), id = sel ? Number(sel.value) : 0;
+                        if (!id) { toast('اختاري الشركة الأول من نتايج البحث', true); return; }
+                        const action = asst.el.querySelector('[data-asst-action]').value, note = asst.el.querySelector('[data-asst-note]').value, followupAt = (asst.el.querySelector('[data-asst-followup]').value || '').replace('T', ' ');
+                        t.disabled = true;
+                        try { await api('/api/admin/outreach-desk/leads/' + id + '/action', { action, note, reason: '', followup_at: followupAt }); toast('اتسجّل على الشركة ✅'); asst.el.hidden = true; await load(true); }
+                        catch (err) { toast(err.message, true); } finally { t.disabled = false; }
+                        return;
+                    }
+                } catch (err) { status(err.message, true); }
+            });
+        }
+        asst.result = null; asst.matches = []; asst.searched = false; asstRender(); asst.el.hidden = false;
+    };
     const openStaff = async () => {
         if (!staffUi.el) {
             staffUi.el = document.createElement('div'); staffUi.el.className = 'dk-modal'; staffUi.el.dir = 'rtl'; document.body.appendChild(staffUi.el);
@@ -565,6 +644,7 @@
                     toast(t.dataset.tag ? 'اتحط التاج ✅' : 'اتمسح التاج ✅'); return;
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
+                if (t.dataset.asstOpen !== undefined) { return openAssistant(); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
                 if (t.dataset.signSave !== undefined) { const v = (root.querySelector('#dkSign') || {}).value || ''; await api('/api/admin/outreach-desk/staff-profile', { sign_name: v }); toast('اتحفظ اسمك في التوقيع ✅'); return await load(true); }
                 if (t.dataset.goHot !== undefined) { const c = counts.find(x => x.hot > 0); if (c) { state.country = c.country; state.view = 'hot'; state.tier = ''; state.page = 1; store.set('dk-country', state.country); return await load(); } return; }
