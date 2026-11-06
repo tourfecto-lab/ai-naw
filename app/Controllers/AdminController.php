@@ -2352,13 +2352,13 @@ class AdminController extends Controller
         tbody.innerHTML = list.map(u => `
             <tr>
                 <td><span class="p-avatar-sm">${esc(initials(u.company_name || u.display_name || u.email))}</span><strong>${esc(u.company_name || u.display_name || u.email)}</strong></td>
-                <td class="p-cell-muted">${esc(u.email)}</td>
+                <td class="p-cell-muted col-email" title="${esc(u.email)}">${esc(u.email)}</td>
                 <td>${roleLabel(u.role)}</td>
                 <td class="p-cell-muted">${u.plan_name ? esc(u.plan_name) : '—'}</td>
                 <td>${statusPill(u.is_active)}${u.two_factor_enabled == 1 ? ' <span class="pill blue" title="2FA">2FA</span>' : ''}</td>
                 <td class="p-cell-muted" data-sort="${esc(u.last_login_at || '')}">${u.last_login_at ? (window.AdminPro ? AdminPro.ago(u.last_login_at) : timeAgo(u.last_login_at)) : '—'}</td>
                 <td class="p-cell-muted" data-sort="${esc(u.created_at || '')}">${formatDate(u.created_at)}</td>
-                <td>
+                <td class="col-actions">
                     <button class="p-btn outline xs" onclick="viewUser(${u.id})">${I18N['common.view']}</button>
                     <button class="p-btn ${u.is_active == 1 ? 'danger' : 'success'} xs" onclick="toggleUser(${u.id}, ${u.is_active == 1 ? 0 : 1}, this)">
                         ${u.is_active == 1 ? I18N['admin.suspend'] : I18N['admin.activate']}
