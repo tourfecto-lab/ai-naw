@@ -851,6 +851,19 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
         if($approved)$this->queueWork($id,'apply');
         return $approved;
     }
+    /**
+     * الـ connector على ووردبريس بيعرض آخر قواعد عنده في أول زيارة ويجدّدها في الخلفية.
+     * زيارة واحدة بعد التفعيل بتخلّي القواعد الجديدة جاهزة وقت التحقق (بعد 180 ثانية) بدل ما التحقق نفسه
+     * يبقى أول زيارة فيشوف النسخة القديمة ويتأجل 5 دقايق. فاشلة؟ مفيش مشكلة: التحقق بيعيد المحاولة.
+     */
+    private function warmConnectorPages(int $runId,$reader): void
+    {
+        try{
+            $urls=$this->q("SELECT DISTINCT page_url FROM seo_expert_tasks WHERE run_id=? AND kind='metadata' AND status='active' AND is_active=1 LIMIT 20",[$runId])->fetchAll(PDO::FETCH_COLUMN);
+            $deadline=microtime(true)+40;
+            foreach($urls as $u){if(microtime(true)>$deadline)break;try{$reader->fresh((string)$u);}catch(Throwable $e){error_log('[SeoExpertService] connector warm-up skipped: '.$e->getMessage());}}
+        }catch(Throwable $e){error_log('[SeoExpertService] connector warm-up skipped: '.$e->getMessage());}
+    }
     private function queueWork(int $id,string $operation,int $delay=0,int $attempt=0,int $cursor=0): void{if(!(new QueueManager($this->db))->push(SeoExpertExecuteJob::class,['run_id'=>$id,'operation'=>$operation,'attempt'=>$attempt,'task_cursor'=>$cursor],'seo',$delay))throw new RuntimeException('SEO execution queue unavailable');}
     public function recheck(int $uid,int $id): array {
         $this->requireReady();$r=$this->run($uid,$id);$wid=(int)$r['website_id'];$this->site($uid,$wid);
@@ -1124,7 +1137,7 @@ Target {$range} characters. ".($long?'Google cuts the extra text in search resul
             }}
             if($moreWork){$this->queueWork($id,$operation,5,$attempt,$window->cursor);return;}
             if($operation==='verify'&&$attempt<3){$pending=(bool)$this->q("SELECT id FROM seo_expert_tasks WHERE run_id=? AND user_id=? AND ((status='active' AND kind IN ('metadata','content')) OR (status='reverted' AND JSON_UNQUOTE(JSON_EXTRACT(evidence_json,'$.state'))='rollback_not_seen')) LIMIT 1",[$id,$uid])->fetchColumn();}
-            if($operation==='apply'){$this->q("UPDATE seo_expert_runs SET status='monitoring',updated_at=UTC_TIMESTAMP() WHERE id=?",[$id]);try{$this->notifySearchEngines($uid,$wid,$id);}catch(Throwable $e){Logger::warning('SEO search engine notification skipped',['run_id'=>$id,'error'=>$e->getMessage()]);}$this->queueWork($id,'verify',180);}
+            if($operation==='apply'){$this->q("UPDATE seo_expert_runs SET status='monitoring',updated_at=UTC_TIMESTAMP() WHERE id=?",[$id]);$this->warmConnectorPages($id,$reader);try{$this->notifySearchEngines($uid,$wid,$id);}catch(Throwable $e){Logger::warning('SEO search engine notification skipped',['run_id'=>$id,'error'=>$e->getMessage()]);}$this->queueWork($id,'verify',180);}
             elseif($pending)$this->queueWork($id,'verify',300*(1+$attempt),$attempt+1);
             else{$this->q("UPDATE seo_expert_runs SET status='completed',updated_at=UTC_TIMESTAMP() WHERE id=?",[$id]);try{SeoCycleReport::send($this->db,$uid,$wid,$id);}catch(Throwable $e){Logger::warning('SEO cycle report skipped',['run_id'=>$id,'error'=>$e->getMessage()]);}}
         }finally{try{(new SeoImpactService($this->db))->syncAutomatic($id);}catch(Throwable $impactError){Logger::warning('Automatic task impact monitoring needs review',['run_id'=>$id]);}ExternalExecution::unlock('seo-expert-site:'.$wid);$this->scheduleNext($uid,$wid);}
