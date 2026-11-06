@@ -3997,6 +3997,7 @@ JS;
         $adminProJsUrl = asset_v('/assets/js/admin-pro.js');
         $adminPagesJsUrl = asset_v('/assets/js/admin-pages.js');
         $adminInsightsJsUrl = asset_v('/assets/js/admin-insights.js');
+        $adminHelpJsUrl = asset_v('/assets/js/admin-help.js');
         // بيانات خريطة العالم (27KB) بتتحمّل في النظرة العامة بس
         $adminGeoTag = $tab === 'overview' ? '<script src="' . asset_v('/assets/js/admin-geo.js') . '"></script>' : '';
         // اللغة والاتجاه الديناميكي بدل hardcode عربي (كان lang="ar" dir="rtl"
@@ -4092,6 +4093,7 @@ JS;
     <script src="{$adminProJsUrl}"></script>
     <script src="{$adminPagesJsUrl}"></script>
     <script src="{$adminInsightsJsUrl}"></script>
+    <script src="{$adminHelpJsUrl}"></script>
     <style>body.hide-balances .is-money{filter:blur(8px);user-select:none;pointer-events:none;transition:filter .15s}</style>
     {$this->i18nScriptTag()}
     <script>window.ADMIN_PERMS = {$adminPermsJson}; window.ADMIN_ROLE = {$adminRoleJson};</script>

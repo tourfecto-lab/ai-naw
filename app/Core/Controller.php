@@ -962,6 +962,10 @@ abstract class Controller
         }
 
         $customerReadinessAssets = '';
+        // زرار «؟» لشرح صفحات الأدمن اللي معمولة بالشِل ده (growth, support, voice...)
+        if (in_array($this->user['role'] ?? '', ['admin','super_admin'], true) && preg_match('#^/admin(/|$)#', (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH))) {
+            $customerReadinessAssets = '<script src="'.asset_v('/assets/js/admin-help.js').'"></script>';
+        }
         if (!in_array($this->user['role'] ?? '', ['admin','super_admin'], true) && in_array($activeTab, ['overview','executive','business_hub','business_center','_integrations','service_center','automation'], true)) {
             $full = $activeTab === 'service_center' ? 'false' : 'true';
             $bodyHtml = '<section class="customer-readiness" data-customer-readiness data-compact="'.$full.'" aria-label="Website readiness" aria-live="polite">Loading readiness…</section>'.$bodyHtml;
