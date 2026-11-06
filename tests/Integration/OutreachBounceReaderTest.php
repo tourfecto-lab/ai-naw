@@ -75,6 +75,18 @@ recipients. This is a permanent error. The following address(es) failed:
         $this->assertSame('bounced', $this->leadStatus('info@egyptdirect.co'));
     }
 
+    private const POSTFIX_WITH_COPY = "From: MAILER-DAEMON@mailchannels.net\nSubject: Undelivered Mail Returned to Sender\nContent-Type: multipart/report\n\nThis is the mail system at host relay.mailchannels.net.\n\n<contact@turkeytoursplanners.com>: host\n    mail.turkeytoursplanners.com[5.189.175.9] said: 550 5.1.1\n    <contact@turkeytoursplanners.com>: Recipient address rejected: User unknown\n    in virtual mailbox table (in reply to RCPT TO command)\n\nContent-Type: message/rfc822\n\nTo: contact@turkeytoursplanners.com\nSubject: hi\n\nYour bookings are delayed and the mailbox is temporary full over quota 5.2.2\n";
+
+    public function testReportIsAnalysedWithoutTheAttachedOriginalMessage(): void
+    {
+        $b = PlatformOutreachService::parseBounce(self::POSTFIX_WITH_COPY);
+        $this->assertSame('contact@turkeytoursplanners.com', $b['email']);
+        $this->assertTrue($b['permanent'], 'كلمات النسخة المرفقة مابتخلّيش الارتداد مؤقت');
+        $this->assertSame('invalid_address', $b['reason']);
+        $f = PlatformOutreachService::parseBounce(self::FORWARDED);
+        $this->assertSame('invalid_address', $f['reason'], 'اسم سيرفر الفلتر (antispam) مش دليل على حجب السمعة');
+    }
+
     public function testParserReadsPermanentAndIgnoresSoftAndNonBounce(): void
     {
         $a = PlatformOutreachService::parseBounce(self::EXIM);

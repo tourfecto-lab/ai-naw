@@ -1772,7 +1772,10 @@ class PlatformOutreachService
      */
     public static function parseBounce(string $raw): ?array
     {
-        $text = $raw . "\n" . quoted_printable_decode($raw);
+        // نحلّل تقرير الارتداد بس، مش النسخة المرفقة من إيميلنا الأصلي (فيها كلمات زي delayed/temporary من نص الرسالة)
+        $cut = preg_match('/^Content-Type:\s*(?:message\/rfc822|text\/rfc822-headers)|^-{3,}.*(?:original message|copy of the message|message headers)/im', $raw, $mc, PREG_OFFSET_CAPTURE) ? (int) $mc[0][1] : strlen($raw);
+        $head = substr($raw, 0, min($cut, 8000));
+        $text = $head . "\n" . quoted_printable_decode($head);
         if (!preg_match('/^(?:Content-Type:\s*multipart\/report|Subject:[^\n]*(?:undeliver|delivery (?:status|failed|failure)|returned mail|failure notice)|From:[^\n]*(?:mailer-daemon|postmaster))/im', $text)) {
             return null;
         }
@@ -1805,7 +1808,7 @@ class PlatformOutreachService
         }
         $hard = preg_match('/^Status:\s*5\./im', $text)
             || preg_match('/\b(?:550|551|553|554|5\.1\.1|5\.1\.10|5\.4\.1)\b|user unknown|no such user|does not exist|unrouteable|address rejected|recipient rejected|domain not found/i', $text);
-        $reason = preg_match('/\b5\.7\.\d+\b|spam|blocked|blacklist|reputation|policy/i', $text) ? 'blocked' : 'invalid_address';
+        $reason = preg_match('/\b5\.7\.\d+\b|blacklist|blocklist|spamhaus|reputation|rejected as spam|blocked (?:by|due)|poor sender/i', $text) ? 'blocked' : 'invalid_address';
         return ['email' => $email, 'emails' => $emails, 'permanent' => (bool) $hard, 'reason' => $reason];
     }
 
