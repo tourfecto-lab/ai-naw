@@ -472,3 +472,6 @@ button.ai-tag { cursor: pointer; }
 #usersTable .col-actions { width: 190px; max-width: 190px; white-space: normal; }
 #usersTable .col-actions > * { margin: 2px 3px 2px 0; vertical-align: middle; }
 #usersTable td, #usersTable th { padding-inline: 10px; }
+
+/* ---------- جداول الأدمن: حشو أقل عشان تتسع للشاشة ---------- */
+body.ap-theme .p-table th, body.ap-theme .p-table td { padding-inline: 10px; }

@@ -107,4 +107,20 @@
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+    // ---- عرض فقط: إيميل الحساب المحذوف الداخلي (deleted+..@deleted.invalid) يتعرض «حساب محذوف» ----
+    (function maskDeleted() {
+        var re = /deleted\+[\w+.-]*@deleted\.invalid/gi, busy = false, timer = null;
+        function run() {
+            if (busy) return; busy = true;
+            try {
+                var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), n, list = [];
+                while ((n = w.nextNode())) { if (n.nodeValue.indexOf('deleted.invalid') !== -1) list.push(n); }
+                list.forEach(function (t) { t.nodeValue = t.nodeValue.replace(re, 'حساب محذوف'); });
+            } catch (e) { /* عرض فقط - نتجاهل */ }
+            busy = false;
+        }
+        function later() { clearTimeout(timer); timer = setTimeout(run, 150); }
+        function start() { run(); new MutationObserver(later).observe(document.body, { childList: true, subtree: true, characterData: true }); }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+    })();
 })();
