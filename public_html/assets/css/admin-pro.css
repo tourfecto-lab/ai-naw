@@ -469,6 +469,6 @@ button.ai-tag { cursor: pointer; }
 
 /* ---------- جدول المستخدمين: ما يعدّيش عرض الشاشة ---------- */
 #usersTable .col-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; text-align: start; }
-#usersTable .col-actions { min-width: 150px; white-space: normal; }
+#usersTable .col-actions { width: 190px; max-width: 190px; white-space: normal; }
 #usersTable .col-actions > * { margin: 2px 3px 2px 0; vertical-align: middle; }
 #usersTable td, #usersTable th { padding-inline: 10px; }
