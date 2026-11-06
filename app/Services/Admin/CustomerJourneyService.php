@@ -182,9 +182,12 @@ class CustomerJourneyService
 
         $phone = $u['phone'] ?: ($lead['phone'] ?? null);
         $wa = self::waNumber($phone, (string) ($lead['country'] ?? 'EG'));
-        $msg = 'أهلاً فريق ' . $name . ' 👋 معاكم من Tourfecto. شفت إنكم بدأتوا تجربة المنصة، تحبوا أساعدكم في أول خطوة (ربط موقعكم أو تشغيل أول تحليل)؟ أنا موجود.';
+        $domain = $sites ? (string) preg_replace('/^www\./', '', strtolower((string) (parse_url((string) $sites[0]['main_url'], PHP_URL_HOST) ?: ''))) : '';
+        $stage = self::stageFor($sub ? (string) $sub['status'] : '', $daysLeft, $siteAdded, $siteConnected, (int) $ai['calls'], $state);
+        $lang = in_array($lead['language'] ?? '', ['ar', 'en', 'tr'], true) ? $lead['language'] : 'ar';
+        $msg = self::stageMessage($stage['key'], $lang, $name, $domain, $daysLeft, (int) $ai['calls'] > 0, $state === 'never_returned');
 
-        return [
+        $journey = [
             'user' => ['id' => (int) $u['id'], 'name' => $name, 'email' => $u['email'], 'phone' => $phone, 'created_at' => $u['created_at']],
             'plan' => $sub ? ['name' => $sub['plan_name'], 'status' => $sub['status'], 'trial_days_left' => $daysLeft, 'ends' => $sub['current_period_end']] : null,
             'state' => $state,
@@ -199,17 +202,101 @@ class CustomerJourneyService
             'ai_calls' => (int) $ai['calls'],
             'milestones' => $milestones,
             'activation' => ['done' => $doneCount, 'total' => count($milestones)],
-            'source' => $lead ? ['company' => $lead['company'], 'track' => $lead['track'], 'report_viewed' => !empty($lead['report_viewed_at']), 'emailed' => (int) $lead['step'] > 0, 'whatsapp' => !empty($lead['desk_action']) && $lead['desk_action'] !== 'wrong_number'] : null,
+            'source' => $lead ? [
+                'lead_id' => (int) $lead['id'], 'company' => $lead['company'], 'track' => $lead['track'], 'report_viewed' => !empty($lead['report_viewed_at']),
+                'emailed' => (int) $lead['step'] > 0, 'whatsapp' => !empty($lead['desk_action']) && $lead['desk_action'] !== 'wrong_number',
+                // الموظف اللي بعت لها الرسالة/التقرير على واتساب (هو المسؤول عن متابعتها بعد ما سجّلت)
+                'staff' => !empty($lead['desk_user_id']) ? ['id' => (int) $lead['desk_user_id'], 'name' => (string) ($lead['desk_by'] ?? '')] : null,
+            ] : null,
             'next_steps' => $next,
+            'stage' => $stage,
+            'language' => $lang,
             'contact' => ['wa_url' => $wa ? 'https://wa.me/' . $wa . '?text=' . rawurlencode($msg) : null, 'message' => $msg],
         ];
+        $journey['assistant_context'] = self::assistantContext($journey);
+        return $journey;
+    }
+
+    /**
+     * المرحلة اللي العميل واقف عندها (بالأولوية): ودي اللي بتحدد الرسالة المناسبة.
+     * @return array{key:string,label:string}
+     */
+    public static function stageFor(string $subStatus, ?int $daysLeft, bool $siteAdded, bool $siteConnected, int $aiCalls, string $state): array
+    {
+        if ($subStatus === 'active') {
+            return ['key' => 'paid', 'label' => 'مشترك بفلوس: متابعة ودّية'];
+        }
+        if ($subStatus === 'trialing' && $daysLeft !== null && $daysLeft <= 1) {
+            return ['key' => 'trial_ending', 'label' => 'التجربة بتخلص: ساعده يكمّل'];
+        }
+        if (!$siteAdded) {
+            return ['key' => 'no_site', 'label' => 'لسه ما أضافش موقعه'];
+        }
+        if (!$siteConnected) {
+            return ['key' => 'not_connected', 'label' => 'أضاف موقعه وما ربطوش'];
+        }
+        if ($aiCalls === 0) {
+            return ['key' => 'no_ai', 'label' => 'مربوط ولسه ما جرّبش أداة'];
+        }
+        if ($state === 'dormant' || $state === 'idle') {
+            return ['key' => 'dormant', 'label' => 'غاب بعد ما بدأ'];
+        }
+        return ['key' => 'check_in', 'label' => 'شغّال: اطمّن عليه'];
+    }
+
+    /** رسالة واتساب جاهزة حسب المرحلة (عربي مصري / English)، من غير أي وعد مش حقيقي. التركي بيرجع للإنجليزي */
+    public static function stageMessage(string $stage, string $lang, string $name, string $domain, ?int $daysLeft, bool $triedAi, bool $neverReturned): string
+    {
+        $site = $domain !== '' ? $domain : ($lang === 'ar' ? 'موقعكم' : 'your website');
+        if ($lang === 'ar') {
+            $hi = 'أهلاً فريق ' . $name . ' 👋 معاكم من Tourfecto.';
+            $t = [
+                'trial_ending' => $hi . "\nالتجربة المجانية بتاعتكم قربت تخلص" . ($daysLeft !== null && $daysLeft > 0 ? ' (باقي ' . $daysLeft . ' يوم)' : '') . "، وماحبّيتش تضيع منكم قبل ما تشوفوا النتيجة الحقيقية.\nتحبوا أساعدكم نكمّل الإعداد دلوقتي في كام دقيقة؟",
+                'paid' => $hi . "\nشكراً إنكم معانا 🙏 حبيت أطمّن إن كل حاجة ماشية معاكم، وإن مفيش أي خطوة محتاجة مساعدة. أنا موجود لأي سؤال.",
+                'no_site' => $hi . "\nشفت إنكم فتحتوا حسابكم، وأول خطوة بسيطة هي إضافة موقع الشركة عشان المنصة تبدأ تفحصه وتقترح عليكم تحسينات.\nتحبوا أساعدكم تضيفوه دلوقتي؟ بياخد دقيقتين.",
+                'not_connected' => $hi . "\nشفت إنكم فعّلتوا حسابكم" . ($triedAi ? ' وجرّبتوا تحليل الموقع، وده ممتاز 🙌' : '.') . "\nبس لسه " . $site . " ما اتربطش، والربط هو اللي بيخلّي المنصة تبدأ تحسّن ظهوركم في جوجل فعلاً.\nتحبوا أربطه معاكم دلوقتي؟ بياخد حوالي 5 دقايق وأنا موجود أساعدكم خطوة بخطوة.",
+                'no_ai' => $hi . "\nموقعكم اتربط بنجاح 👏 والخطوة الجاية إنكم تجرّبوا أول أداة (مثلاً تحليل الظهور في جوجل) وتشوفوا النتيجة.\nتحبوا أوريكم أسرع طريقة تبدأوا بيها؟",
+                'dormant' => $hi . "\nلاحظت إنكم غبتوا شوية عن المنصة، فحبيت أسأل: في أي حاجة وقفت معاكم أو محتاجة توضيح؟ أنا موجود أساعدكم.",
+                'check_in' => $hi . "\nحبيت أطمّن عليكم وأسمع رأيكم في المنصة لحد دلوقتي. في أي حاجة تحبوا نحسّنها أو أساعدكم فيها؟",
+            ];
+            return $t[$stage] ?? $t['check_in'];
+        }
+        $hi = 'Hi ' . $name . ' team 👋 This is the Tourfecto team.';
+        $t = [
+            'trial_ending' => $hi . "\nYour free trial is about to end" . ($daysLeft !== null && $daysLeft > 0 ? ' (' . $daysLeft . ' day(s) left)' : '') . ", and I would hate for you to miss seeing real results.\nWould you like me to help you finish the setup in a few minutes?",
+            'paid' => $hi . "\nThank you for being with us 🙏 Just checking that everything is going well and nothing needs help. I'm here for any question.",
+            'no_site' => $hi . "\nI saw you opened your account. The first simple step is adding your company website so the platform can scan it and suggest improvements.\nWant me to help you add it now? It takes two minutes.",
+            'not_connected' => $hi . "\nI saw you activated your account" . ($triedAi ? ' and tried the website analysis, great 🙌' : '.') . "\nBut " . $site . " is not connected yet, and connecting it is what lets the platform start improving your Google visibility.\nWant me to connect it with you now? It takes about 5 minutes and I'll guide you step by step.",
+            'no_ai' => $hi . "\nYour website is connected 👏 The next step is trying your first tool (for example the Google visibility analysis) and seeing the result.\nWant me to show you the fastest way to start?",
+            'dormant' => $hi . "\nI noticed you haven't been on the platform for a bit. Did anything get stuck or need explaining? I'm happy to help.",
+            'check_in' => $hi . "\nJust checking in to hear what you think of the platform so far. Anything you'd like us to improve or help with?",
+        ];
+        return $t[$stage] ?? $t['check_in'];
+    }
+
+    /** ملخص قصير (أقل من 950 حرف) بيتحط في سياق المساعد الذكي عشان يرد على العميل وهو عارف حالته */
+    public static function assistantContext(array $j): string
+    {
+        $done = array_map(static fn ($m) => $m['label'], array_filter($j['milestones'], static fn ($m) => $m['done']));
+        $todo = array_map(static fn ($m) => $m['label'], array_filter($j['milestones'], static fn ($m) => !$m['done']));
+        $lines = [
+            'مهم: الشركة دي سجّلت فعلاً في المنصة (مش عميل محتمل جديد). هدفك تساعدها تفعّل وتستفيد وتكمّل، مش تبيعلها من الصفر.',
+            'الاسم: ' . $j['user']['name'],
+            $j['plan'] ? 'الباقة: ' . ($j['plan']['name'] ?? '') . ' (' . $j['plan']['status'] . ')' . ($j['plan']['trial_days_left'] !== null ? ' · باقي ' . max(0, $j['plan']['trial_days_left']) . ' يوم في التجربة' : '') : '',
+            'آخر ظهور من ' . $j['hours_since_last_seen'] . ' ساعة · جلسات: ' . $j['session_count'] . ' · استدعاءات AI: ' . $j['ai_calls'],
+            $done ? 'عمل: ' . implode('، ', $done) : '',
+            $todo ? 'لسه ما عملش: ' . implode('، ', $todo) : '',
+            'الخطوة المقترحة: ' . $j['stage']['label'],
+            !empty($j['source']['report_viewed']) ? 'كان فاتح تقرير موقعه قبل التسجيل.' : '',
+        ];
+        return mb_substr(implode("\n", array_filter($lines)), 0, 950);
     }
 
     /**
      * أحدث المشتركين مرتبين بالأولى بالمتابعة (التجربة هتخلص + مرجعش + موقعه مش مربوط).
      * @return array<int,array<string,mixed>>
      */
-    public function recentSignups(int $days = 14, int $limit = 30, ?int $now = null): array
+    public function recentSignups(int $days = 14, int $limit = 30, ?int $now = null, ?int $staffId = null): array
     {
         $now ??= time();
         $ids = $this->rows("SELECT id FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL " . max(1, min(60, $days)) . " DAY) AND deleted_at IS NULL AND role NOT IN ('admin','super_admin') ORDER BY id DESC LIMIT " . max(1, min(50, $limit)));
@@ -226,7 +313,10 @@ class CustomerJourneyService
             $urgent += $j['state'] === 'never_returned' ? 2 : ($j['state'] === 'dormant' ? 1 : 0);
             $urgent += !array_values(array_filter($j['milestones'], static fn ($m) => $m['key'] === 'connected'))[0]['done'] ? 1 : 0;
             $j['urgency'] = $j['plan'] && $j['plan']['status'] === 'active' ? 0 : $urgent;
-            unset($j['sessions'], $j['top_pages'], $j['contact']['message']);
+            unset($j['sessions'], $j['top_pages'], $j['assistant_context']);
+            if ($staffId !== null && (int) ($j['source']['staff']['id'] ?? 0) !== $staffId) {
+                continue;
+            }
             $out[] = $j;
         }
         usort($out, static fn ($a, $b) => [$b['urgency'], $b['user']['id']] <=> [$a['urgency'], $a['user']['id']]);
@@ -275,7 +365,7 @@ class CustomerJourneyService
             $where .= ' OR domain IN (' . implode(',', array_fill(0, count($domains), '?')) . ')';
             $bind = array_merge($bind, $domains);
         }
-        return $this->rows("SELECT company, phone, country, track, step, report_viewed_at, desk_action FROM platform_leads WHERE {$where} ORDER BY (report_viewed_at IS NOT NULL) DESC, id LIMIT 1", $bind)[0] ?? null;
+        return $this->rows("SELECT id, company, phone, country, language, track, step, report_viewed_at, desk_action, desk_user_id, desk_by FROM platform_leads WHERE {$where} ORDER BY (report_viewed_at IS NOT NULL) DESC, id LIMIT 1", $bind)[0] ?? null;
     }
 
     private function rows(string $sql, array $bind = []): array

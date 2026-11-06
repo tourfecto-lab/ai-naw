@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
+    let signups = [], signupsAll = false, P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -144,6 +144,28 @@
         const el = root.querySelector('.dk-team-slot'); if (el) el.innerHTML = teamHtml();
     };
 
+    // مشتركون جدد بعد ما الموظف كلّمهم: كل واحد برسالة واتساب جاهزة حسب مرحلته + مساعد يرد على أي رد بسكرين
+    const SU_STATE = { active: 'نشط', idle: 'ساكت', dormant: 'خامل', never_returned: 'دخل مرة ومرجعش' };
+    const suHtml = () => {
+        if (!signups.length) return '';
+        const cards = signups.map(j => {
+            const trial = j.plan && j.plan.trial_days_left !== null ? ` · تجربة باقي ${Math.max(0, j.plan.trial_days_left)} يوم` : '';
+            const dir = j.language === 'ar' ? 'rtl' : 'ltr';
+            return `<div class="dk-card dk-su" data-su="${j.user.id}"><div class="dk-line"><b>🎉 ${esc(j.user.name)}</b> <span class="dk-muted">${esc(j.user.email)}</span></div>
+                <div class="dk-line"><span class="dk-label">الحالة</span>${esc(SU_STATE[j.state] || j.state)} · آخر ظهور من ${j.hours_since_last_seen} ساعة${esc(trial)} · التفعيل ${j.activation.done}/${j.activation.total}${j.source && j.source.staff && signupsAll ? ' · الموظف: ' + esc(j.source.staff.name || '') : ''}</div>
+                <div class="dk-line"><span class="dk-label">🎯 الخطوة دلوقتي</span><b>${esc((j.stage || {}).label || '')}</b></div>
+                <textarea class="dk-msgbox" rows="5" readonly dir="${dir}" data-su-msg>${esc((j.contact || {}).message || '')}</textarea>
+                <div class="dk-actions"><button class="dk-btn primary" data-su-copy>📋 نسخ الرسالة</button>${(j.contact || {}).wa_url ? `<a class="dk-btn" target="_blank" rel="noopener" href="${esc(j.contact.wa_url)}">💬 افتح واتساب بالرسالة</a>` : '<span class="dk-muted">مفيش رقم تليفون</span>'}<button class="dk-btn" data-su-asst="${j.user.id}">🤖 رد عليه (سكرين/نص)</button></div></div>`;
+        }).join('');
+        return `<section class="dk-su-box"><h3>🎉 شركات سجّلت في المنصة ${signupsAll ? '(كل الفريق)' : 'بعد ما كلّمتيها'} <b>${signups.length}</b></h3>
+            <p class="dk-muted">الرسالة اتجهزت لوحدها حسب مرحلة كل شركة. انسخيها وابعتيها، ولو ردّوا ابعتي سكرين الرد للمساعد وهو يقترح ردّ.</p>
+            ${canSeeTeam ? `<button class="dk-btn xs" data-su-all>${signupsAll ? 'اعرض بتاعتي بس' : 'اعرض كل الفريق'}</button>` : ''}<div class="dk-su-list">${cards}</div></section>`;
+    };
+    const loadSignups = async () => {
+        try { signups = (await api('/api/admin/outreach-desk/signups' + (signupsAll ? '?all=1' : ''))).signups || []; } catch (e) { signups = []; }
+        const el = root.querySelector('.dk-su-slot'); if (el) el.innerHTML = suHtml();
+    };
+
     const exportUrl = () => '/api/admin/outreach-desk/export?' + new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q });
     const render = () => {
         const c = cur();
@@ -166,6 +188,7 @@
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
             <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
             <div class="dk-links"><button class="dk-btn" data-staff-open>📋 كشف الشغل والعمولة والراتب</button> <a class="dk-btn" href="/admin/outreach-sent">📤 المرسول لهم (حسب اليوم)</a> <a class="dk-btn" href="${exportUrl()}">⬇️ تصدير القايمة الحالية CSV</a> <button class="dk-btn primary" data-asst-open>🤖 المساعد الذكي</button></div>
+            <div class="dk-su-slot">${suHtml()}</div>
             <div class="dk-funnel-slot">${funnelFor === state.country ? funnelHtml() : ''}</div>
             ${canSeeTeam ? `<div class="dk-team-slot">${teamLoaded ? teamHtml() : ''}</div>` : ''}
             <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">الأولوية = الشركات اللي محتاجة فعلًا وشغّالة فعلًا. القايمة مترتّبة بيها.</span></div>
@@ -182,6 +205,7 @@
         render();
         loadFunnel();
         loadTeamToday();
+        loadSignups();
         if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -501,7 +525,7 @@
         wizStart('front');
     };
     // المساعد الذكي: بيقترح ردّ احترافي من سكرين شات أو رسالة، ومايحفظش حاجة لحد ما الموظفة تراجع وتدوس «تسجيل»
-    const asst = { el: null, result: null, matches: [], matchId: 0, fixedId: 0, fixedLabel: '', context: '', history: [] };
+    const asst = { userId: 0, el: null, result: null, matches: [], matchId: 0, fixedId: 0, fixedLabel: '', context: '', history: [] };
     const ASST_QUICK = [['✂️ اختصريه', 'اختصري الردّ أكتر من غير ما تغيّري المعنى'], ['😊 خليها أرسمي', 'خليها رسمية أكتر'], ['🌐 English', 'rewrite the reply in English'], ['🇹🇷 Türkçe', 'rewrite the reply in Turkish']];
     const asstRender = () => {
         const r = asst.result;
@@ -522,7 +546,7 @@
                 <div class="dk-label">💬 الردّ المقترح (${esc({ ar: 'عربي', en: 'إنجليزي', tr: 'تركي' }[r.language] || r.language)})</div>
                 <textarea class="dk-msgbox" rows="5" readonly data-asst-reply>${esc(r.suggested_reply || '')}</textarea>
                 <div class="dk-actions"><button class="dk-btn primary" data-asst-copy>📋 نسخ الردّ</button>${ASST_QUICK.map(([l, q]) => `<button class="dk-btn xs" data-asst-quick="${esc(q)}">${l}</button>`).join('')}</div>
-                <div class="dk-comp dk-asst-apply"><b>📌 ${asst.fixedId ? 'تسجيل على ' + esc(asst.fixedLabel) : 'تسجيل على شركة'}</b>
+                <div class="dk-comp dk-asst-apply" ${asst.userId && !asst.fixedId ? 'hidden' : ''}><b>📌 ${asst.fixedId ? 'تسجيل على ' + esc(asst.fixedLabel) : 'تسجيل على شركة'}</b>
                     ${asst.fixedId ? '' : `<input class="dk-note" data-asst-search placeholder="دوّري على اسم الشركة أو الرقم…" value="${esc(r.company_hint || '')}">
                     ${asst.matches.length ? `<select data-asst-match>${matchOpts}</select>` : (asst.searched ? '<span class="dk-muted">مفيش نتيجة، جرّبي اسم تاني</span>' : '')}`}
                     <select data-asst-action>${ACTIONS.map(([k, l]) => `<option value="${k}" ${k === 'replied' ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -531,7 +555,7 @@
                     <button class="dk-btn primary" data-asst-apply>📌 تسجيل</button></div>
             </div>` : ''}</div>`;
     };
-    const openAssistant = (leadId) => {
+    const openAssistant = (leadId, signup) => {
         if (!asst.el) {
             asst.el = document.createElement('div'); asst.el.className = 'dk-modal'; asst.el.dir = 'rtl'; document.body.appendChild(asst.el);
             const status = (msg, bad) => { const el = asst.el.querySelector('[data-asst-status]'); if (!el) return; el.textContent = msg; el.hidden = !msg; el.classList.toggle('bad', !!bad); };
@@ -560,7 +584,7 @@
                         const file = t.dataset.asstQuick !== undefined ? null : (asst.el.querySelector('[data-asst-img]') || {}).files?.[0];
                         if (!msg.trim() && !file) { status('اكتبي حاجة أو ارفعي سكرين الأول', true); return; }
                         t.disabled = true; status('⏳ المساعد بيقرا…');
-                        const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file); if (asst.context) fd.append('lead_context', asst.context);
+                        const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file); if (asst.context) fd.append('lead_context', asst.context); if (asst.userId) fd.append('user_id', asst.userId);
                         // المحادثة المحفوظة في قاعدة البيانات لنفس الشركة هي المصدر؛ من غير شركة مربوطة، السجل بيتبعت من المتصفح بس
                         if (asst.fixedId) fd.append('lead_id', asst.fixedId); else fd.append('history', JSON.stringify(asst.history.map(h => ({ role: h.role, text: h.text }))));
                         try {
@@ -588,7 +612,14 @@
                 } catch (err) { status(err.message, true); }
             });
         }
-        asst.result = null; asst.matches = []; asst.searched = false; asst.history = [];
+        asst.result = null; asst.matches = []; asst.searched = false; asst.history = []; asst.userId = 0;
+        if (signup) {
+            // مشترك جديد: السيرفر هو اللي بيبني سياقه (حالته وإيه اللي عمله)، والمحادثة بتتحفظ على شركته لو جاي من حملة
+            asst.userId = signup.user.id; asst.fixedId = (signup.source && signup.source.lead_id) || 0; asst.fixedLabel = signup.user.name + ' (مشترك جديد)'; asst.context = '';
+            asstRender(); asst.el.hidden = false;
+            if (asst.fixedId) { const forId = asst.fixedId; api('/api/admin/outreach-desk/leads/' + forId + '/assistant-history').then(r => { if (asst.fixedId !== forId || !asst.el || asst.el.hidden) return; if ((r.history || []).length) { asst.history = r.history.map(h => ({ role: h.role, text: h.text })); asstRender(); } }).catch(() => { /* تبدأ من غير سجل قديم */ }); }
+            return;
+        }
         const row = leadId ? rows.find(x => x.id === leadId) : null;
         asst.fixedId = row ? leadId : 0; asst.fixedLabel = row ? row.company + ' · ' + (row.phone_intl || row.phone) : '';
         asst.context = row ? [
@@ -673,6 +704,9 @@
                     toast(t.dataset.tag ? 'اتحط التاج ✅' : 'اتمسح التاج ✅'); return;
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
+                if (t.dataset.suCopy !== undefined) { const box = t.closest('.dk-su').querySelector('[data-su-msg]'); toast(await copy(box.value) ? 'اتنسخت الرسالة ✅' : 'مقدرتش أنسخ', false); return; }
+                if (t.dataset.suAll !== undefined) { signupsAll = !signupsAll; return await loadSignups(); }
+                if (t.dataset.suAsst !== undefined) { return openAssistant(0, signups.find(x => x.user.id === Number(t.dataset.suAsst))); }
                 if (t.dataset.asstOpen !== undefined) { return openAssistant(); }
                 if (t.dataset.asstFor !== undefined) { return openAssistant(Number(t.dataset.asstFor)); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }

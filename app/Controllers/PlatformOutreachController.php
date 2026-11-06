@@ -449,6 +449,23 @@ class PlatformOutreachController extends Controller
         $leadId = (int) $this->get('lead_id', 0);
         $userId = (int) ($this->user['id'] ?? 0);
         $message = (string) $this->get('message', '');
+        // مشترك جديد: السياق (حالته وإيه اللي عمله) بيتبني هنا من السيرفر، مش من المتصفح. الموظف يشوف بس المشتركين المنسوبين له (إلا لو بيشوف الفريق)
+        $signupContext = '';
+        $signupUid = (int) $this->get('user_id', 0);
+        if ($signupUid > 0) {
+            $j = (new CustomerJourneyService())->forUser($signupUid);
+            if (!$j) {
+                return $this->error('العميل مش موجود', 404);
+            }
+            $owner = (int) ($j['source']['staff']['id'] ?? 0);
+            if (!$this->canSeeTeam() && $owner !== $userId) {
+                return $this->error('العميل ده مش منسوب ليك', 403);
+            }
+            $signupContext = (string) $j['assistant_context'];
+            if ($leadId <= 0) {
+                $leadId = (int) ($j['source']['lead_id'] ?? 0);
+            }
+        }
         // لو المحادثة مربوطة بشركة، السجل المحفوظ ليها هو المصدر (مشترك بين كل الموظفين وكل مرة تتفتح)، مش اللي الموظفة بعتته من المتصفح
         if ($leadId > 0) {
             $history = $this->service()->assistantChatHistory($leadId);
@@ -464,7 +481,7 @@ class PlatformOutreachController extends Controller
             }
         }
         try {
-            $r = $this->service()->assistantDraftReply($message, $image, $userId, null, (string) $this->get('lead_context', ''), $history);
+            $r = $this->service()->assistantDraftReply($message, $image, $userId, null, $signupContext !== '' ? $signupContext : (string) $this->get('lead_context', ''), $history);
             if (!$r['ok']) {
                 return $this->error($r['error'] ?? 'تعذر الرد', 422);
             }
@@ -476,6 +493,26 @@ class PlatformOutreachController extends Controller
         } catch (Throwable $e) {
             Logger::error('Outreach assistant failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل المساعد', 503);
+        }
+    }
+
+    /**
+     * GET /api/admin/outreach-desk/signups?all=1 : الشركات اللي سجّلت في المنصة بعد ما الموظف كلّمها (أو بعد ما فتحت تقرير بعتّه)،
+     * كل واحدة بحالتها ورسالة واتساب جاهزة حسب مرحلتها. من يرى الفريق يقدر يطلب all=1 فيشوف الكل.
+     */
+    public function deskSignups(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            $all = $this->canSeeTeam() && (string) $this->get('all', '') === '1';
+            $list = (new CustomerJourneyService())->recentSignups(30, 30, null, $all ? null : (int) ($this->user['id'] ?? 0));
+            return $this->success(['signups' => $list, 'all' => $all]);
+        } catch (Throwable $e) {
+            Logger::error('Desk signups failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل المشتركين', 503);
         }
     }
 

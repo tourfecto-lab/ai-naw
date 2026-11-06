@@ -123,3 +123,9 @@
 .dk-asst-msg{padding:7px 10px;border-radius:10px;font-size:13px;line-height:1.6;max-width:85%;white-space:pre-wrap}
 .dk-asst-msg.user{align-self:flex-end;background:rgba(47,158,106,.18)}
 .dk-asst-msg.assistant{align-self:flex-start;background:var(--panel-card-bg-2,rgba(128,128,128,.12))}
+
+/* مشتركون جدد بعد ما الموظف كلّمهم: رسالة جاهزة حسب المرحلة */
+.dk-su-box{margin:12px 0;padding:14px;border:1px solid #2f9e6a;border-radius:14px;background:rgba(47,158,106,.08)}
+.dk-su-box h3{margin:0 0 4px}.dk-su-box h3 b{background:#2f9e6a;color:#fff;border-radius:999px;padding:1px 9px;font-size:13px;margin-inline-start:6px}
+.dk-su-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:10px}
+.dk-su .dk-msgbox{width:100%}

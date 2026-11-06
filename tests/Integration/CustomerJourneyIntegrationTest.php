@@ -49,7 +49,7 @@ final class CustomerJourneyIntegrationTest extends TestCase
         $this->db->query("INSERT INTO login_history (user_id, status, created_at) VALUES (?, 'success', ?)", [$uid, $signup]);
         $this->db->query("INSERT INTO visitor_logs (visitor_id, user_id, page_url, is_authenticated, created_at) VALUES ('v1', ?, '/dashboard', 1, ?), ('v1', ?, '/websites/3', 1, ?)", [$uid, $signup, $uid, gmdate('Y-m-d H:i:s', time() - 20 * 3600 + 90)]);
         $this->db->query("INSERT INTO websites (user_id, main_url, is_connected, created_at) VALUES (?, 'https://journeyco.test', 0, ?)", [$uid, $signup]);
-        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, phone, country, status, step, token, report_viewed_at) VALUES ('phpunit-journey', 'Journey Co', 'info@journeyco.test', 'journeyco.test', '01011112222', 'EG', 'contacted', 1, ?, ?)", [bin2hex(random_bytes(16)), $signup]);
+        $this->db->query("INSERT INTO platform_leads (source, company, email, domain, phone, country, status, step, token, report_viewed_at, desk_action, desk_user_id, desk_by) VALUES ('phpunit-journey', 'Journey Co', 'info@journeyco.test', 'journeyco.test', '01011112222', 'EG', 'contacted', 1, ?, ?, 'contacted', 987654, 'Salma')", [bin2hex(random_bytes(16)), $signup]);
 
         $svc = new CustomerJourneyService();
         $j = $svc->forUser($uid);
@@ -72,6 +72,14 @@ final class CustomerJourneyIntegrationTest extends TestCase
 
         $ids = array_map(static fn ($x) => $x['user']['id'], $svc->recentSignups(14, 50));
         $this->assertContains($uid, $ids);
+        $this->assertSame('not_connected', $j['stage']['key']);
+        $this->assertSame(['id' => 987654, 'name' => 'Salma'], $j['source']['staff'], 'الموظف اللي بعت التقرير على واتساب');
+        $this->assertStringContainsString('journeyco.test', $j['contact']['message']);
+        $this->assertStringContainsString('سجّلت فعلاً', $j['assistant_context']);
+        $mine = array_map(static fn ($x) => $x['user']['id'], $svc->recentSignups(14, 50, null, 987654));
+        $this->assertContains($uid, $mine);
+        $other = array_map(static fn ($x) => $x['user']['id'], $svc->recentSignups(14, 50, null, 111));
+        $this->assertNotContains($uid, $other, 'الموظف التاني مايشوفش مشتركين مش بتوعه');
         $this->assertNull($svc->forUser(999999999));
     }
 }

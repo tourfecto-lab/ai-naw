@@ -2000,6 +2000,7 @@ $router->post('/api/admin/outreach-desk/staff-comp', 'PlatformOutreachController
 $router->post('/api/admin/outreach-desk/leads/{id}/action', 'PlatformOutreachController', 'deskAction', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/social', 'PlatformOutreachController', 'deskSocial', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/tag', 'PlatformOutreachController', 'deskTag', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/outreach-desk/signups', 'PlatformOutreachController', 'deskSignups', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/assistant', 'PlatformOutreachController', 'deskAssistant', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/leads/{id}/assistant-history', 'PlatformOutreachController', 'deskAssistantHistory', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing', 'AiRoutingAdminController', 'save', ['AuthMiddleware','AdminMiddleware']);
