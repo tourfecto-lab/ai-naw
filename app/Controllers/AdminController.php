@@ -2984,7 +2984,7 @@ class AdminController extends Controller
         sel.dataset.loaded = '1';
         sel.innerHTML = plans.filter(p => p.is_active !== 0 && p.is_active !== '0').map(p => '<option value="' + esc(p.plan_key) + '">' + esc(p.name) + ' · ' + esc(p.currency || 'USD') + ' ' + Number(p.price_monthly || 0) + ' / ' + Number(p.price_yearly || 0) + '</option>').join('');
         const em = new URLSearchParams(location.search).get('email');
-        if (em) document.getElementById('manualUserEmail').value = em;
+        if (em) { document.getElementById('manualUserEmail').value = em; const box = document.getElementById('manualActivateBox'); if (box) box.open = true; }
     }
 
     let subsAll = [], subsView = 'current';
@@ -3019,7 +3019,7 @@ class AdminController extends Controller
                 <td>${esc(s.plan_display_name || s.plan || s.plan_name || '-')}</td>
                 <td>${price}</td>
                 <td><span class="pill ${s.status === 'active' ? 'green' : (s.status === 'cancelled' ? 'red' : (s.status === 'trialing' ? 'blue' : (s.status === 'past_due' ? 'orange' : 'gray')))}">${esc(ST[s.status] || s.status)}</span></td>
-                <td class="p-cell-muted" data-sort="${esc(s.current_period_end || '')}">${end}${endNote}</td>
+                <td class="p-cell-muted" data-sort="${esc(s.current_period_end || '')}">${end}${endNote ? '<br>' + endNote : ''}</td>
                 <td class="p-cell-muted" data-sort="${esc(s.created_at || '')}">${formatDate(s.created_at)}</td>
                 <td>${s.status === 'active' ? `<button class="p-btn danger xs" onclick="cancelSub(${s.id}, this)">${I18N['admin.cancel']}</button>` : ''}</td>
             </tr>`;
@@ -4341,8 +4341,8 @@ HTML;
                 <div class="p-toolbar" style="justify-content:flex-end;">
                     <a href="/admin/export/subscriptions" class="p-btn outline">📊 {$this->tr('admin.export.subscriptions')}</a>
                 </div>
-                <div class="p-card">
-                    <div class="p-card-head"><h3>➕ {$this->tr('admin.manual_activate_title')}</h3><span class="p-card-sub">{$this->tr('admin.manual_activate_sub')}</span></div>
+                <details class="p-card" id="manualActivateBox">
+                    <summary class="p-card-head" style="cursor:pointer;margin:0"><h3>➕ {$this->tr('admin.manual_activate_title')}</h3><span class="p-card-sub">{$this->tr('admin.manual_activate_sub')}</span></summary>
                     <div class="p-grid cols-3">
                         <div class="form-group">
                             <label class="form-label" for="manualUserEmail">{$this->tr('admin.customer_email')}</label>
@@ -4366,8 +4366,8 @@ HTML;
                     </div>
                     <div id="manualActivateAlert" class="alert alert-danger" style="display:none;"></div>
                     <button class="p-btn primary" onclick="activateManualSubscription()">{$this->tr('admin.activate_subscription')}</button>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap"><button class="p-btn xs primary" data-subsview="current">الاشتراكات الحالية</button><button class="p-btn xs outline" data-subsview="all">السجل الكامل</button><span class="p-cell-muted" id="subsCounts" style="font-size:12.5px"></span></div>
+                </details>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap"><button class="p-btn xs primary" data-subsview="current">الاشتراكات الحالية</button><button class="p-btn xs outline" data-subsview="all">السجل الكامل</button><span class="p-cell-muted" id="subsCounts" dir="auto" style="font-size:12.5px"></span></div>
                 <div class="p-card no-pad" style="margin-top:10px;">
                     <div class="p-table-scroll">
                         <table class="p-table" id="subsTable">
