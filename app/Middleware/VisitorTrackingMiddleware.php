@@ -17,8 +17,20 @@ class VisitorTrackingMiddleware
     /** @var array المسارات المستثناة من التتبع (أصول ثابتة، API، فحوصات صحية) */
     private $excludedPrefixes = [
         '/assets', '/favicon.ico', '/robots.txt', '/sitemap.xml', '/.well-known',
-        '/health', '/ping', '/api/',
+        '/health', '/ping', '/api/', '/i18n-dict',
     ];
+
+    /**
+     * وكلاء مش زوار: فحص التشغيل بتاع المنصة نفسها وسكريبتات وزواحف. من غير كوكي، كل طلب منهم كان بيتحسب «زائر جديد»
+     * (فحص التشغيل لوحده كان بيطلّع آلاف «زوار» من فرنسا).
+     */
+    public const NON_HUMAN_AGENT = '/TourfectoOpsCheck|HeadlessChrome|python-requests|python-urllib|aiohttp|curl\/|wget|Go-http-client|axios|node-fetch|okhttp|libwww|Java\/|GuzzleHttp|PostmanRuntime|bot\b|crawl|spider|slurp|scrapy|facebookexternalhit|Bytespider|GPTBot|ClaudeBot|PerplexityBot|Lighthouse|UptimeRobot|Pingdom|monitor/i';
+
+    public static function isNonHumanAgent(?string $userAgent): bool
+    {
+        $ua = (string) $userAgent;
+        return $ua === '' || preg_match(self::NON_HUMAN_AGENT, $ua) === 1;
+    }
 
     /** @var string اسم كوكي معرّف الزائر الثابت */
     private const VISITOR_COOKIE = 'tf_visitor_id';
@@ -70,6 +82,9 @@ class VisitorTrackingMiddleware
         $ip = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
         $userAgent = function_exists('get_user_agent') ? get_user_agent() : ($_SERVER['HTTP_USER_AGENT'] ?? 'Unknown');
 
+        if (self::isNonHumanAgent($userAgent)) {
+            return;
+        }
         // تجاهل تتبع الروبوتات/الزواحف عشان الإحصائيات متتلوثش
         $device = class_exists('DeviceDetector') ? DeviceDetector::parse($userAgent) : ['device_type' => null, 'browser' => null, 'platform' => null];
         if (($device['device_type'] ?? null) === 'bot') {

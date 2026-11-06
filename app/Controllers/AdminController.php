@@ -1999,7 +1999,7 @@ class AdminController extends Controller
         try {
             $days = min(90, max(1, (int) ($this->get('days', 30))));
             // زيارات الصفحات بس: طلبات الـ API ومحاولات المسح الآلي مابتتحسبش زيارة
-            $clean = "page_url NOT LIKE '/api/%' AND page_url NOT REGEXP '(wp-admin|wp-login|wp-content|wp-includes|xmlrpc|phpmyadmin|/[.]env|/[.]git|[.]php$|cgi-bin|/vendor/|/actuator)'";
+            $clean = "page_url NOT LIKE '/api/%' AND page_url NOT LIKE '/i18n-dict%' AND page_url NOT LIKE '/admin%' AND COALESCE(user_agent,'') NOT REGEXP 'TourfectoOpsCheck|HeadlessChrome|python-requests|curl/|wget|Go-http-client|bot|crawl|spider|monitor' AND page_url NOT REGEXP '(wp-admin|wp-login|wp-content|wp-includes|xmlrpc|phpmyadmin|/[.]env|/[.]git|[.]php$|cgi-bin|/vendor/|/actuator)'";
 
             $totalVisits = $this->db->query(
                 "SELECT COUNT(*) AS c FROM visitor_logs WHERE {$clean} AND created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)"
