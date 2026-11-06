@@ -112,6 +112,10 @@ class TrialPlanService
     {
         try {
             $owner = (int) ($this->db->query('SELECT COALESCE(NULLIF(owner_user_id, 0), id) AS o FROM users WHERE id = ? LIMIT 1', [$userId])[0]['o'] ?? $userId);
+            // لو عنده اشتراك فعّال (حتى لو اتلغى وهيخلص آخر المدة) مايبقاش «تجربة مجانية» في الداشبورد ويتناقض مع صفحة الاشتراك
+            if ($this->db->query("SELECT id FROM subscriptions WHERE user_id = ? AND status = 'active' LIMIT 1", [$owner])) {
+                return null;
+            }
             return $this->db->query(
                 "SELECT id, user_id, trial_ends_at FROM subscriptions WHERE user_id = ? AND status = 'trialing' AND trial_ends_at > NOW() ORDER BY id DESC LIMIT 1",
                 [$owner]
