@@ -561,7 +561,8 @@
                         if (!msg.trim() && !file) { status('اكتبي حاجة أو ارفعي سكرين الأول', true); return; }
                         t.disabled = true; status('⏳ المساعد بيقرا…');
                         const fd = new FormData(); fd.append('message', msg); fd.append('csrf_token', csrf); if (file) fd.append('image', file); if (asst.context) fd.append('lead_context', asst.context);
-                        fd.append('history', JSON.stringify(asst.history.map(h => ({ role: h.role, text: h.text }))));
+                        // المحادثة المحفوظة في قاعدة البيانات لنفس الشركة هي المصدر؛ من غير شركة مربوطة، السجل بيتبعت من المتصفح بس
+                        if (asst.fixedId) fd.append('lead_id', asst.fixedId); else fd.append('history', JSON.stringify(asst.history.map(h => ({ role: h.role, text: h.text }))));
                         try {
                             const resp = await fetch('/api/admin/outreach-desk/assistant', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRF-Token': csrf } });
                             const r = await resp.json().catch(() => null);
@@ -598,6 +599,13 @@
             row.email_step > 0 ? 'اتبعتلها إيميل قبل كده (خطوة ' + row.email_step + ')' : '',
         ].filter(Boolean).join('\n') : '';
         asstRender(); asst.el.hidden = false;
+        if (asst.fixedId) {
+            const forId = asst.fixedId;
+            api('/api/admin/outreach-desk/leads/' + forId + '/assistant-history').then(r => {
+                if (asst.fixedId !== forId || !asst.el || asst.el.hidden) return; // اتقفل أو اتغيّرت الشركة قبل ما الطلب يرجع
+                if ((r.history || []).length) { asst.history = r.history.map(h => ({ role: h.role, text: h.text })); asstRender(); }
+            }).catch(() => { /* لو فشل، المحادثة تبدأ عادي من غير سجل قديم */ });
+        }
     };
     const openStaff = async () => {
         if (!staffUi.el) {

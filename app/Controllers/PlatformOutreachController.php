@@ -446,24 +446,51 @@ class PlatformOutreachController extends Controller
             }
             $image = ['binary' => $binary, 'mime' => (string) $info['mime']];
         }
-        $history = [];
-        $raw = json_decode((string) $this->get('history', '[]'), true);
-        if (is_array($raw)) {
-            foreach (array_slice($raw, -10) as $turn) {
-                if (is_array($turn) && isset($turn['role'], $turn['text'])) {
-                    $history[] = ['role' => (string) $turn['role'] === 'assistant' ? 'assistant' : 'user', 'text' => (string) $turn['text']];
+        $leadId = (int) $this->get('lead_id', 0);
+        $userId = (int) ($this->user['id'] ?? 0);
+        $message = (string) $this->get('message', '');
+        // لو المحادثة مربوطة بشركة، السجل المحفوظ ليها هو المصدر (مشترك بين كل الموظفين وكل مرة تتفتح)، مش اللي الموظفة بعتته من المتصفح
+        if ($leadId > 0) {
+            $history = $this->service()->assistantChatHistory($leadId);
+        } else {
+            $history = [];
+            $raw = json_decode((string) $this->get('history', '[]'), true);
+            if (is_array($raw)) {
+                foreach (array_slice($raw, -10) as $turn) {
+                    if (is_array($turn) && isset($turn['role'], $turn['text'])) {
+                        $history[] = ['role' => (string) $turn['role'] === 'assistant' ? 'assistant' : 'user', 'text' => (string) $turn['text']];
+                    }
                 }
             }
         }
         try {
-            $r = $this->service()->assistantDraftReply((string) $this->get('message', ''), $image, (int) ($this->user['id'] ?? 0), null, (string) $this->get('lead_context', ''), $history);
+            $r = $this->service()->assistantDraftReply($message, $image, $userId, null, (string) $this->get('lead_context', ''), $history);
             if (!$r['ok']) {
                 return $this->error($r['error'] ?? 'تعذر الرد', 422);
+            }
+            if ($leadId > 0) {
+                $this->service()->assistantChatAppend($leadId, $userId, 'user', $message !== '' ? $message : '[سكرين مرفق]');
+                $this->service()->assistantChatAppend($leadId, $userId, 'assistant', (string) ($r['suggested_reply'] ?? ''));
             }
             return $this->success($r);
         } catch (Throwable $e) {
             Logger::error('Outreach assistant failed', ['error' => $e->getMessage()]);
             return $this->error('تعذر تحميل المساعد', 503);
+        }
+    }
+
+    /** GET /api/admin/outreach-desk/leads/{id}/assistant-history : سجل محادثة المساعد المحفوظ لشركة معينة */
+    public function deskAssistantHistory(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success(['history' => $this->service()->assistantChatHistory((int) ($params['id'] ?? 0))]);
+        } catch (Throwable $e) {
+            Logger::error('Outreach assistant history failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل المحادثة', 503);
         }
     }
 

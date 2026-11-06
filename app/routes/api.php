@@ -1999,6 +1999,7 @@ $router->post('/api/admin/outreach-desk/leads/{id}/action', 'PlatformOutreachCon
 $router->post('/api/admin/outreach-desk/leads/{id}/social', 'PlatformOutreachController', 'deskSocial', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/leads/{id}/tag', 'PlatformOutreachController', 'deskTag', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/assistant', 'PlatformOutreachController', 'deskAssistant', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/outreach-desk/leads/{id}/assistant-history', 'PlatformOutreachController', 'deskAssistantHistory', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing', 'AiRoutingAdminController', 'save', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing/check', 'AiRoutingAdminController', 'check', ['AuthMiddleware','AdminMiddleware']);
 

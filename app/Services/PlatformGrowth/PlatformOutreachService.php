@@ -134,6 +134,16 @@ class PlatformOutreachService
             KEY idx_pda_created (created_at)
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->addColumns('platform_desk_actions', ['reason' => 'VARCHAR(20) NULL']);
+        // سجل محادثة المساعد الذكي محفوظ لكل شركة: لو موظفة كلّمته النهارده عن شركة، وموظفة تانية (أو هي تاني) فتحته تاني بعد كده عن نفس الشركة، بيكون شايف كل الكلام اللي فات
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_assistant_chat (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            user_id BIGINT NULL,
+            role VARCHAR(10) NOT NULL,
+            text TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_pac_lead (lead_id)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_staff_comp (
             user_id BIGINT NOT NULL PRIMARY KEY,
             comp_type VARCHAR(12) NOT NULL DEFAULT 'none',
@@ -2998,6 +3008,27 @@ class PlatformOutreachService
             'language' => in_array($j['language'] ?? '', ['ar', 'en', 'tr'], true) ? $j['language'] : 'ar',
             'summary' => trim(mb_substr((string) ($j['summary'] ?? ''), 0, 300)), 'suggested_reply' => trim(mb_substr((string) ($j['suggested_reply'] ?? ''), 0, 1500)),
             'followup_date' => $followup];
+    }
+
+    /** سجل محادثة المساعد المحفوظ لشركة معينة، الأقدم أولًا (جاهز يتحط في history بتاعة assistantDraftReply) */
+    public function assistantChatHistory(int $leadId, int $limit = 20): array
+    {
+        if ($leadId <= 0) {
+            return [];
+        }
+        $limit = max(1, min(50, $limit));
+        $rows = $this->q("SELECT role, text, created_at FROM platform_assistant_chat WHERE lead_id=? ORDER BY id DESC LIMIT {$limit}", [$leadId])->fetchAll(PDO::FETCH_ASSOC);
+        return array_reverse(array_map(static fn ($r) => ['role' => (string) $r['role'], 'text' => (string) $r['text'], 'at' => (string) $r['created_at']], $rows));
+    }
+
+    /** بيسجّل دور واحد (موظفة أو مساعد) في محادثة شركة معينة. فاضي = متسجّلش حاجة */
+    public function assistantChatAppend(int $leadId, int $userId, string $role, string $text): void
+    {
+        $text = trim(mb_substr($text, 0, 2000));
+        if ($leadId <= 0 || $text === '') {
+            return;
+        }
+        $this->q('INSERT INTO platform_assistant_chat(lead_id,user_id,role,text) VALUES(?,?,?,?)', [$leadId, $userId ?: null, $role === 'assistant' ? 'assistant' : 'user', $text]);
     }
 
     private static function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float

@@ -1312,4 +1312,27 @@ final class OutreachDeskTest extends TestCase
         });
         $this->assertTrue($noHistory['ok']);
     }
+
+    public function testAssistantChatHistoryIsPersistedPerCompanyOldestFirstAndCappedAndIsolatedFromOtherCompanies(): void
+    {
+        $a = $this->lead('Persist Chat Tours A', 'EG', '+201000000098');
+        $b = $this->lead('Persist Chat Tours B', 'EG', '+201000000099');
+        $this->assertSame([], $this->svc->assistantChatHistory($a));
+        $this->svc->assistantChatAppend($a, 5, 'user', 'قالت تمام');
+        $this->svc->assistantChatAppend($a, 5, 'assistant', 'تمام جداً');
+        $this->svc->assistantChatAppend($a, 5, 'user', '');
+        $this->svc->assistantChatAppend($b, 5, 'user', 'رسالة لشركة تانية');
+        $h = $this->svc->assistantChatHistory($a);
+        $this->assertCount(2, $h, 'the empty-text turn was never stored');
+        $this->assertSame(['user', 'assistant'], array_column($h, 'role'));
+        $this->assertSame('قالت تمام', $h[0]['text']);
+        $hb = $this->svc->assistantChatHistory($b);
+        $this->assertCount(1, $hb, 'history is isolated per company');
+        for ($i = 0; $i < 25; $i++) {
+            $this->svc->assistantChatAppend($a, 5, 'user', "turn $i");
+        }
+        $this->assertCount(20, $this->svc->assistantChatHistory($a, 20), 'capped at the requested limit');
+        $this->assertSame([], $this->svc->assistantChatHistory(0), 'no lead: nothing');
+        $this->db->query('DELETE FROM platform_assistant_chat WHERE lead_id IN (?, ?)', [$a, $b]);
+    }
 }
