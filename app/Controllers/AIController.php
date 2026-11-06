@@ -3067,6 +3067,11 @@ JS;
             return $this->error('الموقع غير موجود', 404);
         }
 
+        // المقال مكتوب باسم وروابط الموقع اللي اتولّد له: نشره على موقع تاني بيطلّع محتوى بهوية غلط
+        if (class_exists('ArticleSiteGuard') && ArticleSiteGuard::isMismatch($article->getAttribute('website_id'), $websiteId)) {
+            return $this->error('المقال ده اتولّد لموقع تاني، ونشره على الموقع ده هيطلّع باسم وروابط الموقع التاني. ولّد مقال جديد للموقع ده.', 422, ['code' => 'article_site_mismatch']);
+        }
+
         $connection = $this->findPublishingConnection($websiteId);
 
         // مفيش اتصال محفوظ - لو بعت بيانات اتصال جديدة في نفس الطلب، نربط الأول حسب platform المختار
@@ -3126,7 +3131,7 @@ JS;
                 }
 
                 $result = $existingPostId
-                    ? $publisher->updatePost($siteUrl, $username, $appPassword, (int) $existingPostId, $title, $html, $excerpt, $featuredMedia)
+                    ? $publisher->updatePost($siteUrl, $username, $appPassword, (int) $existingPostId, $title, $html, $excerpt, $featuredMedia, $publishStatus)
                     : $publisher->createPost($siteUrl, $username, $appPassword, $title, $html, $excerpt, $publishStatus, $featuredMedia);
 
                 $newPostId = $result['success'] ? ($result['post_id'] ?? $existingPostId) : null;
@@ -3184,18 +3189,36 @@ JS;
                 $article->setAttribute('wp_post_id', $newPostId);
             }
             // لو موقع custom_api رجّع رابط فعلي استخدمه، غير كده سيب اللي كان محفوظ قبل كده (لو ده تحديث)
-            if (!empty($result['url'])) {
-                $article->setAttribute('published_url', $result['url']);
+            // المسودة مش منشورة: رابطها بيدي 404 للزوار، فمنسجّلهاش "published" ولا بنخزّن رابطها العام
+            $isWpDraft = $draft && $platform === 'wordpress';
+            if (!$isWpDraft) {
+                if (!empty($result['url'])) {
+                    $article->setAttribute('published_url', $result['url']);
+                }
+                $article->setAttribute('published_at', date('Y-m-d H:i:s'));
+                $article->setAttribute('status', 'published');
             }
-            $article->setAttribute('published_at', date('Y-m-d H:i:s'));
-            $article->setAttribute('status', 'published');
             $article->save();
 
             $connection->setAttribute('last_synced_at', date('Y-m-d H:i:s'));
             $connection->setAttribute('last_error', null);
             $connection->save();
 
-            $this->log('Article Published', ['article_id' => $article->getAttribute('id'), 'platform' => $platform, 'url' => $result['url'] ?? null]);
+            $this->log($isWpDraft ? 'Article Saved As Draft' : 'Article Published', ['article_id' => $article->getAttribute('id'), 'platform' => $platform, 'url' => $result['url'] ?? null]);
+
+            if ($isWpDraft) {
+                $editUrl = rtrim($siteUrl, '/') . '/wp-admin/post.php?post=' . (int) $newPostId . '&action=edit';
+                return $this->success([
+                    'draft' => true,
+                    'published_url' => null,
+                    'edit_url' => $editUrl,
+                    'platform' => $platform,
+                    'image_warning' => $imageWarning,
+                    'image_warning_text' => $imageWarning
+                        ? ($this->tr('ai.articles.image_warning') . ' ' . $this->tr('ai.articles.image_err.' . $imageWarning))
+                        : null,
+                ], 'اتحفظ كمسودة في ووردبريس (مش ظاهر للزوار لحد ما تنشره)');
+            }
 
             if (class_exists('Notification')) {
                 Notification::notify(

@@ -92,7 +92,7 @@ class PublishScheduledArticleJob implements QueueJobInterface
                 }
 
                 $result = $existingPostId
-                    ? $publisher->updatePost($siteUrl, $username, $appPassword, (int) $existingPostId, $title, $html, $excerpt, $featuredMedia)
+                    ? $publisher->updatePost($siteUrl, $username, $appPassword, (int) $existingPostId, $title, $html, $excerpt, $featuredMedia, $publishStatus)
                     : $publisher->createPost($siteUrl, $username, $appPassword, $title, $html, $excerpt, $publishStatus, $featuredMedia, (string) $article->getAttribute('slug') ?: null);
 
                 $newPostId = $result['success'] ? ($result['post_id'] ?? $existingPostId) : null;
@@ -133,11 +133,14 @@ class PublishScheduledArticleJob implements QueueJobInterface
             if ($platform === 'wordpress') {
                 $article->setAttribute('wp_post_id', $newPostId);
             }
-            if (!empty($result['url'])) {
-                $article->setAttribute('published_url', $result['url']);
+            // مسودة ووردبريس مش منشورة: منسجّلهاش "published" ولا بنخزّن رابطها العام (بيدي 404 للزوار)
+            if (!($draft && $platform === 'wordpress')) {
+                if (!empty($result['url'])) {
+                    $article->setAttribute('published_url', $result['url']);
+                }
+                $article->setAttribute('published_at', date('Y-m-d H:i:s'));
+                $article->setAttribute('status', 'published');
             }
-            $article->setAttribute('published_at', date('Y-m-d H:i:s'));
-            $article->setAttribute('status', 'published');
             $article->setAttribute('scheduled_job_id', null);
             $article->save();
 

@@ -910,6 +910,7 @@ return [
     'WhatsAppWebhookInbox' => dirname(__DIR__,2).'/app/Services/Chat/WhatsAppWebhookInbox.php',
     'WordPressConnectController' => dirname(__DIR__,2).'/app/Controllers/WordPressConnectController.php',
     'WordPressConnector' => dirname(__DIR__,2).'/app/Services/Publishing/WordPressConnector.php',
+    'ArticleSiteGuard' => dirname(__DIR__,2).'/app/Services/Publishing/ArticleSiteGuard.php',
     'WordPressPublisher' => dirname(__DIR__,2).'/app/Services/Publishing/WordPressPublisher.php',
     'WorkspaceController' => dirname(__DIR__,2).'/app/Controllers/WorkspaceController.php',
     'WorkspaceInvite' => dirname(__DIR__,2).'/app/Models/WorkspaceInvite.php',

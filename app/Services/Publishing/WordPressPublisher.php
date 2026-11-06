@@ -117,13 +117,17 @@ class WordPressPublisher
     /**
      * تحديث post موجود (لو المقال اتنشر قبل كده وعايزين نعيد النشر بعد تعديل).
      */
-    public function updatePost(string $siteUrl, string $username, string $appPassword, int $postId, string $title, string $htmlContent, string $excerpt = '', ?int $featuredMedia = null): array
+    public function updatePost(string $siteUrl, string $username, string $appPassword, int $postId, string $title, string $htmlContent, string $excerpt = '', ?int $featuredMedia = null, ?string $status = null): array
     {
         $payload = [
             'title' => $title,
             'content' => $htmlContent,
             'excerpt' => $excerpt,
         ];
+        // لما المقال اتحفظ مسودة وبعدين اتنشر (أو العكس) لازم الحالة تتبعت صراحة، وإلا يفضل زي ما هو في ووردبريس
+        if ($status === 'draft' || $status === 'publish') {
+            $payload['status'] = $status;
+        }
         if ($featuredMedia !== null && $featuredMedia > 0) {
             $payload['featured_media'] = $featuredMedia;
         }
