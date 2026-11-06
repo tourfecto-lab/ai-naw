@@ -324,6 +324,39 @@ class CustomerJourneyService
         return $out;
     }
 
+    /**
+     * استعلام خفيف (للتنبيه الفوري): آخر مشتركين جدد، منسوبين لموظف بعينه (اللي بعتلهم واتساب) أو الكل لو $staffId = null.
+     * مفيش تفاصيل رحلة هنا عشان المكتب بيسأل عليه كل دقيقة.
+     * @return array<int,array{id:int,name:string,created_at:string,staff_id:?int,staff_name:?string}>
+     */
+    public function newSignupAlerts(?int $staffId, int $days = 3, int $limit = 20): array
+    {
+        $days = max(1, min(14, $days));
+        $limit = max(1, min(50, $limit));
+        $domainOf = "LOWER(REPLACE(SUBSTRING_INDEX(SUBSTRING_INDEX(w.main_url,'://',-1),'/',1),'www.',''))";
+        if ($staffId !== null) {
+            $sql = "SELECT DISTINCT u.id, COALESCE(NULLIF(u.company_name,''), u.email) name, u.created_at, l.desk_user_id staff_id, l.desk_by staff_name
+                      FROM users u
+                      LEFT JOIN websites w ON w.user_id = u.id
+                      JOIN platform_leads l ON (LOWER(l.email) = LOWER(u.email) OR (w.main_url IS NOT NULL AND l.domain = {$domainOf}))
+                     WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY) AND u.deleted_at IS NULL AND u.role NOT IN ('admin','super_admin')
+                       AND l.desk_user_id = ? ORDER BY u.id DESC LIMIT {$limit}";
+            $rows = $this->rows($sql, [$staffId]);
+        } else {
+            $sql = "SELECT u.id, COALESCE(NULLIF(u.company_name,''), u.email) name, u.created_at, MAX(l.desk_user_id) staff_id, MAX(l.desk_by) staff_name
+                      FROM users u
+                      LEFT JOIN websites w ON w.user_id = u.id
+                      LEFT JOIN platform_leads l ON (LOWER(l.email) = LOWER(u.email) OR (w.main_url IS NOT NULL AND l.domain = {$domainOf}))
+                     WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY) AND u.deleted_at IS NULL AND u.role NOT IN ('admin','super_admin')
+                     GROUP BY u.id, u.company_name, u.email, u.created_at ORDER BY u.id DESC LIMIT {$limit}";
+            $rows = $this->rows($sql);
+        }
+        return array_map(static fn ($r) => [
+            'id' => (int) $r['id'], 'name' => (string) $r['name'], 'created_at' => (string) $r['created_at'],
+            'staff_id' => $r['staff_id'] !== null ? (int) $r['staff_id'] : null, 'staff_name' => $r['staff_name'] !== null ? (string) $r['staff_name'] : null,
+        ], $rows);
+    }
+
     private function nextSteps(string $state, int $hours, bool $siteAdded, bool $siteConnected, ?int $daysLeft, ?array $lead, int $aiCalls): array
     {
         $n = [];

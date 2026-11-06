@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let signups = [], signupsAll = false, P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
+    let suAlerts = [], signups = [], signupsAll = false, P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -166,6 +166,37 @@
         const el = root.querySelector('.dk-su-slot'); if (el) el.innerHTML = suHtml();
     };
 
+    // تنبيه فوري: شركة اتنسبت للموظفة (أو أي مشترك جديد للمدير) سجّلت في المنصة ولسه ماحدش بعتلها الرسالة
+    const suSeenGet = () => { try { return JSON.parse(store.get('dk-su-seen') || '[]'); } catch (e) { return []; } };
+    const suSeenAdd = ids => { const all = Array.from(new Set(suSeenGet().concat(ids))).slice(-200); store.set('dk-su-seen', JSON.stringify(all)); };
+    const suNotified = new Set();
+    const suAlertHtml = () => {
+        if (!suAlerts.length) return '';
+        const names = suAlerts.slice(0, 3).map(a => esc(a.name)).join('، ') + (suAlerts.length > 3 ? ' و' + (suAlerts.length - 3) + ' كمان' : '');
+        const perm = typeof Notification !== 'undefined' && Notification.permission === 'default' ? '<button class="dk-btn xs" data-su-perm>🔔 فعّلي تنبيهات المتصفح</button>' : '';
+        return `<div class="dk-banner good dk-su-alert">🎉 <b>${suAlerts.length === 1 ? 'شركة سجّلت' : suAlerts.length + ' شركات سجّلت'} في المنصة دلوقتي:</b> ${names}. الرسالة جاهزة: ابعتيلها وهي لسه سخنة <button class="dk-btn primary" data-su-open>افتحي الرسالة</button><button class="dk-btn xs" data-su-dismiss>تمام</button>${perm}</div>`;
+    };
+    const suBeep = () => { try { const C = window.AudioContext || window.webkitAudioContext; const c = new C(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = 0.08; o.start(); setTimeout(() => { o.stop(); c.close(); }, 220); } catch (e) { /* الصوت اختياري */ } };
+    const suAlertCheck = async () => {
+        if (document.hidden && suAlerts.length === 0 && suNotified.size > 0) return;
+        try {
+            const d = await api('/api/admin/outreach-desk/signups-alert' + (signupsAll ? '?all=1' : ''));
+            const seen = new Set(suSeenGet()), cutoff = Date.now() - 48 * 3600 * 1000;
+            const fresh = (d.items || []).filter(i => !seen.has(i.id) && new Date(String(i.created_at).replace(' ', 'T') + 'Z').getTime() > cutoff);
+            const wasEmpty = suAlerts.length === 0;
+            suAlerts = fresh;
+            const slot = root.querySelector('.dk-su-alert-slot'); if (slot) slot.innerHTML = suAlertHtml();
+            const brandNew = fresh.filter(i => !suNotified.has(i.id));
+            if (brandNew.length) {
+                brandNew.forEach(i => suNotified.add(i.id));
+                suBeep();
+                try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification('🎉 ' + brandNew[0].name + ' سجّلت في المنصة', { body: 'الرسالة جاهزة في مكتب التواصل: ابعتيلها دلوقتي' }); } catch (e) { /* الإذن اختياري */ }
+                if (wasEmpty || brandNew.length) { const t0 = document.title.replace(/^🎉 /, ''); document.title = '🎉 ' + t0; }
+            }
+            if (!fresh.length) document.title = document.title.replace(/^🎉 /, '');
+        } catch (e) { /* التنبيه مش حرج */ }
+    };
+
     const exportUrl = () => '/api/admin/outreach-desk/export?' + new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q });
     const render = () => {
         const c = cur();
@@ -183,7 +214,7 @@
             + (me.profile_missing > 0 && me.id_card ? `<div class="dk-banner">📋 بيانات الملف ناقصة (${me.profile_missing}) وبتتكمّل من «كشف الشغل».</div>` : '');
         const goalPct = me.daily_goal ? Math.min(100, Math.round(100 * (me.sent_today || 0) / me.daily_goal)) : 0;
         const goalBar = me.daily_goal ? `<div class="dk-goal"><span class="dk-label">🎯 هدفك النهارده: <b>${num(me.sent_today || 0)}</b> من <b>${num(me.daily_goal)}</b></span><div class="dk-goal-track"><div class="dk-goal-fill" style="width:${goalPct}%"></div></div>${goalPct >= 100 ? '<span class="dk-b green">خلصتي الهدف 🎉</span>' : ''}</div>` : '';
-        root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div>${meBanner}
+        root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div><div class="dk-su-alert-slot">${suAlertHtml()}</div>${meBanner}
             <section class="dk-top">${goalBar}<div class="dk-tip dk-hide-m">اختيار الدولة ← نسخ الرقم والرسالة وإرسالها على واتساب ← تسجيل النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>
             <div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
             <div class="dk-sign"><label>✍️ اسمك في توقيع الرسالة <input id="dkSign" maxlength="40" placeholder="مثلًا: سلمى" value="${esc(staffName)}"></label><button class="dk-btn" data-sign-save>حفظ</button>${staffName ? '' : '<span class="dk-warn">مفيش اسم: الرسالة هتتوقّع باسم Tourfecto</span>'}</div>
@@ -704,6 +735,9 @@
                     toast(t.dataset.tag ? 'اتحط التاج ✅' : 'اتمسح التاج ✅'); return;
                 }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
+                if (t.dataset.suDismiss !== undefined) { suSeenAdd(suAlerts.map(x => x.id)); suAlerts = []; document.title = document.title.replace(/^🎉 /, ''); const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = ''; return; }
+                if (t.dataset.suOpen !== undefined) { const first = suAlerts[0]; suSeenAdd(suAlerts.map(x => x.id)); suAlerts = []; document.title = document.title.replace(/^🎉 /, ''); const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = ''; await loadSignups(); const card = first && root.querySelector('.dk-su[data-su="' + first.id + '"]'); (card || root.querySelector('.dk-su-box'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+                if (t.dataset.suPerm !== undefined) { try { await Notification.requestPermission(); } catch (e) { /* مش متاح */ } const sl = root.querySelector('.dk-su-alert-slot'); if (sl) sl.innerHTML = suAlertHtml(); return; }
                 if (t.dataset.suCopy !== undefined) { const box = t.closest('.dk-su').querySelector('[data-su-msg]'); toast(await copy(box.value) ? 'اتنسخت الرسالة ✅' : 'مقدرتش أنسخ', false); return; }
                 if (t.dataset.suAll !== undefined) { signupsAll = !signupsAll; return await loadSignups(); }
                 if (t.dataset.suAsst !== undefined) { return openAssistant(0, signups.find(x => x.user.id === Number(t.dataset.suAsst))); }
@@ -757,7 +791,7 @@
         init: async panel => {
             P = panel; root = document.getElementById('deskRoot'); if (!root || !P) return;
             state.country = store.get('dk-country') || '';
-            try { bind(); await load(true); setInterval(poll, 8000); } catch (e) { root.innerHTML = `<p class="dk-msg bad">${esc(e.message)}</p>`; }
+            try { bind(); await load(true); setInterval(poll, 8000); suAlertCheck(); setInterval(suAlertCheck, 60000); } catch (e) { root.innerHTML = `<p class="dk-msg bad">${esc(e.message)}</p>`; }
         },
     };
 })();

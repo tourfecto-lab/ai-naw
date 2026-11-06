@@ -80,6 +80,13 @@ final class CustomerJourneyIntegrationTest extends TestCase
         $this->assertContains($uid, $mine);
         $other = array_map(static fn ($x) => $x['user']['id'], $svc->recentSignups(14, 50, null, 111));
         $this->assertNotContains($uid, $other, 'الموظف التاني مايشوفش مشتركين مش بتوعه');
+        // التنبيه الفوري: خفيف، ومنسوب للموظف اللي بعت الواتساب بس، والمدير (null) يشوف الكل
+        $alertMine = array_column($svc->newSignupAlerts(987654), null, 'id');
+        $this->assertArrayHasKey($uid, $alertMine);
+        $this->assertSame('Salma', $alertMine[$uid]['staff_name']);
+        $this->assertSame('Journey Co', $alertMine[$uid]['name']);
+        $this->assertArrayNotHasKey($uid, array_column($svc->newSignupAlerts(111), null, 'id'));
+        $this->assertArrayHasKey($uid, array_column($svc->newSignupAlerts(null), null, 'id'));
         $this->assertNull($svc->forUser(999999999));
     }
 }

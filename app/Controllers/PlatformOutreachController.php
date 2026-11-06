@@ -516,6 +516,22 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** GET /api/admin/outreach-desk/signups-alert?all=1 : تنبيه خفيف بأحدث المشتركين (المكتب بيسأل عليه كل دقيقة) */
+    public function deskSignupsAlert(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            $all = $this->canSeeTeam() && (string) $this->get('all', '') === '1';
+            return $this->success(['items' => (new CustomerJourneyService())->newSignupAlerts($all ? null : (int) ($this->user['id'] ?? 0))]);
+        } catch (Throwable $e) {
+            Logger::error('Desk signup alert failed', ['error' => $e->getMessage()]);
+            return $this->success(['items' => []]);
+        }
+    }
+
     /** GET /api/admin/outreach-desk/leads/{id}/assistant-history : سجل محادثة المساعد المحفوظ لشركة معينة */
     public function deskAssistantHistory(array $params = []): array
     {
