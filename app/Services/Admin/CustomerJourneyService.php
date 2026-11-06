@@ -39,6 +39,14 @@ class CustomerJourneyService
         return $s ? (int) strtotime($s . ' UTC') : 0;
     }
 
+    /** طلبات المتصفح التلقائية (ترجمة، أيقونات، ملفات) مش صفحات العميل دخلها بنفسه */
+    public static function isTechnical(string $url): bool
+    {
+        $path = strtolower((string) (parse_url($url, PHP_URL_PATH) ?? $url));
+        return (bool) preg_match('#^/(i18n-dict|assets|favicon|robots\.txt|manifest|sw\.js|service-worker|\.well-known|health|ping)#', $path)
+            || (bool) preg_match('#\.(js|css|map|png|jpe?g|gif|svg|ico|webp|woff2?|json|xml|txt)$#', $path);
+    }
+
     /** المسار من غير query وبدون أرقام الـ id (عشان /websites/5 و /websites/9 يتعدّوا صفحة واحدة) */
     public static function normalizePath(string $url): string
     {
@@ -136,6 +144,7 @@ class CustomerJourneyService
         $visits = array_reverse($this->rows("SELECT page_url, created_at, device_type FROM visitor_logs WHERE user_id = ? AND page_url NOT LIKE '/api/%' ORDER BY id DESC LIMIT 1500", [$id]));
         $ai = $this->rows('SELECT COUNT(*) calls, MIN(created_at) first_at, MAX(created_at) last_at FROM api_usage_logs WHERE user_id = ?', [$id])[0] ?? ['calls' => 0, 'first_at' => null, 'last_at' => null];
 
+        $visits = array_values(array_filter($visits, static fn ($v) => !self::isTechnical((string) $v['page_url'])));
         $j = self::sessionize($visits);
         $lastTs = $signupTs;
         foreach ($logins as $l) {

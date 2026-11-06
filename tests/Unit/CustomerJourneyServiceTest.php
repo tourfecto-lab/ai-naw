@@ -37,6 +37,15 @@ final class CustomerJourneyServiceTest extends TestCase
         $this->assertSame('/websites/{id}', $r['pages'][0]['path'], 'الأكتر وقتًا أول');
     }
 
+    public function testBrowserBackgroundRequestsAreNotCustomerPages(): void
+    {
+        $this->assertTrue(CustomerJourneyService::isTechnical('/i18n-dict'));
+        $this->assertTrue(CustomerJourneyService::isTechnical('/assets/js/app.js?v=3'));
+        $this->assertTrue(CustomerJourneyService::isTechnical('/favicon.ico'));
+        $this->assertFalse(CustomerJourneyService::isTechnical('/website-optimizer'));
+        $this->assertFalse(CustomerJourneyService::isTechnical('/dashboard'));
+    }
+
     public function testSessionizeHandlesEmpty(): void
     {
         $this->assertSame(['sessions' => [], 'pages' => [], 'active_seconds' => 0], CustomerJourneyService::sessionize([]));
