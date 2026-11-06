@@ -79,7 +79,7 @@
  ${[['مستنية موافقتك', s.awaiting_approval || 0], ['مالهاش إيميل', by.no_email || 0], ['واقفة (Paused)', by.paused || 0], ['ألغوا الاشتراك', by.unsubscribed || 0], ['إيميل راجع', by.bounced || 0]].map(([l, n]) => `<div><span>${l}</span><b>${n}</b></div>`).join('')}
 </section>
 <section class="gr-today"><div><b>النهارده:</b> اتبعت ${s.today.sent} من ${s.today.limit} <span class="gr-muted">(الحد بيزيد كل يوم لحد ${esc(st.daily_limit)} عشان الإيميل مايدخلش سبام)</span></div><div><b>مستني الإرسال:</b> ${s.pending} رسالة · <span class="gr-muted">آخر تشغيل: ${esc(s.last_run || 'لسه')}</span></div>
-<div class="gr-actions"><button class="p-btn outline sm" data-scan>افحص المواقع وحدد الاحتياج (${s.unscanned || 0})</button><button class="p-btn sm" data-approve-tours ${s.awaiting_tours ? '' : 'disabled'} title="اللي تصنيفها فيه Tours أو رحلات أو كروز أو سفاري - من غير السبا والملاهي والمطاعم والنقل">وافق على شركات الرحلات بس (${s.awaiting_tours || 0})</button><button class="p-btn outline sm" data-approve-all ${s.awaiting_approval ? '' : 'disabled'}>وافق على كل اللي مستنية (${s.awaiting_approval || 0})</button><button class="p-btn outline sm" data-run="send">ابعت دفعة دلوقتي</button><button class="p-btn outline sm" data-run="enrich">دوّر على إيميلات الشركات الناقصة (${by.no_email || 0})</button></div>
+<div class="gr-actions"><button class="p-btn outline sm" data-scan>افحص المواقع وحدد الاحتياج (${s.unscanned || 0})</button><button class="p-btn sm" data-approve-tours ${s.awaiting_tours ? '' : 'disabled'} title="اللي تصنيفها فيه Tours أو رحلات أو كروز أو سفاري - من غير السبا والملاهي والمطاعم والنقل">وافق على شركات الرحلات بس (${s.awaiting_tours || 0})</button><button class="p-btn outline sm" data-approve-all ${s.awaiting_approval ? '' : 'disabled'}>وافق على كل اللي مستنية (${s.awaiting_approval || 0})</button><button class="p-btn outline sm" data-run="send">ابعت دفعة دلوقتي</button><button class="p-btn outline sm" data-run="enrich">دوّر على إيميلات الشركات الناقصة (${by.no_email || 0})</button><button class="p-btn outline sm" data-run="bounces" title="بيقرا إشعارات الإيميلات الراجعة من صندوق المُرسِل ويوقف المتابعة لعناوينها">افحص الإيميلات الراجعة</button></div>
 ${st.require_approval !== '0' && s.awaiting_approval ? `<p class="gr-muted">⏳ ${s.awaiting_approval} شركة مستنية موافقتك قبل أول رسالة. افتح «معاينة» جنب أي شركة تحت، وشوف الرسالة بالظبط، وبعدين وافق.</p>` : ''}${weekendWarn}</section>
 
 <section class="gr-box"><h2>🧭 المسارات (كل شركة على حسب احتياجها)</h2>
@@ -301,10 +301,10 @@ ${cs.length ? `<div class="gr-scroll"><table class="gr-table"><thead><tr><th>ا�
                 await api('/api/admin/growth/settings', { settings: { enabled: on ? '0' : '1' } }); await reload(); toast(on ? 'وقفنا الإرسال.' : 'الإرسال التلقائي اشتغل ✅');
             });
             if (t.dataset.run) return run(t, async () => {
-                toast(t.dataset.run === 'enrich' ? 'بندوّر في مواقع الشركات… (حوالي دقيقة)' : 'بنبعت دفعة…');
+                toast(t.dataset.run === 'enrich' ? 'بندوّر في مواقع الشركات… (حوالي دقيقة)' : t.dataset.run === 'bounces' ? 'بنقرا صندوق الإيميل…' : 'بنبعت دفعة…');
                 const r = await api('/api/admin/growth/run', { what: t.dataset.run });
                 await reload();
-                toast(t.dataset.run === 'enrich' ? `لقينا ${r.found} إيميل جديد.` : r.reason === 'daily_limit' ? 'وصلت للحد اليومي النهارده.' : r.reason === 'paused_bounces' ? 'متوقف بسبب الإيميلات الراجعة.' : `اتبعت ${r.sent}${r.failed ? ` · فشل ${r.failed}` : ''}.`);
+                toast(t.dataset.run === 'bounces' ? (r.error ? 'تعذّر قراءة الصندوق: ' + r.error : `فحصنا ${r.scanned} رسالة · رجع ${r.bounced} إيميل${r.blocked ? ' (منهم ' + r.blocked + ' محجوب بسبب سمعة الدومين)' : ''}.`) : t.dataset.run === 'enrich' ? `لقينا ${r.found} إيميل جديد.` : r.reason === 'daily_limit' ? 'وصلت للحد اليومي النهارده.' : r.reason === 'paused_bounces' ? 'متوقف بسبب الإيميلات الراجعة.' : `اتبعت ${r.sent}${r.failed ? ` · فشل ${r.failed}` : ''}.`);
             });
             if (t.dataset.import !== undefined) return run(t, async () => {
                 toast('بنستورد… لو الملف كبير ممكن ياخد دقيقة');

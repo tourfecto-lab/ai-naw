@@ -785,6 +785,9 @@ class PlatformOutreachController extends Controller
         if ($what === 'enrich') {
             return $this->success(['found' => $s->enrich(15, 50)]);
         }
+        if ($what === 'bounces') {
+            return $this->success($s->checkBounces());
+        }
         $r = $s->run(null, null, true);
         (new SystemSettingsService())->set('outreach_last_run', date('Y-m-d H:i:s'));
         return $this->success($r);

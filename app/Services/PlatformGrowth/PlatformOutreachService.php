@@ -1666,6 +1666,9 @@ class PlatformOutreachService
     {
         $set = $this->getSettings();
         $this->markSignedUp();
+        if ($send === null) {
+            $this->sweepBouncesIfDue();
+        }
         $res = ['sent' => 0, 'failed' => 0, 'reason' => null, 'enriched' => 0];
         if ($set['enabled'] !== '1' && !$force) {
             $res['reason'] = 'disabled';
@@ -1760,6 +1763,153 @@ class PlatformOutreachService
         }
         static $cache = [];
         return $cache[$host] ??= (checkdnsrr($host, 'MX') || checkdnsrr($host, 'A'));
+    }
+
+    /**
+     * بيقرا رسالة ارتداد (NDR) ويطلّع الإيميل اللي فشل وهل الفشل دايم.
+     * بيرجّع null لو الرسالة مش ارتداد، وللفشل المؤقت (4xx) أو الصندوق الممتلئ permanent=false.
+     * @return array{email:string,permanent:bool,reason:string}|null
+     */
+    public static function parseBounce(string $raw): ?array
+    {
+        $text = $raw . "\n" . quoted_printable_decode($raw);
+        if (!preg_match('/^(?:Content-Type:\s*multipart\/report|Subject:[^\n]*(?:undeliver|delivery (?:status|failed|failure)|returned mail|failure notice)|From:[^\n]*(?:mailer-daemon|postmaster))/im', $text)) {
+            return null;
+        }
+        $email = null;
+        foreach ([
+            '/^X-Failed-Recipients:\s*<?([^\s<>,;]+@[^\s<>,;]+)>?/im',
+            '/^Final-Recipient:\s*rfc822;\s*<?([^\s<>;]+@[^\s<>;]+)>?/im',
+            '/^Original-Recipient:\s*rfc822;\s*<?([^\s<>;]+@[^\s<>;]+)>?/im',
+            '/RCPT TO:\s*<([^\s<>]+@[^\s<>]+)>/i',
+            '/^\s*\*\*\s*<?([^\s<>]+@[^\s<>]+?)>?\s+(?:host|SMTP|Unrouteable|Mailbox|Domain)/im',
+            '/^\s*<([^\s<>]+@[^\s<>]+)>:\s/m',
+        ] as $re) {
+            if (preg_match($re, $text, $m)) {
+                $email = strtolower(trim($m[1], " \t<>.,;"));
+                break;
+            }
+        }
+        if ($email === null || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+        if (preg_match('/^Status:\s*4\./im', $text) || preg_match('/over quota|mailbox (?:is )?full|quota exceeded|5\.2\.2|temporar|will keep trying|delayed/i', $text)) {
+            return ['email' => $email, 'permanent' => false, 'reason' => 'temporary'];
+        }
+        $hard = preg_match('/^Status:\s*5\./im', $text)
+            || preg_match('/\b(?:550|551|553|554|5\.1\.1|5\.1\.10|5\.4\.1)\b|user unknown|no such user|does not exist|unrouteable|address rejected|recipient rejected|domain not found/i', $text);
+        $reason = preg_match('/\b5\.7\.\d+\b|spam|blocked|blacklist|reputation|policy/i', $text) ? 'blocked' : 'invalid_address';
+        return ['email' => $email, 'permanent' => (bool) $hard, 'reason' => $reason];
+    }
+
+    /** بيقرا إشعارات الارتداد من صندوق المُرسِل عبر IMAP (من غير إضافة imap في PHP) ويرجّع نصوصها الخام */
+    private function imapFetchBounces(array $set, int $days = 14, int $max = 200): array
+    {
+        $host = preg_replace('/^smtp\./i', 'imap.', (string) $set['smtp_host']);
+        $user = (string) $set['smtp_username'];
+        $pass = (string) $set['smtp_password'];
+        if ($host === '' || $user === '' || $pass === '') {
+            throw new RuntimeException('إعدادات SMTP ناقصة (مفيش host أو مستخدم أو باسورد)');
+        }
+        $fp = @stream_socket_client('ssl://' . $host . ':993', $errno, $errstr, 15);
+        if (!$fp) {
+            throw new RuntimeException('مقدرناش نتصل بصندوق الإيميل: ' . $errstr);
+        }
+        stream_set_timeout($fp, 25);
+        fgets($fp);
+        $n = 0;
+        $cmd = static function (string $c) use ($fp, &$n): string {
+            $tag = 'A' . (++$n);
+            fwrite($fp, $tag . ' ' . $c . "\r\n");
+            $buf = '';
+            while (($line = fgets($fp)) !== false) {
+                $buf .= $line;
+                if (preg_match('/\{(\d+)\}\r\n$/', $line, $m)) {
+                    $got = '';
+                    $len = (int) $m[1];
+                    while (strlen($got) < $len) {
+                        $chunk = fread($fp, $len - strlen($got));
+                        if ($chunk === false || $chunk === '') {
+                            break;
+                        }
+                        $got .= $chunk;
+                    }
+                    $buf .= $got;
+                    continue;
+                }
+                if (strncmp($line, $tag . ' ', strlen($tag) + 1) === 0) {
+                    break;
+                }
+            }
+            return $buf;
+        };
+        $q = static fn (string $s): string => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $s) . '"';
+        try {
+            if (!preg_match('/^A1 OK/mi', $cmd('LOGIN ' . $q($user) . ' ' . $q($pass)))) {
+                throw new RuntimeException('تسجيل الدخول لصندوق الإيميل فشل (اتأكد من باسورد SMTP)');
+            }
+            $cmd('SELECT INBOX');
+            $found = $cmd('UID SEARCH SINCE ' . date('d-M-Y', time() - 86400 * $days) . ' OR FROM "mailer-daemon" FROM "postmaster"');
+            $uids = preg_match('/\* SEARCH([\d ]*)/', $found, $m) ? array_values(array_filter(explode(' ', trim($m[1])))) : [];
+            $out = [];
+            foreach (array_slice($uids, -$max) as $uid) {
+                $r = $cmd('UID FETCH ' . (int) $uid . ' (BODY.PEEK[])');
+                if (preg_match('/\{(\d+)\}\r\n/', $r, $m, PREG_OFFSET_CAPTURE)) {
+                    $out[] = substr($r, $m[0][1] + strlen($m[0][0]), (int) $m[1][0]);
+                }
+            }
+            $cmd('LOGOUT');
+            return $out;
+        } finally {
+            fclose($fp);
+        }
+    }
+
+    /**
+     * بيقرا الإيميلات الراجعة من الصندوق ويحوّل الشركات المتأثرة لحالة bounced (فبتقف المتابعة،
+     * وقاطع الأمان tooManyBounces بيشتغل صح). البحث بـ BODY.PEEK فمابيعلّمش الرسايل مقروءة.
+     * @param callable|null $fetch للاختبار: fn():string[] نصوص الرسايل الخام
+     * @return array{scanned:int,bounced:int,blocked:int,error:?string}
+     */
+    public function checkBounces(?callable $fetch = null): array
+    {
+        $set = $this->getSettings();
+        $res = ['scanned' => 0, 'bounced' => 0, 'blocked' => 0, 'error' => null];
+        $this->settings->set('outreach_bounce_checked_at', date('Y-m-d H:i:s'));
+        try {
+            $raws = $fetch ? $fetch() : $this->imapFetchBounces($set);
+        } catch (Throwable $e) {
+            $res['error'] = mb_substr($e->getMessage(), 0, 200);
+            return $res;
+        }
+        $own = array_filter([strtolower((string) $set['from_email']), strtolower((string) $set['smtp_username'])]);
+        foreach ($raws as $raw) {
+            $res['scanned']++;
+            $b = self::parseBounce((string) $raw);
+            if (!$b || !$b['permanent'] || in_array($b['email'], $own, true)) {
+                continue;
+            }
+            $n = $this->q("UPDATE platform_leads SET status='bounced',next_send_at=NULL WHERE LOWER(email)=? AND status NOT IN ('bounced','signed_up','unsubscribed','replied','interested','invalid')", [$b['email']])->rowCount();
+            $res['bounced'] += $n;
+            if ($b['reason'] === 'blocked') {
+                $res['blocked'] += $n;
+            }
+        }
+        return $res;
+    }
+
+    /** كل نص ساعة على الأكتر: نقرا الصندوق قبل ما نبعت (عشان القاطع يشوف الارتداد الحقيقي) */
+    private function sweepBouncesIfDue(): void
+    {
+        $last = (string) $this->settings->get('outreach_bounce_checked_at', '');
+        if ($last !== '' && time() - (int) strtotime($last) < 1800) {
+            return;
+        }
+        try {
+            $this->checkBounces();
+        } catch (Throwable $e) {
+            // قراءة الارتداد مش لازم توقف الإرسال
+        }
     }
 
     /** لو أكتر من 8% من رسايل آخر أسبوع رجعت: نوقف قبل ما الدومين يتحرق */
