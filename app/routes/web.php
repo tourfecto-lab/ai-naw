@@ -292,6 +292,8 @@ $router->group('/chat', function ($router) {
 $router->get('/pricing', 'MarketingController', 'pricing');
 $router->get('/social-check', 'MarketingController', 'socialCheck');
 $router->get('/subscription', 'SubscriptionController', 'showSubscription', ['AuthMiddleware']);
+$router->get('/support', 'SupportController', 'page', ['AuthMiddleware']);
+$router->get('/admin/support', 'AdminSupportController', 'page', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/plans', 'SubscriptionController', 'showPlans');
 $router->get('/invoice/{id}', 'SubscriptionController', 'showInvoice', ['AuthMiddleware']);
 

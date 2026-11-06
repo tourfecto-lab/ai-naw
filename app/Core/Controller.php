@@ -517,6 +517,7 @@ abstract class Controller
             'business_hub' => [$L('بيانات الشركة', 'Company details'), 'briefcase', '/business-hub'],
             '_integrations' => [t('sidebar.integrations'), 'link', '/integrations'],
             '_subscription' => [t('sidebar.subscription'), 'credit-card', '/subscription'],
+            'support' => [$L('الدعم والمساعدة', 'Help & support'), 'message', '/support'],
             '_profile' => [t('sidebar.profile'), 'user', '/profile/settings'],
             'agency' => [t('sidebar.agency'), 'building', '/agency'],
         ];

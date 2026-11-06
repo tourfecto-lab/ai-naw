@@ -513,6 +513,19 @@ $router->post('/api/websites/{id}/competitors', 'WebsiteController', 'updateComp
 // ============================================
 // مسارات الاشتراكات (Subscription)
 // ============================================
+$router->get('/api/support/tickets', 'SupportController', 'index', ['AuthMiddleware']);
+$router->post('/api/support/tickets', 'SupportController', 'create', ['AuthMiddleware']);
+$router->get('/api/support/tickets/{id}', 'SupportController', 'show', ['AuthMiddleware']);
+$router->post('/api/support/tickets/{id}/reply', 'SupportController', 'reply', ['AuthMiddleware']);
+$router->post('/api/support/tickets/{id}/close', 'SupportController', 'close', ['AuthMiddleware']);
+$router->post('/api/support/tickets/{id}/reopen', 'SupportController', 'reopen', ['AuthMiddleware']);
+$router->post('/api/support/tickets/{id}/rate', 'SupportController', 'rate', ['AuthMiddleware']);
+$router->get('/api/admin/support/tickets', 'AdminSupportController', 'index', ['AuthMiddleware', 'AdminMiddleware']);
+$router->get('/api/admin/support/tickets/{id}', 'AdminSupportController', 'show', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/support/tickets/{id}/reply', 'AdminSupportController', 'reply', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/support/tickets/{id}/status', 'AdminSupportController', 'status', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/support/tickets/{id}/priority', 'AdminSupportController', 'priority', ['AuthMiddleware', 'AdminMiddleware']);
+$router->post('/api/admin/support/tickets/{id}/assign', 'AdminSupportController', 'assign', ['AuthMiddleware', 'AdminMiddleware']);
 $router->post('/api/subscription/validate', 'SubscriptionController', 'validateSubscriptionStatus', ['AuthMiddleware']);
 $router->get('/api/subscription/current', 'SubscriptionController', 'current', ['AuthMiddleware']);
 $router->post('/api/subscription/create', 'SubscriptionController', 'create', ['AuthMiddleware']);

@@ -42,6 +42,8 @@ class AdminAccess
         'billing.settings'   => ['billing', 'إعدادات الدفع والضرائب وتسعير الاستخدام'],
         'messages.view'      => ['support', 'عرض رسائل التواصل'],
         'messages.manage'    => ['support', 'معالجة رسائل التواصل'],
+        'tickets.view'       => ['support', 'عرض تذاكر الدعم'],
+        'tickets.manage'     => ['support', 'الرد على تذاكر الدعم وإسنادها وإقفالها'],
         'security.view'      => ['security', 'مركز الأمان وسجل الدخول'],
         'security.manage'    => ['security', 'فك الحظر وإنهاء الجلسات'],
         'system.view'        => ['system', 'حالة النظام والسجلات والمهام'],
@@ -74,16 +76,17 @@ class AdminAccess
         'support' => [
             'analytics.view', 'users.view', 'users.edit', 'users.notes', 'users.reset_security',
             'subscriptions.view', 'billing.view', 'messages.view', 'messages.manage', 'security.view', 'team.view',
+            'tickets.view', 'tickets.manage',
         ],
         // مشرف الدعم: كل صلاحيات الدعم + إيقاف/تفعيل العملاء وتصدير قائمتهم + فك الحظر + متابعة سجل نشاط الفريق.
         // مفيش فلوس (billing.manage) ولا إعدادات ولا حذف ولا دخول بحساب العميل (ده بيتدّي كصلاحية إضافية بس).
         'support_lead' => [
             'analytics.view', 'users.view', 'users.edit', 'users.notes', 'users.reset_security', 'users.suspend', 'users.export',
             'subscriptions.view', 'billing.view', 'messages.view', 'messages.manage', 'security.view', 'security.manage',
-            'audit.view', 'team.view',
+            'audit.view', 'team.view', 'tickets.view', 'tickets.manage',
         ],
         'analyst' => [
-            'analytics.view', 'users.view', 'subscriptions.view', 'billing.view', 'messages.view',
+            'analytics.view', 'users.view', 'subscriptions.view', 'billing.view', 'messages.view', 'tickets.view',
             'security.view', 'system.view', 'ai_usage.view', 'audit.view', 'team.view',
         ],
         // موظفة التواصل: مكتب التواصل بس (مفيش عملاء ولا فلوس ولا إعدادات)
@@ -254,6 +257,7 @@ class AdminAccess
                 '#^/admin/users(/\d+)?$#' => 'users.view',
                 '#^/admin/subscriptions$#' => 'subscriptions.view',
                 '#^/admin/contact-messages$#' => 'messages.view',
+                '#^/admin/support$#' => 'tickets.view',
                 '#^/admin/plans$#' => 'billing.view',
                 '#^/admin/finance$#' => 'billing.view',
                 '#^/admin/api-keys$#' => 'settings.manage',
@@ -386,6 +390,9 @@ class AdminAccess
         if (preg_match('#^/(subscriptions|invoices)/#', $rel) && $write) return 'subscriptions.manage';
         if ($rel === '/subscriptions' && $write) return 'subscriptions.manage';
 
+        // ---- تذاكر الدعم
+        if ($rel === '/support' || strpos($rel, '/support/') === 0) return $write ? 'tickets.manage' : 'tickets.view';
+
         // ---- الرسائل والباقات
         if ($rel === '/contact-messages' && !$write) return 'messages.view';
         if (preg_match('#^/contact-messages/#', $rel)) return 'messages.manage';
@@ -471,7 +478,7 @@ class AdminAccess
         if (!preg_match('#^/admin/?$#', $path)) {
             return null;
         }
-        foreach (['outreach.desk' => '/admin/outreach-desk', 'users.view' => '/admin/users', 'messages.view' => '/admin/contact-messages', 'subscriptions.view' => '/admin/subscriptions'] as $perm => $page) {
+        foreach (['outreach.desk' => '/admin/outreach-desk', 'tickets.view' => '/admin/support', 'users.view' => '/admin/users', 'messages.view' => '/admin/contact-messages', 'subscriptions.view' => '/admin/subscriptions'] as $perm => $page) {
             if (self::can($user, $perm)) {
                 return $page;
             }

@@ -1,6 +1,9 @@
 <?php
 // Generated release map. Rebuild via tools/build_project_classmap.php after code changes.
 return [
+    'SupportController' => dirname(__DIR__,2).'/app/Controllers/SupportController.php',
+    'AdminSupportController' => dirname(__DIR__,2).'/app/Controllers/AdminSupportController.php',
+    'SupportTicketService' => dirname(__DIR__,2).'/app/Services/Support/SupportTicketService.php',
     'BrainAdminController' => dirname(__DIR__,2).'/app/Controllers/BrainAdminController.php',
     'BrainControl' => dirname(__DIR__,2).'/app/Services/Brain/BrainControl.php',
     'BrainDigest' => dirname(__DIR__,2).'/app/Services/Brain/BrainDigest.php',
