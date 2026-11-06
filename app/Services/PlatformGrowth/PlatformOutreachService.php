@@ -3600,6 +3600,7 @@ class PlatformOutreachService
             'whatsapp_clicks' => (int) $this->q('SELECT COUNT(*) FROM platform_leads WHERE whatsapp_at IS NOT NULL')->fetchColumn(),
             'total' => (int) array_sum($by),
             'by_status' => array_map('intval', $by),
+            'funnel' => $this->unifiedFunnel(),
             'messages' => ['sent' => (int) $msgs['sent'], 'opened' => (int) $msgs['opened'], 'clicked' => (int) $msgs['clicked']],
             'today' => ['sent' => $this->sentToday($set), 'limit' => $this->todayLimit($set)],
             'pending' => $pending,
@@ -3609,6 +3610,37 @@ class PlatformOutreachService
             'paused_reason' => $this->settings->get('outreach_paused_reason', ''),
             'last_run' => $this->settings->get('outreach_last_run', ''),
         ];
+    }
+
+    /**
+     * قمع موحّد لكل القنوات (إيميل + واتساب الـ Desk): كل شركة بتتعدّ مرة واحدة حتى لو اتواصل معاها بالاتنين.
+     * شركات صالحة ← وصلنا لها ← فتحت التقرير ← ردّت ← سجّلت (كل مرحلة جزء من اللي قبلها).
+     */
+    public function unifiedFunnel(): array
+    {
+        $out = ['valid' => 0, 'invalid' => 0, 'reached' => 0, 'reached_email' => 0, 'reached_whatsapp' => 0, 'viewed' => 0, 'replied' => 0, 'signed_up' => 0, 'channels' => []];
+        try {
+            $reachedSql = "(step>0 OR (desk_action IS NOT NULL AND desk_action<>'wrong_number'))";
+            $r = $this->q("SELECT SUM(status<>'invalid') valid, SUM(status='invalid') invalid,
+                    SUM(status<>'invalid' AND {$reachedSql}) reached,
+                    SUM(status<>'invalid' AND step>0) reached_email,
+                    SUM(status<>'invalid' AND desk_action IS NOT NULL AND desk_action<>'wrong_number') reached_whatsapp,
+                    SUM(status<>'invalid' AND {$reachedSql} AND report_viewed_at IS NOT NULL) viewed,
+                    SUM(status<>'invalid' AND {$reachedSql} AND (status IN ('replied','interested','signed_up') OR desk_action IN ('replied','interested','trial','subscribed'))) replied,
+                    SUM(status<>'invalid' AND {$reachedSql} AND (status='signed_up' OR desk_action='subscribed')) signed_up
+                FROM platform_leads")->fetch(PDO::FETCH_ASSOC) ?: [];
+            foreach (['valid', 'invalid', 'reached', 'reached_email', 'reached_whatsapp', 'viewed', 'replied', 'signed_up'] as $k) {
+                $out[$k] = (int) ($r[$k] ?? 0);
+            }
+            $d = $this->deskFunnel('');
+            $out['channels'] = [
+                'email' => ['reached' => $out['reached_email'], 'viewed' => (int) ($d['email']['report_viewed'] ?? 0), 'signed_up' => (int) ($d['email']['signed_up'] ?? 0)],
+                'whatsapp' => ['reached' => (int) ($d['whatsapp']['sent'] ?? 0), 'replied' => (int) ($d['whatsapp']['replied'] ?? 0), 'trial' => (int) ($d['whatsapp']['trial'] ?? 0), 'subscribed' => (int) ($d['whatsapp']['subscribed'] ?? 0)],
+            ];
+        } catch (Throwable $e) {
+            // لو الـ Desk مش متاح: القمع بيرجع أصفار بدل ما اللوحة كلها تقع
+        }
+        return $out;
     }
 
     /** تصنيف الدول: لكل دولة عدد الشركات ووصلنا لفين معاها وأكتر مدنها والاحتياج الغالب فيها */

@@ -29,3 +29,17 @@
 .gr-scroll{overflow-x:auto}.gr-countries td{white-space:normal}.gr-countries tr.gr-sel td{background:rgba(212,165,55,.12)}.gr-nowrap{white-space:nowrap}
 .gr-timeline{list-style:none;margin:10px 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px}.gr-pager{display:flex;gap:8px;align-items:center;margin-top:10px}
 .gr-dlg .gr-table th{width:120px;color:var(--panel-muted,#667085);font-weight:600}
+
+/* قمع موحّد: شركات ← وصلنا ← فتحوا التقرير ← ردّوا ← سجّلوا */
+.gr-funnel{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:14px 0;border:1px solid var(--panel-border);border-radius:14px;overflow:hidden;background:var(--panel-card-bg)}
+.gr-fstep{padding:16px 18px;border-inline-start:1px solid var(--panel-border);display:flex;flex-direction:column;gap:4px;min-width:0}
+.gr-fstep:first-child{border-inline-start:0}
+.gr-fstep span{font-size:12px;color:var(--panel-text-muted)}
+.gr-fstep b{font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.gr-fstep small{font-size:12px;color:var(--panel-text-muted);line-height:1.5}
+.gr-fstep:last-child b{color:#2f9e6a}
+.gr-chan h3{margin:0 0 10px}
+.gr-mini{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.gr-mini div{display:flex;gap:8px;align-items:baseline;padding:6px 12px;border:1px solid var(--panel-border);border-radius:999px;font-size:13px}
+.gr-mini span{color:var(--panel-text-muted)}.gr-mini b{font-variant-numeric:tabular-nums}
+@media (max-width:900px){.gr-funnel{grid-template-columns:repeat(2,minmax(0,1fr))}.gr-fstep{border-inline-start:0;border-top:1px solid var(--panel-border)}}

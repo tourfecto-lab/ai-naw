@@ -59,8 +59,24 @@
 <header class="gr-hero"><div><span class="gr-eye">TOURFECTO / GROWTH</span><h1>تسويق المنصة لشركات السياحة</h1><p>استورد الشركات، والمنصة تفحص موقع كل شركة وتحدد أكبر احتياج عندها (سمعة، حجز مباشر، موقع، جوجل، سوشيال، إعلانات، رد على الزباين، CRM)، وتبعتلها مسار رسايل عن مشكلتها هي بأرقامها، وبعدين مسار تاني لاحتياج مختلف. وتقف لوحدها لو الشركة ردّت أو سجّلت أو ألغت.</p></div>
 <div class="gr-switch ${on && !idle ? 'on' : ''}"><b>${on ? (idle ? '🟠 شغّال بس مفيش حاجة يبعتها' : '🟢 الإرسال التلقائي شغال') : '⏸ الإرسال متوقف'}</b><span>${s.paused_reason === 'bounces' ? '⚠️ وقفناه لوحده لأن إيميلات كتير رجعت. نضّف القائمة وبعدين شغّله.' : on ? (idle ? (s.awaiting_approval ? 'مفيش ولا شركة موافق عليها - وافق على الشركات (تحت) عشان الرسايل تبدأ تطلع.' : 'مفيش شركات جاهزة للإرسال - استورد شركات وافحص مواقعها.') : (s.in_window ? 'بيبعت دلوقتي في مواعيد العمل' : 'هيبعت في مواعيد العمل الجاية')) : 'شغّله بعد ما تجرب رسالة على نفسك'}</span><button class="p-btn ${on ? 'outline' : ''}" data-toggle>${on ? 'وقّف الإرسال' : 'شغّل الإرسال'}</button></div></header>
 <div id="grMsg" class="gr-msg" hidden></div>
-<section class="gr-cards">
- ${[['الشركات', s.total], ['ليها إيميل', withEmail], ['اتبعتلها', (by.contacted || 0) + (by.finished || 0) + (by.replied || 0) + (by.interested || 0) + (by.signed_up || 0)], ['ضغطوا اللينك', s.messages.clicked + ' <small>' + pct(s.messages.clicked, s.messages.sent) + '</small>'], ['فتحوا التقرير المجاني', s.report_views || 0], ['ضغطوا واتساب', s.whatsapp_clicks || 0], ['مهتمين / ردّوا', (by.interested || 0) + (by.replied || 0)], ['سجّلوا 🎉', by.signed_up || 0], ['ألغوا الاشتراك', by.unsubscribed || 0], ['إيميل راجع (فشل التسليم)', by.bounced || 0], ['مستبعدة (إيميل غلط أو مش شركة سياحة)', by.invalid || 0]].map(([l, n]) => `<div class="gr-card"><span>${l}</span><b>${n}</b></div>`).join('')}
+<section class="gr-funnel">
+ ${(() => { const f = s.funnel || {}; const ch = f.channels || {}; const em = ch.email || {}; const wa = ch.whatsapp || {};
+  const step = (l, n, sub, hint) => `<div class="gr-fstep"><span>${l}</span><b>${n}</b><small>${sub || ''}</small></div>`;
+  return step('شركات صالحة', f.valid || 0, f.invalid ? f.invalid + ' مستبعدة' : '') +
+   step('وصلنا لها', f.reached || 0, pct(f.reached, f.valid) + ' من الصالحة · إيميل ' + (f.reached_email || 0) + ' · واتساب ' + (f.reached_whatsapp || 0)) +
+   step('فتحوا التقرير', f.viewed || 0, pct(f.viewed, f.reached) + ' ممن وصلنا لهم') +
+   step('ردّوا / مهتمين', f.replied || 0, pct(f.replied, f.reached) + ' ممن وصلنا لهم') +
+   step('سجّلوا 🎉', f.signed_up || 0, pct(f.signed_up, f.reached) + ' ممن وصلنا لهم'); })()}
+</section>
+<section class="gr-box gr-chan"><h3>القنوات</h3>
+ ${(() => { const ch = (s.funnel || {}).channels || {}; const em = ch.email || {}; const wa = ch.whatsapp || {};
+  return `<table class="gr-table"><thead><tr><th>القناة</th><th>وصلنا لها</th><th>فتحوا التقرير</th><th>ردّوا</th><th>سجّلوا / جرّبوا</th></tr></thead><tbody>
+  <tr><td>📧 إيميل (تلقائي)</td><td>${em.reached || 0}</td><td>${em.viewed || 0} <span class="gr-muted">${pct(em.viewed || 0, em.reached || 0)}</span></td><td>${(by.replied || 0) + (by.interested || 0)}</td><td>${em.signed_up || 0}</td></tr>
+  <tr><td>💬 واتساب (الفريق يدوي)</td><td>${wa.reached || 0}</td><td class="gr-muted">—</td><td>${wa.replied || 0} <span class="gr-muted">${pct(wa.replied || 0, wa.reached || 0)}</span></td><td>${(wa.trial || 0)} / ${(wa.subscribed || 0)}</td></tr></tbody></table>`; })()}
+ <p class="gr-muted">الشركة اللي اتواصل معاها بالإيميل والواتساب بتتحسب مرة واحدة في القمع فوق. فتح التقرير بيتحسب على الشركة مش على القناة.</p>
+</section>
+<section class="gr-mini">
+ ${[['مستنية موافقتك', s.awaiting_approval || 0], ['مالهاش إيميل', by.no_email || 0], ['واقفة (Paused)', by.paused || 0], ['ألغوا الاشتراك', by.unsubscribed || 0], ['إيميل راجع', by.bounced || 0]].map(([l, n]) => `<div><span>${l}</span><b>${n}</b></div>`).join('')}
 </section>
 <section class="gr-today"><div><b>النهارده:</b> اتبعت ${s.today.sent} من ${s.today.limit} <span class="gr-muted">(الحد بيزيد كل يوم لحد ${esc(st.daily_limit)} عشان الإيميل مايدخلش سبام)</span></div><div><b>مستني الإرسال:</b> ${s.pending} رسالة · <span class="gr-muted">آخر تشغيل: ${esc(s.last_run || 'لسه')}</span></div>
 <div class="gr-actions"><button class="p-btn outline sm" data-scan>افحص المواقع وحدد الاحتياج (${s.unscanned || 0})</button><button class="p-btn sm" data-approve-tours ${s.awaiting_tours ? '' : 'disabled'} title="اللي تصنيفها فيه Tours أو رحلات أو كروز أو سفاري - من غير السبا والملاهي والمطاعم والنقل">وافق على شركات الرحلات بس (${s.awaiting_tours || 0})</button><button class="p-btn outline sm" data-approve-all ${s.awaiting_approval ? '' : 'disabled'}>وافق على كل اللي مستنية (${s.awaiting_approval || 0})</button><button class="p-btn outline sm" data-run="send">ابعت دفعة دلوقتي</button><button class="p-btn outline sm" data-run="enrich">دوّر على إيميلات الشركات الناقصة (${by.no_email || 0})</button></div>
