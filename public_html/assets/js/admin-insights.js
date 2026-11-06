@@ -1059,7 +1059,7 @@
                 + (p.value && p.value.length ? '<br><small>' + p.value.map(v => esc(v[0] + ' ' + v[1])).join(' · ') + '</small>' : '');
         }
         function who(x) {
-            return '<b data-user="' + x.id + '" class="ai-click">' + esc(x.name) + '</b><br><span class="p-cell-muted">' + esc(x.email) + '</span>'
+            return '<b data-user="' + x.id + '" class="ai-click">' + esc(x.name) + '</b><br><span class="p-cell-muted" dir="ltr" title="' + esc(x.email) + '" style="display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">' + esc(x.email) + '</span>'
                 + (x.phone_raw ? '<br><span class="p-cell-muted" dir="ltr">' + esc(x.phone_raw) + '</span>' : '<br><small class="p-cell-muted">مفيش موبايل</small>')
                 + (x.email_verified ? '' : ' ' + pill('البريد مش متأكد', 'orange'))
                 + (x.plan && x.plan.length ? '<div class="ap-plan" style="margin-top:6px;display:grid;gap:2px;font-size:12px;line-height:1.6">' + x.plan.map(p => '<span><span class="p-cell-muted">' + esc(p[0]) + ':</span> ' + esc(p[1]) + '</span>').join('') + '</div>' : '');
