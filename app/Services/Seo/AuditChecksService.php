@@ -361,12 +361,12 @@ class AuditChecksService
 
         // --- anchor text quality ---
         $genericAnchors = 0;
-        foreach ($anchors[0] as $tag) {
-            if (preg_match('/>(.*?)<\/a>/is', $tag, $am)) {
-                $text = trim(html_entity_decode(strip_tags($am[1])));
-                if ($text === '' || preg_match('/^(click here|اقرأ المزيد|المزيد|اضغط هنا|here|read more|انقر هنا)$/i', $text)) {
-                    $genericAnchors++;
-                }
+        // النص الداخلي للرابط لازم يتقرا من الـ HTML الكامل (الـ regex فوق بيلقط وسم الفتح بس)
+        preg_match_all('/<a\s+[^>]*href=["\'][^"\']*["\'][^>]*>(.*?)<\/a>/is', $html, $anchorBodies);
+        foreach ($anchorBodies[1] as $inner) {
+            $text = trim(html_entity_decode(strip_tags($inner)));
+            if ($text === '' || preg_match('/^(click here|اقرأ المزيد|المزيد|اضغط هنا|here|read more|انقر هنا)$/iu', $text)) {
+                $genericAnchors++;
             }
         }
         $this->add('seo', 'anchor_text', 'جودة نصوص الروابط (Anchor Text)', $genericAnchors === 0 ? 'pass' : 'warn', $genericAnchors > 0 ? 'low' : 'info', $genericAnchors === 0 ? 'النصوص وصفية (مفيش "اقرأ المزيد" عامة)' : "في {$genericAnchors} رابط بنص عام - استخدم نصوص وصفية للـ SEO");
