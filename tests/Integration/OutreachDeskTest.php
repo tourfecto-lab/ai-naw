@@ -724,6 +724,18 @@ final class OutreachDeskTest extends TestCase
         $this->assertArrayHasKey('price', $r['lost_reasons']);
     }
 
+    public function testSentListSearchMatchesNoteContentNotJustCompanyOrPhone(): void
+    {
+        [$sara] = $this->twoUsers();
+        $a = $this->lead('Needle Note Tours', 'EG', '+201000000095');
+        $b = $this->lead('Other Tours', 'EG', '+201000000096');
+        $this->svc->deskAction($a, 'contacted', 'asked about pricing for a wedding trip', $sara, 'Sara');
+        $this->svc->deskAction($b, 'contacted', 'nothing special', $sara, 'Sara');
+        $r = $this->svc->deskSent(['from' => date('Y-m-d'), 'to' => date('Y-m-d'), 'q' => 'wedding trip'], $sara, false);
+        $this->assertSame(1, $r['total']);
+        $this->assertSame('Needle Note Tours', $r['days'][0]['items'][0]['company']);
+    }
+
     public function testLeadsAlreadyEmailedGetTheirGoogleDataRefreshedWithoutChangingTheirEmailTrack(): void
     {
         $id = $this->lead('Refresh Sent Tours', 'EG', '+201000000091', ['step' => 1, 'track' => 'seo']);

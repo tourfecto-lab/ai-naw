@@ -12,9 +12,14 @@
     ];
     const RESULT_CLS = { replied: 'green', interested: 'green', trial: 'green', subscribed: 'green', not_interested: 'dim', wrong_number: 'dim' };
     const RESULT_LABEL = { contacted: 'اتبعتلها', replied: 'ردّت', interested: 'مهتمة', trial: 'جرّبت المنصة', subscribed: 'اشتركت', call_back: 'هنكلمها تاني', not_interested: 'مش مهتمة', wrong_number: 'الرقم غلط' };
-    let P, root, data = null, busy = false, csrf = '', canManage = false, lostReasons = {}, openRow = null;
+    let P, root, data = null, busy = false, csrf = '', canManage = false, lostReasons = {}, openRow = null, sortKey = 'at', sortDir = -1, onlyNoReply = false;
     const today = () => ymd(new Date());
     const f = { from: today(), to: today(), staff_id: '', country: '', q: '' };
+    const SORT_LABEL = { at: 'الوقت', company: 'الشركة', result: 'النتيجة' };
+    const sortItems = items => {
+        const v = x => sortKey === 'company' ? (x.company || '') : sortKey === 'result' ? (x.result_label || '') : x.at;
+        return [...items].sort((a, b) => v(a) < v(b) ? -sortDir : v(a) > v(b) ? sortDir : 0);
+    };
 
     const api = async (url, body) => {
         const r = await P.fetchJSON(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, csrf_token: csrf }) } : undefined);
@@ -44,14 +49,19 @@
             <input class="dk-note" data-sn-note placeholder="ملاحظة" maxlength="500" value="${esc(x.note || '')}">
             <label class="dk-followup-l">📅 موعد متابعة مخصّص (اختياري)<input type="datetime-local" data-sn-followup value="${x.followup_at ? esc(String(x.followup_at).replace(' ', 'T').slice(0, 16)) : ''}"></label></div>`;
     };
-    const dayTable = (day, all) => `<section class="dk-day"><h3>${esc(dayLabel(day.date))} <small>(${num(day.count)} رسالة)</small></h3>
-        <div class="dk-scroll"><table class="dk-tbl"><thead><tr><th>الوقت</th><th>الشركة</th><th>البلد</th><th>الرقم</th>${all ? '<th>مين بعت</th>' : ''}<th>النوع</th><th>النتيجة</th><th>ملاحظة</th><th>تفاصيل</th><th></th></tr></thead><tbody>
-        ${day.items.map(x => `<tr data-row="${x.lead_id}"><td data-l="الوقت">${esc(x.at)}</td><td data-l="الشركة"><b>${esc(x.company)}</b></td><td data-l="البلد">${esc([x.country, x.city].filter(Boolean).join(' · '))}</td><td data-l="الرقم" dir="ltr">${esc(x.phone)}</td>${all ? `<td data-l="مين بعت">${esc(x.staff)}</td>` : ''}
+    const sortTh = (key, label) => `<th class="dk-sortable" data-sort="${key}">${label}${sortKey === key ? (sortDir === 1 ? ' ▲' : ' ▼') : ''}</th>`;
+    const dayTable = (day, all) => {
+        const items = sortItems(onlyNoReply ? day.items.filter(x => !x.result || x.result === 'contacted') : day.items);
+        if (!items.length) return '';
+        return `<section class="dk-day"><h3>${esc(dayLabel(day.date))} <small>(${num(items.length)} ${items.length === day.count ? 'رسالة' : 'من ' + num(day.count)})</small></h3>
+        <div class="dk-scroll"><table class="dk-tbl"><thead><tr>${sortTh('at', 'الوقت')}${sortTh('company', 'الشركة')}<th>البلد</th><th>الرقم</th>${all ? '<th>مين بعت</th>' : ''}<th>النوع</th>${sortTh('result', 'النتيجة')}<th>ملاحظة</th><th>تفاصيل</th><th></th></tr></thead><tbody>
+        ${items.map(x => `<tr data-row="${x.lead_id}"><td data-l="الوقت">${esc(x.at)}</td><td data-l="الشركة"><b>${esc(x.company)}</b></td><td data-l="البلد">${esc([x.country, x.city].filter(Boolean).join(' · '))}</td><td data-l="الرقم" dir="ltr">${esc(x.phone)}</td>${all ? `<td data-l="مين بعت">${esc(x.staff)}</td>` : ''}
             <td data-l="النوع"><span class="dk-b ${x.kind === 'followup' ? 'hot' : ''}">${KIND[x.kind]}</span></td><td data-l="النتيجة">${x.result && x.result !== 'contacted' ? `<span class="dk-b ${RESULT_CLS[x.result] || ''}">${esc(x.result_label)}</span>` : '<span class="dk-muted">لسه من غير رد</span>'}</td>
             <td data-l="ملاحظة">${esc(x.note)}</td><td data-l="تفاصيل" class="dk-sm">${x.email_step > 0 ? 'اتبعتلها إيميل ' + x.email_step : 'من غير إيميل'}${x.report_viewed ? ' · فتحت التقرير' : ''} · <a href="${esc(x.report_url)}" target="_blank" rel="noopener noreferrer">التقرير ↗</a></td>
             <td><button class="dk-btn xs" data-sn-toggle="${x.lead_id}">▾ تسجيل نتيجة</button></td></tr>
             <tr class="dk-act-row" data-act-row="${x.lead_id}" ${openRow === x.lead_id ? '' : 'hidden'}><td colspan="20">${actPanel(x)}</td></tr>`).join('')}
         </tbody></table></div></section>`;
+    };
 
     const render = () => {
         const all = !!data.all, countries = [...new Set(data.days.flatMap(d => d.items.map(i => i.country)).filter(Boolean))].sort();
@@ -63,11 +73,12 @@
                 <div class="dk-bar"><div class="dk-tabs">${pre}</div></div>
                 <div class="dk-st-bar"><label>من <input type="date" data-f="from" value="${esc(f.from)}"></label><label>إلى <input type="date" data-f="to" value="${esc(f.to)}"></label>${staffSel}
                     <label>البلد <select data-f="country"><option value="">الكل</option>${countries.map(c => `<option value="${esc(c)}" ${f.country === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
-                    <label>بحث <input data-f="q" placeholder="اسم الشركة أو الرقم" value="${esc(f.q)}"></label>
+                    <label>بحث <input data-f="q" placeholder="اسم الشركة أو الرقم أو الملاحظة" value="${esc(f.q)}"></label>
+                    <button class="dk-chip ${onlyNoReply ? 'on' : ''}" data-only-noreply>📵 لسه من غير رد بس</button>
                     ${all ? '<button class="dk-btn" data-export>⬇️ تصدير CSV</button>' : ''}</div>
                 <div class="dk-fn-row"><div class="dk-fn"><b>${num(data.total)}</b><span>رسالة في الفترة دي</span></div><div class="dk-fn"><b>${num(data.days.length)}</b><span>يوم فيه إرسال</span></div></div>${chips}</section>
             ${data.truncated ? '<p class="dk-msg bad">النتايج كتير: بتظهر آخر 2000 رسالة. الفترة أو الموظف يتضيّقوا للتفاصيل الباقية.</p>' : ''}
-            <section class="dk-list">${data.days.length ? data.days.map(d => dayTable(d, all)).join('') : '<p class="dk-empty">مفيش رسايل اتبعتت في الفترة دي.</p>'}</section>`;
+            <section class="dk-list">${(() => { const h = data.days.map(d => dayTable(d, all)).join(''); return h ? h : `<p class="dk-empty">${onlyNoReply ? 'كل الشركات ردّت أو اتسجّلت عليها نتيجة 🎉' : 'مفيش رسايل اتبعتت في الفترة دي.'}</p>`; })()}</section>`;
     };
 
     const csv = () => {
@@ -98,7 +109,10 @@
     };
     const bind = () => {
         root.addEventListener('click', async e => {
+            const th = e.target.closest('[data-sort]');
+            if (th) { if (sortKey === th.dataset.sort) sortDir = -sortDir; else { sortKey = th.dataset.sort; sortDir = -1; } return render(); }
             const t = e.target.closest('button'); if (!t) return;
+            if (t.dataset.onlyNoreply !== undefined) { onlyNoReply = !onlyNoReply; return render(); }
             if (t.dataset.snToggle !== undefined) { const id = Number(t.dataset.snToggle); openRow = openRow === id ? null : id; return render(); }
             if (t.dataset.snAct) {
                 const action = t.dataset.snAct, row = t.closest('[data-act-row]'), id = Number(row.dataset.actRow);

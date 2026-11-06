@@ -2267,9 +2267,9 @@ class PlatformOutreachService
             $args[] = $f['country'];
         }
         if (!empty($f['q'])) {
-            $w[] = '(l.company LIKE ? OR l.phone LIKE ?)';
+            $w[] = '(l.company LIKE ? OR l.phone LIKE ? OR a.note LIKE ? OR l.desk_note LIKE ?)';
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
-            array_push($args, $like, $like);
+            array_push($args, $like, $like, $like, $like);
         }
         $rows = $this->q('SELECT a.id log_id, a.lead_id, a.user_id, a.user_name, a.created_at, a.note, l.company, l.country, l.city, l.phone, l.status, l.step email_step, l.report_viewed_at, l.token, l.desk_action, l.desk_note, l.desk_reason, l.desk_followup_at
             FROM platform_desk_actions a JOIN platform_leads l ON l.id=a.lead_id WHERE ' . implode(' AND ', $w) . ' ORDER BY a.id DESC LIMIT 2000', $args)->fetchAll(PDO::FETCH_ASSOC);
