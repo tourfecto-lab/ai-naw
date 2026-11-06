@@ -534,6 +534,21 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** GET /api/admin/outreach-desk/leads/{id}/history : سجل كامل للشركة (إيميلات، تقرير، واتساب، مساعد، تسجيل) */
+    public function deskHistory(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            return $this->success(['events' => $this->service()->leadTimeline((int) ($params['id'] ?? 0))]);
+        } catch (Throwable $e) {
+            Logger::error('Outreach history failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تحميل السجل', 503);
+        }
+    }
+
     /** GET /api/admin/outreach-desk/leads/{id}/assistant-history : سجل محادثة المساعد المحفوظ لشركة معينة */
     public function deskAssistantHistory(array $params = []): array
     {

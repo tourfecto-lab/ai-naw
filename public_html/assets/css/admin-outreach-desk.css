@@ -145,3 +145,12 @@
 .dk-pane,.dk-top,.dk-bar,.dk-tabs,.dk-chips,.dk-prio,.dk-list,.dk-su-box{min-width:0;max-width:100%}
 .dk-bar{display:flex;flex-direction:column;gap:8px}
 @media (min-width:900px){.dk-bar{flex-direction:row;align-items:center;justify-content:space-between}.dk-bar .dk-search{flex:0 1 340px}}
+
+/* ===== المرحلة 2: اختصارات، سجل، تعديل الرسالة ===== */
+.dk-card.kb{outline:2px solid #d4a537;outline-offset:2px}
+.dk-kbhint{font-size:12px;margin:4px 2px}
+.dk-kbhint b{border:1px solid var(--panel-border);border-radius:5px;padding:0 5px}
+.dk-msgbox.editing{outline:2px solid #3b82f6;background:rgba(59,130,246,.08)}
+.dk-hist{margin-top:8px;padding:8px 10px;border:1px solid var(--panel-border);border-radius:10px}
+.dk-hist-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.dk-hist-list small{margin-inline-start:6px}

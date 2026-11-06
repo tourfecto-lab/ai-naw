@@ -2558,9 +2558,14 @@ class PlatformOutreachService
             $where[] = $tierSql[$tier];
         }
         if (!empty($f['q'])) {
-            $where[] = '(company LIKE ? OR email LIKE ? OR phone LIKE ? OR city LIKE ? OR domain LIKE ?)';
-            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
-            array_push($args, $like, $like, $like, $like, $like);
+            $q = mb_substr(trim((string) $f['q']), 0, 80);
+            $phoneCol = "REPLACE(REPLACE(REPLACE(REPLACE(phone,' ',''),'-',''),'+',''),'(','')";
+            $where[] = "(company LIKE ? OR email LIKE ? OR phone LIKE ? OR city LIKE ? OR domain LIKE ? OR {$phoneCol} LIKE ?)";
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+            // رقم تليفون مكتوب بأي شكل (010 9280، +20 10…، 0109280…): بنقارن بالأرقام بس ومن غير الصفر الأول
+            $digits = preg_match('/^[\d\s+\-()]{5,}$/', $q) ? ltrim((string) preg_replace('/\D+/', '', $q), '0') : '';
+            $phoneLike = $digits !== '' ? '%' . $digits . '%' : $like;
+            array_push($args, $like, $like, $like, $like, $like, $phoneLike);
         }
         return ['where' => $where, 'args' => $args, 'me' => $me, 'mineOnly' => $mineOnly, 'onboardingBlocked' => $onboardingBlocked, 'view' => $view, 'thr' => $thr];
     }
@@ -3196,6 +3201,52 @@ class PlatformOutreachService
             'language' => in_array($j['language'] ?? '', ['ar', 'en', 'tr'], true) ? $j['language'] : 'ar',
             'summary' => trim(mb_substr((string) ($j['summary'] ?? ''), 0, 300)), 'suggested_reply' => trim(mb_substr((string) ($j['suggested_reply'] ?? ''), 0, 1500)),
             'followup_date' => $followup];
+    }
+
+    /**
+     * سجل كامل لشركة واحدة (الأحدث أولًا): الإيميلات اللي اتبعتت، ضغطاتها، فتح التقرير، نتايج الموظفين على واتساب،
+     * محادثة المساعد، وتسجيلها في المنصة. بيتفتح لما الموظفة تدوس «السجل» على كارت الشركة.
+     * @return array<int,array{at:string,icon:string,text:string,by:?string}>
+     */
+    public function leadTimeline(int $leadId): array
+    {
+        $l = $this->q('SELECT id, report_viewed_at, report_last_at, report_views, whatsapp_at, signup_user_id FROM platform_leads WHERE id=?', [$leadId])->fetch(PDO::FETCH_ASSOC);
+        if (!$l) {
+            return [];
+        }
+        $ev = [];
+        foreach ($this->q('SELECT step, subject, status, sent_at, clicked_at FROM platform_lead_messages WHERE lead_id=? ORDER BY id', [$leadId])->fetchAll(PDO::FETCH_ASSOC) as $m) {
+            if ($m['status'] === 'sent' && $m['sent_at']) {
+                $ev[] = ['at' => $m['sent_at'], 'icon' => '✉️', 'text' => 'إيميل رقم ' . (int) $m['step'] . ' اتبعت: ' . mb_substr((string) $m['subject'], 0, 90), 'by' => null];
+            }
+            if ($m['clicked_at']) {
+                $ev[] = ['at' => $m['clicked_at'], 'icon' => '🖱️', 'text' => 'ضغطت على اللينك في إيميل رقم ' . (int) $m['step'], 'by' => null];
+            }
+        }
+        $labels = ['contacted' => 'اتبعتلها واتساب', 'replied' => 'ردّت', 'interested' => 'مهتمة', 'trial' => 'جرّبت المنصة', 'subscribed' => 'اشتركت', 'call_back' => 'هنكلمها تاني', 'not_interested' => 'مش مهتمة', 'wrong_number' => 'الرقم غلط', 'undo' => 'تراجع عن تسجيل', 'released' => 'رجعت للقايمة'];
+        foreach ($this->q('SELECT user_name, action, note, created_at FROM platform_desk_actions WHERE lead_id=? ORDER BY id', [$leadId])->fetchAll(PDO::FETCH_ASSOC) as $a) {
+            $ev[] = ['at' => $a['created_at'], 'icon' => '💬', 'text' => ($labels[$a['action']] ?? $a['action']) . ($a['note'] ? ': ' . mb_substr((string) $a['note'], 0, 140) : ''), 'by' => $a['user_name'] ?: null];
+        }
+        if ($l['report_viewed_at']) {
+            $ev[] = ['at' => $l['report_viewed_at'], 'icon' => '👀', 'text' => 'فتحت التقرير لأول مرة', 'by' => null];
+        }
+        if ($l['report_last_at'] && $l['report_last_at'] !== $l['report_viewed_at']) {
+            $ev[] = ['at' => $l['report_last_at'], 'icon' => '👀', 'text' => 'فتحت التقرير تاني (إجمالي ' . (int) $l['report_views'] . ' مرات)', 'by' => null];
+        }
+        if ($l['whatsapp_at']) {
+            $ev[] = ['at' => $l['whatsapp_at'], 'icon' => '🟢', 'text' => 'ضغطت زرار واتساب في الإيميل أو التقرير', 'by' => null];
+        }
+        foreach ($this->q('SELECT role, text, created_at FROM platform_assistant_chat WHERE lead_id=? ORDER BY id DESC LIMIT 6', [$leadId])->fetchAll(PDO::FETCH_ASSOC) as $c) {
+            $ev[] = ['at' => $c['created_at'], 'icon' => '🤖', 'text' => ($c['role'] === 'assistant' ? 'المساعد: ' : 'للمساعد: ') . mb_substr((string) $c['text'], 0, 120), 'by' => null];
+        }
+        if (!empty($l['signup_user_id'])) {
+            $u = $this->q('SELECT created_at FROM users WHERE id=?', [(int) $l['signup_user_id']])->fetchColumn();
+            if ($u) {
+                $ev[] = ['at' => (string) $u, 'icon' => '🎉', 'text' => 'سجّلت في المنصة', 'by' => null];
+            }
+        }
+        usort($ev, static fn ($a, $b) => strcmp((string) $b['at'], (string) $a['at']));
+        return array_slice($ev, 0, 60);
     }
 
     /** سجل محادثة المساعد المحفوظ لشركة معينة، الأقدم أولًا (جاهز يتحط في history بتاعة assistantDraftReply) */

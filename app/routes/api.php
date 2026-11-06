@@ -2003,6 +2003,7 @@ $router->post('/api/admin/outreach-desk/leads/{id}/tag', 'PlatformOutreachContro
 $router->get('/api/admin/outreach-desk/signups', 'PlatformOutreachController', 'deskSignups', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/signups-alert', 'PlatformOutreachController', 'deskSignupsAlert', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/outreach-desk/assistant', 'PlatformOutreachController', 'deskAssistant', ['AuthMiddleware','AdminMiddleware']);
+$router->get('/api/admin/outreach-desk/leads/{id}/history', 'PlatformOutreachController', 'deskHistory', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/outreach-desk/leads/{id}/assistant-history', 'PlatformOutreachController', 'deskAssistantHistory', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing', 'AiRoutingAdminController', 'save', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/ai-routing/check', 'AiRoutingAdminController', 'check', ['AuthMiddleware','AdminMiddleware']);

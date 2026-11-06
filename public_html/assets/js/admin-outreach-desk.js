@@ -52,6 +52,15 @@
     };
     const MTABS = [['today', '🏠 اليوم'], ['companies', '🏢 الشركات'], ['signups', '🎉 المشتركون'], ['perf', '📊 الأداء'], ['tools', '🧰 أدوات']];
     const openCards = new Set();
+    // أوقات قاعدة البيانات UTC: «من 3 ساعات» / «من يومين»
+    const rel = ts => {
+        const t = Date.parse(String(ts || '').replace(' ', 'T') + 'Z'); if (!t) return '';
+        const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+        if (m < 2) return 'من دقيقة'; if (m < 60) return 'من ' + m + ' دقيقة';
+        const h = Math.round(m / 60); if (h < 24) return h === 1 ? 'من ساعة' : (h === 2 ? 'من ساعتين' : 'من ' + h + ' ساعات');
+        const d = Math.round(h / 24); return d === 1 ? 'من يوم' : (d === 2 ? 'من يومين' : 'من ' + d + ' أيام');
+    };
+    let kbIndex = -1;
     const api = async (url, body) => {
         const r = await P.fetchJSON(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, csrf_token: csrf }) } : undefined);
         if (!r?.success) throw new Error(r?.error || 'حصلت مشكلة');
@@ -98,16 +107,16 @@
             <div class="dk-muted">${emailInfo}</div></details></div>`;
         const msg = `<div class="dk-col"><div class="dk-label">💬 الرسالة (تقرير مبدئي + لينك التقرير الكامل)${r.has_report ? '' : ' <span class="dk-warn">الشركة لسه ماتفحصتش: الرسالة عامة</span>'}</div>
             <details class="dk-more"${OPEN}><summary>عرض نص الرسالة</summary><textarea class="dk-msgbox" readonly rows="10" dir="${dir}">${esc(r.message)}</textarea></details>
-            <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
+            <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-edit-msg>✏️ تعديل قبل النسخ</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
             ${r.message2 ? `<details class="dk-msg2"><summary>📨 رسالة 2 (بعد ما يردّوا): خدمات المنصة ولينك التسجيل</summary><textarea class="dk-msgbox" readonly rows="9" dir="${dir}">${esc(r.message2)}</textarea><div class="dk-actions"><button class="dk-btn primary" data-copy-msg2>📋 نسخ رسالة الخدمات</button>${r.wa_url2 ? `<a class="dk-btn green" href="${esc(r.wa_url2)}" target="_blank" rel="noopener noreferrer">💬 افتح واتساب بالرسالة 2</a>` : ''}</div></details>` : ''}</div>`;
         const reasonOpts = Object.entries(lostReasons).map(([k, l]) => `<option value="${k}" ${d.reason === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
         const acts = `<div class="dk-result"><div class="dk-actions">${ACTIONS.map(([k, l]) => `<button class="dk-btn ${d.action === k ? 'on' : ''}" data-act="${k}">${l}</button>`).join('')}</div>
             <select class="dk-reason" data-reason ${d.action === 'not_interested' ? '' : 'hidden'}><option value="">سبب الرفض…</option>${reasonOpts}</select>
             <input class="dk-note" placeholder="ملاحظة (اختياري): مين ردّ، هنكلمه إمتى..." maxlength="500" value="${esc(d.note || '')}">
             <label class="dk-followup-l">📅 موعد متابعة مخصّص (اختياري)<input type="datetime-local" class="dk-followup" data-followup value="${d.followup_at ? esc(String(d.followup_at).replace(' ', 'T').slice(0, 16)) : ''}"></label>
-            <button class="dk-btn xs" data-asst-for="${r.id}">🤖 اسألي المساعد عن الشركة دي</button>${last}</div>`;
+            <button class="dk-btn xs" data-asst-for="${r.id}">🤖 اسألي المساعد عن الشركة دي</button><button class="dk-btn xs" data-hist>📜 السجل</button>${last}<div class="dk-hist" hidden></div></div>`;
         const isOpen = openCards.has(r.id);
-        const quick = `<div class="dk-quick">${r.wa_url ? `<a class="dk-btn green" data-wa href="${esc(r.wa_url)}" target="_blank" rel="noopener noreferrer">💬 واتساب</a>` : ''}<button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button>${d.action ? `<span class="dk-sent ${BUCKET[d.action] === 'hot' ? 'hot' : ''}">${d.action === 'contacted' ? '✅' : '•'} ${esc(sentLabel)} · <b>${esc(d.by || '')}</b></span>` : ''}<button class="dk-btn xs dk-toggle" data-toggle-card>${isOpen ? '⌃ إخفاء' : '⌄ التفاصيل والنتيجة'}</button></div>`;
+        const quick = `<div class="dk-quick">${r.wa_url ? `<a class="dk-btn green" data-wa href="${esc(r.wa_url)}" target="_blank" rel="noopener noreferrer">💬 واتساب</a>` : ''}<button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button>${d.action ? `<span class="dk-sent ${BUCKET[d.action] === 'hot' ? 'hot' : ''}">${d.action === 'contacted' ? '✅' : '•'} ${esc(sentLabel)} · <b>${esc(d.by || '')}</b></span>` : ''}${r.report_viewed && r.report_last_at ? `<span class="dk-b hot" title="آخر فتح للتقرير">👀 فتحت التقرير ${esc(rel(r.report_last_at))}${r.report_views > 1 ? ' · ' + r.report_views + ' مرات' : ''}</span>` : ''}<button class="dk-btn xs dk-toggle" data-toggle-card>${isOpen ? '⌃ إخفاء' : '⌄ التفاصيل والنتيجة'}</button></div>`;
         return `<article class="dk-card${isOpen ? ' open' : ''}" data-id="${r.id}">${head}${quick}<div class="dk-body">${details}${msg}</div>${acts}</article>`;
     };
 
@@ -226,9 +235,10 @@
         const sec = {
             today: `${goalBar}${urgent || '<div class="dk-banner good">✅ مفيش حاجة عاجلة دلوقتي. افتحي «الشركات» وكمّلي الإرسال.</div>'}${signups.length ? `<div class="dk-su-slot">${suHtml()}</div>` : ''}
                 <div class="dk-tip">الشغل اليومي: «الشركات» ← انسخي الرسالة وابعتيها على واتساب ← سجّلي النتيجة. اللي ردّ أو اهتم أو رفض الإيميلات بتقف عنده لوحدها.</div>`,
-            companies: `<section class="dk-top"><div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
+            companies: `<section class="dk-top">${(state.q || '').trim() ? `<div class="dk-banner">🔎 نتايج البحث عن «${esc(state.q)}» في <b>كل الدول</b> وكل الحالات: ${num(total)} شركة <button class="dk-btn xs" data-clear-search>✕ مسح البحث</button></div>` : ''}<div class="dk-chips">${countries || '<span class="dk-muted">لسه مفيش شركات ليها أرقام.</span>'}</div>
                 <div class="dk-prio"><span class="dk-label">الأولوية:</span>${TIERS.map(([k, l]) => `<button class="dk-tab ${state.tier === k ? 'on' : ''}" data-tier="${k}">${l}${k ? ` <b>${tiers[k] || 0}</b>` : ''}</button>`).join('')}<span class="dk-muted dk-hide-m">القايمة مترتّبة بالأولوية: الشركات اللي محتاجة فعلًا وشغّالة فعلًا.</span></div>
-                <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="بحث باسم الشركة أو الرقم أو الإيميل" value="${esc(state.q)}"></div></section>
+                <div class="dk-bar"><div class="dk-tabs">${tabs}</div><input id="dkQ" class="dk-search" placeholder="🔎 بحث في كل الدول: اسم، رقم تليفون (بأي شكل)، إيميل، مدينة   ( / )" value="${esc(state.q)}"></div></section>
+                <div class="dk-muted dk-hide-m dk-kbhint">⌨️ اختصارات: <b>J / K</b> تنقّل بين الشركات · <b>C</b> نسخ الرسالة · <b>W</b> واتساب · <b>Enter</b> التفاصيل · <b>/</b> بحث</div>
                 <section class="dk-list">${rows.length ? rows.map(card).join('') : '<p class="dk-empty">مفيش شركات هنا بالفلتر ده.</p>'}</section>
                 <div class="dk-pager"><span class="dk-muted">${total} شركة · صفحة ${state.page} من ${pages || 1}</span>${state.page > 1 ? '<button class="dk-btn" data-page="-1">السابق</button>' : ''}${state.page < pages ? '<button class="dk-btn" data-page="1">التالي</button>' : ''}</div>`,
             signups: `<div class="dk-su-slot">${suHtml() || '<p class="dk-muted">مفيش مشتركين جدد لسه.</p>'}</div>`,
@@ -243,10 +253,11 @@
     };
 
     const load = async (keepScroll) => {
-        const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
+        const searching = !!(state.q || '').trim();
+        const q = new URLSearchParams({ country: searching ? '' : state.country, view: searching ? 'all' : state.view, tier: searching ? '' : state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
         csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked; lostReasons = r.lost_reasons || lostReasons; canSeeTeam = !!r.can_see_team; DESK_TAGS = r.desk_tags || DESK_TAGS;
-        if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
+        if (!state.country && counts.length && !searching) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
         loadTeamToday();
@@ -729,6 +740,21 @@
     };
 
     const bind = () => {
+        // اختصارات الكيبورد في تبويب الشركات: J/K تنقّل · C نسخ الرسالة · W واتساب · Enter تفاصيل · / بحث
+        document.addEventListener('keydown', e => {
+            if (dkTab !== 'companies' || e.ctrlKey || e.metaKey || e.altKey) return;
+            const tag = (e.target.tagName || '').toLowerCase(); if (['input', 'textarea', 'select'].includes(tag) || e.target.isContentEditable) return;
+            const cards = [...root.querySelectorAll('.dk-card')]; if (!cards.length) return;
+            const k = e.key.toLowerCase();
+            const setKb = i => { kbIndex = Math.max(0, Math.min(cards.length - 1, i)); cards.forEach((c, n) => c.classList.toggle('kb', n === kbIndex)); cards[kbIndex].scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+            if (k === '/') { e.preventDefault(); root.querySelector('#dkQ')?.focus(); return; }
+            if (k === 'j') { e.preventDefault(); setKb(kbIndex + 1); return; }
+            if (k === 'k') { e.preventDefault(); setKb(kbIndex < 0 ? 0 : kbIndex - 1); return; }
+            const cur = cards[kbIndex]; if (!cur) return;
+            if (k === 'c') { e.preventDefault(); cur.querySelector('[data-copy-msg]')?.click(); return; }
+            if (k === 'w') { e.preventDefault(); cur.querySelector('a[data-wa]')?.click(); return; }
+            if (k === 'enter') { e.preventDefault(); cur.querySelector('[data-toggle-card]')?.click(); return; }
+        });
         root.addEventListener('click', async e => {
             const wa = e.target.closest('a[data-wa]');
             if (wa) { claimAndOpen(wa, e); return; }
@@ -736,6 +762,22 @@
             const cardEl = t.closest('.dk-card');
             try {
                 if (t.dataset.tab) { dkTab = t.dataset.tab; store.set('dk-tab', dkTab); render(); window.scrollTo({ top: 0 }); if (dkTab === 'perf') { loadFunnel(); loadTeamToday(); } return; }
+                if (t.dataset.clearSearch !== undefined) { state.q = ''; state.page = 1; await load(true); return; }
+                if (t.dataset.editMsg !== undefined && cardEl) {
+                    const box = cardEl.querySelector('.dk-msgbox'), on = box.readOnly;
+                    box.readOnly = !on; box.classList.toggle('editing', on); t.textContent = on ? '🔒 تثبيت' : '✏️ تعديل قبل النسخ';
+                    if (on) { box.focus(); toast('عدّلي الرسالة وبعدين «نسخ الرسالة». زرار واتساب بيفتح الرسالة الأصلية، فاستخدمي النسخ بعد التعديل.'); } return;
+                }
+                if (t.dataset.hist !== undefined && cardEl) {
+                    const box = cardEl.querySelector('.dk-hist');
+                    if (!box.hidden) { box.hidden = true; return; }
+                    box.hidden = false; box.innerHTML = '<span class="dk-muted">⏳ بيحمّل السجل…</span>';
+                    try {
+                        const d = await api('/api/admin/outreach-desk/leads/' + cardEl.dataset.id + '/history');
+                        box.innerHTML = (d.events || []).length ? '<ul class="dk-hist-list">' + d.events.map(e => `<li><span>${esc(e.icon)}</span> ${esc(e.text)}${e.by ? ' · <b>' + esc(e.by) + '</b>' : ''} <small class="dk-muted">${esc(rel(e.at))}</small></li>`).join('') + '</ul>' : '<span class="dk-muted">مفيش أي نشاط متسجّل للشركة دي لسه.</span>';
+                    } catch (err) { box.innerHTML = '<span class="dk-muted">تعذّر تحميل السجل.</span>'; }
+                    return;
+                }
                 if (t.dataset.toggleCard !== undefined && cardEl) { const id = Number(cardEl.dataset.id); if (openCards.has(id)) openCards.delete(id); else openCards.add(id); cardEl.classList.toggle('open', openCards.has(id)); t.textContent = openCards.has(id) ? '⌃ إخفاء' : '⌄ التفاصيل والنتيجة'; return; }
                 if (t.dataset.seen !== undefined) {
                     const [net, state] = t.dataset.seen.split(':');
