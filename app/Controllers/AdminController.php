@@ -4141,19 +4141,23 @@ HTML;
                 'seo-markets' => [$L('الكلمات والأسواق (SEO)', 'Keywords & markets'), 'globe', '/admin/seo-markets'],
                 'seo-data-costs' => [$L('تكلفة DataForSEO', 'DataForSEO cost'), 'dollar', '/admin/seo-data-costs'],
             ],
-            $L('العملاء والمبيعات', 'Customers & sales') => [
+            $L('العملاء', 'Customers') => [
                 'users' => [$this->tr('admin.nav.users'), 'users', '/admin/users'],
                 'customers-health' => [$L('صحة العملاء', 'Customer health'), 'target', '/admin/customers-health'],
                 'trials' => [$L('متابعة التجارب', 'Trials'), 'clock', '/admin/trials'],
                 'adoption' => [$L('استخدام المميزات', 'Feature adoption'), 'activity', '/admin/adoption'],
                 'onboarding-funnel' => [$this->tr('admin.nav.onboarding_funnel'), 'flask', '/admin/onboarding-funnel'],
+            ],
+            $L('التسويق والمبيعات (للمنصة)', 'Platform marketing & sales') => [
                 'platform-growth' => [$L('تسويق المنصة (إيميل)', 'Platform outreach (email)'), 'send', '/admin/growth'],
                 'outreach-desk' => [$L('مكتب التواصل (واتساب)', 'Outreach desk (WhatsApp)'), 'phone', '/admin/outreach-desk'],
                 'outreach-sent' => [$L('المرسول لهم (واتساب)', 'Sent (WhatsApp)'), 'send', '/admin/outreach-sent'],
-                'voice' => [$L('مساعد الصوت (تحكم)', 'AI Voice control'), 'phone', '/admin/voice'],
+                'whatsapp-marketing-admin' => [$L('تسويق واتساب', 'WhatsApp marketing'), 'send', '/admin/whatsapp-marketing'],
                 'email-reputation' => [$L('سمعة التسويق بالبريد', 'Email reputation'), 'mail', '/admin/email-reputation'],
                 'reputation-limits' => [$L('حدود السمعة والمراجعات', 'Reputation limits'), 'star', '/admin/reputation-limits'],
-                'whatsapp-marketing-admin' => [$L('تسويق واتساب', 'WhatsApp marketing'), 'send', '/admin/whatsapp-marketing'],
+                'voice' => [$L('مساعد الصوت (تحكم)', 'AI Voice control'), 'phone', '/admin/voice'],
+            ],
+            $L('الدعم والتواصل', 'Support & contact') => [
                 'support-admin' => [$L('تذاكر الدعم', 'Support tickets'), 'message', '/admin/support'],
                 'contact-messages' => [$this->tr('admin.nav.contact_messages'), 'mail', '/admin/contact-messages'],
             ],
