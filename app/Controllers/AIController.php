@@ -3120,6 +3120,10 @@ JS;
 
                 $publisher = new WordPressPublisher();
                 $existingPostId = $article->getAttribute('wp_post_id');
+                // الـ post القديم اتمسح أو في سلة ووردبريس: ننشر مقال جديد بدل ما نرجّع القديم من السلة
+                if ($existingPostId && !$publisher->postStillUsable($siteUrl, $username, $appPassword, (int) $existingPostId)) {
+                    $existingPostId = null;
+                }
 
                 // الصورة البارزة: بتتولّد وبتترفع لمكتبة WordPress قبل النشر. أي فشل بيتنشر المقال من غيرها مع تحذير.
                 $featuredMedia = null;

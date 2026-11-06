@@ -82,6 +82,10 @@ class PublishScheduledArticleJob implements QueueJobInterface
 
                 $publisher = $this->makePublisher('wordpress');
                 $existingPostId = $article->getAttribute('wp_post_id');
+                // الـ post القديم اتمسح أو في سلة ووردبريس: ننشر مقال جديد بدل ما نرجّع القديم من السلة
+                if ($existingPostId && !$publisher->postStillUsable($siteUrl, $username, $appPassword, (int) $existingPostId)) {
+                    $existingPostId = null;
+                }
 
                 // الصورة البارزة (نفس منطق النشر اليدوي): أي فشل بيتنشر المقال من غيرها
                 $featuredMedia = null;

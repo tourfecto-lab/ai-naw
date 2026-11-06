@@ -144,6 +144,19 @@ class WordPressPublisher
         ];
     }
 
+    /**
+     * هل الـ post المخزّن لسه صالح للتحديث؟ false بس لو اتأكدنا إنه اتمسح (404) أو في السلة.
+     * أي رد تاني (خطأ شبكة / صلاحيات) بيرجّع true عشان منعملش مقال مكرر بسبب عطل مؤقت.
+     */
+    public function postStillUsable(string $siteUrl, string $username, string $appPassword, int $postId): bool
+    {
+        $r = $this->request('GET', $siteUrl, '/wp-json/wp/v2/posts/' . $postId . '?context=edit&_fields=id,status', $username, $appPassword);
+        if (!$r['success']) {
+            return ((int) ($r['http_code'] ?? 0)) !== 404;
+        }
+        return ($r['data']['status'] ?? '') !== 'trash';
+    }
+
     public function postUrl(string $siteUrl,string $username,string $appPassword,int $postId): array
     {
         $r=$this->request('GET',$siteUrl,'/wp-json/wp/v2/posts/'.$postId,$username,$appPassword);
