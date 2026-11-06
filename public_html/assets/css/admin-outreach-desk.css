@@ -114,3 +114,6 @@
 .dk-team-track{flex:1;min-width:80px;max-width:160px}
 @media (max-width:640px){.dk-team-row{font-size:12px}.dk-team-name{min-width:70px}}
 .dk-sortable{cursor:pointer;user-select:none;white-space:nowrap}.dk-sortable:hover{color:var(--panel-accent,#3b82f6)}
+.dk-tagrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
+.dk-tag-free{width:110px;padding:5px 8px;border-radius:8px;border:1px solid var(--panel-border);background:transparent;color:inherit;font:inherit;font-size:12px}
+.dk-b.tag{background:rgba(155,89,182,.2)}

@@ -121,7 +121,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL', 'desk_tag' => 'VARCHAR(20) NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -2271,7 +2271,7 @@ class PlatformOutreachService
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], mb_substr((string) $f['q'], 0, 80)) . '%';
             array_push($args, $like, $like, $like, $like);
         }
-        $rows = $this->q('SELECT a.id log_id, a.lead_id, a.user_id, a.user_name, a.created_at, a.note, l.company, l.country, l.city, l.phone, l.status, l.step email_step, l.report_viewed_at, l.token, l.desk_action, l.desk_note, l.desk_reason, l.desk_followup_at
+        $rows = $this->q('SELECT a.id log_id, a.lead_id, a.user_id, a.user_name, a.created_at, a.note, l.company, l.country, l.city, l.phone, l.status, l.step email_step, l.report_viewed_at, l.token, l.desk_action, l.desk_note, l.desk_reason, l.desk_followup_at, l.desk_tag
             FROM platform_desk_actions a JOIN platform_leads l ON l.id=a.lead_id WHERE ' . implode(' AND ', $w) . ' ORDER BY a.id DESC LIMIT 2000', $args)->fetchAll(PDO::FETCH_ASSOC);
         $first = [];
         if ($rows) {
@@ -2290,7 +2290,7 @@ class PlatformOutreachService
             $digits = self::deskPhone((string) ($r['phone'] ?? ''), (string) ($r['country'] ?? ''));
             $days[$day][] = ['lead_id' => (int) $r['lead_id'], 'company' => (string) $r['company'], 'country' => (string) ($r['country'] ?? ''), 'city' => (string) ($r['city'] ?? ''), 'phone' => (string) ($r['phone'] ?? ''), 'phone_intl' => $digits !== '' ? '+' . $digits : '',
                 'staff_id' => (int) ($r['user_id'] ?? 0), 'staff' => (string) $r['user_name'], 'at' => substr((string) $r['created_at'], 11, 5), 'kind' => ($first[(int) $r['lead_id']] ?? 0) === (int) $r['log_id'] ? 'first' : 'followup',
-                'result' => $res, 'result_label' => $labels[$res] ?? '', 'reason' => $r['desk_reason'] ?? null, 'followup_at' => $r['desk_followup_at'] ?? null,
+                'result' => $res, 'result_label' => $labels[$res] ?? '', 'reason' => $r['desk_reason'] ?? null, 'followup_at' => $r['desk_followup_at'] ?? null, 'tag' => $r['desk_tag'] ?? null,
                 'note' => (string) ($r['note'] ?: ($r['desk_note'] ?? '')), 'email_step' => (int) $r['email_step'], 'report_viewed' => !empty($r['report_viewed_at']),
                 'report_url' => $base . '/p/r/pv-' . $r['token']];
             $k = (int) ($r['user_id'] ?? 0);
@@ -2460,13 +2460,14 @@ class PlatformOutreachService
                 'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
                 'blocked' => $blocked, 'message' => $message, 'message2' => $message2, 'wa_url2' => $waUrl2, 'seo' => $seoState,
                 'category_flag' => class_exists('OutreachNeeds') ? OutreachNeeds::nonTourSignal((string) ($sc['tripadvisor']['ranking'] ?? ''), (string) ($l['category'] ?? '')) : null,
+                'tag' => $l['desk_tag'] ?? null,
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
                 'report_views' => (int) ($l['report_views'] ?? 0), 'report_first_at' => $l['report_viewed_at'] ?? null, 'report_last_at' => $l['report_last_at'] ?? ($l['report_viewed_at'] ?? null),
                 'desk' => ['action' => $l['desk_action'] ?? null, 'note' => $l['desk_note'] ?? null, 'at' => $l['desk_at'] ?? null, 'by' => $l['desk_by'] ?? null, 'reason' => $l['desk_reason'] ?? null, 'followup_at' => $l['desk_followup_at'] ?? null],
             ];
         }
-        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? '')), 'onboarding_blocked' => $onboardingBlocked, 'lost_reasons' => self::LOST_REASONS];
+        return ['rows' => $out, 'total' => $total, 'page' => $page, 'pages' => (int) ceil($total / $per), 'counts' => $this->deskCountries($mineOnly ? $me : null), 'tiers' => $this->deskTiers((string) ($f['country'] ?? '')), 'onboarding_blocked' => $onboardingBlocked, 'lost_reasons' => self::LOST_REASONS, 'desk_tags' => self::DESK_TAGS];
     }
 
     /**
@@ -2477,10 +2478,10 @@ class PlatformOutreachService
     {
         $b = $this->deskWhere($f, $staff);
         if ($b['onboardingBlocked']) {
-            return "company,phone,email,website,city,country,rating,reviews,score,priority,tier,status,desk_action,desk_reason,desk_note,desk_at,desk_by,followup_at\n";
+            return "company,phone,email,website,city,country,rating,reviews,score,priority,tier,status,desk_action,desk_reason,desk_note,desk_at,desk_by,followup_at,tag\n";
         }
         $w = implode(' AND ', $b['where']);
-        $rows = $this->q("SELECT company,phone,email,website,city,country,rating,reviews,score,priority,status,desk_action,desk_reason,desk_note,desk_at,desk_by,desk_followup_at
+        $rows = $this->q("SELECT company,phone,email,website,city,country,rating,reviews,score,priority,status,desk_action,desk_reason,desk_note,desk_at,desk_by,desk_followup_at,desk_tag
             FROM platform_leads WHERE {$w} ORDER BY (desk_action IS NULL) DESC, COALESCE(priority,0) DESC, COALESCE(reviews,0) DESC, id DESC LIMIT 5000", $b['args'])->fetchAll(PDO::FETCH_ASSOC);
         $thr = $b['thr'];
         $tier = static function ($p) use ($thr) {
@@ -2491,13 +2492,13 @@ class PlatformOutreachService
             $v = (string) ($v ?? '');
             return '"' . str_replace('"', '""', $v) . '"';
         };
-        $head = ['company', 'phone', 'email', 'website', 'city', 'country', 'rating', 'reviews', 'score', 'priority', 'tier', 'status', 'desk_action', 'desk_reason', 'desk_note', 'desk_at', 'desk_by', 'followup_at'];
+        $head = ['company', 'phone', 'email', 'website', 'city', 'country', 'rating', 'reviews', 'score', 'priority', 'tier', 'status', 'desk_action', 'desk_reason', 'desk_note', 'desk_at', 'desk_by', 'followup_at', 'tag'];
         $lines = [implode(',', $head)];
         foreach ($rows as $r) {
             $lines[] = implode(',', [
                 $esc($r['company']), $esc($r['phone']), $esc($r['email']), $esc($r['website']), $esc($r['city']), $esc($r['country']),
                 $esc($r['rating']), $esc($r['reviews']), $esc($r['score']), $esc($r['priority']), $esc($tier($r['priority'])), $esc($r['status']),
-                $esc($r['desk_action']), $esc($r['desk_reason']), $esc($r['desk_note']), $esc($r['desk_at']), $esc($r['desk_by']), $esc($r['desk_followup_at']),
+                $esc($r['desk_action']), $esc($r['desk_reason']), $esc($r['desk_note']), $esc($r['desk_at']), $esc($r['desk_by']), $esc($r['desk_followup_at']), $esc($r['desk_tag']),
             ]);
         }
         return "\xEF\xBB\xBF" . implode("\n", $lines) . "\n";
@@ -3446,6 +3447,23 @@ class PlatformOutreachService
         }
         $this->q('UPDATE platform_leads SET desk_social=? WHERE id=?', [$seen ? json_encode($seen) : null, $leadId]);
         return $seen;
+    }
+
+    /** علامات جاهزة مقترحة للشركة (تقدر تكتب أي كلمة تانية لحد 20 حرف) */
+    public const DESK_TAGS = ['VIP', 'بارد', 'كبيرة', 'متابعة قريبة'];
+
+    /** تاج حر على الشركة (VIP، بارد، كبيرة...) يساعد الفريق يفرز بصريًا. فاضي = مسح */
+    public function deskSetTag(int $leadId, string $tag): ?string
+    {
+        $tag = trim(preg_replace('/[\x00-\x1F\x7F]/u', '', $tag) ?? '');
+        if (mb_strlen($tag) > 20) {
+            throw new InvalidArgumentException('التاج أطول من 20 حرف');
+        }
+        if (!$this->q('SELECT 1 FROM platform_leads WHERE id=?', [$leadId])->fetchColumn()) {
+            throw new InvalidArgumentException('الشركة مش موجودة');
+        }
+        $this->q('UPDATE platform_leads SET desk_tag=? WHERE id=?', [$tag !== '' ? $tag : null, $leadId]);
+        return $tag !== '' ? $tag : null;
     }
 
     public function signupLinkFor(array $lead, int $step): string

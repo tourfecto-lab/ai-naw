@@ -414,6 +414,19 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** POST /api/admin/outreach-desk/leads/{id}/tag - {tag} فاضي = مسح */
+    public function deskTag(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        try {
+            return $this->success(['tag' => $this->service()->deskSetTag((int) ($params['id'] ?? 0), (string) $this->get('tag', ''))]);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
     /** POST /api/admin/outreach-desk/leads/{id}/action - {action, note} */
     public function deskAction(array $params = []): array
     {

@@ -1218,4 +1218,27 @@ final class OutreachDeskTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $r['totals']['replied']);
         $this->db->query('DELETE FROM platform_staff_profile WHERE user_id = ?', [$sara]);
     }
+
+    public function testDeskTagCanBeSetFromPresetsOrFreeTextShowsOnTheCardAndClearsWithAnEmptyValue(): void
+    {
+        $a = $this->lead('Tag Tours', 'EG', '+201000000097');
+        $this->assertNull($this->svc->deskSetTag($a, ''));
+        $this->assertSame('VIP', $this->svc->deskSetTag($a, 'VIP'));
+        $row = $this->svc->deskLeads(['country' => 'EG', 'view' => 'all', 'q' => 'Tag Tours'])['rows'][0];
+        $this->assertSame('VIP', $row['tag']);
+        $this->assertSame('حجزلي بكرة', $this->svc->deskSetTag($a, 'حجزلي بكرة'), 'free text works too');
+        $this->assertNull($this->svc->deskSetTag($a, ''), 'empty clears it');
+        try {
+            $this->svc->deskSetTag($a, str_repeat('x', 21));
+            $this->fail('too long should be rejected');
+        } catch (InvalidArgumentException $e) {
+            $this->assertStringContainsString('20 حرف', $e->getMessage());
+        }
+        try {
+            $this->svc->deskSetTag(999999999, 'VIP');
+            $this->fail('unknown lead rejected');
+        } catch (InvalidArgumentException $e) {
+            $this->assertTrue(true);
+        }
+    }
 }

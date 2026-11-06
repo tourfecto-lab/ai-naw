@@ -22,7 +22,7 @@
     const TIERS = [['', 'كل الأولويات'], ['high', '🔥 عالية'], ['medium', 'متوسطة'], ['low', 'منخفضة']];
     const TIER_BADGE = { high: ['🔥 أولوية عالية', 'hot'], medium: ['أولوية متوسطة', ''], low: ['أولوية منخفضة', 'dim'] };
     const num = n => Number(n || 0).toLocaleString('en');
-    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false;
+    let P, root, csrf = '', state = { country: '', view: 'todo', tier: '', q: '', page: 1 }, counts = [], tiers = {}, rows = [], total = 0, pages = 1, funnel = null, funnelFor = null, me = {}, staffName = '', onboardingBlocked = false, lostReasons = {}, canSeeTeam = false, teamStats = null, teamLoaded = false, DESK_TAGS = [];
 
     // بطاقة الفحص: الأسطر المش معروفة بتبان «لسه ماتفحصش» عشان الموظفة تفرّق بين «مفيش» و«ماعرفناش»
     const scorecard = r => {
@@ -76,7 +76,7 @@
         const meta = [r.city, r.category && String(r.category).split(',')[0]].filter(Boolean).map(esc).join(' · ');
         const rating = r.rating ? `⭐ ${Number(r.rating).toFixed(1)}${r.reviews ? ' (' + Number(r.reviews).toLocaleString('en') + ')' : ''}` : '';
         const head = `<div class="dk-head"><div><h3>${esc(r.company)}</h3><div class="dk-sub">${meta}${rating ? ' · ' + rating : ''}</div></div>
-            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${r.report_viewed ? `<span class="dk-b hot" title="أول فتح: ${esc(r.report_first_at || '')}">👀 فتحت التقرير${r.report_views > 1 ? ' ' + num(r.report_views) + ' مرات' : ''} · آخر مرة ${esc(r.report_last_at || '')}</span>` : ''}${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}${r.category_flag ? `<span class="dk-b prio" title="تريب أدفايزر مصنّفها تحت هذا التصنيف: ممكن تبقى جولة فعلًا وممكن محل أو مطعم أو نادي">⚠️ تصنيفها «${esc(r.category_flag)}»: التأكد إنها شركة سياحة قبل الإرسال</span>` : ''}</div></div>`;
+            <div class="dk-badges">${TIER_BADGE[r.tier] ? `<span class="dk-b prio ${TIER_BADGE[r.tier][1]}" title="أولوية الإرسال ${esc(r.priority)}/100: بتتحسب من نواقص الشركة وحجم شغلها">${TIER_BADGE[r.tier][0]}</span>` : ''}<span class="dk-b">${esc(LANG[r.language] || r.language)}</span><span class="dk-b ${r.status === 'signed_up' ? 'green' : ''}">${esc(STATUS[r.status] || r.status)}</span>${r.report_viewed ? `<span class="dk-b hot" title="أول فتح: ${esc(r.report_first_at || '')}">👀 فتحت التقرير${r.report_views > 1 ? ' ' + num(r.report_views) + ' مرات' : ''} · آخر مرة ${esc(r.report_last_at || '')}</span>` : ''}${d.action ? `<span class="dk-b ${BUCKET[d.action] === 'hot' ? 'green' : ''}">${esc(ACTION_LABEL[d.action])}</span>` : ''}${r.category_flag ? `<span class="dk-b prio" title="تريب أدفايزر مصنّفها تحت هذا التصنيف: ممكن تبقى جولة فعلًا وممكن محل أو مطعم أو نادي">⚠️ تصنيفها «${esc(r.category_flag)}»: التأكد إنها شركة سياحة قبل الإرسال</span>` : ''}${r.tag ? `<span class="dk-b tag">🏷️ ${esc(r.tag)}</span>` : ''}</div></div>`;
         if (r.blocked) return `<article class="dk-card blocked" data-id="${r.id}">${head}<div class="dk-block">🚫 الشركة دي ألغت الاشتراك: ممنوع التواصل معاها بأي وسيلة.</div></article>`;
         const phone = r.phone_intl || r.phone;
         // «اتبعتت على واتساب» + اسم الموظفة والوقت، جنب الزرار؛ وتراجع لو فتحت واتساب وماضغطتش إرسال
@@ -87,6 +87,7 @@
                 <button class="dk-btn" data-copy-phone="${esc(phone)}">📋 نسخ الرقم</button>${r.wa_url ? `<a class="dk-btn green" data-wa href="${esc(r.wa_url)}" target="_blank" rel="noopener noreferrer">${r.wa_has_text ? '💬 افتح واتساب بالرسالة' : '💬 افتح واتساب'}</a>` : '<span class="dk-muted">(الرقم مش بصيغة دولية: نسخ الرقم وفتح واتساب يدويًا)</span>'}
                 ${sent}</div>
             ${r.wa_url && !r.wa_has_text ? '<div class="dk-muted">الرسالة طويلة: هيفتح الشات فاضي، والرسالة بتتنسخ من تحت وتتلصق.</div>' : ''}
+            <div class="dk-tagrow"><span class="dk-muted">🏷️ تاج:</span>${DESK_TAGS.map(t => `<button class="dk-btn xs ${r.tag === t ? 'on' : ''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}<input class="dk-tag-free" data-tag-free placeholder="تاج تاني…" maxlength="20" value="${r.tag && !DESK_TAGS.includes(r.tag) ? esc(r.tag) : ''}">${r.tag ? '<button class="dk-btn xs" data-tag="">مسح</button>' : ''}</div>
             <div class="dk-line"><span class="dk-label">✉️ الإيميل</span><span dir="ltr">${esc(r.email || '—')}</span>${r.email ? `<button class="dk-btn xs" data-copy-phone="${esc(r.email)}">نسخ</button>` : ''}</div>
             <div class="dk-line"><span class="dk-label">🌐 الموقع</span>${r.website ? `<a href="${esc(r.website)}" target="_blank" rel="noopener noreferrer" dir="ltr">${esc(r.website)}</a>` : '—'}</div>
             <div class="dk-line"><span class="dk-label">📊 الدرجة الرقمية</span><b>${r.score != null ? esc(r.score) + '/100' : '—'}</b></div>
@@ -175,7 +176,7 @@
     const load = async (keepScroll) => {
         const q = new URLSearchParams({ country: state.country, view: state.view, tier: state.tier, q: state.q, page: state.page });
         const r = await api('/api/admin/outreach-desk/leads?' + q.toString());
-        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked; lostReasons = r.lost_reasons || lostReasons; canSeeTeam = !!r.can_see_team;
+        csrf = r.csrf_token || csrf; staffName = r.staff_name || ''; me = r.me || me; counts = r.counts || []; tiers = r.tiers || {}; rows = r.rows || []; total = r.total || 0; pages = r.pages || 1; onboardingBlocked = !!r.onboarding_blocked; lostReasons = r.lost_reasons || lostReasons; canSeeTeam = !!r.can_see_team; DESK_TAGS = r.desk_tags || DESK_TAGS;
         if (!state.country && counts.length) { state.country = counts[0].country; return load(keepScroll); }
         render();
         loadFunnel();
@@ -557,6 +558,12 @@
                     const y = window.scrollY; await load(true); window.scrollTo(0, y); // الرسالة بتتغيّر على حسب اللي شافته
                     toast('اتسجّل، والرسالة اتحدّثت ✅'); return;
                 }
+                if (t.dataset.tag !== undefined) {
+                    t.disabled = true;
+                    const row = rows.find(x => x.id === Number(cardEl.dataset.id)); if (row) row.tag = (await api('/api/admin/outreach-desk/leads/' + cardEl.dataset.id + '/tag', { tag: t.dataset.tag })).tag;
+                    const el = root.querySelector(`.dk-card[data-id="${cardEl.dataset.id}"]`); if (el) el.outerHTML = card(row);
+                    toast(t.dataset.tag ? 'اتحط التاج ✅' : 'اتمسح التاج ✅'); return;
+                }
                 if (t.dataset.staffOpen !== undefined) { staffUi.userId = 0; return await openStaff(); }
                 if (t.dataset.idWizardMain !== undefined) { openWizard(0); return; }
                 if (t.dataset.signSave !== undefined) { const v = (root.querySelector('#dkSign') || {}).value || ''; await api('/api/admin/outreach-desk/staff-profile', { sign_name: v }); toast('اتحفظ اسمك في التوقيع ✅'); return await load(true); }
@@ -590,6 +597,15 @@
         root.addEventListener('input', e => {
             if (e.target.id !== 'dkQ') return;
             clearTimeout(timer); timer = setTimeout(async () => { state.q = e.target.value.trim(); state.page = 1; try { await load(true); } catch (err) { toast(err.message, true); } const q = root.querySelector('#dkQ'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 350);
+        });
+        root.addEventListener('change', async e => {
+            if (e.target.dataset.tagFree === undefined) return;
+            const cardEl = e.target.closest('.dk-card'), id = Number(cardEl.dataset.id), v = e.target.value.trim();
+            try {
+                const row = rows.find(x => x.id === id); if (row) row.tag = (await api('/api/admin/outreach-desk/leads/' + id + '/tag', { tag: v })).tag;
+                const el = root.querySelector(`.dk-card[data-id="${id}"]`); if (el) el.outerHTML = card(row);
+                toast(v ? 'اتحط التاج ✅' : 'اتمسح التاج ✅');
+            } catch (err) { toast(err.message, true); }
         });
     };
 
