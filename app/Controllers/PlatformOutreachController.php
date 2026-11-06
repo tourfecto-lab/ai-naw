@@ -642,6 +642,22 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** GET /api/admin/growth/segments - مقارنة أداء الفئات (جوجل، تريب أدفايزر، الحجم، الموقع) */
+    public function segments(array $params = []): array
+    {
+        if (!$this->allowed()) {
+            return $this->error('غير مصرح', 403);
+        }
+        header('Cache-Control: private, no-store');
+        try {
+            @set_time_limit(60);
+            return $this->success($this->service()->segmentReport());
+        } catch (Throwable $e) {
+            Logger::error('Growth segments failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر حساب الفئات', 503);
+        }
+    }
+
     /** GET /api/admin/growth */
     public function overview(array $params = []): array
     {

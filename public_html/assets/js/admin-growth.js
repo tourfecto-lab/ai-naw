@@ -46,6 +46,28 @@
         } catch (e) { el.querySelector('p').textContent = 'تعذّر تحميل المشتركين الجدد.'; }
     };
 
+    let segData = null;
+    const loadSegments = async force => {
+        const el = root.querySelector('#grSegments'); if (!el) return;
+        try {
+            if (!segData || force) { const r = await P.fetchJSON('/api/admin/growth/segments'); segData = (r && r.data) || null; }
+        } catch (e) { segData = null; }
+        if (!segData) { el.querySelector('p').textContent = 'تعذّر حساب الفئات.'; return; }
+        const pc = v => v === null || v === undefined ? '—' : v + '%';
+        const row = g => `<tr><td>${esc(g.label)}${g.small_sample && g.contacted ? ' <span class="gr-muted" title="أقل من 30 شركة اتكلمنا معاها: الفرق ممكن يكون صدفة">⚠️ عينة صغيرة</span>' : ''}</td><td>${g.leads}</td><td><b>${g.waiting}</b></td><td>${g.contacted}</td><td>${g.opened} <span class="gr-muted">${pc(g.open_rate)}</span></td><td>${g.replied} <span class="gr-muted">${pc(g.reply_rate)}</span></td><td><b>${g.signed}</b> <span class="gr-muted">${pc(g.signup_rate)}</span></td></tr>`;
+        const head = '<thead><tr><th>الفئة</th><th>شركات</th><th title="ليها رقم ولسه ماتكلمناش معاها: جاهزة لدفعة التجربة">لسه ماتكلمناش</th><th>اتكلمنا</th><th>فتحوا التقرير</th><th>ردّوا</th><th>سجّلوا</th></tr></thead>';
+        const web = segData.groups.filter(g => g.group === 'web'), sum = k => web.reduce((a, g) => a + g[k], 0);
+        const overall = { label: 'كل اللي اتكلمنا معاهم', leads: segData.total, waiting: sum('waiting'), contacted: sum('contacted'), opened: sum('opened'), replied: sum('replied'), signed: sum('signed') };
+        overall.open_rate = overall.contacted ? Math.round(1000 * overall.opened / overall.contacted) / 10 : null; overall.reply_rate = overall.contacted ? Math.round(1000 * overall.replied / overall.contacted) / 10 : null; overall.signup_rate = overall.contacted ? Math.round(1000 * overall.signed / overall.contacted) / 10 : null; overall.small_sample = false;
+        const names = { google: 'جوجل', ta: 'تريب أدفايزر', size: 'حجم الشركة (تقييمات جوجل)', web: 'الموقع' };
+        const sections = ['google', 'ta', 'size', 'web'].map(k => `<h4>${names[k]}</h4><div class="gr-scroll"><table class="gr-table">${head}<tbody>${segData.groups.filter(g => g.group === k).map(row).join('')}</tbody></table></div>`).join('');
+        el.innerHTML = '<h3>🧪 مقارنة الفئات: مين بيتفاعل أكتر؟</h3>' +
+            '<p class="gr-muted">الأرقام من الشركات اللي اتكلمنا معاها بس (إيميل أو واتساب). تحت 30 شركة = عينة صغيرة: الفرق ممكن يكون صدفة. الخطوة الجاية: ابعت <b>30 رسالة لكل فئة تجربة</b> من عمود «لسه ماتكلمناش»، وبعد أسبوع قارن.</p>' +
+            `<div class="gr-scroll"><table class="gr-table">${head}<tbody>${segData.tests.map(row).join('')}${row(overall)}</tbody></table></div>` +
+            `<details style="margin-top:12px"><summary><b>تفصيل حسب جوجل وتريب أدفايزر والحجم والموقع</b></summary>${sections}</details>` +
+            '<button class="p-btn outline xs" data-seg-refresh style="margin-top:10px">تحديث الأرقام</button>';
+    };
+
     const render = () => {
         const s = data.stats, st = data.settings, by = s.by_status || {};
         const cs = s.country_stats || [];
@@ -82,6 +104,7 @@
    step('سجّلوا 🎉', f.signed_up || 0, pct(f.signed_up, f.reached) + ' ممن وصلنا لهم'); })()}
 </section>
 <section class="gr-box" id="grSignups"><h3>🆕 المشتركون الجدد (آخر 14 يوم)</h3><p class="gr-muted">جاري التحميل…</p></section>
+<section class="gr-box" id="grSegments"><h3>🧪 مقارنة الفئات: مين بيتفاعل أكتر؟</h3><p class="gr-muted">جاري الحساب…</p></section>
 <section class="gr-box gr-chan"><h3>القنوات</h3>
  ${(() => { const ch = (s.funnel || {}).channels || {}; const em = ch.email || {}; const wa = ch.whatsapp || {};
   return `<table class="gr-table"><thead><tr><th>القناة</th><th>وصلنا لها</th><th>فتحوا التقرير</th><th>ردّوا</th><th>سجّلوا / جرّبوا</th></tr></thead><tbody>
@@ -156,6 +179,7 @@ ${filters.country && Object.keys(cities).length > 1 ? `<select id="grFCity" clas
         loadLeads();
         loadCampaigns();
         loadSignups();
+        loadSegments();
     };
     const f = (k, label, type = 'text') => `<label class="gr-f">${label}<input id="s_${k}" type="${type}" class="p-select" value="${esc(data.settings[k])}" ${['from_email', 'reply_to', 'smtp_host', 'smtp_username', 'signup_url', 'timezone'].includes(k) ? 'dir="ltr"' : ''}></label>`;
 
@@ -315,6 +339,7 @@ ${cs.length ? `<div class="gr-scroll"><table class="gr-table"><thead><tr><th>ا�
                 if (!on && !confirm('هيبدأ يبعت للشركات تلقائيًا في مواعيد العمل وبالحد اليومي. متأكد إنك راجعت الرسايل وجربتها على نفسك؟')) return;
                 await api('/api/admin/growth/settings', { settings: { enabled: on ? '0' : '1' } }); await reload(); toast(on ? 'وقفنا الإرسال.' : 'الإرسال التلقائي اشتغل ✅');
             });
+            if (t.dataset.segRefresh !== undefined) return run(t, async () => { const el = root.querySelector('#grSegments p'); await loadSegments(true); });
             if (t.dataset.run) return run(t, async () => {
                 toast(t.dataset.run === 'enrich' ? 'بندوّر في مواقع الشركات… (حوالي دقيقة)' : t.dataset.run === 'bounces' ? 'بنقرا صندوق الإيميل…' : 'بنبعت دفعة…');
                 const r = await api('/api/admin/growth/run', { what: t.dataset.run });

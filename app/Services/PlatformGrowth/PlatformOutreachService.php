@@ -2740,6 +2740,96 @@ class PlatformOutreachService
         }
     }
 
+    /** فئة حجم الشركة من عدد تقييمات جوجل (null لو ماعرفناش) */
+    public static function reviewBucket(?int $reviews): string
+    {
+        if ($reviews === null) {
+            return 'unknown';
+        }
+        return $reviews >= 500 ? '500+' : ($reviews >= 100 ? '100-499' : '<100');
+    }
+
+    /**
+     * الفئات اللي الشركة داخلة فيها (لمقارنة الأداء): من بطاقة الفحص (جوجل، تريب أدفايزر، الموقع) وحجم تقييمات جوجل.
+     * @param array<string,mixed> $sc نتيجة OutreachAudit::scorecard
+     * @return string[] مفاتيح الفئات
+     */
+    public static function segmentKeys(array $sc): array
+    {
+        $g = (array) ($sc['google'] ?? []);
+        $gs = (string) ($g['status'] ?? 'unknown');
+        $ta = (string) (($sc['tripadvisor']['status'] ?? 'unknown'));
+        $web = (string) (($sc['website']['status'] ?? 'unknown'));
+        $bucket = self::reviewBucket($gs === 'found' && isset($g['reviews']) ? (int) $g['reviews'] : null);
+        $keys = ['google:' . $gs, 'ta:' . $ta, 'web:' . $web, 'size:' . $bucket];
+        if ($gs === 'found' && $web === 'ok' && $bucket === '100-499') {
+            $keys[] = 'test:A';
+        }
+        if ($ta === 'linked') {
+            $keys[] = 'test:B';
+        }
+        if ($web === 'none') {
+            $keys[] = 'test:C';
+        }
+        return $keys;
+    }
+
+    /**
+     * مقارنة أداء الفئات: لكل فئة كام شركة، اتكلمنا مع كام (إيميل أو واتساب)، وكام فتحوا التقرير وردّوا وسجّلوا.
+     * الأرقام من اللي اتكلمنا معاه بس، ولو أقل من 30 بنعلّمها «عينة صغيرة» عشان ما حدّش يبني قرار على صدفة.
+     * @return array{groups:array,tests:array,total:int,contacted:int}
+     */
+    public function segmentReport(): array
+    {
+        $stat = static fn () => ['leads' => 0, 'waiting' => 0, 'contacted' => 0, 'opened' => 0, 'replied' => 0, 'signed' => 0];
+        $acc = [];
+        $total = 0;
+        $contactedAll = 0;
+        $st = $this->q("SELECT id, status, step, phone, website, rating, reviews, maps_url, data_json, desk_social, desk_action, report_viewed_at, signup_user_id FROM platform_leads WHERE status<>'invalid'");
+        while ($l = $st->fetch(PDO::FETCH_ASSOC)) {
+            $data = json_decode((string) ($l['data_json'] ?? ''), true) ?: [];
+            $keys = self::segmentKeys(OutreachAudit::scorecard($l, $data));
+            $action = (string) ($l['desk_action'] ?? '');
+            $contacted = ((int) $l['step'] > 0) || ($action !== '' && $action !== 'wrong_number');
+            $signed = $l['status'] === 'signed_up' || $action === 'subscribed' || !empty($l['signup_user_id']);
+            // اللي سجّلت اتحسبت «ردّت» كمان (التسجيل أقوى من الرد)، فنسبة الرد مش بتبقى أقل من نسبة التسجيل
+            $replied = $signed || in_array((string) $l['status'], ['replied', 'interested'], true) || in_array($action, ['replied', 'interested', 'trial', 'subscribed'], true);
+            $opened = !empty($l['report_viewed_at']);
+            $hasPhone = trim((string) $l['phone']) !== '';
+            $total++;
+            $contactedAll += $contacted ? 1 : 0;
+            foreach ($keys as $k) {
+                $acc[$k] ??= $stat();
+                $acc[$k]['leads']++;
+                if ($contacted) {
+                    $acc[$k]['contacted']++;
+                    $acc[$k]['opened'] += $opened ? 1 : 0;
+                    $acc[$k]['replied'] += $replied ? 1 : 0;
+                    $acc[$k]['signed'] += $signed ? 1 : 0;
+                } elseif ($hasPhone && !in_array((string) $l['status'], ['unsubscribed', 'bounced'], true)) {
+                    $acc[$k]['waiting']++;
+                }
+            }
+        }
+        $rate = static fn (int $a, int $b): ?float => $b > 0 ? round(100 * $a / $b, 1) : null;
+        $labels = [
+            'test:A' => 'تجربة A: جوجل + موقع شغّال + 100–499 تقييم', 'test:B' => 'تجربة B: تريب أدفايزر مربوط بالموقع', 'test:C' => 'تجربة C: من غير موقع',
+            'google:found' => 'جوجل: موجود', 'google:missing' => 'جوجل: مش موجود', 'google:unknown' => 'جوجل: لسه ماتفحصش',
+            'ta:found' => 'تريب أدفايزر: موجود (مش مربوط بالموقع)', 'ta:linked' => 'تريب أدفايزر: مربوط بموقعهم', 'ta:missing' => 'تريب أدفايزر: مش موجود', 'ta:unknown' => 'تريب أدفايزر: لسه ماتفحصش',
+            'size:<100' => 'الحجم: أقل من 100 تقييم', 'size:100-499' => 'الحجم: 100–499 تقييم', 'size:500+' => 'الحجم: 500+ تقييم', 'size:unknown' => 'الحجم: مفيش بيانات تقييمات',
+            'web:ok' => 'الموقع: شغّال', 'web:down' => 'الموقع: واقع', 'web:none' => 'الموقع: مفيش موقع', 'web:unknown' => 'الموقع: لسه ماتفحصش',
+        ];
+        $out = [];
+        foreach ($labels as $k => $label) {
+            $a = $acc[$k] ?? $stat();
+            $out[] = $a + ['key' => $k, 'group' => explode(':', $k)[0], 'label' => $label,
+                'open_rate' => $rate($a['opened'], $a['contacted']), 'reply_rate' => $rate($a['replied'], $a['contacted']), 'signup_rate' => $rate($a['signed'], $a['contacted']),
+                'small_sample' => $a['contacted'] < 30];
+        }
+        $tests = array_values(array_filter($out, static fn ($r) => $r['group'] === 'test'));
+        return ['groups' => array_values(array_filter($out, static fn ($r) => $r['group'] !== 'test')), 'tests' => $tests, 'total' => $total, 'contacted' => $contactedAll];
+    }
+
     /**
      * تقدير تقريبي لاحتمال إن الشركة تشترك (مش توقع إحصائي): بيتحسب من إشارات حقيقية عندنا بس.
      * الأساس من حاجتها وحجم شغلها (الأولوية)، وبيزيد بالتفاعل: فتح التقرير، ضغط لينك أو زرار واتساب، رد أو اهتمام أو تجربة.

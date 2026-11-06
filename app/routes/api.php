@@ -1970,6 +1970,7 @@ $router->post('/api/plans/trial/renewal', 'PlansStudioController', 'trialRenewal
 $router->post('/api/plans/addon', 'PlansStudioController', 'addon', ['AuthMiddleware']);
 $router->post('/api/plans/custom/quote', 'PlansStudioController', 'customQuote', ['AuthMiddleware']);
 $router->post('/api/plans/custom/buy', 'PlansStudioController', 'customBuy', ['AuthMiddleware']);
+$router->get('/api/admin/growth/segments', 'PlatformOutreachController', 'segments', ['AuthMiddleware','AdminMiddleware']);
 $router->get('/api/admin/growth/leads', 'PlatformOutreachController', 'leads', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/growth/settings', 'PlatformOutreachController', 'saveSettings', ['AuthMiddleware','AdminMiddleware']);
 $router->post('/api/admin/growth/import', 'PlatformOutreachController', 'import', ['AuthMiddleware','AdminMiddleware']);
