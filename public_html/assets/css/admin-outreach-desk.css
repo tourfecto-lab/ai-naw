@@ -154,3 +154,12 @@
 .dk-hist{margin-top:8px;padding:8px 10px;border:1px solid var(--panel-border);border-radius:10px}
 .dk-hist-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
 .dk-hist-list small{margin-inline-start:6px}
+
+/* ===== احتمال الاشتراك ===== */
+.dk-prob{display:inline-flex;gap:6px;align-items:center;padding:8px 12px;border-radius:10px;font-size:13px;border:1px solid var(--panel-border);cursor:help}
+.dk-prob b{font-size:15px;font-variant-numeric:tabular-nums}
+.dk-prob.cold{color:#94a3b8}
+.dk-prob.warm{border-color:#f5a524;background:rgba(245,165,36,.12)}
+.dk-prob.hot{border-color:#f97316;background:rgba(249,115,22,.16)}
+.dk-prob.strong,.dk-prob.won{border-color:#2f9e6a;background:rgba(47,158,106,.18)}
+.dk-prob.closed{border-color:#e5484d;background:rgba(229,72,77,.1);color:#fca5a5}

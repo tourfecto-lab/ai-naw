@@ -2664,6 +2664,7 @@ class PlatformOutreachService
                 'blocked' => $blocked, 'message' => $message, 'message2' => $message2, 'wa_url2' => $waUrl2, 'seo' => $seoState,
                 'category_flag' => class_exists('OutreachNeeds') ? OutreachNeeds::nonTourSignal((string) ($sc['tripadvisor']['ranking'] ?? ''), (string) ($l['category'] ?? '')) : null,
                 'tag' => $l['desk_tag'] ?? null,
+                'win' => self::winProbability($l, (int) $prioScore),
                 'report_url' => $base . '/p/r/' . $l['token'], 'report_preview_url' => $base . '/p/r/pv-' . $l['token'],
                 'email_step' => (int) $l['step'], 'email_sent_at' => $l['last_sent_at'], 'email_clicked' => !empty($l['clicked_at']), 'report_viewed' => !empty($l['report_viewed_at']),
                 'report_views' => (int) ($l['report_views'] ?? 0), 'report_first_at' => $l['report_viewed_at'] ?? null, 'report_last_at' => $l['report_last_at'] ?? ($l['report_viewed_at'] ?? null),
@@ -2737,6 +2738,54 @@ class PlatformOutreachService
         } catch (Throwable $e) {
             return '';
         }
+    }
+
+    /**
+     * تقدير تقريبي لاحتمال إن الشركة تشترك (مش توقع إحصائي): بيتحسب من إشارات حقيقية عندنا بس.
+     * الأساس من حاجتها وحجم شغلها (الأولوية)، وبيزيد بالتفاعل: فتح التقرير، ضغط لينك أو زرار واتساب، رد أو اهتمام أو تجربة.
+     * @param array<string,mixed> $l صف platform_leads
+     * @return array{pct:int,level:string,label:string,why:string[]}
+     */
+    public static function winProbability(array $l, int $priority = 0): array
+    {
+        $status = (string) ($l['status'] ?? '');
+        $action = (string) ($l['desk_action'] ?? '');
+        if ($status === 'signed_up' || $action === 'subscribed' || !empty($l['signup_user_id'])) {
+            return ['pct' => 95, 'level' => 'won', 'label' => 'مشتركة', 'why' => ['سجّلت في المنصة فعلًا']];
+        }
+        if (in_array($status, ['unsubscribed', 'bounced'], true) || $action === 'wrong_number') {
+            return ['pct' => 0, 'level' => 'closed', 'label' => 'مقفولة', 'why' => [$action === 'wrong_number' ? 'الرقم غلط' : ($status === 'bounced' ? 'الإيميل راجع' : 'ألغت الاشتراك')]];
+        }
+        if ($action === 'not_interested') {
+            return ['pct' => 1, 'level' => 'closed', 'label' => 'مش مهتمة', 'why' => ['قالت إنها مش مهتمة']];
+        }
+        $base = 3 + (int) round(max(0, min(100, $priority)) * 0.12);
+        $p = $base;
+        $why = ['حاجتها وحجم شغلها (+' . $base . '٪)'];
+        $views = (int) ($l['report_views'] ?? 0);
+        $add = static function (int $n, string $text) use (&$p, &$why): void {
+            $p += $n;
+            $why[] = $text . ' (+' . $n . '٪)';
+        };
+        if ($views > 0 || !empty($l['report_viewed_at'])) {
+            $add(12, 'فتحت التقرير');
+            if ($views >= 2) {
+                $add(6, 'فتحته أكتر من مرة');
+            }
+        }
+        if (!empty($l['clicked_at'])) {
+            $add(8, 'ضغطت على لينك التسجيل أو الإيميل');
+        }
+        if (!empty($l['whatsapp_at'])) {
+            $add(10, 'ضغطت زرار واتساب');
+        }
+        $byAction = ['replied' => [22, 'ردّت علينا'], 'interested' => [32, 'قالت إنها مهتمة'], 'trial' => [45, 'جرّبت المنصة'], 'call_back' => [8, 'طلبت نكلمها تاني']];
+        if (isset($byAction[$action])) {
+            $add($byAction[$action][0], $byAction[$action][1]);
+        }
+        $p = max(1, min(90, $p));
+        [$level, $label] = $p < 10 ? ['cold', 'بارد'] : ($p < 25 ? ['warm', 'دافي'] : ($p < 50 ? ['hot', 'ساخن'] : ['strong', 'قوي']));
+        return ['pct' => $p, 'level' => $level, 'label' => $label, 'why' => $why];
     }
 
     private static function maskTail(string $v): string
