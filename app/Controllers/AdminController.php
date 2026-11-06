@@ -4499,12 +4499,12 @@ HTML;
                 $tabsJs = htmlspecialchars(asset_v('/assets/js/admin-section-tabs.js'), ENT_QUOTES, 'UTF-8');
                 return <<<HTML
                 <p class="p-cell-muted" style="margin-bottom:16px;">{$this->tr('admin.plans.hint')}</p>
-                <div class="p-card" style="margin-bottom:16px"><div class="p-card-head"><h3>➕ باقة جديدة</h3><span class="p-card-sub">بتتنسخ من باقة موجودة وبتتعمل مقفولة للبيع لحد ما تفعّلها. ابدأ المفتاح بـ seo- عشان تظهر في تبويب السيو.</span></div>
+                <details class="p-card" id="newPlanBox" style="margin-bottom:16px"><summary class="p-card-head" style="cursor:pointer;margin:0"><h3>➕ باقة جديدة</h3><span class="p-card-sub" dir="auto">بتتنسخ من باقة موجودة وبتتعمل مقفولة للبيع لحد ما تفعّلها. ابدأ المفتاح بـ seo- عشان تظهر في تبويب السيو.</span></summary>
                 <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
                 <label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">المفتاح (إنجليزي)</span><input class="form-control" id="newPlanKey" dir="ltr" maxlength="30" placeholder="seo-local" style="max-width:170px"></label>
                 <label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">الاسم</span><input class="form-control" id="newPlanName" maxlength="150" style="max-width:200px"></label>
                 <label style="display:flex;flex-direction:column;gap:4px"><span class="p-cell-muted">انسخ من</span><select class="form-control" id="newPlanClone" style="max-width:200px"></select></label>
-                <button type="button" class="p-btn" id="newPlanAdd">➕ أضف الباقة</button></div><div id="newPlanMsg" class="p-cell-muted" style="margin-top:8px"></div></div>
+                <button type="button" class="p-btn" id="newPlanAdd">➕ أضف الباقة</button></div><div id="newPlanMsg" class="p-cell-muted" style="margin-top:8px"></div></details>
                 <div id="plansGrid" class="p-grid cols-3"><div class="p-empty">{$this->tr('common.loading')}</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>إيراد وتكلفة وهامش كل باقة</h3><span class="p-card-sub">فعلي لآخر 30 يوم</span></div><div id="planEconBox" class="p-cell-muted">...</div></div>
                 <div class="p-card" style="margin-top:16px"><div class="p-card-head"><h3>تسعير مقابل المنافسين</h3><span class="p-card-sub">أعلى سعر مسموح = سعر المنافس × (100 − النسبة). مفيش سعر بيتغيّر لوحده: التطبيق بزرار.</span></div><div id="planPosBox" class="p-cell-muted">...</div></div>
