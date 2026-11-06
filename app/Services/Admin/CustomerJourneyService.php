@@ -177,7 +177,7 @@ class CustomerJourneyService
         ];
         $doneCount = count(array_filter($milestones, static fn ($m) => $m['done']));
 
-        $lead = $this->leadFor((string) $u['email'], $sites);
+        $lead = $this->leadFor((string) $u['email'], $sites, $id);
         $next = $this->nextSteps($state, $hoursSince, $siteAdded, $siteConnected, $daysLeft, $lead, (int) $ai['calls']);
 
         $phone = $u['phone'] ?: ($lead['phone'] ?? null);
@@ -338,7 +338,7 @@ class CustomerJourneyService
             $sql = "SELECT DISTINCT u.id, COALESCE(NULLIF(u.company_name,''), u.email) name, u.created_at, l.desk_user_id staff_id, l.desk_by staff_name
                       FROM users u
                       LEFT JOIN websites w ON w.user_id = u.id
-                      JOIN platform_leads l ON (LOWER(l.email) = LOWER(u.email) OR (w.main_url IS NOT NULL AND l.domain = {$domainOf}))
+                      JOIN platform_leads l ON (l.signup_user_id = u.id OR LOWER(l.email) = LOWER(u.email) OR (w.main_url IS NOT NULL AND l.domain = {$domainOf}))
                      WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY) AND u.deleted_at IS NULL AND u.role NOT IN ('admin','super_admin')
                        AND l.desk_user_id = ? ORDER BY u.id DESC LIMIT {$limit}";
             $rows = $this->rows($sql, [$staffId]);
@@ -346,7 +346,7 @@ class CustomerJourneyService
             $sql = "SELECT u.id, COALESCE(NULLIF(u.company_name,''), u.email) name, u.created_at, MAX(l.desk_user_id) staff_id, MAX(l.desk_by) staff_name
                       FROM users u
                       LEFT JOIN websites w ON w.user_id = u.id
-                      LEFT JOIN platform_leads l ON (LOWER(l.email) = LOWER(u.email) OR (w.main_url IS NOT NULL AND l.domain = {$domainOf}))
+                      LEFT JOIN platform_leads l ON (l.signup_user_id = u.id OR LOWER(l.email) = LOWER(u.email) OR (w.main_url IS NOT NULL AND l.domain = {$domainOf}))
                      WHERE u.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY) AND u.deleted_at IS NULL AND u.role NOT IN ('admin','super_admin')
                      GROUP BY u.id, u.company_name, u.email, u.created_at ORDER BY u.id DESC LIMIT {$limit}";
             $rows = $this->rows($sql);
@@ -384,7 +384,7 @@ class CustomerJourneyService
     }
 
     /** الشركة اللي جه منها من حملة التسويق: بنفس الإيميل أو بدومين الموقع */
-    private function leadFor(string $email, array $sites): ?array
+    private function leadFor(string $email, array $sites, int $userId = 0): ?array
     {
         $domains = [];
         foreach ($sites as $s) {
@@ -393,13 +393,14 @@ class CustomerJourneyService
                 $domains[] = preg_replace('/^www\./', '', $h);
             }
         }
-        $where = 'LOWER(email) = ?';
-        $bind = [strtolower($email)];
+        // الأقوى: الشركة اللي حسابه اتربط بيها من لينك التقرير، وبعدها المطابقة بالإيميل أو دومين الموقع
+        $where = 'signup_user_id = ? OR LOWER(email) = ?';
+        $bind = [$userId, strtolower($email)];
         if ($domains) {
             $where .= ' OR domain IN (' . implode(',', array_fill(0, count($domains), '?')) . ')';
             $bind = array_merge($bind, $domains);
         }
-        return $this->rows("SELECT id, company, phone, country, language, track, step, report_viewed_at, desk_action, desk_user_id, desk_by FROM platform_leads WHERE {$where} ORDER BY (report_viewed_at IS NOT NULL) DESC, id LIMIT 1", $bind)[0] ?? null;
+        return $this->rows("SELECT id, company, phone, country, language, track, step, report_viewed_at, desk_action, desk_user_id, desk_by FROM platform_leads WHERE {$where} ORDER BY (signup_user_id = {$userId}) DESC, (report_viewed_at IS NOT NULL) DESC, id LIMIT 1", $bind)[0] ?? null;
     }
 
     private function rows(string $sql, array $bind = []): array

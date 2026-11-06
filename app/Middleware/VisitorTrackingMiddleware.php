@@ -79,6 +79,18 @@ class VisitorTrackingMiddleware
         $userId = $_SESSION['user_id'] ?? ($_SERVER['auth_user_id'] ?? null);
         $isAuthenticated = $userId ? 1 : 0;
 
+        // عميل جاي من لينك موظف/حملة: نربط حسابه بالشركة (مرة واحدة)، من غير ما نلمس مسار التسجيل أو الـ OAuth
+        if ($userId && !empty($_COOKIE['tf_lead_ref']) && class_exists('PlatformOutreachService')) {
+            try {
+                (new PlatformOutreachService())->attributeSignup((int) $userId, (string) $_COOKIE['tf_lead_ref']);
+            } catch (Throwable $e) {
+                if (class_exists('Logger')) {
+                    Logger::warning('Lead attribution failed', ['message' => $e->getMessage()]);
+                }
+            }
+            setcookie('tf_lead_ref', '', ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax']);
+        }
+
         $geo = class_exists('GeoIPService') ? GeoIPService::lookup($ip) : ['country' => null, 'city' => null];
 
         $db = Database::getInstance();

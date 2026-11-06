@@ -505,6 +505,7 @@ class PlatformOutreachController extends Controller
         if (!$this->allowed()) {
             return $this->error('غير مصرح', 403);
         }
+        $this->service(); // بيتأكد إن عمود ربط التسجيل موجود قبل ما نستعلم بيه
         header('Cache-Control: private, no-store');
         try {
             $all = $this->canSeeTeam() && (string) $this->get('all', '') === '1';
@@ -522,6 +523,7 @@ class PlatformOutreachController extends Controller
         if (!$this->allowed()) {
             return $this->error('غير مصرح', 403);
         }
+        $this->service(); // بيتأكد إن عمود ربط التسجيل موجود قبل ما نستعلم بيه
         header('Cache-Control: private, no-store');
         try {
             $all = $this->canSeeTeam() && (string) $this->get('all', '') === '1';
@@ -878,6 +880,10 @@ class PlatformOutreachController extends Controller
         $step = max(1, min(5, (int) ($params['step'] ?? 1)));
         [$token, $real] = $this->token($params);
         $lead = $s->track($token, $step, 'click', $real);
+        if ($lead && $real && !headers_sent()) {
+            // بنفتكر الشركة اللي ضغطت لحد ما تسجّل (حتى لو بإيميل تاني): الربط بيتم أول ما الحساب يدخل المنصة
+            setcookie('tf_lead_ref', (string) $token, ['expires' => time() + 30 * 86400, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'), 'httponly' => true, 'samesite' => 'Lax']);
+        }
         $url = $lead ? $s->signupLinkFor($lead, $step) : (defined('APP_URL') ? rtrim(APP_URL, '/') : '/') . '/register';
         header('Location: ' . $url, true, 302);
         exit;

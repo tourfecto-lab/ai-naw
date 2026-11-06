@@ -121,7 +121,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL', 'desk_tag' => 'VARCHAR(20) NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL', 'desk_tag' => 'VARCHAR(20) NULL', 'signup_user_id' => 'BIGINT NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -1930,6 +1930,32 @@ class PlatformOutreachService
         $sent = (int) $this->q("SELECT COUNT(*) FROM platform_lead_messages WHERE status='sent' AND sent_at>=DATE_SUB(NOW(),INTERVAL 7 DAY)")->fetchColumn();
         $bounced = (int) $this->q("SELECT COUNT(*) FROM platform_leads WHERE status='bounced' AND updated_at>=DATE_SUB(NOW(),INTERVAL 7 DAY)")->fetchColumn();
         return $sent >= 30 && $bounced / max(1, $sent) > 0.08;
+    }
+
+    /**
+     * ربط حساب جديد بالشركة اللي ضغطت على لينك التسجيل بتاعها (التوكن جاي من كوكي بيتحط في /p/c/{token}).
+     * ده بيغطي الشركة اللي بتسجّل بإيميل مختلف ومن غير ما تضيف موقعها. شروطه: الحساب اتعمل من أقل من 7 أيام،
+     * والشركة ماتربطتش بحساب تاني، والحساب مااتربطش بشركة قبل كده، والشركة ماألغتش الاشتراك.
+     * @return bool true لو اتربط
+     */
+    public function attributeSignup(int $userId, string $token): bool
+    {
+        $lead = $this->leadByToken($token);
+        if ($userId <= 0 || !$lead || $lead['status'] === 'unsubscribed') {
+            return false;
+        }
+        if (!empty($lead['signup_user_id']) && (int) $lead['signup_user_id'] !== $userId) {
+            return false;
+        }
+        if ($this->q('SELECT 1 FROM platform_leads WHERE signup_user_id=? LIMIT 1', [$userId])->fetchColumn()) {
+            return false;
+        }
+        $fresh = $this->q("SELECT 1 FROM users WHERE id=? AND role NOT IN ('admin','super_admin') AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) LIMIT 1", [$userId])->fetchColumn();
+        if (!$fresh) {
+            return false;
+        }
+        $this->q("UPDATE platform_leads SET signup_user_id=?, status='signed_up', next_send_at=NULL WHERE id=?", [$userId, $lead['id']]);
+        return true;
     }
 
     /** اللي سجّل في المنصة (بنفس الإيميل أو نفس دومين الموقع) بتقف رسايله */
