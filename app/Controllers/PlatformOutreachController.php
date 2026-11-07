@@ -71,7 +71,12 @@ class PlatformOutreachController extends Controller
         foreach (['first_name', 'name'] as $k) {
             $n = trim((string) ($this->user[$k] ?? ''));
             if ($n !== '') {
-                return trim((string) (preg_split('/\s+/u', $n)[0] ?? ''));
+                $first = trim((string) (preg_split('/\s+/u', $n)[0] ?? ''));
+                // أسماء عامة (team, admin...) مش اسم شخص: الرسالة تتوقّع باسم المرسل المظبوط بدل «أنا team»
+                if (preg_match('/^(team|admin|administrator|tourfecto|support|info|sales|test|user|owner|manager)$/i', $first)) {
+                    continue;
+                }
+                return $first;
             }
         }
         return '';

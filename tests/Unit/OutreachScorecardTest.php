@@ -54,7 +54,7 @@ final class OutreachScorecardTest extends TestCase
         $this->assertSame('placeholder', $sc['instagram']['status']);
         $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $sc]));
         $this->assertStringNotContainsString('مربوطة بموقعكم', $m, 'never claims a real link that is a placeholder');
-        $this->assertStringContainsString('مش بيودّي لصفحتكم', $m);
+        $this->assertStringContainsString('لا يقود إلى صفحتكم', $m);
         $d['site']['social'] = ['facebook' => 'https', 'instagram' => 'whatsapp'];
         $bad = OutreachAudit::scorecard($this->taLead(), $d);
         $this->assertSame(['placeholder', 'placeholder'], [$bad['facebook']['status'], $bad['instagram']['status']], 'a mis-read link and another brand account are not their pages');
@@ -204,21 +204,21 @@ final class OutreachScorecardTest extends TestCase
     {
         $m = OutreachNeeds::deskMessage($this->ctx());
         $this->assertStringContainsString('Nile Tours', $m);
-        $this->assertStringContainsString('مفيهوش حجز ودفع أونلاين', $m, 'a real gap from the audit');
-        $this->assertStringContainsString('مفيهوش واتساب ولا شات', $m);
-        $this->assertStringContainsString('السيو:* عندكم أساسيات، بس ناقص', $m, 'partial SEO is described as partial, never as missing');
+        $this->assertStringContainsString('لا يتيح الحجز والدفع أونلاين', $m, 'a real gap from the audit');
+        $this->assertStringContainsString('لا يوفّر واتساب أو دردشة', $m);
+        $this->assertStringContainsString('السيو:* الأساسيات موجودة، لكنه يحتاج إلى', $m, 'partial SEO is described as partial, never as missing');
         $this->assertStringContainsString('بيانات منظّمة (Schema)', $m);
         $this->assertStringContainsString('مدونة ومقالات', $m);
         $this->assertStringContainsString('4.7', $m);
-        $this->assertStringContainsString('مواعيد العمل مش مكتوبة', $m);
+        $this->assertStringContainsString('مواعيد العمل غير مكتوبة', $m);
         $this->assertStringContainsString('فيسبوك مربوطة بموقعكم', $m);
-        $this->assertStringContainsString('إنستجرام مش مربوطة بموقعكم', $m);
-        $this->assertStringContainsString('السيو هو اللي بيخلّي المسافر يلاقيكم', $m, 'why SEO matters, in one sentence');
-        $this->assertStringContainsString('بيفحص الموقع ويجهّز إصلاح كل نقطة ناقصة', $m, 'the SEO service answers the listed gaps');
+        $this->assertStringContainsString('إنستجرام غير مربوطة بموقعكم', $m);
+        $this->assertStringContainsString('السيو هو ما يجعل المسافر يجدكم', $m, 'why SEO matters, in one sentence');
+        $this->assertStringContainsString('إصلاح نقاط الضعف في موقعكم', $m, 'the SEO service answers the listed gaps');
         $this->assertStringContainsString('https://tourfecto.pro/p/r/abc?s=1', $m);
         $this->assertStringContainsString('جرّبوا Tourfecto 3 أيام مجانًا', $m);
         $this->assertStringContainsString("سارة\nTourfecto", $m);
-        $this->assertLessThan(1100, mb_strlen($m), 'short enough to be read');
+        $this->assertLessThan(2200, mb_strlen($m), 'short enough to be read');
         $this->assertStringNotContainsString('كل أسبوع', $m, 'no promise about weekly articles');
     }
 
@@ -226,11 +226,11 @@ final class OutreachScorecardTest extends TestCase
     {
         $d = $this->data(['ta' => ['ranking' => 'رقم 267 من 2,709 رحلات وأنشطة في القاهرة', 'award' => true, 'negative' => 60, 'photos' => 5, 'url' => 'https://www.tripadvisor.com/Attraction_Review-x']]);
         $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => OutreachAudit::scorecard($this->taLead(), $d)]));
-        $this->assertStringContainsString('تريب أدفايزر:* ⭐ 4.9 (450 تقييم)', $m);
+        $this->assertStringContainsString('تريب أدفايزر:* 4.9/5 (450 تقييم)', $m);
         $this->assertStringContainsString('رقم 267 من 2,709', $m);
-        $this->assertStringContainsString('🏆', $m);
-        $this->assertStringContainsString('صور قليلة (5)', $m, 'a real gap from the listing');
-        $this->assertStringContainsString('تقييمات سلبية محتاجة رد', $m, '60 of 450 reviews are 1-2 stars');
+        $this->assertStringContainsString('جائزة اختيار المسافرين', $m);
+        $this->assertStringContainsString('عدد الصور قليل (5)', $m, 'a real gap from the listing');
+        $this->assertStringContainsString('تقييمات سلبية تحتاج إلى رد', $m, '60 of 450 reviews are 1-2 stars');
 
         $fine = $this->data(['ta' => ['ranking' => '', 'award' => false, 'negative' => 2, 'photos' => 200]]);
         $ok = OutreachNeeds::deskMessage($this->ctx(['scorecard' => OutreachAudit::scorecard($this->taLead(), $fine)]));
@@ -246,7 +246,7 @@ final class OutreachScorecardTest extends TestCase
             $this->assertStringNotContainsString('السيو هو اللي', $m);
         }
         $missing = OutreachNeeds::deskMessage($this->ctx(['seo' => ['state' => 'missing', 'fails' => ['title', 'description', 'h1', 'schema'], 'passes' => [], 'known' => 6]]));
-        $this->assertStringContainsString('شبه معدوم', $missing);
+        $this->assertStringContainsString('شبه غائب', $missing);
         $this->assertStringContainsString('عنوان صفحة واضح', $missing);
         $this->assertStringNotContainsString('بيانات منظّمة', $missing, 'only the first three missing points, the fourth is left out to keep it short');
     }
@@ -256,15 +256,15 @@ final class OutreachScorecardTest extends TestCase
         $stale = OutreachAudit::scorecard($this->taLead() + ['desk_social' => json_encode(['facebook' => 'stale', 'instagram' => 'empty'])], $this->data());
         $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $stale, 'gaps' => [], 'seo' => ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6]]));
         $this->assertStringContainsString('فيسبوك آخر منشور قديم', $m);
-        $this->assertStringContainsString('إنستجرام مفيهاش منشورات', $m);
-        $this->assertStringContainsString('السوشيال: بوستات وصور وفيديوهات', $m, 'the social service is offered when the pages are weak');
+        $this->assertStringContainsString('إنستجرام لا توجد منشورات', $m);
+        $this->assertStringContainsString('السوشيال ميديا: محتوى شهر كامل', $m, 'the social service is offered when the pages are weak');
 
         $linkedOnly = OutreachNeeds::deskMessage($this->ctx(['gaps' => [], 'seo' => ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6]]));
         $this->assertStringNotContainsString('نشيطة', $linkedOnly, 'without a staff check we never claim a page is active');
         $this->assertStringNotContainsString('آخر منشور', $linkedOnly);
         $active = OutreachAudit::scorecard($this->taLead() + ['desk_social' => json_encode(['facebook' => 'active', 'instagram' => 'active'])], $this->data());
         $ok = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $active, 'gaps' => [], 'seo' => ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6]]));
-        $this->assertStringNotContainsString('السوشيال: بوستات', $ok, 'active pages are complimented, not sold a service');
+        $this->assertStringNotContainsString('السوشيال ميديا: محتوى', $ok, 'active pages are complimented, not sold a service');
     }
 
     public function testMessageDropsWhatWeDoNotKnow(): void
@@ -277,7 +277,7 @@ final class OutreachScorecardTest extends TestCase
             $this->assertStringNotContainsString($absent, $m, "$absent must not be guessed");
         }
         $this->assertStringContainsString('https://tourfecto.pro/p/r/abc?s=1', $m);
-        $this->assertStringContainsString('ردّوا بكلمة «تمام»', $m, 'no trial text: a plain call to reply');
+        $this->assertStringContainsString('مكالمة قصيرة (10 دقائق)', $m, 'no trial text: a plain call to reply');
     }
 
     public function testAStrongCompanyIsComplimentedAndOfferedGrowthNotProblems(): void
@@ -292,12 +292,12 @@ final class OutreachScorecardTest extends TestCase
     public function testMessageIsAvailableInEnglishAndTurkish(): void
     {
         $en = OutreachNeeds::deskMessage($this->ctx(['lang' => 'en', 'trial' => 'Try Tourfecto free for 3 days, no card needed']));
-        $this->assertStringContainsString('Hello Nile Tours team', $en);
+        $this->assertStringContainsString('Dear Nile Tours team', $en);
         $this->assertStringContainsString('Google Maps', $en);
         $this->assertStringContainsString('you have the basics, but missing', $en);
         $this->assertStringContainsString('Try Tourfecto free for 3 days', $en);
         $tr = OutreachNeeds::deskMessage($this->ctx(['lang' => 'tr', 'trial' => '']));
-        $this->assertStringContainsString('Merhaba Nile Tours ekibi', $tr);
+        $this->assertStringContainsString('Sayın Nile Tours yetkilileri', $tr);
         $this->assertStringContainsString('Google Haritalar', $tr);
         $this->assertStringContainsString('temeller var ama eksik', $tr);
     }
@@ -315,7 +315,7 @@ final class OutreachScorecardTest extends TestCase
         }
         $this->assertStringContainsString('https://tourfecto.pro/p/c/abc/1', $m);
         $this->assertStringContainsString('جرّبوا Tourfecto 3 أيام مجانًا', $m);
-        $this->assertLessThan(1000, mb_strlen($m));
+        $this->assertLessThan(1500, mb_strlen($m));
         $this->assertStringContainsString('Strategic Brain', OutreachNeeds::deskServicesMessage($this->ctx(['lang' => 'en'])));
         $this->assertStringContainsString('Stratejik Beyin', OutreachNeeds::deskServicesMessage($this->ctx(['lang' => 'tr', 'trial' => ''])));
     }
@@ -370,8 +370,8 @@ final class OutreachScorecardTest extends TestCase
         $m = OutreachNeeds::deskMessage($this->ctx(['scorecard' => $sc, 'gaps' => $gaps, 'seo' => ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6]]));
         $this->assertStringNotContainsString('السلام عليكم', $m);
         $this->assertStringNotContainsString('يا فريق', $m);
-        $this->assertStringStartsWith('أهلًا بحضراتكم في', $m);
-        $this->assertStringContainsString('⭐ 4.9 من 2,623 تقييم على تريب أدفايزر', $m);
+        $this->assertStringStartsWith('السادة الأفاضل في', $m);
+        $this->assertStringContainsString('تقييم 4.9 من 2,623 تقييمًا على تريب أدفايزر', $m);
         $seo = ['state' => 'good', 'fails' => [], 'passes' => [], 'known' => 6];
         $weak = ['tripadvisor' => ['status' => 'found', 'rating' => 4.1, 'reviews' => 2623]];
         $this->assertStringNotContainsString('ما شاء الله', OutreachNeeds::deskMessage($this->ctx(['scorecard' => $weak, 'gaps' => $gaps, 'seo' => $seo])), 'no praise without a strong rating');

@@ -116,7 +116,7 @@ final class OutreachDeskPriorityTest extends TestCase
         $this->assertSame('missing', $row['scorecard']['instagram']['status']);
         $this->assertStringContainsString('جوجل ماب', $row['message']);
         $this->assertStringContainsString('4.6', $row['message']);
-        $this->assertStringContainsString('إنستجرام مش مربوطة بموقعكم', $row['message']);
+        $this->assertStringContainsString('إنستجرام غير مربوطة بموقعكم', $row['message']);
         $this->assertStringContainsString('/p/r/', $row['message']);
         $this->assertStringContainsString('Sara', $row['message']);
         $this->assertTrue($row['wa_has_text']);
@@ -139,7 +139,7 @@ final class OutreachDeskPriorityTest extends TestCase
         $after = $this->svc->deskLeads(['country' => 'EG', 'q' => 'socialcheck'], ['name' => 'Sara'])['rows'][0];
         $this->assertSame('stale', $after['scorecard']['facebook']['activity']);
         $this->assertStringContainsString('فيسبوك آخر منشور قديم', $after['message']);
-        $this->assertStringContainsString('السوشيال: بوستات', $after['message']);
+        $this->assertStringContainsString('السوشيال ميديا: محتوى', $after['message']);
 
         $this->assertSame([], $this->svc->deskSetSocial($id, 'facebook', ''), 'cleared');
         $this->assertNull($this->db->query('SELECT desk_social FROM platform_leads WHERE id = ?', [$id])[0]['desk_social']);
