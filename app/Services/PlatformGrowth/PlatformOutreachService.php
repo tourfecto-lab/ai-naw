@@ -2651,14 +2651,14 @@ class PlatformOutreachService
             $waText = false;
             if ($waUrl !== '' && $message !== '') {
                 $withText = $waUrl . '?text=' . rawurlencode($message);
-                if (strlen($withText) <= 6000) {
+                if (strlen($withText) <= 20000) {
                     $waUrl = $withText;
                     $waText = true;
                 }
             }
             // الرسالة التانية (الخدمات) بنفس الشات: بتتبعت بعد ما يردّوا
             $waUrl2 = '';
-            if ($waUrl !== '' && $message2 !== '' && $digits !== '' && strlen('https://wa.me/' . $digits . '?text=' . rawurlencode($message2)) <= 6000) {
+            if ($waUrl !== '' && $message2 !== '' && $digits !== '' && strlen('https://wa.me/' . $digits . '?text=' . rawurlencode($message2)) <= 20000) {
                 $waUrl2 = 'https://wa.me/' . $digits . '?text=' . rawurlencode($message2);
             }
             $out[] = [
@@ -4015,7 +4015,7 @@ class PlatformOutreachService
             $msg = self::fillCustomMessage($stored, $sender, $reportUrl);
             $wa = $digits !== '' ? 'https://wa.me/' . $digits : '';
             $withText = $wa !== '' ? $wa . '?text=' . rawurlencode($msg) : '';
-            $hasText = $withText !== '' && strlen($withText) <= 6000;
+            $hasText = $withText !== '' && strlen($withText) <= 20000;
             return ['message' => $msg, 'wa_url' => $hasText ? $withText : $wa, 'wa_has_text' => $hasText];
         };
         if (!$force && !empty($r['desk_msg_ai'])) {
