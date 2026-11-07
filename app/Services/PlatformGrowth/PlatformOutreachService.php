@@ -134,6 +134,17 @@ class PlatformOutreachService
             KEY idx_pda_created (created_at)
         ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->addColumns('platform_desk_actions', ['reason' => 'VARCHAR(20) NULL']);
+        // كل فتح لصفحة التقرير: نوع الجهاز والمتصفح وهل اتحسب، عشان نفرّق فتح الشركة عن معاينة اللينك أو فتح الموظف
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_report_views (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            device VARCHAR(40) NOT NULL DEFAULT '',
+            ua VARCHAR(255) NOT NULL DEFAULT '',
+            ip_hash CHAR(12) NOT NULL DEFAULT '',
+            counted TINYINT NOT NULL DEFAULT 1,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_prv_lead (lead_id)
+        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         // سجل محادثة المساعد الذكي محفوظ لكل شركة: لو موظفة كلّمته النهارده عن شركة، وموظفة تانية (أو هي تاني) فتحته تاني بعد كده عن نفس الشركة، بيكون شايف كل الكلام اللي فات
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_assistant_chat (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -2010,6 +2021,14 @@ class PlatformOutreachService
         return $l;
     }
 
+    /** وصف مختصر للجهاز والمتصفح من يوزر-إيجنت الفتح (للتشخيص بس) */
+    public static function deviceLabel(string $ua): string
+    {
+        $os = preg_match('~iPhone|iPad|iPod~i', $ua) ? 'iPhone/iPad' : (preg_match('~Android~i', $ua) ? 'Android' : (preg_match('~Windows~i', $ua) ? 'Windows' : (preg_match('~Macintosh|Mac OS~i', $ua) ? 'Mac' : (preg_match('~Linux|X11~i', $ua) ? 'Linux' : '؟'))));
+        $br = preg_match('~FBAN|FBAV|Instagram~i', $ua) ? 'فيسبوك/إنستجرام' : (preg_match('~WhatsApp~i', $ua) ? 'واتساب' : (preg_match('~Edg/~', $ua) ? 'Edge' : (preg_match('~SamsungBrowser~', $ua) ? 'Samsung' : (preg_match('~Chrome|CriOS~', $ua) ? 'Chrome' : (preg_match('~Safari~', $ua) ? 'Safari' : (preg_match('~Firefox~', $ua) ? 'Firefox' : '؟'))))));
+        return mb_substr($os . ' · ' . $br, 0, 40);
+    }
+
     /** يوزر-إيجنت روبوت معاينة لينك أو زاحف: مش شركة فتحت التقرير بجد */
     public static function isLinkBot(string $ua): bool
     {
@@ -2028,7 +2047,13 @@ class PlatformOutreachService
         }
         if ($record) {
             // أول 90 ثانية بعد تسجيل الإرسال على واتساب: معاينة اللينك من جهاز المرسل أو واتساب نفسه، مش فتح من الشركة
-            $this->q('UPDATE platform_leads SET report_viewed_at=COALESCE(report_viewed_at,NOW()), report_last_at=NOW(), report_views=COALESCE(report_views,0)+1 WHERE id=? AND (desk_at IS NULL OR desk_at < NOW() - INTERVAL 90 SECOND)', [$l['id']]);
+            $upd = $this->q('UPDATE platform_leads SET report_viewed_at=COALESCE(report_viewed_at,NOW()), report_last_at=NOW(), report_views=COALESCE(report_views,0)+1 WHERE id=? AND (desk_at IS NULL OR desk_at < NOW() - INTERVAL 90 SECOND)', [$l['id']]);
+            try {
+                $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+                $this->q('INSERT INTO platform_report_views (lead_id, device, ua, ip_hash, counted) VALUES (?,?,?,?,?)', [(int) $l['id'], self::deviceLabel($ua), mb_substr($ua, 0, 255), substr(sha1((string) ($_SERVER['REMOTE_ADDR'] ?? '') . 'rv'), 0, 12), $upd->rowCount() > 0 ? 1 : 0]);
+            } catch (Throwable $e) {
+                // السجل للتشخيص بس: مايوقفش فتح التقرير
+            }
         }
         $lang = in_array($l['language'], OutreachNeeds::LANGS, true) ? $l['language'] : 'en';
         $needs = json_decode((string) ($l['needs_json'] ?? ''), true) ?: [];
@@ -3378,10 +3403,19 @@ class PlatformOutreachService
         foreach ($this->q('SELECT user_name, action, note, created_at FROM platform_desk_actions WHERE lead_id=? ORDER BY id', [$leadId])->fetchAll(PDO::FETCH_ASSOC) as $a) {
             $ev[] = ['at' => $a['created_at'], 'icon' => '💬', 'text' => ($labels[$a['action']] ?? $a['action']) . ($a['note'] ? ': ' . mb_substr((string) $a['note'], 0, 140) : ''), 'by' => $a['user_name'] ?: null];
         }
-        if ($l['report_viewed_at']) {
+        $logged = false;
+        try {
+            foreach ($this->q('SELECT device, ip_hash, counted, created_at FROM platform_report_views WHERE lead_id=? ORDER BY id DESC LIMIT 15', [$leadId])->fetchAll(PDO::FETCH_ASSOC) as $v) {
+                $logged = true;
+                $ev[] = ['at' => $v['created_at'], 'icon' => '👀', 'text' => ((int) $v['counted'] ? 'فتح التقرير' : 'فتح التقرير بعد الإرسال بثواني (معاينة، مش محسوب)') . ' · ' . $v['device'] . ' · جهاز ' . $v['ip_hash'], 'by' => null];
+            }
+        } catch (Throwable $e) {
+            // الجدول لسه مااتعملش: نكمل بالقديم
+        }
+        if (!$logged && $l['report_viewed_at']) {
             $ev[] = ['at' => $l['report_viewed_at'], 'icon' => '👀', 'text' => 'فتحت التقرير لأول مرة', 'by' => null];
         }
-        if ($l['report_last_at'] && $l['report_last_at'] !== $l['report_viewed_at']) {
+        if (!$logged && $l['report_last_at'] && $l['report_last_at'] !== $l['report_viewed_at']) {
             $ev[] = ['at' => $l['report_last_at'], 'icon' => '👀', 'text' => 'فتحت التقرير تاني (إجمالي ' . (int) $l['report_views'] . ' مرات)', 'by' => null];
         }
         if ($l['whatsapp_at']) {
