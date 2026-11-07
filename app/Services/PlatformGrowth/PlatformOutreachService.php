@@ -833,6 +833,11 @@ class PlatformOutreachService
             $this->q("UPDATE platform_leads SET report_viewed_at=NULL, report_last_at=NULL WHERE COALESCE(report_views,0)=0 AND report_viewed_at IS NOT NULL AND desk_at IS NOT NULL AND report_viewed_at BETWEEN desk_at - INTERVAL 2 MINUTE AND desk_at + INTERVAL 15 MINUTE");
             $this->settings->set('outreach_views_v1', date('Y-m-d H:i:s'));
         }
+        // فتحات مسجّلة من غير عدّاد (قبل فلتر الروبوتات): مش فتح حقيقي، وكانت بتتحسب «فتحت التقرير»
+        if ($this->settings->get('outreach_views_v2', '') === '') {
+            $this->q('UPDATE platform_leads SET report_viewed_at=NULL, report_last_at=NULL WHERE COALESCE(report_views,0)=0 AND report_viewed_at IS NOT NULL');
+            $this->settings->set('outreach_views_v2', date('Y-m-d H:i:s'));
+        }
 
         if ($this->settings->get('outreach_ta_geo_v1', '') === '') {
             $this->fixForeignTripadvisorData();
@@ -2022,7 +2027,8 @@ class PlatformOutreachService
             return null;
         }
         if ($record) {
-            $this->q('UPDATE platform_leads SET report_viewed_at=COALESCE(report_viewed_at,NOW()), report_last_at=NOW(), report_views=COALESCE(report_views,0)+1 WHERE id=?', [$l['id']]);
+            // أول 90 ثانية بعد تسجيل الإرسال على واتساب: معاينة اللينك من جهاز المرسل أو واتساب نفسه، مش فتح من الشركة
+            $this->q('UPDATE platform_leads SET report_viewed_at=COALESCE(report_viewed_at,NOW()), report_last_at=NOW(), report_views=COALESCE(report_views,0)+1 WHERE id=? AND (desk_at IS NULL OR desk_at < NOW() - INTERVAL 90 SECOND)', [$l['id']]);
         }
         $lang = in_array($l['language'], OutreachNeeds::LANGS, true) ? $l['language'] : 'en';
         $needs = json_decode((string) ($l['needs_json'] ?? ''), true) ?: [];
