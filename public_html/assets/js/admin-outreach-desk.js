@@ -111,9 +111,10 @@
             <details class="dk-more"${OPEN}><summary>🔎 نتيجة الفحص</summary>${scorecard(r)}
             ${r.gaps.length ? `<div class="dk-gaps"><span class="dk-label">اللي لقيناه عندهم</span><ul>${r.gaps.map(g => `<li>${esc(g)}</li>`).join('')}</ul></div>` : (r.needs.length ? `<div class="dk-line"><span class="dk-label">احتياجهم</span>${r.needs.map(n => `<span class="dk-b">${esc(n)}</span>`).join(' ')}</div>` : '')}
             <div class="dk-muted">${emailInfo}</div></details></div>`;
-        const msg = `<div class="dk-col"><div class="dk-label">💬 الرسالة (تقرير مبدئي + لينك التقرير الكامل)${r.has_report ? '' : ' <span class="dk-warn">الشركة لسه ماتفحصتش: الرسالة عامة</span>'}</div>
+        const customTag = r.custom ? ' <span class="dk-b green" title="الرسالة اتكتبت خصيصًا للشركة دي من نتيجة فحصها: نقاط قوتها ونواقصها وإزاي Tourfecto بتصلّحها">✨ مخصّصة للشركة دي</span>' : (r.has_report && pzBusy.has(r.id) ? ' <span class="dk-b">⏳ بتتخصّص…</span>' : (r.has_report ? ' <span class="dk-b">رسالة قياسية</span>' : ''));
+        const msg = `<div class="dk-col"><div class="dk-label">💬 الرسالة${customTag}${r.has_report ? '' : ' <span class="dk-warn">الشركة لسه ماتفحصتش: الرسالة عامة</span>'}</div>
             <details class="dk-more"${OPEN}><summary>عرض نص الرسالة</summary><textarea class="dk-msgbox" readonly rows="10" dir="${dir}">${esc(r.message)}</textarea></details>
-            <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-edit-msg>✏️ تعديل قبل النسخ</button><button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
+            <div class="dk-actions"><button class="dk-btn primary" data-copy-msg>📋 نسخ الرسالة</button><button class="dk-btn" data-edit-msg>✏️ تعديل قبل النسخ</button>${r.has_report ? '<button class="dk-btn" data-pz title="يكتب الرسالة من جديد بصياغة مختلفة من نفس بيانات الشركة">✨ أعيدي صياغتها</button>' : ''}<button class="dk-btn" data-copy-link="${esc(r.report_url)}">🔗 نسخ لينك التقرير</button><a class="dk-btn" href="${esc(r.report_preview_url)}" target="_blank" rel="noopener noreferrer">👁 معاينة التقرير</a></div>
             ${r.message2 ? `<details class="dk-msg2"><summary>📨 رسالة 2 (بعد ما يردّوا): خدمات المنصة ولينك التسجيل</summary><textarea class="dk-msgbox" readonly rows="9" dir="${dir}">${esc(r.message2)}</textarea><div class="dk-actions"><button class="dk-btn primary" data-copy-msg2>📋 نسخ رسالة الخدمات</button>${r.wa_url2 ? `<a class="dk-btn green" href="${esc(r.wa_url2)}" target="_blank" rel="noopener noreferrer">💬 افتح واتساب بالرسالة 2</a>` : ''}</div></details>` : ''}</div>`;
         const reasonOpts = Object.entries(lostReasons).map(([k, l]) => `<option value="${k}" ${d.reason === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
         const acts = `<div class="dk-result"><div class="dk-actions">${ACTIONS.map(([k, l]) => `<button class="dk-btn ${d.action === k ? 'on' : ''}" data-act="${k}">${l}</button>`).join('')}</div>
@@ -258,6 +259,34 @@
         root.innerHTML = `<div id="dkMsg" class="dk-msg" hidden></div><div class="dk-su-alert-slot">${suAlertHtml()}</div>${critical}${tabBar}<div class="dk-pane">${sec[dkTab] || sec.companies}</div>`;
     };
 
+    // تخصيص الرسالة لكل شركة في الخلفية (واحدة واحدة)، وتتخزّن فمش بتتعاد
+    const pzBusy = new Set(), pzTried = new Set();
+    let pzRun = false;
+    const pzApply = (id, j) => {
+        const row = rows.find(x => x.id === id); if (!row) return;
+        Object.assign(row, { message: j.message, wa_url: j.wa_url || row.wa_url, wa_has_text: !!j.wa_has_text, custom: true });
+        const el = root.querySelector(`.dk-card[data-id="${id}"]`);
+        if (el && !el.querySelector('.dk-msgbox.editing')) el.outerHTML = card(row);
+    };
+    const pzOne = async (id, force) => {
+        pzBusy.add(id);
+        const el0 = root.querySelector(`.dk-card[data-id="${id}"]`); const row0 = rows.find(x => x.id === id);
+        if (el0 && row0 && !el0.querySelector('.dk-msgbox.editing')) el0.outerHTML = card(row0);
+        try { pzApply(id, await api('/api/admin/outreach-desk/leads/' + id + '/personalize', force ? { force: '1' } : {})); return true; }
+        catch (err) { return false; }
+        finally { pzBusy.delete(id); }
+    };
+    const personalizeQueue = async () => {
+        if (pzRun) return; pzRun = true;
+        try {
+            for (const r of rows.slice()) {
+                if (!r.has_report || r.custom || r.blocked || (r.desk && r.desk.action) || pzTried.has(r.id)) continue;
+                pzTried.add(r.id);
+                if (!await pzOne(r.id, false)) break; // الذكاء الاصطناعي مش متاح: نوقف ونسيب القالب العادي
+            }
+        } finally { pzRun = false; }
+    };
+
     const load = async (keepScroll) => {
         const searching = !!(state.q || '').trim();
         const q = new URLSearchParams({ country: searching ? '' : state.country, view: searching ? 'all' : state.view, tier: searching ? '' : state.tier, q: state.q, page: state.page });
@@ -268,6 +297,7 @@
         loadFunnel();
         loadTeamToday();
         loadSignups();
+        personalizeQueue();
         if (!keepScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -773,6 +803,11 @@
                     const box = cardEl.querySelector('.dk-msgbox'), on = box.readOnly;
                     box.readOnly = !on; box.classList.toggle('editing', on); t.textContent = on ? '🔒 تثبيت' : '✏️ تعديل قبل النسخ';
                     if (on) { box.focus(); toast('عدّلي الرسالة وبعدين «نسخ الرسالة». زرار واتساب بيفتح الرسالة الأصلية، فاستخدمي النسخ بعد التعديل.'); } return;
+                }
+                if (t.dataset.pz !== undefined && cardEl) {
+                    const id = Number(cardEl.dataset.id); t.disabled = true; t.textContent = '⏳ بتتكتب…';
+                    if (await pzOne(id, true)) toast('اتكتبت رسالة جديدة للشركة دي ✅'); else { toast('الذكاء الاصطناعي مش متاح دلوقتي، جرّبي بعد شوية', true); const row = rows.find(x => x.id === id); const el = root.querySelector(`.dk-card[data-id="${id}"]`); if (el && row) el.outerHTML = card(row); }
+                    return;
                 }
                 if (t.dataset.hist !== undefined && cardEl) {
                     const box = cardEl.querySelector('.dk-hist');

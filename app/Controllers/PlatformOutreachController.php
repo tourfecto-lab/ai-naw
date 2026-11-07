@@ -419,6 +419,23 @@ class PlatformOutreachController extends Controller
         }
     }
 
+    /** POST /api/admin/outreach-desk/leads/{id}/personalize - {force?}: رسالة واتساب مكتوبة خصيصًا للشركة دي من حالتها الفعلية */
+    public function deskPersonalize(array $params = []): array
+    {
+        if ($e = $this->guard()) {
+            return $e;
+        }
+        try {
+            $r = $this->service()->deskPersonalize((int) ($params['id'] ?? 0), ['name' => $this->staffName()], (string) $this->get('force', '') === '1');
+            return $r['ok'] ? $this->success($r) : $this->error((string) ($r['error'] ?? 'تعذر التخصيص'), 503);
+        } catch (InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            Logger::error('Outreach personalize failed', ['error' => $e->getMessage()]);
+            return $this->error('تعذر تخصيص الرسالة', 503);
+        }
+    }
+
     /** POST /api/admin/outreach-desk/leads/{id}/tag - {tag} فاضي = مسح */
     public function deskTag(array $params = []): array
     {

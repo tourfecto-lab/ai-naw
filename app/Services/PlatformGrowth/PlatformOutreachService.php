@@ -121,7 +121,7 @@ class PlatformOutreachService
         $this->addColumns('platform_lead_messages', ['track' => 'VARCHAR(30) NULL', 'to_email' => 'VARCHAR(255) NULL', 'body_html' => 'MEDIUMTEXT NULL']);
         // مكتب التواصل (موظفة المبيعات): آخر نتيجة تواصل يدوي لكل شركة + سجل بكل المحاولات
         // priority: أولوية الإرسال 0-100 (مين محتاج فعلًا ومين شغّال فعلًا)، بتتحسب وقت الفحص وبتترتّب بيها قايمة المكتب
-        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL', 'desk_tag' => 'VARCHAR(20) NULL', 'signup_user_id' => 'BIGINT NULL']);
+        $this->addColumns('platform_leads', ['desk_action' => 'VARCHAR(20) NULL', 'desk_note' => 'VARCHAR(500) NULL', 'desk_at' => 'DATETIME NULL', 'desk_by' => 'VARCHAR(120) NULL', 'priority' => 'TINYINT UNSIGNED NULL', 'desk_social' => 'VARCHAR(255) NULL', 'desk_weak' => 'TINYINT UNSIGNED NULL', 'desk_user_id' => 'BIGINT NULL', 'desk_reason' => 'VARCHAR(20) NULL', 'desk_followup_at' => 'DATETIME NULL', 'desk_tag' => 'VARCHAR(20) NULL', 'signup_user_id' => 'BIGINT NULL', 'desk_msg_ai' => 'TEXT NULL', 'desk_msg_ai_at' => 'DATETIME NULL']);
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS platform_desk_actions (
             id INT AUTO_INCREMENT PRIMARY KEY,
             lead_id INT NOT NULL,
@@ -2621,6 +2621,7 @@ class PlatformOutreachService
             // نفس القيمة المخزّنة اللي القايمة مترتّبة ومتفلترة بيها (الحساب الحي بس لو لسه مااتخزّنتش)
             $prioScore = isset($r['priority']) && $r['priority'] !== null ? (int) $r['priority'] : OutreachAudit::priority($l, $data)['score'];
             $message = '';
+            $custom = false;
             if (!$blocked) {
                 try {
                     $auditGaps = (array) ($data['audit']['gaps'] ?? []);
@@ -2633,6 +2634,11 @@ class PlatformOutreachService
                             'signup_url' => $base . '/p/c/' . $l['token'] . '/1', 'country' => (string) ($l['country'] ?? ''), 'price_usd' => $starterUsd, 'usd_egp' => $usdEgp];
                         $message = OutreachNeeds::deskMessage($ctx);
                         $message2 = OutreachNeeds::deskServicesMessage($ctx);
+                        // رسالة مكتوبة خصيصًا للشركة دي (بالذكاء الاصطناعي من حالتها الفعلية): لو موجودة بتحل محل القالب
+                        if (!empty($r['desk_msg_ai'])) {
+                            $message = self::fillCustomMessage((string) $r['desk_msg_ai'], (string) $set['sender_name'], $ctx['report_url']);
+                            $custom = true;
+                        }
                     } else {
                         $message = (string) $this->compose($l, 1, $set, static fn () => null)['text'];
                     }
@@ -2661,7 +2667,7 @@ class PlatformOutreachService
                 'score' => $data['audit']['score']['total'] ?? $l['score'], 'needs' => $needs, 'gaps' => $gaps, 'has_report' => !empty($data['audit']['score']),
                 'scorecard' => $sc, 'priority' => $prioScore, 'tier' => $prioScore >= $thr['high'] ? 'high' : ($prioScore >= $thr['medium'] ? 'medium' : 'low'),
                 'phone' => (string) $l['phone'], 'phone_intl' => $digits !== '' ? '+' . $digits : '', 'wa_url' => $waUrl, 'wa_has_text' => $waText,
-                'blocked' => $blocked, 'message' => $message, 'message2' => $message2, 'wa_url2' => $waUrl2, 'seo' => $seoState,
+                'blocked' => $blocked, 'message' => $message, 'custom' => $custom, 'message2' => $message2, 'wa_url2' => $waUrl2, 'seo' => $seoState,
                 'category_flag' => class_exists('OutreachNeeds') ? OutreachNeeds::nonTourSignal((string) ($sc['tripadvisor']['ranking'] ?? ''), (string) ($l['category'] ?? '')) : null,
                 'tag' => $l['desk_tag'] ?? null,
                 'win' => self::winProbability($l, (int) $prioScore),
@@ -3929,7 +3935,8 @@ class PlatformOutreachService
         } else {
             $seen[$network] = $state;
         }
-        $this->q('UPDATE platform_leads SET desk_social=? WHERE id=?', [$seen ? json_encode($seen) : null, $leadId]);
+        // الحالة اتغيّرت: الرسالة المخصّصة القديمة ماتبقاش دقيقة، فتتعمل من جديد
+        $this->q('UPDATE platform_leads SET desk_social=?, desk_msg_ai=NULL, desk_msg_ai_at=NULL WHERE id=?', [$seen ? json_encode($seen) : null, $leadId]);
         return $seen;
     }
 
@@ -3948,6 +3955,139 @@ class PlatformOutreachService
         }
         $this->q('UPDATE platform_leads SET desk_tag=? WHERE id=?', [$tag !== '' ? $tag : null, $leadId]);
         return $tag !== '' ? $tag : null;
+    }
+
+    /** يحلّ مكان {SENDER} و{REPORT_URL} في الرسالة المخصّصة المخزّنة */
+    public static function fillCustomMessage(string $stored, string $sender, string $reportUrl): string
+    {
+        return str_replace(['{SENDER}', '{REPORT_URL}'], [$sender, $reportUrl], $stored);
+    }
+
+    /** حقايق الشركة الفعلية اللي الرسالة المخصّصة بتتبني عليها (من الفحص المخزّن، مفيش حاجة مخترعة) */
+    public static function leadFactSheet(array $l, array $data, array $sc, array $seo, array $gapTexts): string
+    {
+        $cat = trim((string) explode(',', (string) ($l['category'] ?? ''))[0]);
+        $lines = [
+            'اسم الشركة: ' . OutreachAudit::cleanName((string) $l['company']),
+            'نوع النشاط: ' . ($cat !== '' ? $cat : 'غير معروف'),
+            'المدينة/الدولة: ' . trim((string) ($l['city'] ?? '') . ' ' . (string) ($l['country'] ?? '')),
+            'الموقع الإلكتروني: ' . (trim((string) ($l['website'] ?? '')) !== '' ? 'موجود (' . $l['website'] . ')' : 'مفيش موقع'),
+            'تقييم عام: ' . ($l['rating'] ? $l['rating'] . '/5 من ' . (int) $l['reviews'] . ' تقييم' : 'غير معروف'),
+            'نتيجة فحص السيو: ' . json_encode($seo, JSON_UNESCAPED_UNICODE),
+            'بطاقة الحضور (تريب أدفايزر، جوجل ماب، فيسبوك، إنستجرام): ' . json_encode($sc, JSON_UNESCAPED_UNICODE),
+        ];
+        if ($gapTexts) {
+            $lines[] = 'النواقص اللي لقيناها بالنص: ' . implode(' | ', $gapTexts);
+        }
+        if (!empty($data['audit']['score']['total'])) {
+            $lines[] = 'الدرجة الرقمية الكلية: ' . $data['audit']['score']['total'] . '/100';
+        }
+        return implode("\n", $lines);
+    }
+
+    /**
+     * رسالة واتساب مكتوبة خصيصًا لشركة واحدة: بتتبني من حالتها الفعلية (نقاط قوتها ونواقصها بالتحديد)، وتشرح إن Tourfecto
+     * هي اللي بتصلّح كل نقطة ناقصة. بتتخزّن في desk_msg_ai ({SENDER} و{REPORT_URL} مكانهم يتحلّوا وقت العرض).
+     * لو الذكاء الاصطناعي مش متاح بيرجّع ok=false والقالب العادي يفضل شغّال.
+     * @param callable|null $ai (string $prompt) => ['success'=>bool,'data'=>string]
+     * @return array{ok:bool,error?:string,message?:string,cached?:bool,wa_url?:string,wa_has_text?:bool}
+     */
+    public function deskPersonalize(int $leadId, array $staff = [], bool $force = false, ?callable $ai = null): array
+    {
+        $r = $this->q('SELECT * FROM platform_leads WHERE id=?', [$leadId])->fetch(PDO::FETCH_ASSOC);
+        if (!$r) {
+            throw new InvalidArgumentException('الشركة مش موجودة');
+        }
+        $l = self::tidy($r);
+        if ($l['status'] === 'unsubscribed') {
+            throw new InvalidArgumentException('الشركة دي ألغت الاشتراك');
+        }
+        $data = json_decode((string) ($l['data_json'] ?? ''), true) ?: [];
+        if (empty($data['audit']['score'])) {
+            throw new InvalidArgumentException('الشركة لسه ماتفحصتش: مفيش بيانات نخصّص منها');
+        }
+        $set = $this->getSettings();
+        $sender = !empty($staff['name']) ? (string) $staff['name'] : (string) $set['sender_name'];
+        $base = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://tourfecto.pro';
+        $reportUrl = $base . '/p/r/' . $l['token'] . '?s=1';
+        $digits = self::deskPhone($l['phone'], $l['country']);
+        $out = static function (string $stored) use ($sender, $reportUrl, $digits): array {
+            $msg = self::fillCustomMessage($stored, $sender, $reportUrl);
+            $wa = $digits !== '' ? 'https://wa.me/' . $digits : '';
+            $withText = $wa !== '' ? $wa . '?text=' . rawurlencode($msg) : '';
+            $hasText = $withText !== '' && strlen($withText) <= 6000;
+            return ['message' => $msg, 'wa_url' => $hasText ? $withText : $wa, 'wa_has_text' => $hasText];
+        };
+        if (!$force && !empty($r['desk_msg_ai'])) {
+            return ['ok' => true, 'cached' => true] + $out((string) $r['desk_msg_ai']);
+        }
+
+        $lang = in_array($l['language'], OutreachNeeds::LANGS, true) ? $l['language'] : 'en';
+        $langName = ['ar' => 'العربية الفصحى المبسّطة الرسمية (لهجة مهنية محترمة، مش عامية)', 'en' => 'English (professional)', 'tr' => 'التركية (رسمية ومهنية)'][$lang] ?? 'English (professional)';
+        $gapTexts = [];
+        foreach (array_slice((array) ($data['audit']['gaps'] ?? []), 0, 6) as $g) {
+            if (($t = OutreachAudit::gapText($g, $l, $lang)) !== '') {
+                $gapTexts[] = $t;
+            }
+        }
+        $facts = self::leadFactSheet($l, $data, OutreachAudit::scorecard($l, $data), OutreachAudit::seoAssessment($data), $gapTexts);
+        $prompt = 'أنت مدير مبيعات محترف في Tourfecto، منصة SaaS لشركات السياحة. اكتب رسالة واتساب أولى مخصّصة لشركة واحدة بعينها (مش قالب عام)، مبنية على حالتها الفعلية تحت.' . "\n\n"
+            . "حقايق الشركة (مصدرك الوحيد عنها، ممنوع تخترع رقم أو معلومة مش هنا):\n" . $facts . "\n\n"
+            . "اللي Tourfecto بتعمله فعلًا (مسموح تذكر منه بس، ومن غير مبالغة):\n"
+            . "- السيو: فحص موقع الشركة وإصلاح نقاط الضعف (العنوان، الوصف، نص الصور، المحتوى) عشان تظهر قبل المنافسين في جوجل وفي إجابات الذكاء الاصطناعي.\n"
+            . "- جوجل ماب والتقييمات: ردود جاهزة على التقييمات (خصوصًا السلبية) وتحسين الملف لزيادة الاتصالات والزيارات.\n"
+            . "- السوشيال ميديا: منشورات وصور وفيديوهات قصيرة لشهر كامل بشعار الشركة، ونشر مباشر.\n"
+            . "- الحجز المباشر: محرّك حجز على موقع الشركة والدفع يوصلها بطريقتها الخاصة بدون أي عمولة من المنصة.\n"
+            . "- دردشة ذكية على الموقع ترد فورًا على استفسارات العملاء.\n"
+            . "- العقل الاستراتيجي: اقتراح قرارات نمو من بيانات الشركة.\n"
+            . "- تجربة مجانية 3 أيام بدون بطاقة ائتمان.\n"
+            . "ممنوع تذكر سعر، أو أي ميزة مش في القايمة دي.\n\n"
+            . "التعليمات:\n"
+            . "1) اللغة: {$langName}. بدون أي إيموجي نهائيًا.\n"
+            . "2) ابدأ بتحية قصيرة باسم الشركة، وعرّف نفسك بـ {SENDER} من فريق Tourfecto في جملة واحدة، واذكر نقطة قوة حقيقية من بياناتها (تقييم، ترتيب، جائزة، عدد تقييمات) بشكل محدد.\n"
+            . "3) اذكر نواقصها الحقيقية بالتحديد (اللي في الحقايق فقط، وأهم 2 إلى 4)، وكل ناقص اربطه بنتيجته على حجوزاتها هي (حسب نوع نشاطها ومدينتها)، وفي نفس الجملة قل إن Tourfecto بتصلّحه لها وإزاي.\n"
+            . "4) وضّح في سطر إن المنصة بتتولى كل ده من مكان واحد (السيو، جوجل، السوشيال، الحجز المباشر، الدردشة) فمش محتاجين أدوات ولا وكالات مختلفة. ركّز على اللي يخص نواقصها بس.\n"
+            . "5) اختم بلينك التقرير: {REPORT_URL} (اكتب {REPORT_URL} حرفيًا)، وسؤال واحد سهل (مكالمة 10 دقائق مثلًا) بدل 'ردّوا بكلمة'.\n"
+            . "6) كل شركة لازم تطلع رسالتها مختلفة في التركيب والكلمات حسب حالتها؛ ماتستخدمش عناوين ثابتة. تقدر تستخدم قايمة نقطية قصيرة للنواقص بعلامة •، وخط عريض واتساب بـ *نجمة* لاسم الشركة بس.\n"
+            . "7) الطول بين 700 و1300 حرف. ماتكتبش توقيع بالاسم في الآخر غير {SENDER}.\n"
+            . 'اكتب نص الرسالة فقط، بدون شرح ولا علامات كود.';
+        try {
+            $ai ??= static fn (string $p) => (new GeminiClient())->generateContent($p, ['temperature' => 0.7, 'task' => 'outreach_custom_message', 'user_id' => 0]);
+            $res = $ai($prompt);
+        } catch (Throwable $e) {
+            Logger::warning('Outreach custom message failed', ['lead' => $leadId, 'error' => $e->getMessage()]);
+            return ['ok' => false, 'error' => 'الذكاء الاصطناعي مش متاح دلوقتي'];
+        }
+        if (empty($res['success'])) {
+            return ['ok' => false, 'error' => (string) ($res['error'] ?? 'الذكاء الاصطناعي مقدرش يكتب الرسالة')];
+        }
+        $text = self::cleanCustomMessage((string) ($res['data'] ?? $res['text'] ?? ''), $lang);
+        if ($text === '') {
+            return ['ok' => false, 'error' => 'الرد مش صالح، جرّبي تاني'];
+        }
+        $this->q('UPDATE platform_leads SET desk_msg_ai=?, desk_msg_ai_at=NOW() WHERE id=?', [$text, $leadId]);
+        return ['ok' => true, 'cached' => false] + $out($text);
+    }
+
+    /** ينضّف ناتج الذكاء الاصطناعي: بدون أكواد/إيموجي، ويضمن وجود لينك التقرير. فاضي = مرفوض (قصير أو غريب) */
+    public static function cleanCustomMessage(string $text, string $lang): string
+    {
+        $text = trim($text);
+        $text = trim((string) preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $text));
+        $text = (string) preg_replace('/[\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{2B00}-\x{2BFF}\x{FE0F}\x{200D}]/u', '', $text);
+        $text = trim((string) preg_replace("/[ \t]+\n/", "\n", $text));
+        $text = (string) preg_replace("/\n{3,}/", "\n\n", $text);
+        if (mb_strlen($text) < 350 || mb_strlen($text) > 2400) {
+            return '';
+        }
+        if (!str_contains($text, '{SENDER}')) {
+            return ''; // مفيش تعريف بالمرسل: مش رسالة سليمة
+        }
+        if (!str_contains($text, '{REPORT_URL}')) {
+            $lbl = ['ar' => 'التقرير الكامل (مجاني):', 'tr' => 'Tam rapor (ücretsiz):'][$lang] ?? 'Full report (free):';
+            $text .= "\n\n" . $lbl . ' {REPORT_URL}';
+        }
+        return $text;
     }
 
     public function signupLinkFor(array $lead, int $step): string
